@@ -7,3 +7,33 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id          String      @id @default(uuid()) @db.Uuid
+  email       String      @unique
+  displayName String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  characters  Character[]
+}
+
+model Character {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  name         String
+  race         String?
+  className    String?
+  level        Int      @default(1)
+  strength     Int      @default(10)
+  dexterity    Int      @default(10)
+  constitution Int      @default(10)
+  intelligence Int      @default(10)
+  wisdom       Int      @default(10)
+  charisma     Int      @default(10)
+  maxHp        Int      @default(10)
+  currentHp    Int      @default(10)
+  armorClass   Int      @default(10)
+  initiative   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
