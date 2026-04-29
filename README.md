@@ -1,6 +1,6 @@
 # D&D Simple
 
-D&D Simple is a university software project for building a web application that supports Dungeons & Dragons gameplay. The system is planned as a digital toolkit for character management, session support, and virtual tabletop workflows.
+D&D Simple is a software project for building a web application that supports Dungeons & Dragons gameplay. The system is planned as a digital toolkit for character management, session support, and virtual tabletop workflows.
 
 ## Repository Structure
 
