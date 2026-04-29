@@ -45,4 +45,3 @@ This initial setup includes:
 - basic CI workflow
 
 Business features, authentication, and realtime functionality are intentionally deferred.
-
