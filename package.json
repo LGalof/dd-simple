@@ -1,0 +1,15 @@
+{
+  "name": "dd-simple",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @dd-simple/web && npm run build --workspace @dd-simple/api",
+    "dev:web": "npm run dev --workspace @dd-simple/web",
+    "dev:api": "npm run dev --workspace @dd-simple/api"
+  }
+}
+
