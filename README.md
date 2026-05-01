@@ -24,11 +24,60 @@ infra/        Infrastructure support files
    ```bash
    npm install
    ```
-2. Start the frontend:
+2. Copy the backend environment file:
+   ```bash
+   copy apps\api\.env.example apps\api\.env
+   ```
+3. Start PostgreSQL:
+   ```bash
+   docker compose -f infra/docker-compose.yml up -d
+   ```
+4. Generate the Prisma client:
+   ```bash
+   npm run prisma:generate --workspace @dd-simple/api
+   ```
+5. Run Prisma migrations:
+   ```bash
+   npm run prisma:migrate --workspace @dd-simple/api
+   ```
+6. Start the backend:
+   ```bash
+   npm run dev:api
+   ```
+7. Start the frontend:
    ```bash
    npm run dev:web
    ```
-3. Start the backend:
+
+## Local PostgreSQL with Docker
+
+- Start PostgreSQL:
+  ```bash
+  docker compose -f infra/docker-compose.yml up -d
+  ```
+- Stop PostgreSQL:
+  ```bash
+  docker compose -f infra/docker-compose.yml down
+  ```
+
+## Prisma Commands
+
+- Generate Prisma client:
+  ```bash
+  npm run prisma:generate --workspace @dd-simple/api
+  ```
+- Run Prisma migrations:
+  ```bash
+  npm run prisma:migrate --workspace @dd-simple/api
+  ```
+- Open Prisma Studio:
+  ```bash
+  npm run prisma:studio --workspace @dd-simple/api
+  ```
+
+## Backend Development
+
+- Run the backend:
    ```bash
    npm run dev:api
    ```

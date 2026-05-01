@@ -238,7 +238,7 @@ Skill = Ability Modifier + Proficiency
 
 Passive Perception = 10 + Perception,
 Passive Investigation = 10 + Investigation,
-Passive Insight = 10 + Insight
+Passive Insight = 10 + Insight.
 
 ---
 

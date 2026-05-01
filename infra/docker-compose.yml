@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dd-simple-postgres
+    environment:
+      POSTGRES_DB: ddsimple
+      POSTGRES_USER: ddsimple
+      POSTGRES_PASSWORD: ddsimple
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+
