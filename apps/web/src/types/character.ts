@@ -39,6 +39,7 @@ type DiceRoll = {
 
 type Character = {
   id: string;
+  createdAt: string;
   name: string;
   level: number;
   experiencePoints: number;
