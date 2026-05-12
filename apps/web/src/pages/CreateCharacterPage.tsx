@@ -1,16 +1,20 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { type FormEvent, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
+import { createCharacter } from "../features/characters/api/createCharacter";
 import { useCharacterCreatorReferences } from "../features/references/hooks/useCharacterCreatorReferences";
 
 function CreateCharacterPage() {
   const { references, loading, error } = useCharacterCreatorReferences();
+  const navigate = useNavigate();
 
   const [name, setName] = useState("");
   const [speciesIndex, setSpeciesIndex] = useState("");
   const [classIndex, setClassIndex] = useState("");
   const [backgroundIndex, setBackgroundIndex] = useState("");
   const [selectedSkillIndexes, setSelectedSkillIndexes] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const selectedClass = useMemo(
     () => references?.classes.find((item: { index: string }) => item.index === classIndex),
@@ -35,6 +39,34 @@ function CreateCharacterPage() {
 
       return [...currentSkills, skillIndex];
     });
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaveError(null);
+
+    if (!name.trim() || !speciesIndex || !classIndex || !backgroundIndex) {
+      setSaveError("Choose a name, species, class, and background before creating the character.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await createCharacter({
+        name: name.trim(),
+        speciesIndex,
+        classIndex,
+        backgroundIndex,
+        skillIndexes: selectedSkillIndexes,
+      });
+
+      navigate("/characters");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Failed to create character");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -68,7 +100,7 @@ function CreateCharacterPage() {
 
         {!loading && !error && references && (
           <div className="page-placeholder-card">
-            <div className="character-creator-form">
+            <form className="character-creator-form" onSubmit={handleSubmit}>
               <label className="characters-search-field">
                 <span className="characters-control-label">Character Name</span>
                 <input
@@ -77,6 +109,8 @@ function CreateCharacterPage() {
                   onChange={(event) => setName(event.target.value)}
                   className="characters-search-input"
                   placeholder="Example: Kael Shadowstep"
+                  disabled={saving}
+                  required
                 />
               </label>
 
@@ -86,6 +120,8 @@ function CreateCharacterPage() {
                   value={speciesIndex}
                   onChange={(event) => setSpeciesIndex(event.target.value)}
                   className="characters-select-input"
+                  disabled={saving}
+                  required
                 >
                   <option value="">Choose species</option>
                   {references.species.map((species: { index: string; name: string }) => (
@@ -102,6 +138,8 @@ function CreateCharacterPage() {
                   value={classIndex}
                   onChange={(event) => setClassIndex(event.target.value)}
                   className="characters-select-input"
+                  disabled={saving}
+                  required
                 >
                   <option value="">Choose class</option>
                   {references.classes.map((characterClass: { index: string; name: string }) => (
@@ -118,6 +156,8 @@ function CreateCharacterPage() {
                   value={backgroundIndex}
                   onChange={(event) => setBackgroundIndex(event.target.value)}
                   className="characters-select-input"
+                  disabled={saving}
+                  required
                 >
                   <option value="">Choose background</option>
                   {references.backgrounds.map((background: { index: string; name: string }) => (
@@ -137,6 +177,7 @@ function CreateCharacterPage() {
                         type="checkbox"
                         checked={selectedSkillIndexes.includes(skill.index)}
                         onChange={() => toggleSkill(skill.index)}
+                        disabled={saving}
                       />
                       <strong>{skill.name}</strong>
                       <span className="muted"> ({skill.ability.name})</span>
@@ -171,10 +212,16 @@ function CreateCharacterPage() {
                 </p>
               </div>
 
-              <button type="button" className="primary-button primary-button-uppercase">
-                Save Character Later
+              {saveError && <p className="error-message">Error: {saveError}</p>}
+
+              <button
+                type="submit"
+                className="primary-button primary-button-uppercase"
+                disabled={saving}
+              >
+                {saving ? "Creating Character..." : "Create Character"}
               </button>
-            </div>
+            </form>
           </div>
         )}
       </section>
