@@ -1,13 +1,8 @@
 import { Router } from "express";
+import { getHealth } from "../controllers/health.controller.js";
 
 const healthRouter = Router();
 
-healthRouter.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    service: "dd-simple-api",
-  });
-});
+healthRouter.get("/health", getHealth);
 
 export { healthRouter };
-
