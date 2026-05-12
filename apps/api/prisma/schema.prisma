@@ -241,3 +241,16 @@ model DiceRoll {
   @@map("dice_rolls")
 }
 
+
+model RefRuleDocument {
+  category   String
+  index      String
+  name       String?
+  sourceJson Json
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@id([category, index])
+  @@map("ref_rule_documents")
+}

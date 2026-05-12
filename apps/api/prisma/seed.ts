@@ -1,98 +1,595 @@
 /// <reference types="node" />
 
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const user = await prisma.user.upsert({
-    where: {
-      email: "demo@ddsimple.local",
-    },
-    update: {},
-    create: {
-      email: "demo@ddsimple.local",
-      displayName: "Demo Player",
-    },
-  });
+type AnyRecord = Record<string, any>;
 
-  await prisma.refAbilityScore.createMany({
-    data: [
-      {
-        index: "str",
-        name: "STR",
-        fullName: "Strength",
-        description: "Physical power.",
-      },
-      {
-        index: "dex",
-        name: "DEX",
-        fullName: "Dexterity",
-        description: "Agility, reflexes, and balance.",
-      },
-      {
-        index: "con",
-        name: "CON",
-        fullName: "Constitution",
-        description: "Health and stamina.",
-      },
-      {
-        index: "int",
-        name: "INT",
-        fullName: "Intelligence",
-        description: "Reasoning and memory.",
-      },
-      {
-        index: "wis",
-        name: "WIS",
-        fullName: "Wisdom",
-        description: "Perception and insight.",
-      },
-      {
-        index: "cha",
-        name: "CHA",
-        fullName: "Charisma",
-        description: "Force of personality.",
-      },
-    ],
-    skipDuplicates: true,
-  });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-  await prisma.refSkill.createMany({
-    data: [
-      {
-        index: "acrobatics",
-        abilityIndex: "dex",
-        name: "Acrobatics",
+const DATA_DIR = path.join(__dirname, "seed-data", "5e", "2024");
+
+const FILES = {
+  abilityScores: "5e-SRD-Ability-Scores.json",
+  skills: "5e-SRD-Skills.json",
+  species: "5e-SRD-Species.json",
+  classes: "5e-SRD-Classes.json",
+  backgrounds: "5e-SRD-Backgrounds.json",
+  proficiencies: "5e-SRD-Proficiencies.json",
+  equipment: "5e-SRD-Equipment.json",
+};
+
+function assertSeedDataDirExists() {
+  if (!fs.existsSync(DATA_DIR)) {
+    throw new Error(
+      `Seed data folder ne obstaja: ${DATA_DIR}\n` +
+        "Najprej kopiraj 5e JSON datoteke v apps/api/prisma/seed-data/5e/2024",
+    );
+  }
+}
+
+function readJsonArray(fileName: string): AnyRecord[] {
+  const filePath = path.join(DATA_DIR, fileName);
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Manjka JSON datoteka: ${filePath}`);
+  }
+
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const parsed = JSON.parse(raw);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error(`JSON datoteka ni array: ${filePath}`);
+  }
+
+  return parsed;
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function stringOrNull(value: unknown): string | null {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function numberOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function intOrDefault(value: unknown, fallback: number): number {
+  const parsed = numberOrNull(value);
+  return parsed === null ? fallback : Math.trunc(parsed);
+}
+
+function toDescription(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      const parts = value
+        .map((item) => {
+          if (typeof item === "string") return item;
+          if (item && typeof item === "object") {
+            return item.name ?? item.index ?? JSON.stringify(item);
+          }
+          return String(item);
+        })
+        .filter((item) => item.trim().length > 0);
+
+      if (parts.length > 0) {
+        return parts.join("\n");
+      }
+    }
+  }
+
+  return null;
+}
+
+function sourceJson(value: AnyRecord): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
+function jsonValue(value: unknown): Prisma.InputJsonValue {
+  return value as Prisma.InputJsonValue;
+}
+
+function indexFromRef(value: unknown): string | null {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as AnyRecord;
+    return stringOrNull(record.index) ?? stringOrNull(record.name);
+  }
+
+  return null;
+}
+
+function getItemIndex(item: AnyRecord): string | null {
+  return stringOrNull(item.index) ?? (stringOrNull(item.name) ? slugify(String(item.name)) : null);
+}
+
+function categoryFromFileName(fileName: string): string {
+  return fileName
+    .replace(/^5e-SRD-/, "")
+    .replace(/\.json$/, "")
+    .toLowerCase();
+}
+
+function firstEquipmentCategory(item: AnyRecord): string | null {
+  return (
+    indexFromRef(item.equipment_category) ??
+    indexFromRef(item.equipmentCategory) ??
+    indexFromRef(item.equipment_categories?.[0]) ??
+    indexFromRef(item.equipmentCategories?.[0]) ??
+    null
+  );
+}
+
+function equipmentItemType(item: AnyRecord): string | null {
+  return (
+    indexFromRef(item.gear_category) ??
+    indexFromRef(item.gearCategory) ??
+    stringOrNull(item.weapon_category) ??
+    stringOrNull(item.weaponCategory) ??
+    stringOrNull(item.armor_category) ??
+    stringOrNull(item.armorCategory) ??
+    indexFromRef(item.tool_category) ??
+    indexFromRef(item.toolCategory) ??
+    indexFromRef(item.equipment_categories?.[1]) ??
+    null
+  );
+}
+
+async function seedGenericRuleDocuments() {
+  console.log("Seeding all 5e JSON documents into RefRuleDocument...");
+
+  const files = fs
+    .readdirSync(DATA_DIR)
+    .filter((file) => file.endsWith(".json"))
+    .sort();
+
+  for (const file of files) {
+    const category = categoryFromFileName(file);
+    const items = readJsonArray(file);
+
+    for (const item of items) {
+      const index = getItemIndex(item);
+
+      if (!index) {
+        console.warn(`Skipping item without index/name in ${file}`);
+        continue;
+      }
+
+      await prisma.refRuleDocument.upsert({
+        where: {
+          category_index: {
+            category,
+            index,
+          },
+        },
+        update: {
+          name: stringOrNull(item.name),
+          sourceJson: sourceJson(item),
+        },
+        create: {
+          category,
+          index,
+          name: stringOrNull(item.name),
+          sourceJson: sourceJson(item),
+        },
+      });
+    }
+
+    console.log(`  ${category}: ${items.length} records`);
+  }
+}
+
+async function seedAbilityScores() {
+  console.log("Seeding RefAbilityScore...");
+
+  const abilityScores = readJsonArray(FILES.abilityScores);
+
+  for (const ability of abilityScores) {
+    const index = getItemIndex(ability);
+
+    if (!index) {
+      console.warn("Skipping ability score without index/name", ability);
+      continue;
+    }
+
+    const name = stringOrNull(ability.name) ?? index.toUpperCase();
+    const fullName =
+      stringOrNull(ability.full_name) ??
+      stringOrNull(ability.fullName) ??
+      stringOrNull(ability.name) ??
+      index;
+
+    await prisma.refAbilityScore.upsert({
+      where: {
+        index,
       },
-      {
-        index: "stealth",
-        abilityIndex: "dex",
-        name: "Stealth",
+      update: {
+        name,
+        fullName,
+        description: toDescription(ability.description, ability.desc),
+        sourceJson: sourceJson(ability),
       },
-      {
-        index: "perception",
-        abilityIndex: "wis",
-        name: "Perception",
+      create: {
+        index,
+        name,
+        fullName,
+        description: toDescription(ability.description, ability.desc),
+        sourceJson: sourceJson(ability),
       },
-      {
-        index: "intimidation",
-        abilityIndex: "cha",
-        name: "Intimidation",
+    });
+  }
+}
+
+async function seedSkills() {
+  console.log("Seeding RefSkill...");
+
+  const skills = readJsonArray(FILES.skills);
+
+  for (const skill of skills) {
+    const index = getItemIndex(skill);
+
+    if (!index) {
+      console.warn("Skipping skill without index/name", skill);
+      continue;
+    }
+
+    const abilityIndex =
+      indexFromRef(skill.ability_score) ??
+      indexFromRef(skill.abilityScore) ??
+      stringOrNull(skill.abilityIndex);
+
+    if (!abilityIndex) {
+      console.warn(`Skipping skill without ability score: ${index}`);
+      continue;
+    }
+
+    const abilityExists = await prisma.refAbilityScore.findUnique({
+      where: {
+        index: abilityIndex,
       },
-      {
-        index: "investigation",
-        abilityIndex: "int",
-        name: "Investigation",
+      select: {
+        index: true,
       },
-      {
-        index: "athletics",
-        abilityIndex: "str",
-        name: "Athletics",
+    });
+
+    if (!abilityExists) {
+      console.warn(`Skipping skill ${index}, because ability ${abilityIndex} does not exist.`);
+      continue;
+    }
+
+    await prisma.refSkill.upsert({
+      where: {
+        index,
       },
-    ],
-    skipDuplicates: true,
-  });
+      update: {
+        abilityIndex,
+        name: stringOrNull(skill.name) ?? index,
+        description: toDescription(skill.description, skill.desc),
+        sourceJson: sourceJson(skill),
+      },
+      create: {
+        index,
+        abilityIndex,
+        name: stringOrNull(skill.name) ?? index,
+        description: toDescription(skill.description, skill.desc),
+        sourceJson: sourceJson(skill),
+      },
+    });
+  }
+}
+
+async function seedSpecies() {
+  console.log("Seeding RefSpecies...");
+
+  const speciesList = readJsonArray(FILES.species);
+
+  for (const species of speciesList) {
+    const index = getItemIndex(species);
+
+    if (!index) {
+      console.warn("Skipping species without index/name", species);
+      continue;
+    }
+
+    await prisma.refSpecies.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(species.name) ?? index,
+        size: stringOrNull(species.size),
+        baseSpeed: intOrDefault(species.speed ?? species.baseSpeed ?? species.base_speed, 30),
+        description: toDescription(species.description, species.desc),
+        sourceJson: sourceJson(species),
+      },
+      create: {
+        index,
+        name: stringOrNull(species.name) ?? index,
+        size: stringOrNull(species.size),
+        baseSpeed: intOrDefault(species.speed ?? species.baseSpeed ?? species.base_speed, 30),
+        description: toDescription(species.description, species.desc),
+        sourceJson: sourceJson(species),
+      },
+    });
+  }
+}
+
+async function seedClasses() {
+  console.log("Seeding RefClass...");
+
+  const classes = readJsonArray(FILES.classes);
+
+  for (const cls of classes) {
+    const index = getItemIndex(cls);
+
+    if (!index) {
+      console.warn("Skipping class without index/name", cls);
+      continue;
+    }
+
+    await prisma.refClass.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(cls.name) ?? index,
+        hitDie: intOrDefault(cls.hit_die ?? cls.hitDie, 8),
+        sourceJson: sourceJson(cls),
+      },
+      create: {
+        index,
+        name: stringOrNull(cls.name) ?? index,
+        hitDie: intOrDefault(cls.hit_die ?? cls.hitDie, 8),
+        sourceJson: sourceJson(cls),
+      },
+    });
+  }
+}
+
+async function seedBackgrounds() {
+  console.log("Seeding RefBackground...");
+
+  const backgrounds = readJsonArray(FILES.backgrounds);
+
+  for (const background of backgrounds) {
+    const index = getItemIndex(background);
+
+    if (!index) {
+      console.warn("Skipping background without index/name", background);
+      continue;
+    }
+
+    await prisma.refBackground.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(background.name) ?? index,
+        description: toDescription(background.description, background.desc),
+        sourceJson: sourceJson(background),
+      },
+      create: {
+        index,
+        name: stringOrNull(background.name) ?? index,
+        description: toDescription(background.description, background.desc),
+        sourceJson: sourceJson(background),
+      },
+    });
+  }
+}
+
+async function seedProficiencies() {
+  console.log("Seeding RefProficiency...");
+
+  const proficiencies = readJsonArray(FILES.proficiencies);
+
+  for (const proficiency of proficiencies) {
+    const index = getItemIndex(proficiency);
+
+    if (!index) {
+      console.warn("Skipping proficiency without index/name", proficiency);
+      continue;
+    }
+
+    const type =
+      stringOrNull(proficiency.type) ??
+      stringOrNull(proficiency.proficiency_type) ??
+      stringOrNull(proficiency.proficiencyType) ??
+      indexFromRef(proficiency.category) ??
+      indexFromRef(proficiency.reference) ??
+      "unknown";
+
+    await prisma.refProficiency.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(proficiency.name) ?? index,
+        type,
+        sourceJson: sourceJson(proficiency),
+      },
+      create: {
+        index,
+        name: stringOrNull(proficiency.name) ?? index,
+        type,
+        sourceJson: sourceJson(proficiency),
+      },
+    });
+  }
+}
+
+async function seedEquipment() {
+  console.log("Seeding RefEquipment...");
+
+  const equipment = readJsonArray(FILES.equipment);
+
+  for (const item of equipment) {
+    const index = getItemIndex(item);
+
+    if (!index) {
+      console.warn("Skipping equipment without index/name", item);
+      continue;
+    }
+
+    await prisma.refEquipment.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(item.name) ?? index,
+        equipmentCategory: firstEquipmentCategory(item),
+        itemType: equipmentItemType(item),
+        costQuantity: numberOrNull(item.cost?.quantity),
+        costUnit: stringOrNull(item.cost?.unit),
+        weight: numberOrNull(item.weight),
+        description: toDescription(item.description, item.desc),
+        sourceJson: sourceJson(item),
+      },
+      create: {
+        index,
+        name: stringOrNull(item.name) ?? index,
+        equipmentCategory: firstEquipmentCategory(item),
+        itemType: equipmentItemType(item),
+        costQuantity: numberOrNull(item.cost?.quantity),
+        costUnit: stringOrNull(item.cost?.unit),
+        weight: numberOrNull(item.weight),
+        description: toDescription(item.description, item.desc),
+        sourceJson: sourceJson(item),
+      },
+    });
+  }
+}
+
+async function ensureMinimumDemoReferences() {
+  console.log("Ensuring minimum demo references...");
+
+  const abilityScores = [
+    {
+      index: "str",
+      name: "STR",
+      fullName: "Strength",
+      description: "Physical power.",
+    },
+    {
+      index: "dex",
+      name: "DEX",
+      fullName: "Dexterity",
+      description: "Agility, reflexes, and balance.",
+    },
+    {
+      index: "con",
+      name: "CON",
+      fullName: "Constitution",
+      description: "Health and stamina.",
+    },
+    {
+      index: "int",
+      name: "INT",
+      fullName: "Intelligence",
+      description: "Reasoning and memory.",
+    },
+    {
+      index: "wis",
+      name: "WIS",
+      fullName: "Wisdom",
+      description: "Perception and insight.",
+    },
+    {
+      index: "cha",
+      name: "CHA",
+      fullName: "Charisma",
+      description: "Force of personality.",
+    },
+  ];
+
+  for (const ability of abilityScores) {
+    await prisma.refAbilityScore.upsert({
+      where: {
+        index: ability.index,
+      },
+      update: {},
+      create: ability,
+    });
+  }
+
+  const skills = [
+    {
+      index: "acrobatics",
+      abilityIndex: "dex",
+      name: "Acrobatics",
+    },
+    {
+      index: "stealth",
+      abilityIndex: "dex",
+      name: "Stealth",
+    },
+    {
+      index: "perception",
+      abilityIndex: "wis",
+      name: "Perception",
+    },
+    {
+      index: "intimidation",
+      abilityIndex: "cha",
+      name: "Intimidation",
+    },
+    {
+      index: "investigation",
+      abilityIndex: "int",
+      name: "Investigation",
+    },
+    {
+      index: "athletics",
+      abilityIndex: "str",
+      name: "Athletics",
+    },
+  ];
+
+  for (const skill of skills) {
+    await prisma.refSkill.upsert({
+      where: {
+        index: skill.index,
+      },
+      update: {},
+      create: skill,
+    });
+  }
 
   await prisma.refSpecies.upsert({
     where: {
@@ -132,101 +629,130 @@ async function main() {
     },
   });
 
-  await prisma.refProficiency.createMany({
-    data: [
-      {
-        index: "skill-acrobatics",
-        name: "Acrobatics",
-        type: "skill",
-      },
-      {
-        index: "skill-stealth",
-        name: "Stealth",
-        type: "skill",
-      },
-      {
-        index: "skill-perception",
-        name: "Perception",
-        type: "skill",
-      },
-      {
-        index: "skill-intimidation",
-        name: "Intimidation",
-        type: "skill",
-      },
-      {
-        index: "thieves-tools",
-        name: "Thieves' Tools",
-        type: "tool",
-      },
-      {
-        index: "light-armor",
-        name: "Light Armor",
-        type: "armor",
-      },
-      {
-        index: "simple-weapons",
-        name: "Simple Weapons",
-        type: "weapon",
-      },
-    ],
-    skipDuplicates: true,
-  });
+  const proficiencies = [
+    {
+      index: "skill-acrobatics",
+      name: "Acrobatics",
+      type: "skill",
+    },
+    {
+      index: "skill-stealth",
+      name: "Stealth",
+      type: "skill",
+    },
+    {
+      index: "skill-perception",
+      name: "Perception",
+      type: "skill",
+    },
+    {
+      index: "skill-intimidation",
+      name: "Intimidation",
+      type: "skill",
+    },
+    {
+      index: "thieves-tools",
+      name: "Thieves' Tools",
+      type: "tool",
+    },
+    {
+      index: "light-armor",
+      name: "Light Armor",
+      type: "armor",
+    },
+    {
+      index: "simple-weapons",
+      name: "Simple Weapons",
+      type: "weapon",
+    },
+  ];
 
-  await prisma.refEquipment.createMany({
-    data: [
-      {
-        index: "dagger",
-        name: "Dagger",
-        equipmentCategory: "Weapon",
-        itemType: "Simple Melee Weapon",
-        costQuantity: 2,
-        costUnit: "gp",
-        weight: 1,
-        description: "A small blade useful for melee or throwing.",
+  for (const proficiency of proficiencies) {
+    await prisma.refProficiency.upsert({
+      where: {
+        index: proficiency.index,
       },
-      {
-        index: "shortbow",
-        name: "Shortbow",
-        equipmentCategory: "Weapon",
-        itemType: "Simple Ranged Weapon",
-        costQuantity: 25,
-        costUnit: "gp",
-        weight: 2,
-        description: "A ranged weapon using arrows.",
+      update: {},
+      create: proficiency,
+    });
+  }
+
+  const equipment = [
+    {
+      index: "dagger",
+      name: "Dagger",
+      equipmentCategory: "weapon",
+      itemType: "simple-melee-weapon",
+      costQuantity: 2,
+      costUnit: "gp",
+      weight: 1,
+      description: "A small blade useful for melee or throwing.",
+    },
+    {
+      index: "shortbow",
+      name: "Shortbow",
+      equipmentCategory: "weapon",
+      itemType: "simple-ranged-weapon",
+      costQuantity: 25,
+      costUnit: "gp",
+      weight: 2,
+      description: "A ranged weapon using arrows.",
+    },
+    {
+      index: "leather-armor",
+      name: "Leather Armor",
+      equipmentCategory: "armor",
+      itemType: "light-armor",
+      costQuantity: 10,
+      costUnit: "gp",
+      weight: 10,
+      description: "Light armor made from leather.",
+    },
+    {
+      index: "thieves-tools",
+      name: "Thieves' Tools",
+      equipmentCategory: "tools",
+      itemType: "tool",
+      costQuantity: 25,
+      costUnit: "gp",
+      weight: 1,
+      description: "Tools used to pick locks and disarm traps.",
+    },
+    {
+      index: "backpack",
+      name: "Backpack",
+      equipmentCategory: "adventuring-gear",
+      itemType: "gear",
+      costQuantity: 2,
+      costUnit: "gp",
+      weight: 5,
+      description: "A container for adventuring equipment.",
+    },
+  ];
+
+  for (const item of equipment) {
+    await prisma.refEquipment.upsert({
+      where: {
+        index: item.index,
       },
-      {
-        index: "leather-armor",
-        name: "Leather Armor",
-        equipmentCategory: "Armor",
-        itemType: "Light Armor",
-        costQuantity: 10,
-        costUnit: "gp",
-        weight: 10,
-        description: "Light armor made from leather.",
-      },
-      {
-        index: "thieves-tools",
-        name: "Thieves' Tools",
-        equipmentCategory: "Tools",
-        itemType: "Tool",
-        costQuantity: 25,
-        costUnit: "gp",
-        weight: 1,
-        description: "Tools used to pick locks and disarm traps.",
-      },
-      {
-        index: "backpack",
-        name: "Backpack",
-        equipmentCategory: "Adventuring Gear",
-        itemType: "Gear",
-        costQuantity: 2,
-        costUnit: "gp",
-        weight: 5,
-        description: "A container for adventuring equipment.",
-      },
-    ],
-    skipDuplicates: true,
+      update: {},
+      create: item,
+    });
+  }
+}
+
+async function seedDemoCharacter() {
+  console.log("Seeding demo user and character...");
+
+  const user = await prisma.user.upsert({
+    where: {
+      email: "demo@ddsimple.local",
+    },
+    update: {},
+    create: {
+      email: "demo@ddsimple.local",
+      displayName: "Demo Player",
+    },
   });
 
   const character = await prisma.character.upsert({
@@ -236,7 +762,18 @@ async function main() {
         name: "Kael Shadowstep",
       },
     },
-    update: {},
+    update: {
+      speciesIndex: "human",
+      classIndex: "rogue",
+      backgroundIndex: "criminal",
+      level: 3,
+      experiencePoints: 900,
+      alignment: "Chaotic Neutral",
+      maxHp: 24,
+      currentHp: 24,
+      armorClass: 15,
+      speed: 30,
+    },
     create: {
       userId: user.id,
       name: "Kael Shadowstep",
@@ -253,123 +790,143 @@ async function main() {
     },
   });
 
-  await prisma.characterAbilityScore.createMany({
-    data: [
-      {
-        characterId: character.id,
-        abilityIndex: "str",
-        score: 10,
+  const abilityScores = [
+    {
+      abilityIndex: "str",
+      score: 10,
+    },
+    {
+      abilityIndex: "dex",
+      score: 16,
+    },
+    {
+      abilityIndex: "con",
+      score: 14,
+    },
+    {
+      abilityIndex: "int",
+      score: 12,
+    },
+    {
+      abilityIndex: "wis",
+      score: 13,
+    },
+    {
+      abilityIndex: "cha",
+      score: 14,
+    },
+  ];
+
+  for (const abilityScore of abilityScores) {
+    await prisma.characterAbilityScore.upsert({
+      where: {
+        characterId_abilityIndex: {
+          characterId: character.id,
+          abilityIndex: abilityScore.abilityIndex,
+        },
       },
-      {
-        characterId: character.id,
-        abilityIndex: "dex",
-        score: 16,
+      update: {
+        score: abilityScore.score,
       },
-      {
+      create: {
         characterId: character.id,
-        abilityIndex: "con",
-        score: 14,
+        abilityIndex: abilityScore.abilityIndex,
+        score: abilityScore.score,
       },
-      {
-        characterId: character.id,
-        abilityIndex: "int",
-        score: 12,
-      },
-      {
-        characterId: character.id,
-        abilityIndex: "wis",
-        score: 13,
-      },
-      {
-        characterId: character.id,
-        abilityIndex: "cha",
-        score: 14,
-      },
-    ],
-    skipDuplicates: true,
+    });
+  }
+
+  const demoProficientSkills = new Set([
+    "acrobatics",
+    "stealth",
+    "perception",
+    "intimidation",
+  ]);
+
+  const allSkills = await prisma.refSkill.findMany({
+    select: {
+      index: true,
+    },
+    orderBy: {
+      index: "asc",
+    },
   });
 
-  await prisma.characterSkill.createMany({
-    data: [
-      {
-        characterId: character.id,
-        skillIndex: "acrobatics",
-        isProficient: true,
+  for (const skill of allSkills) {
+    await prisma.characterSkill.upsert({
+      where: {
+        characterId_skillIndex: {
+          characterId: character.id,
+          skillIndex: skill.index,
+        },
+      },
+      update: {
+        isProficient: demoProficientSkills.has(skill.index),
         customBonus: 0,
       },
-      {
+      create: {
         characterId: character.id,
-        skillIndex: "stealth",
-        isProficient: true,
+        skillIndex: skill.index,
+        isProficient: demoProficientSkills.has(skill.index),
         customBonus: 0,
       },
-      {
-        characterId: character.id,
-        skillIndex: "perception",
-        isProficient: true,
-        customBonus: 0,
-      },
-      {
-        characterId: character.id,
-        skillIndex: "intimidation",
-        isProficient: true,
-        customBonus: 0,
-      },
-      {
-        characterId: character.id,
-        skillIndex: "investigation",
-        isProficient: false,
-        customBonus: 0,
-      },
-      {
-        characterId: character.id,
-        skillIndex: "athletics",
-        isProficient: false,
-        customBonus: 0,
-      },
-    ],
-    skipDuplicates: true,
-  });
+    });
+  }
 
-  await prisma.characterProficiency.createMany({
-    data: [
-      {
-        characterId: character.id,
-        proficiencyIndex: "skill-acrobatics",
-        sourceType: "class",
+  const demoProficiencies = [
+    {
+      proficiencyIndex: "skill-acrobatics",
+      sourceType: "class",
+    },
+    {
+      proficiencyIndex: "skill-stealth",
+      sourceType: "background",
+    },
+    {
+      proficiencyIndex: "skill-perception",
+      sourceType: "class",
+    },
+    {
+      proficiencyIndex: "skill-intimidation",
+      sourceType: "background",
+    },
+    {
+      proficiencyIndex: "thieves-tools",
+      sourceType: "class",
+    },
+    {
+      proficiencyIndex: "light-armor",
+      sourceType: "class",
+    },
+    {
+      proficiencyIndex: "simple-weapons",
+      sourceType: "class",
+    },
+  ];
+
+  for (const proficiency of demoProficiencies) {
+    await prisma.characterProficiency.upsert({
+      where: {
+        characterId_proficiencyIndex: {
+          characterId: character.id,
+          proficiencyIndex: proficiency.proficiencyIndex,
+        },
       },
-      {
-        characterId: character.id,
-        proficiencyIndex: "skill-stealth",
-        sourceType: "background",
+      update: {
+        sourceType: proficiency.sourceType,
       },
-      {
+      create: {
         characterId: character.id,
-        proficiencyIndex: "skill-perception",
-        sourceType: "class",
+        proficiencyIndex: proficiency.proficiencyIndex,
+        sourceType: proficiency.sourceType,
       },
-      {
-        characterId: character.id,
-        proficiencyIndex: "skill-intimidation",
-        sourceType: "background",
-      },
-      {
-        characterId: character.id,
-        proficiencyIndex: "thieves-tools",
-        sourceType: "class",
-      },
-      {
-        characterId: character.id,
-        proficiencyIndex: "light-armor",
-        sourceType: "class",
-      },
-      {
-        characterId: character.id,
-        proficiencyIndex: "simple-weapons",
-        sourceType: "class",
-      },
-    ],
-    skipDuplicates: true,
+    });
+  }
+
+  await prisma.characterInventory.deleteMany({
+    where: {
+      characterId: character.id,
+    },
   });
 
   await prisma.characterInventory.createMany({
@@ -415,7 +972,15 @@ async function main() {
         gridY: 1,
       },
     ],
-    skipDuplicates: true,
+  });
+
+  await prisma.diceRoll.deleteMany({
+    where: {
+      characterId: character.id,
+      reason: {
+        in: ["Stealth check", "Initiative roll"],
+      },
+    },
   });
 
   await prisma.diceRoll.createMany({
@@ -428,7 +993,7 @@ async function main() {
         targetIndex: "stealth",
         formula: "1d20+5",
         rollMode: "normal",
-        rollValues: [14],
+        rollValues: jsonValue([14]),
         modifier: 5,
         total: 19,
         reason: "Stealth check",
@@ -442,7 +1007,7 @@ async function main() {
         targetIndex: "dex",
         formula: "1d20+3",
         rollMode: "normal",
-        rollValues: [12],
+        rollValues: jsonValue([12]),
         modifier: 3,
         total: 15,
         reason: "Initiative roll",
@@ -451,9 +1016,28 @@ async function main() {
     ],
   });
 
-  console.log("Seed completed.");
+  console.log("Demo seed completed.");
   console.log(`Demo user: ${user.email}`);
   console.log(`Demo character: ${character.name}`);
+}
+
+async function main() {
+  assertSeedDataDirExists();
+
+  await seedGenericRuleDocuments();
+
+  await seedAbilityScores();
+  await seedSkills();
+  await seedSpecies();
+  await seedClasses();
+  await seedBackgrounds();
+  await seedProficiencies();
+  await seedEquipment();
+
+  await ensureMinimumDemoReferences();
+  await seedDemoCharacter();
+
+  console.log("Seed completed.");
 }
 
 main()
