@@ -3,6 +3,7 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { CharacterSummaryCard } from "../features/characters/components/CharacterSummaryCard";
 import { CharactersEmptyState } from "../features/characters/components/CharactersEmptyState";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
+import { Link } from "react-router-dom";
 
 function MyCharactersPage() {
   const { characters, loading, error } = useCharacters();
@@ -66,9 +67,9 @@ function MyCharactersPage() {
             </p>
           </div>
 
-          <button type="button" className="primary-button primary-button-uppercase">
+          <Link to="/characters/new" className="primary-button primary-button-uppercase">
             Create a Character
-          </button>
+          </Link>
         </div>
 
         <div className="characters-library-controls">
