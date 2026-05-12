@@ -7,3 +7,237 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+
+model User {
+  id          String      @id @default(uuid()) @db.Uuid
+  email       String      @unique
+  displayName String?
+
+  characters  Character[]
+  diceRolls   DiceRoll[]  @relation("DiceRollUser")
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("users")
+}
+
+model Character {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+
+  speciesIndex     String
+  classIndex       String
+  backgroundIndex  String
+
+  name             String
+  level            Int      @default(1)
+  experiencePoints Int      @default(0)
+  alignment        String?
+
+  maxHp            Int
+  currentHp        Int
+  armorClass       Int
+  speed            Int
+
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species          RefSpecies    @relation(fields: [speciesIndex], references: [index])
+  class            RefClass      @relation(fields: [classIndex], references: [index])
+  background       RefBackground @relation(fields: [backgroundIndex], references: [index])
+
+  abilityScores    CharacterAbilityScore[]
+  skills           CharacterSkill[]
+  proficiencies    CharacterProficiency[]
+  inventory        CharacterInventory[]
+  choices          CharacterChoice[]
+  diceRolls        DiceRoll[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@map("characters")
+}
+
+model RefAbilityScore {
+  index       String   @id
+  name        String
+  fullName    String
+  description String?
+  sourceJson  Json?
+
+  skills      RefSkill[]
+  characterScores CharacterAbilityScore[]
+
+  @@map("ref_ability_scores")
+}
+
+model RefSkill {
+  index        String @id
+  abilityIndex String
+  name         String
+  description  String?
+  sourceJson   Json?
+
+  ability      RefAbilityScore @relation(fields: [abilityIndex], references: [index])
+  characterSkills CharacterSkill[]
+
+  @@map("ref_skills")
+}
+
+model RefSpecies {
+  index       String @id
+  name        String
+  size        String?
+  baseSpeed   Int
+  description String?
+  sourceJson  Json?
+
+  characters  Character[]
+
+  @@map("ref_species")
+}
+
+model RefClass {
+  index      String @id
+  name       String
+  hitDie     Int
+  sourceJson Json?
+
+  characters Character[]
+
+  @@map("ref_classes")
+}
+
+model RefBackground {
+  index       String @id
+  name        String
+  description String?
+  sourceJson  Json?
+
+  characters  Character[]
+
+  @@map("ref_backgrounds")
+}
+
+model RefProficiency {
+  index      String @id
+  name       String
+  type       String
+  sourceJson Json?
+
+  characterProficiencies CharacterProficiency[]
+
+  @@map("ref_proficiencies")
+}
+
+model RefEquipment {
+  index             String  @id
+  name              String
+  equipmentCategory String?
+  itemType          String?
+  costQuantity      Int?
+  costUnit          String?
+  weight            Decimal?
+  description       String?
+  sourceJson        Json?
+
+  inventoryItems    CharacterInventory[]
+
+  @@map("ref_equipment")
+}
+
+model CharacterAbilityScore {
+  characterId  String @db.Uuid
+  abilityIndex String
+  score        Int
+
+  character    Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  ability      RefAbilityScore @relation(fields: [abilityIndex], references: [index])
+
+  @@id([characterId, abilityIndex])
+  @@map("character_ability_scores")
+}
+
+model CharacterSkill {
+  characterId String @db.Uuid
+  skillIndex  String
+  isProficient Boolean @default(false)
+  customBonus  Int     @default(0)
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  skill     RefSkill  @relation(fields: [skillIndex], references: [index])
+
+  @@id([characterId, skillIndex])
+  @@map("character_skills")
+}
+
+model CharacterProficiency {
+  characterId      String @db.Uuid
+  proficiencyIndex String
+  sourceType       String?
+
+  character   Character      @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  proficiency RefProficiency @relation(fields: [proficiencyIndex], references: [index])
+
+  @@id([characterId, proficiencyIndex])
+  @@map("character_proficiencies")
+}
+
+model CharacterInventory {
+  id             String @id @default(uuid()) @db.Uuid
+  characterId    String @db.Uuid
+  equipmentIndex String
+
+  quantity        Int     @default(1)
+  equipped        Boolean @default(false)
+  gridX           Int?
+  gridY           Int?
+  customName      String?
+  notes           String?
+
+  character       Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  equipment       RefEquipment @relation(fields: [equipmentIndex], references: [index])
+
+  @@map("character_inventory")
+}
+
+model CharacterChoice {
+  id            String @id @default(uuid()) @db.Uuid
+  characterId   String @db.Uuid
+
+  choiceType    String
+  sourceType    String
+  sourceIndex   String
+  selectedType  String
+  selectedIndex String
+
+  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("character_choices")
+}
+
+model DiceRoll {
+  id              String   @id @default(uuid()) @db.Uuid
+
+  characterId     String   @db.Uuid
+  rolledByUserId  String   @db.Uuid
+
+  rollType        String
+  targetType      String?
+  targetIndex     String?
+  formula         String
+  rollMode        String   @default("normal")
+  rollValues      Json
+  modifier        Int     @default(0)
+  total           Int
+  reason          String?
+  visibility      String  @default("private")
+  rolledAt        DateTime @default(now())
+
+  character       Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  rolledByUser    User      @relation("DiceRollUser", fields: [rolledByUserId], references: [id], onDelete: Cascade)
+
+  @@map("dice_rolls")
+}
+

@@ -1,0 +1,198 @@
+@startuml
+title DD Simple - Character Creation DB with selected 5e-bits data
+
+hide circle
+skinparam linetype ortho
+
+' =========================
+' USER DATA
+' =========================
+
+entity "users" as users {
+  * id : UUID <<PK>>
+  --
+  email : varchar <<UNIQUE>>
+  display_name : varchar
+}
+
+entity "characters" as characters {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  species_index : varchar <<FK>>
+  class_index : varchar <<FK>>
+  background_index : varchar <<FK>>
+  name : varchar
+  level : int
+  experience_points : int
+  alignment : varchar
+  max_hp : int
+  current_hp : int
+  armor_class : int
+  speed : int
+}
+
+' =========================
+' 5E-BITS REFERENCE DATA
+' =========================
+
+entity "ref_ability_scores" as ref_ability_scores {
+  * index : varchar <<PK>>
+  --
+  name : varchar
+  full_name : varchar
+  description : text
+  source_json : jsonb
+}
+
+entity "ref_skills" as ref_skills {
+  * index : varchar <<PK>>
+  --
+  ability_index : varchar <<FK>>
+  name : varchar
+  description : text
+  source_json : jsonb
+}
+
+entity "ref_species" as ref_species {
+  * index : varchar <<PK>>
+  --
+  name : varchar
+  size : varchar
+  base_speed : int
+  description : text
+  source_json : jsonb
+}
+
+entity "ref_classes" as ref_classes {
+  * index : varchar <<PK>>
+  --
+  name : varchar
+  hit_die : int
+  source_json : jsonb
+}
+
+entity "ref_backgrounds" as ref_backgrounds {
+  * index : varchar <<PK>>
+  --
+  name : varchar
+  description : text
+  source_json : jsonb
+}
+
+entity "ref_proficiencies" as ref_proficiencies {
+  * index : varchar <<PK>>
+  --
+  name : varchar
+  type : varchar
+  source_json : jsonb
+}
+
+entity "ref_equipment" as ref_equipment {
+  * index : varchar <<PK>>
+  --
+  name : varchar
+  equipment_category : varchar
+  item_type : varchar
+  cost_quantity : int
+  cost_unit : varchar
+  weight : numeric
+  description : text
+  source_json : jsonb
+}
+
+' =========================
+' CHARACTER VALUES
+' =========================
+
+entity "character_ability_scores" as character_ability_scores {
+  * character_id : UUID <<PK, FK>>
+  * ability_index : varchar <<PK, FK>>
+  --
+  score : int
+}
+
+entity "character_skills" as character_skills {
+  * character_id : UUID <<PK, FK>>
+  * skill_index : varchar <<PK, FK>>
+  --
+  is_proficient : boolean
+  custom_bonus : int
+}
+
+entity "character_proficiencies" as character_proficiencies {
+  * character_id : UUID <<PK, FK>>
+  * proficiency_index : varchar <<PK, FK>>
+  --
+  source_type : varchar
+}
+
+entity "character_inventory" as character_inventory {
+  * id : UUID <<PK>>
+  --
+  character_id : UUID <<FK>>
+  equipment_index : varchar <<FK>>
+  quantity : int
+  equipped : boolean
+  grid_x : int
+  grid_y : int
+  custom_name : varchar
+  notes : text
+}
+
+entity "character_choices" as character_choices {
+  * id : UUID <<PK>>
+  --
+  character_id : UUID <<FK>>
+  choice_type : varchar
+  source_type : varchar
+  source_index : varchar
+  selected_type : varchar
+  selected_index : varchar
+}
+
+entity "dice_rolls" as dice_rolls {
+  * id : UUID <<PK>>
+  --
+  character_id : UUID <<FK>>
+  rolled_by_user_id : UUID <<FK>>
+  roll_type : varchar
+  target_type : varchar
+  target_index : varchar
+  formula : varchar
+  roll_mode : varchar
+  roll_values : jsonb
+  modifier : int
+  total : int
+  reason : varchar
+  visibility : varchar
+  rolled_at : timestamp
+}
+
+' =========================
+' RELATIONSHIPS
+' =========================
+
+users ||--o{ characters : owns
+
+ref_species ||--o{ characters : selected_species
+ref_classes ||--o{ characters : selected_class
+ref_backgrounds ||--o{ characters : selected_background
+
+ref_ability_scores ||--o{ ref_skills : governs
+
+characters ||--o{ character_ability_scores : has
+ref_ability_scores ||--o{ character_ability_scores : ability
+
+characters ||--o{ character_skills : has
+ref_skills ||--o{ character_skills : skill
+
+characters ||--o{ character_proficiencies : has
+ref_proficiencies ||--o{ character_proficiencies : proficiency
+
+characters ||--o{ character_inventory : owns
+ref_equipment ||--o{ character_inventory : item
+
+characters ||--o{ character_choices : makes
+characters ||--o{ dice_rolls : makes
+@enduml
