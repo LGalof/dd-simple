@@ -2,6 +2,7 @@ import { type FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { createCharacter } from "../features/characters/api/createCharacter";
+import { AbilityScoreStepper } from "../features/characters/components/AbilityScoreStepper";
 import { useCharacterCreatorReferences } from "../features/references/hooks/useCharacterCreatorReferences";
 
 type AbilityScoreKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
@@ -250,26 +251,15 @@ function CreateCharacterPage() {
                 <span className="characters-control-label">Ability Scores</span>
                 <div className="character-summary-grid">
                   {abilityScoreFields.map((abilityScoreField) => (
-                    <label key={abilityScoreField.key} className="characters-search-field">
-                      <span className="characters-control-label">
-                        {abilityScoreField.label}
-                      </span>
-                      <input
-                        type="number"
-                        min={3}
-                        max={20}
-                        value={abilityScores[abilityScoreField.key]}
-                        onChange={(event) =>
-                          updateAbilityScore(
-                            abilityScoreField.key,
-                            event.currentTarget.valueAsNumber,
-                          )
-                        }
-                        className="characters-search-input"
-                        disabled={saving}
-                        required
-                      />
-                    </label>
+                    <AbilityScoreStepper
+                      key={abilityScoreField.key}
+                      label={abilityScoreField.label}
+                      value={abilityScores[abilityScoreField.key]}
+                      onChange={(value) =>
+                        updateAbilityScore(abilityScoreField.key, value)
+                      }
+                      disabled={saving}
+                    />
                   ))}
                 </div>
               </div>

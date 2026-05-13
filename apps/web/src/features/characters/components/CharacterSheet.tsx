@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Card } from "../../../components/ui/Card";
 import { StatBox } from "../../../components/ui/StatBox";
 import type { Character } from "../../../types/character";
@@ -64,6 +65,18 @@ function CharacterSheet({ character }: CharacterSheetProps) {
             Level {character.level} {character.species.name} {character.class.name}{" "}
             - {character.background.name}
           </p>
+        </div>
+
+        <div className="character-header-actions">
+          <Link to="/characters" className="secondary-button">
+            Back to Characters
+          </Link>
+          <Link
+            to={`/characters/${character.id}/edit`}
+            className="primary-button primary-button-uppercase"
+          >
+            Edit
+          </Link>
         </div>
       </header>
 

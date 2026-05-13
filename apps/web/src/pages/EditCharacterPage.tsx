@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { fetchCharacter } from "../features/characters/api/fetchCharacter";
 import { updateCharacter } from "../features/characters/api/updateCharacter";
+import { AbilityScoreStepper } from "../features/characters/components/AbilityScoreStepper";
 import { useCharacterCreatorReferences } from "../features/references/hooks/useCharacterCreatorReferences";
 import type { CharacterAbilityScoresInput } from "../types/character";
 
@@ -154,7 +155,7 @@ function EditCharacterPage() {
     setSaving(true);
 
     try {
-      const character = await updateCharacter(characterId, {
+      await updateCharacter(characterId, {
         name: name.trim(),
         speciesIndex,
         classIndex,
@@ -164,7 +165,7 @@ function EditCharacterPage() {
         abilityScores,
       });
 
-      navigate(`/characters/${character.id}`);
+      navigate(`/characters/${characterId}`);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Failed to update character");
     } finally {
@@ -298,26 +299,15 @@ function EditCharacterPage() {
                 <span className="characters-control-label">Ability Scores</span>
                 <div className="character-summary-grid">
                   {abilityScoreFields.map((abilityScoreField) => (
-                    <label key={abilityScoreField.key} className="characters-search-field">
-                      <span className="characters-control-label">
-                        {abilityScoreField.label}
-                      </span>
-                      <input
-                        type="number"
-                        min={3}
-                        max={20}
-                        value={abilityScores[abilityScoreField.key]}
-                        onChange={(event) =>
-                          updateAbilityScore(
-                            abilityScoreField.key,
-                            event.currentTarget.valueAsNumber,
-                          )
-                        }
-                        className="characters-search-input"
-                        disabled={saving}
-                        required
-                      />
-                    </label>
+                    <AbilityScoreStepper
+                      key={abilityScoreField.key}
+                      label={abilityScoreField.label}
+                      value={abilityScores[abilityScoreField.key]}
+                      onChange={(value) =>
+                        updateAbilityScore(abilityScoreField.key, value)
+                      }
+                      disabled={saving}
+                    />
                   ))}
                 </div>
               </div>
@@ -353,13 +343,21 @@ function EditCharacterPage() {
 
               {saveError && <p className="error-message">Error: {saveError}</p>}
 
-              <button
-                type="submit"
-                className="primary-button primary-button-uppercase"
-                disabled={saving}
-              >
-                {saving ? "Saving Character..." : "Save Character"}
-              </button>
+              <div className="character-form-actions">
+                <Link
+                  to={`/characters/${characterId}`}
+                  className="secondary-button"
+                >
+                  Cancel
+                </Link>
+                <button
+                  type="submit"
+                  className="primary-button primary-button-uppercase"
+                  disabled={saving}
+                >
+                  {saving ? "Saving Character..." : "Save Character"}
+                </button>
+              </div>
             </form>
           </div>
         )}

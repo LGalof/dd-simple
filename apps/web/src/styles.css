@@ -162,12 +162,30 @@ h1 {
 }
 
 .character-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1.5rem;
 }
 
 .character-header h2 {
   margin: 0;
   font-size: 2rem;
+}
+
+.character-header-actions,
+.character-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.character-header-actions .secondary-button,
+.character-header-actions .primary-button {
+  min-height: 42px;
+  padding: 0.65rem 0.95rem;
 }
 
 .stat-grid {
@@ -228,6 +246,51 @@ h1 {
   font-size: 1.6rem;
   font-weight: 700;
   color: #f9fafb;
+}
+
+.ability-stepper {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ability-stepper-controls {
+  display: grid;
+  grid-template-columns: 3rem minmax(3rem, 1fr) 3rem;
+  align-items: stretch;
+  min-height: 3.2rem;
+  overflow: hidden;
+  border: 1px solid rgba(147, 197, 253, 0.18);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.78);
+}
+
+.ability-stepper-button {
+  border: 0;
+  background: rgba(37, 99, 235, 0.18);
+  color: #dbeafe;
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ability-stepper-button:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.32);
+}
+
+.ability-stepper-button:disabled {
+  cursor: not-allowed;
+  color: rgba(156, 163, 175, 0.65);
+  background: rgba(31, 41, 55, 0.55);
+}
+
+.ability-stepper-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f9fafb;
+  font-size: 1.4rem;
+  font-weight: 700;
 }
 
 .list {
@@ -589,6 +652,11 @@ h1 {
   background: rgba(37, 99, 235, 0.08);
 }
 
+.character-summary-actions .primary-button {
+  min-width: 88px;
+  padding: 0.65rem 0.85rem;
+}
+
 .character-summary-actions .secondary-button-danger {
   border-color: rgba(252, 165, 165, 0.16);
   background: rgba(127, 29, 29, 0.16);
@@ -628,6 +696,17 @@ h1 {
 
   .characters-settings-button {
     width: 100%;
+  }
+
+  .character-header,
+  .character-header-actions,
+  .character-form-actions {
+    align-items: stretch;
+  }
+
+  .character-header,
+  .character-header-actions {
+    flex-direction: column;
   }
 
   .empty-state-card {

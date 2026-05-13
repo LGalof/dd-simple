@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Character } from "../../../types/character";
 import { formatAlignment } from "../utils/characterFormat";
+import { setSelectedCharacterId } from "../utils/selectedCharacter";
 
 type CharacterSummaryCardProps = {
   character: Character;
@@ -19,7 +20,7 @@ function CharacterSummaryCard({
   const alignment = formatAlignment(character.alignment);
 
   function rememberSelectedCharacter() {
-    localStorage.setItem("lastSelectedCharacterId", character.id);
+    setSelectedCharacterId(character.id);
   }
 
   return (
@@ -53,10 +54,10 @@ function CharacterSummaryCard({
       <div className="character-summary-actions">
         <Link
           to={`/characters/${character.id}`}
-          className="secondary-button"
+          className="primary-button"
           onClick={rememberSelectedCharacter}
         >
-          Open Sheet
+          Select
         </Link>
         <Link to={`/characters/${character.id}/edit`} className="secondary-button">
           Edit

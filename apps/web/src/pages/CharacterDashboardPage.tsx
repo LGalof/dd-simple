@@ -4,6 +4,10 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { Hero } from "../components/layout/Hero";
 import { fetchCharacter } from "../features/characters/api/fetchCharacter";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
+import {
+  clearSelectedCharacterId,
+  setSelectedCharacterId,
+} from "../features/characters/utils/selectedCharacter";
 import type { Character } from "../types/character";
 
 function CharacterDashboardPage() {
@@ -20,9 +24,10 @@ function CharacterDashboardPage() {
       try {
         const data = await fetchCharacter(characterId);
         setCharacter(data);
-        localStorage.setItem("lastSelectedCharacterId", data.id);
+        setSelectedCharacterId(data.id);
       } catch (err) {
         setCharacter(null);
+        clearSelectedCharacterId(characterId);
         setError(err instanceof Error ? err.message : "Character not found");
       } finally {
         setLoading(false);
@@ -68,28 +73,7 @@ function CharacterDashboardPage() {
           </div>
         )}
         {character && (
-          <div className="character-sheet">
-            <div className="characters-library-header">
-              <div className="characters-library-title-group">
-                <p className="eyebrow">Character Sheet</p>
-                <h1 className="characters-library-title">{character.name}</h1>
-              </div>
-
-              <div className="character-summary-actions">
-                <Link to="/characters" className="characters-settings-button">
-                  Back
-                </Link>
-                <Link
-                  to={`/characters/${character.id}/edit`}
-                  className="primary-button primary-button-uppercase"
-                >
-                  Edit
-                </Link>
-              </div>
-            </div>
-
-            <CharacterSheet character={character} />
-          </div>
+          <CharacterSheet character={character} />
         )}
       </section>
     </AppLayout>
