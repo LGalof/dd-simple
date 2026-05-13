@@ -14,6 +14,7 @@ function CharacterSummaryCard({
   const initials = character.name.slice(0, 1).toUpperCase();
   const speciesName = character.species.name;
   const className = character.class.name;
+  const alignment = character.alignment ?? "No alignment";
 
   return (
     <article className="character-summary-card">
@@ -27,7 +28,20 @@ function CharacterSummaryCard({
           <p className="character-summary-line">
             Level {character.level} | {speciesName} | {className}
           </p>
+          <p className="character-summary-line">{alignment}</p>
         </div>
+      </div>
+
+      <div className="character-summary-stats">
+        <span>
+          HP <strong>{character.currentHp}/{character.maxHp}</strong>
+        </span>
+        <span>
+          AC <strong>{character.armorClass}</strong>
+        </span>
+        <span>
+          Speed <strong>{character.speed} ft</strong>
+        </span>
       </div>
 
       <div className="character-summary-actions">

@@ -1,15 +1,57 @@
 import { Card } from "../../../components/ui/Card";
 import { StatBox } from "../../../components/ui/StatBox";
 import type { Character } from "../../../types/character";
-import { abilityModifier, formatModifier } from "../utils/characterFormat";
+import {
+  abilityModifier,
+  calculateSkillBonus,
+  formatModifier,
+  proficiencyBonus,
+} from "../utils/characterFormat";
 
 type CharacterSheetProps = {
   character: Character;
 };
 
+const abilityOrder = ["str", "dex", "con", "int", "wis", "cha"];
+const skillOrder = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+];
+
 function CharacterSheet({ character }: CharacterSheetProps) {
   const equippedItems = character.inventory.filter((item) => item.equipped);
   const inventoryItems = character.inventory.filter((item) => !item.equipped);
+  const characterProficiencyBonus = proficiencyBonus(character.level);
+  const dexterityScore = character.abilityScores.find(
+    (abilityScore) => abilityScore.abilityIndex === "dex",
+  );
+  const initiativeModifier = dexterityScore ? abilityModifier(dexterityScore.score) : 0;
+  const sortedAbilityScores = [...character.abilityScores].sort(
+    (leftAbility, rightAbility) =>
+      abilityOrder.indexOf(leftAbility.abilityIndex) -
+      abilityOrder.indexOf(rightAbility.abilityIndex),
+  );
+  const sortedSkills = [...character.skills].sort(
+    (leftSkill, rightSkill) =>
+      skillOrder.indexOf(leftSkill.skill.name) -
+      skillOrder.indexOf(rightSkill.skill.name),
+  );
 
   return (
     <div className="character-sheet">
@@ -25,17 +67,19 @@ function CharacterSheet({ character }: CharacterSheetProps) {
       </header>
 
       <div className="stat-grid">
+        <StatBox label="Level" value={character.level} />
         <StatBox label="HP" value={`${character.currentHp}/${character.maxHp}`} />
         <StatBox label="AC" value={character.armorClass} />
         <StatBox label="Speed" value={`${character.speed} ft`} />
-        <StatBox label="XP" value={character.experiencePoints} />
+        <StatBox label="Proficiency" value={formatModifier(characterProficiencyBonus)} />
+        <StatBox label="Initiative" value={formatModifier(initiativeModifier)} />
         <StatBox label="Alignment" value={character.alignment ?? "-"} />
       </div>
 
       <div className="content-grid">
         <Card title="Ability Scores">
           <div className="ability-grid">
-            {character.abilityScores.map((abilityScore) => {
+            {sortedAbilityScores.map((abilityScore) => {
               const modifier = abilityModifier(abilityScore.score);
 
               return (
@@ -51,24 +95,26 @@ function CharacterSheet({ character }: CharacterSheetProps) {
 
         <Card title="Skills">
           <div className="list">
-            {character.skills.map((characterSkill) => {
+            {sortedSkills.map((characterSkill) => {
               const abilityScore = character.abilityScores.find(
                 (score) => score.abilityIndex === characterSkill.skill.ability.index,
               );
-              const baseModifier = abilityScore ? abilityModifier(abilityScore.score) : 0;
-              const proficiencyBonus = characterSkill.isProficient ? 2 : 0;
-              const total = baseModifier + proficiencyBonus + characterSkill.customBonus;
+              const total = calculateSkillBonus({
+                abilityScore: abilityScore?.score ?? 10,
+                characterLevel: character.level,
+                customBonus: characterSkill.customBonus,
+                isProficient: characterSkill.isProficient,
+              });
 
               return (
                 <div key={characterSkill.skillIndex} className="list-row">
                   <span>
-                    {characterSkill.skill.name}{" "}
+                    {characterSkill.skill.name} {formatModifier(total)}{" "}
                     <span className="muted">({characterSkill.skill.ability.name})</span>
                     {characterSkill.isProficient && (
-                      <strong className="tag">proficient</strong>
+                      <strong className="tag">Proficient</strong>
                     )}
                   </span>
-                  <strong>{formatModifier(total)}</strong>
                 </div>
               );
             })}
