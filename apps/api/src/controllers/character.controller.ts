@@ -4,8 +4,8 @@ import {
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
-  findAllCharacters,
-  findCharacterById,
+  findAllCharactersForUser,
+  findCharacterByIdForUser,
   updateCharacterForUser,
 } from "../services/character.service.js";
 
@@ -100,7 +100,16 @@ async function findDemoUser() {
 
 async function getCharacters(_req: Request, res: Response) {
   try {
-    const characters = await findAllCharacters();
+    const demoUser = await findDemoUser();
+
+    if (!demoUser) {
+      res.status(404).json({
+        error: "Demo user not found",
+      });
+      return;
+    }
+
+    const characters = await findAllCharactersForUser(demoUser.id);
 
     res.json(characters);
   } catch (error) {
@@ -123,7 +132,16 @@ async function getCharacterById(req: Request, res: Response) {
       return;
     }
 
-    const character = await findCharacterById(id);
+    const demoUser = await findDemoUser();
+
+    if (!demoUser) {
+      res.status(404).json({
+        error: "Demo user not found",
+      });
+      return;
+    }
+
+    const character = await findCharacterByIdForUser(demoUser.id, id);
 
     if (!character) {
       res.status(404).json({

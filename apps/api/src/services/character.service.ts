@@ -145,6 +145,53 @@ async function findAllCharacters() {
   });
 }
 
+async function findAllCharactersForUser(userId: string) {
+  return prisma.character.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      user: true,
+      species: true,
+      class: true,
+      background: true,
+      abilityScores: {
+        include: {
+          ability: true,
+        },
+      },
+      skills: {
+        include: {
+          skill: {
+            include: {
+              ability: true,
+            },
+          },
+        },
+      },
+      proficiencies: {
+        include: {
+          proficiency: true,
+        },
+      },
+      inventory: {
+        include: {
+          equipment: true,
+        },
+      },
+      diceRolls: {
+        orderBy: {
+          rolledAt: "desc",
+        },
+        take: 5,
+      },
+    },
+  });
+}
+
 async function createCharacterForUser(userId: string, data: CreateCharacterData) {
   const selectedSkillIndexes = new Set(data.skillIndexes);
   const conModifier = getAbilityModifier(data.abilityScores.con);
@@ -426,12 +473,24 @@ async function findCharacterById(id: string) {
   });
 }
 
+async function findCharacterByIdForUser(userId: string, characterId: string) {
+  return prisma.character.findFirst({
+    where: {
+      id: characterId,
+      userId,
+    },
+    include: characterInclude,
+  });
+}
+
 export {
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
   findAllCharacters,
+  findAllCharactersForUser,
   findCharacterById,
+  findCharacterByIdForUser,
   updateCharacterForUser,
 };
 export type { CharacterMutationData, CreateCharacterData };
