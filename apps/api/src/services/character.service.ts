@@ -5,6 +5,10 @@ type ReferenceIndexRecord = {
   index: string;
 };
 
+type ClassSourceJson = {
+  saving_throws?: ReferenceIndexRecord[];
+};
+
 type CharacterMutationData = {
   name: string;
   speciesIndex: string;
@@ -101,48 +105,16 @@ function abilityScoreRows(data: CharacterMutationData) {
   ];
 }
 
-async function findAllCharacters() {
-  return prisma.character.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
-    include: {
-      user: true,
-      species: true,
-      class: true,
-      background: true,
-      abilityScores: {
-        include: {
-          ability: true,
-        },
-      },
-      skills: {
-        include: {
-          skill: {
-            include: {
-              ability: true,
-            },
-          },
-        },
-      },
-      proficiencies: {
-        include: {
-          proficiency: true,
-        },
-      },
-      inventory: {
-        include: {
-          equipment: true,
-        },
-      },
-      diceRolls: {
-        orderBy: {
-          rolledAt: "desc",
-        },
-        take: 5,
-      },
-    },
-  });
+function getClassSavingThrowProficiencyIndexes(sourceJson: unknown) {
+  if (!sourceJson || typeof sourceJson !== "object") {
+    return [];
+  }
+
+  const classSourceJson = sourceJson as ClassSourceJson;
+
+  return (classSourceJson.saving_throws ?? []).map(
+    (savingThrow) => `saving-throw-${savingThrow.index}`,
+  );
 }
 
 async function findAllCharactersForUser(userId: string) {
@@ -248,6 +220,13 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const classSavingThrowProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: getClassSavingThrowProficiencyIndexes(characterClass.sourceJson),
+        },
+      },
+    });
     const maxHp = Math.max(1, characterClass.hitDie + conModifier);
 
     return tx.character.create({
@@ -275,10 +254,18 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
           })),
         },
         proficiencies: {
-          create: selectedProficiencies.map((proficiency: ReferenceIndexRecord) => ({
-            proficiencyIndex: proficiency.index,
-            sourceType: "manual",
-          })),
+          create: [
+            ...selectedProficiencies.map((proficiency: ReferenceIndexRecord) => ({
+              proficiencyIndex: proficiency.index,
+              sourceType: "manual",
+            })),
+            ...classSavingThrowProficiencies.map(
+              (proficiency: ReferenceIndexRecord) => ({
+                proficiencyIndex: proficiency.index,
+                sourceType: "class",
+              }),
+            ),
+          ],
         },
       },
       include: characterInclude,
@@ -357,6 +344,13 @@ async function updateCharacterForUser(
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const classSavingThrowProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: getClassSavingThrowProficiencyIndexes(characterClass.sourceJson),
+        },
+      },
+    });
     const maxHp = Math.max(1, characterClass.hitDie + conModifier);
     const currentHp =
       existingCharacter.currentHp === existingCharacter.maxHp
@@ -433,6 +427,16 @@ async function updateCharacterForUser(
       },
     });
 
+    await tx.characterProficiency.deleteMany({
+      where: {
+        characterId,
+        sourceType: "class",
+        proficiencyIndex: {
+          startsWith: "saving-throw-",
+        },
+      },
+    });
+
     if (selectedProficiencies.length > 0) {
       await tx.characterProficiency.createMany({
         data: selectedProficiencies.map((proficiency: ReferenceIndexRecord) => ({
@@ -440,6 +444,19 @@ async function updateCharacterForUser(
           proficiencyIndex: proficiency.index,
           sourceType: "manual",
         })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (classSavingThrowProficiencies.length > 0) {
+      await tx.characterProficiency.createMany({
+        data: classSavingThrowProficiencies.map(
+          (proficiency: ReferenceIndexRecord) => ({
+            characterId,
+            proficiencyIndex: proficiency.index,
+            sourceType: "class",
+          }),
+        ),
         skipDuplicates: true,
       });
     }
@@ -464,15 +481,6 @@ async function deleteCharacterForUser(userId: string, id: string) {
   return result.count > 0;
 }
 
-async function findCharacterById(id: string) {
-  return prisma.character.findUnique({
-    where: {
-      id,
-    },
-    include: characterInclude,
-  });
-}
-
 async function findCharacterByIdForUser(userId: string, characterId: string) {
   return prisma.character.findFirst({
     where: {
@@ -487,9 +495,7 @@ export {
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
-  findAllCharacters,
   findAllCharactersForUser,
-  findCharacterById,
   findCharacterByIdForUser,
   updateCharacterForUser,
 };
