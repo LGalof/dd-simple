@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Character } from "../../../types/character";
 import { deleteCharacter } from "../api/deleteCharacter";
 import { fetchCharacters } from "../api/fetchCharacters";
+import { clearSelectedCharacterId } from "../utils/selectedCharacter";
 
 function useCharacters() {
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -33,6 +34,7 @@ function useCharacters() {
       setCharacters((currentCharacters) =>
         currentCharacters.filter((character) => character.id !== characterId),
       );
+      clearSelectedCharacterId(characterId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete character");
     } finally {
