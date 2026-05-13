@@ -5,12 +5,23 @@ type AppLayoutProps = {
   children: ReactNode;
   hero?: ReactNode;
   navigation?: ReactNode;
+  variant?: "default" | "wide-left";
 };
 
-function AppLayout({ children, hero, navigation }: AppLayoutProps) {
+function AppLayout({
+  children,
+  hero,
+  navigation,
+  variant = "default",
+}: AppLayoutProps) {
+  const layoutClassName =
+    variant === "wide-left" ? "app-layout app-layout-wide-left" : "app-layout";
+  const shellClassName =
+    variant === "wide-left" ? "app-shell app-shell-wide-left" : "app-shell";
+
   return (
-    <main className="app-shell">
-      <div className="app-layout">
+    <main className={shellClassName}>
+      <div className={layoutClassName}>
         <header className="app-header">
           <div className="app-brand">
             <span className="app-brand-mark">D20</span>
