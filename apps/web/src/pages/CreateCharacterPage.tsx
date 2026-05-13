@@ -1,8 +1,13 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { createCharacter } from "../features/characters/api/createCharacter";
 import { AbilityScoreStepper } from "../features/characters/components/AbilityScoreStepper";
+import {
+  getBackgroundSkillIndexes,
+  getClassSkillChoice,
+  getSkillName,
+} from "../features/characters/utils/skillProficiencyOptions";
 import { useCharacterCreatorReferences } from "../features/references/hooks/useCharacterCreatorReferences";
 
 type AbilityScoreKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
@@ -74,6 +79,28 @@ function CreateCharacterPage() {
     () => references?.alignments.find((item) => item.index === alignment),
     [references, alignment],
   );
+  const classSkillChoice = useMemo(
+    () => getClassSkillChoice(selectedClass),
+    [selectedClass],
+  );
+  const backgroundSkillIndexes = useMemo(
+    () => getBackgroundSkillIndexes(selectedBackground),
+    [selectedBackground],
+  );
+  const backgroundSkillIndexSet = useMemo(
+    () => new Set(backgroundSkillIndexes),
+    [backgroundSkillIndexes],
+  );
+  const classSkillOptionIndexSet = useMemo(
+    () => new Set(classSkillChoice?.options.map((option) => option.skillIndex) ?? []),
+    [classSkillChoice],
+  );
+  const selectedClassSkillCount = classSkillChoice
+    ? selectedSkillIndexes.filter((skillIndex) =>
+        classSkillOptionIndexSet.has(skillIndex) &&
+        !backgroundSkillIndexSet.has(skillIndex),
+      ).length
+    : selectedSkillIndexes.length;
 
   const conModifier = Math.floor((abilityScores.con - 10) / 2);
   const dexModifier = Math.floor((abilityScores.dex - 10) / 2);
@@ -81,6 +108,28 @@ function CreateCharacterPage() {
     ? Math.max(1, selectedClass.hitDie + conModifier)
     : null;
   const previewArmorClass = 10 + dexModifier;
+
+  useEffect(() => {
+    setSelectedSkillIndexes((currentSkillIndexes) => {
+      const manualSkillIndexes = currentSkillIndexes.filter(
+        (skillIndex) => !backgroundSkillIndexSet.has(skillIndex),
+      );
+      const nextSkillIndexes = classSkillChoice
+        ? manualSkillIndexes
+            .filter((skillIndex) => classSkillOptionIndexSet.has(skillIndex))
+            .slice(0, classSkillChoice.choose)
+        : manualSkillIndexes;
+
+      if (
+        nextSkillIndexes.length === currentSkillIndexes.length &&
+        nextSkillIndexes.every((skillIndex, index) => skillIndex === currentSkillIndexes[index])
+      ) {
+        return currentSkillIndexes;
+      }
+
+      return nextSkillIndexes;
+    });
+  }, [backgroundSkillIndexSet, classSkillChoice, classSkillOptionIndexSet]);
 
   function updateAbilityScore(ability: AbilityScoreKey, value: number) {
     const nextValue = Number.isNaN(value) ? 10 : Math.min(20, Math.max(3, value));
@@ -95,6 +144,17 @@ function CreateCharacterPage() {
     setSelectedSkillIndexes((currentSkills) => {
       if (currentSkills.includes(skillIndex)) {
         return currentSkills.filter((currentSkill) => currentSkill !== skillIndex);
+      }
+
+      if (
+        classSkillChoice &&
+        classSkillOptionIndexSet.has(skillIndex) &&
+        currentSkills.filter((currentSkill) =>
+          classSkillOptionIndexSet.has(currentSkill) &&
+          !backgroundSkillIndexSet.has(currentSkill),
+        ).length >= classSkillChoice.choose
+      ) {
+        return currentSkills;
       }
 
       return [...currentSkills, skillIndex];
@@ -113,13 +173,22 @@ function CreateCharacterPage() {
     setSaving(true);
 
     try {
+      const submittedSkillIndexes = new Set([
+        ...(classSkillChoice
+          ? selectedSkillIndexes.filter((skillIndex) =>
+              classSkillOptionIndexSet.has(skillIndex),
+            )
+          : selectedSkillIndexes),
+        ...backgroundSkillIndexes,
+      ]);
+
       await createCharacter({
         name: name.trim(),
         speciesIndex,
         classIndex,
         backgroundIndex,
         alignment: alignment || null,
-        skillIndexes: selectedSkillIndexes,
+        skillIndexes: [...submittedSkillIndexes],
         abilityScores,
       });
 
@@ -266,20 +335,73 @@ function CreateCharacterPage() {
 
               <div>
                 <span className="characters-control-label">Skill Proficiencies</span>
+                {backgroundSkillIndexes.length > 0 && references && (
+                  <div className="page-placeholder-card">
+                    <strong>Granted by Background</strong>
+                    <p className="muted">
+                      {backgroundSkillIndexes
+                        .map((skillIndex) => getSkillName(skillIndex, references.skills))
+                        .join(", ")}
+                    </p>
+                  </div>
+                )}
+                {classSkillChoice && (
+                  <p className="muted">
+                    {classSkillChoice.description} ({selectedClassSkillCount}/
+                    {classSkillChoice.choose} selected)
+                  </p>
+                )}
                 <div className="character-summary-grid">
-                  {references.skills.map((skill: { index: string; name: string; ability: { name: string } }) => (
-                    <label key={skill.index} className="page-placeholder-card">
+                  {(classSkillChoice
+                    ? classSkillChoice.options.map((option) => {
+                        const skill = references.skills.find(
+                          (referenceSkill) => referenceSkill.index === option.skillIndex,
+                        );
+
+                        return skill ?? {
+                          index: option.skillIndex,
+                          name: option.name,
+                          ability: {
+                            name: "Skill",
+                          },
+                        };
+                      })
+                    : references.skills
+                  ).map((skill: { index: string; name: string; ability: { name: string } }) => {
+                    const isGrantedByBackground = backgroundSkillIndexSet.has(skill.index);
+                    const isAtClassLimit =
+                      Boolean(classSkillChoice) &&
+                      selectedClassSkillCount >= (classSkillChoice?.choose ?? 0) &&
+                      !selectedSkillIndexes.includes(skill.index);
+
+                    const isSelected =
+                      selectedSkillIndexes.includes(skill.index) ||
+                      isGrantedByBackground;
+
+                    return (
+                    <label key={skill.index} className="skill-option-card">
                       <input
                         type="checkbox"
-                        checked={selectedSkillIndexes.includes(skill.index)}
+                        checked={isSelected}
                         onChange={() => toggleSkill(skill.index)}
-                        disabled={saving}
+                        disabled={saving || isGrantedByBackground || isAtClassLimit}
                       />
-                      <strong>{skill.name}</strong>
-                      <span className="muted"> ({skill.ability.name})</span>
+                      <span className="skill-option-copy">
+                        <strong>{skill.name}</strong>
+                        <span className="muted">{skill.ability.name}</span>
+                      </span>
+                      <span className="skill-option-status">
+                        {isGrantedByBackground ? "Background" : isSelected ? "Selected" : ""}
+                      </span>
                     </label>
-                  ))}
+                  );
+                  })}
                 </div>
+                {!classSkillChoice && (
+                  <p className="muted">
+                    No structured class skill options were found, so all skills are available.
+                  </p>
+                )}
               </div>
 
               <div className="page-placeholder-card">
@@ -313,8 +435,9 @@ function CreateCharacterPage() {
                 </p>
                 <p>
                   <strong>Selected skills:</strong>{" "}
-                  {selectedSkillIndexes.length > 0
-                    ? selectedSkillIndexes.join(", ")
+                  {selectedSkillIndexes.length + backgroundSkillIndexes.length > 0
+                    ? [...new Set([...selectedSkillIndexes, ...backgroundSkillIndexes])]
+                        .join(", ")
                     : "None"}
                 </p>
               </div>

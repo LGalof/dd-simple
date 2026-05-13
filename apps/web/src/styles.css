@@ -566,6 +566,54 @@ h1 {
   color: #9ca3af;
 }
 
+.skill-option-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 5.6rem;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 76px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  background: rgba(17, 24, 39, 0.75);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  color: #f9fafb;
+  cursor: pointer;
+}
+
+.skill-option-card:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.skill-option-card input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+}
+
+.skill-option-copy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.skill-option-copy strong {
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.skill-option-status {
+  min-height: 1.35rem;
+  justify-self: end;
+  color: #93c5fd;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 .character-summary-card {
   display: grid;
   gap: 0;

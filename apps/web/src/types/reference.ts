@@ -25,12 +25,14 @@ type ReferenceClass = {
   index: string;
   name: string;
   hitDie: number;
+  sourceJson?: unknown;
 };
 
 type ReferenceBackground = {
   index: string;
   name: string;
   description?: string | null;
+  sourceJson?: unknown;
 };
 
 type ReferenceRuleDocument = {
