@@ -248,6 +248,22 @@ h1 {
   color: #f9fafb;
 }
 
+.ability-card-detail {
+  color: #d1d5db;
+  font-size: 0.9rem;
+}
+
+.ability-save {
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.ability-save .tag {
+  display: block;
+  margin-left: 0;
+  margin-top: 0.15rem;
+}
+
 .ability-stepper {
   display: grid;
   gap: 0.45rem;

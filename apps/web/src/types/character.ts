@@ -39,6 +39,16 @@ type CharacterSkill = {
   };
 };
 
+type CharacterProficiency = {
+  proficiencyIndex: string;
+  sourceType: string | null;
+  proficiency: {
+    index: string;
+    name: string;
+    type: string;
+  };
+};
+
 type InventoryItem = {
   id: string;
   quantity: number;
@@ -81,6 +91,7 @@ type Character = {
   };
   abilityScores: AbilityScore[];
   skills: CharacterSkill[];
+  proficiencies: CharacterProficiency[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];
 };
@@ -89,6 +100,7 @@ export type {
   AbilityScore,
   Character,
   CharacterAbilityScoresInput,
+  CharacterProficiency,
   CharacterSavePayload,
   CharacterSkill,
   DiceRoll,

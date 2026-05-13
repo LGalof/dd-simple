@@ -3,12 +3,15 @@ import { Card } from "../../../components/ui/Card";
 import { StatBox } from "../../../components/ui/StatBox";
 import type { Character } from "../../../types/character";
 import {
-  abilityModifier,
+  calculateAbilityModifier,
+  calculateInitiative,
+  calculatePassivePerception,
+  calculateProficiencyBonus,
+  calculateSavingThrowBonus,
   calculateSkillBonus,
-  formatAlignment,
-  formatModifier,
-  proficiencyBonus,
-} from "../utils/characterFormat";
+  formatSignedModifier,
+} from "../utils/characterCalculations";
+import { formatAlignment } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
   character: Character;
@@ -39,11 +42,28 @@ const skillOrder = [
 function CharacterSheet({ character }: CharacterSheetProps) {
   const equippedItems = character.inventory.filter((item) => item.equipped);
   const inventoryItems = character.inventory.filter((item) => !item.equipped);
-  const characterProficiencyBonus = proficiencyBonus(character.level);
+  const characterProficiencyBonus = calculateProficiencyBonus(character.level);
   const dexterityScore = character.abilityScores.find(
     (abilityScore) => abilityScore.abilityIndex === "dex",
   );
-  const initiativeModifier = dexterityScore ? abilityModifier(dexterityScore.score) : 0;
+  const perceptionSkill = character.skills.find(
+    (characterSkill) => characterSkill.skillIndex === "perception",
+  );
+  const perceptionAbilityScore = character.abilityScores.find(
+    (abilityScore) => abilityScore.abilityIndex === perceptionSkill?.skill.ability.index,
+  );
+  const proficiencyIndexes = character.proficiencies.map(
+    (characterProficiency) => characterProficiency.proficiencyIndex,
+  );
+  const initiativeModifier = calculateInitiative(dexterityScore?.score ?? 10);
+  const passivePerception = perceptionSkill
+    ? calculatePassivePerception({
+        abilityScore: perceptionAbilityScore?.score ?? 10,
+        characterLevel: character.level,
+        customBonus: perceptionSkill.customBonus,
+        isProficient: perceptionSkill.isProficient,
+      })
+    : 10;
   const sortedAbilityScores = [...character.abilityScores].sort(
     (leftAbility, rightAbility) =>
       abilityOrder.indexOf(leftAbility.abilityIndex) -
@@ -84,9 +104,10 @@ function CharacterSheet({ character }: CharacterSheetProps) {
         <StatBox label="Level" value={character.level} />
         <StatBox label="HP" value={`${character.currentHp}/${character.maxHp}`} />
         <StatBox label="AC" value={character.armorClass} />
+        <StatBox label="Initiative" value={formatSignedModifier(initiativeModifier)} />
         <StatBox label="Speed" value={`${character.speed} ft`} />
-        <StatBox label="Proficiency" value={formatModifier(characterProficiencyBonus)} />
-        <StatBox label="Initiative" value={formatModifier(initiativeModifier)} />
+        <StatBox label="Proficiency" value={formatSignedModifier(characterProficiencyBonus)} />
+        <StatBox label="Passive Perception" value={passivePerception} />
         <StatBox label="Alignment" value={formatAlignment(character.alignment)} />
       </div>
 
@@ -94,13 +115,30 @@ function CharacterSheet({ character }: CharacterSheetProps) {
         <Card title="Ability Scores">
           <div className="ability-grid">
             {sortedAbilityScores.map((abilityScore) => {
-              const modifier = abilityModifier(abilityScore.score);
+              const modifier = calculateAbilityModifier(abilityScore.score);
+              const savingThrowBonus = calculateSavingThrowBonus({
+                abilityIndex: abilityScore.abilityIndex,
+                abilityScore: abilityScore.score,
+                characterLevel: character.level,
+                proficiencyIndexes,
+              });
+              const isSavingThrowProficient = proficiencyIndexes.includes(
+                `saving-throw-${abilityScore.abilityIndex}`,
+              );
 
               return (
                 <div key={abilityScore.abilityIndex} className="ability-card">
                   <strong>{abilityScore.ability.name}</strong>
                   <span className="ability-score">{abilityScore.score}</span>
-                  <span>{formatModifier(modifier)}</span>
+                  <span className="ability-card-detail">
+                    Mod {formatSignedModifier(modifier)}
+                  </span>
+                  {savingThrowBonus !== modifier && (
+                    <span className="ability-save">
+                      Save {formatSignedModifier(savingThrowBonus)}
+                      {isSavingThrowProficient && <span className="tag">Proficient</span>}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -123,7 +161,7 @@ function CharacterSheet({ character }: CharacterSheetProps) {
               return (
                 <div key={characterSkill.skillIndex} className="list-row">
                   <span>
-                    {characterSkill.skill.name} {formatModifier(total)}{" "}
+                    {characterSkill.skill.name} {formatSignedModifier(total)}{" "}
                     <span className="muted">({characterSkill.skill.ability.name})</span>
                     {characterSkill.isProficient && (
                       <strong className="tag">Proficient</strong>
