@@ -6,10 +6,11 @@ import { useCharacters } from "../features/characters/hooks/useCharacters";
 import { Link } from "react-router-dom";
 
 function MyCharactersPage() {
-  const { characters, loading, error } = useCharacters();
+  const { characters, deletingCharacterId, loading, error, removeCharacter } = useCharacters();
   const [searchValue, setSearchValue] = useState("");
   const [sortValue, setSortValue] = useState("created-oldest");
   const slotLimit = 6;
+  const hasBlockingError = Boolean(error && characters.length === 0);
 
   const visibleCharacters = useMemo(() => {
     const normalizedQuery = searchValue.trim().toLowerCase();
@@ -51,6 +52,16 @@ function MyCharactersPage() {
       }
     });
   }, [characters, searchValue, sortValue]);
+
+  function handleDeleteCharacter(characterId: string, characterName: string) {
+    const confirmed = window.confirm(`Delete ${characterName}? This cannot be undone.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    void removeCharacter(characterId);
+  }
 
   return (
     <AppLayout>
@@ -118,9 +129,9 @@ function MyCharactersPage() {
           </div>
         )}
 
-        {!loading && !error && characters.length === 0 && <CharactersEmptyState />}
+        {!loading && !hasBlockingError && characters.length === 0 && <CharactersEmptyState />}
 
-        {!loading && !error && characters.length > 0 && visibleCharacters.length === 0 && (
+        {!loading && !hasBlockingError && characters.length > 0 && visibleCharacters.length === 0 && (
           <div className="page-placeholder-card">
             <h2>No matching characters</h2>
             <p className="muted">
@@ -129,10 +140,15 @@ function MyCharactersPage() {
           </div>
         )}
 
-        {!loading && !error && visibleCharacters.length > 0 && (
+        {!loading && !hasBlockingError && visibleCharacters.length > 0 && (
           <div className="character-summary-grid">
             {visibleCharacters.map((character) => (
-              <CharacterSummaryCard key={character.id} character={character} />
+              <CharacterSummaryCard
+                key={character.id}
+                character={character}
+                deleting={deletingCharacterId === character.id}
+                onDelete={() => handleDeleteCharacter(character.id, character.name)}
+              />
             ))}
           </div>
         )}

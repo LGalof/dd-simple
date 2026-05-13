@@ -5,7 +5,16 @@ type CreateCharacterData = {
   speciesIndex: string;
   classIndex: string;
   backgroundIndex: string;
+  alignment: string | null;
   skillIndexes: string[];
+  abilityScores: {
+    str: number;
+    dex: number;
+    con: number;
+    int: number;
+    wis: number;
+    cha: number;
+  };
 };
 
 class CharacterReferenceNotFoundError extends Error {
@@ -51,6 +60,10 @@ const characterInclude = {
     },
   },
 };
+
+function getAbilityModifier(score: number) {
+  return Math.floor((score - 10) / 2);
+}
 
 async function findAllCharacters() {
   return prisma.character.findMany({
@@ -98,9 +111,11 @@ async function findAllCharacters() {
 
 async function createCharacterForUser(userId: string, data: CreateCharacterData) {
   const selectedSkillIndexes = new Set(data.skillIndexes);
+  const conModifier = getAbilityModifier(data.abilityScores.con);
+  const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
   return prisma.$transaction(async (tx) => {
-    const [species, characterClass, background, abilityScores, skills, selectedProficiencies] =
+    const [species, characterClass, background, skills, selectedProficiencies] =
       await Promise.all([
         tx.refSpecies.findUnique({
           where: {
@@ -117,7 +132,6 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
             index: data.backgroundIndex,
           },
         }),
-        tx.refAbilityScore.findMany(),
         tx.refSkill.findMany(),
         tx.refProficiency.findMany({
           where: {
@@ -149,6 +163,8 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const maxHp = Math.max(1, characterClass.hitDie + conModifier);
+
     return tx.character.create({
       data: {
         userId,
@@ -158,16 +174,38 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         backgroundIndex: data.backgroundIndex,
         level: 1,
         experiencePoints: 0,
-        alignment: null,
-        maxHp: characterClass.hitDie,
-        currentHp: characterClass.hitDie,
-        armorClass: 10,
+        alignment: data.alignment,
+        maxHp,
+        currentHp: maxHp,
+        armorClass: 10 + dexModifier,
         speed: species.baseSpeed,
         abilityScores: {
-          create: abilityScores.map((abilityScore) => ({
-            abilityIndex: abilityScore.index,
-            score: 10,
-          })),
+          create: [
+            {
+              abilityIndex: "str",
+              score: data.abilityScores.str,
+            },
+            {
+              abilityIndex: "dex",
+              score: data.abilityScores.dex,
+            },
+            {
+              abilityIndex: "con",
+              score: data.abilityScores.con,
+            },
+            {
+              abilityIndex: "int",
+              score: data.abilityScores.int,
+            },
+            {
+              abilityIndex: "wis",
+              score: data.abilityScores.wis,
+            },
+            {
+              abilityIndex: "cha",
+              score: data.abilityScores.cha,
+            },
+          ],
         },
         skills: {
           create: skills.map((skill) => ({
@@ -188,6 +226,17 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
   });
 }
 
+async function deleteCharacterForUser(userId: string, id: string) {
+  const result = await prisma.character.deleteMany({
+    where: {
+      id,
+      userId,
+    },
+  });
+
+  return result.count > 0;
+}
+
 async function findCharacterById(id: string) {
   return prisma.character.findUnique({
     where: {
@@ -200,6 +249,7 @@ async function findCharacterById(id: string) {
 export {
   CharacterReferenceNotFoundError,
   createCharacterForUser,
+  deleteCharacterForUser,
   findAllCharacters,
   findCharacterById,
 };

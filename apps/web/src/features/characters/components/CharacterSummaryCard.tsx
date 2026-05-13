@@ -2,9 +2,15 @@ import type { Character } from "../../../types/character";
 
 type CharacterSummaryCardProps = {
   character: Character;
+  deleting?: boolean;
+  onDelete: (character: Character) => void;
 };
 
-function CharacterSummaryCard({ character }: CharacterSummaryCardProps) {
+function CharacterSummaryCard({
+  character,
+  deleting = false,
+  onDelete,
+}: CharacterSummaryCardProps) {
   const initials = character.name.slice(0, 1).toUpperCase();
   const speciesName = character.species.name;
   const className = character.class.name;
@@ -31,8 +37,13 @@ function CharacterSummaryCard({ character }: CharacterSummaryCardProps) {
         <button type="button" className="secondary-button">
           Edit
         </button>
-        <button type="button" className="secondary-button secondary-button-danger">
-          Delete
+        <button
+          type="button"
+          className="secondary-button secondary-button-danger"
+          disabled={deleting}
+          onClick={() => onDelete(character)}
+        >
+          {deleting ? "Deleting..." : "Delete"}
         </button>
       </div>
     </article>

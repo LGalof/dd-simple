@@ -4,6 +4,7 @@ import type {
   ReferenceAbilityScore,
   ReferenceBackground,
   ReferenceClass,
+  ReferenceRuleDocument,
   ReferenceSkill,
   ReferenceSpecies,
 } from "../../../types/reference";
@@ -28,13 +29,18 @@ async function fetchBackgrounds() {
   return api.get<ReferenceBackground[]>("/references/backgrounds");
 }
 
+async function fetchAlignments() {
+  return api.get<ReferenceRuleDocument[]>("/references/rules/alignments");
+}
+
 async function fetchCharacterCreatorReferences(): Promise<CharacterCreatorReferences> {
-  const [abilityScores, skills, species, classes, backgrounds] = await Promise.all([
+  const [abilityScores, skills, species, classes, backgrounds, alignments] = await Promise.all([
     fetchAbilityScores(),
     fetchSkills(),
     fetchSpecies(),
     fetchClasses(),
     fetchBackgrounds(),
+    fetchAlignments(),
   ]);
 
   return {
@@ -43,11 +49,13 @@ async function fetchCharacterCreatorReferences(): Promise<CharacterCreatorRefere
     species,
     classes,
     backgrounds,
+    alignments,
   };
 }
 
 export {
   fetchAbilityScores,
+  fetchAlignments,
   fetchBackgrounds,
   fetchCharacterCreatorReferences,
   fetchClasses,

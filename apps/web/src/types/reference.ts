@@ -33,12 +33,20 @@ type ReferenceBackground = {
   description?: string | null;
 };
 
+type ReferenceRuleDocument = {
+  category: string;
+  index: string;
+  name?: string | null;
+  sourceJson?: unknown;
+};
+
 type CharacterCreatorReferences = {
   abilityScores: ReferenceAbilityScore[];
   skills: ReferenceSkill[];
   species: ReferenceSpecies[];
   classes: ReferenceClass[];
   backgrounds: ReferenceBackground[];
+  alignments: ReferenceRuleDocument[];
 };
 
 export type {
@@ -46,6 +54,7 @@ export type {
   ReferenceAbilityScore,
   ReferenceBackground,
   ReferenceClass,
+  ReferenceRuleDocument,
   ReferenceSkill,
   ReferenceSpecies,
 };

@@ -6,7 +6,16 @@ type CreateCharacterPayload = {
   speciesIndex: string;
   classIndex: string;
   backgroundIndex: string;
+  alignment: string | null;
   skillIndexes: string[];
+  abilityScores: {
+    str: number;
+    dex: number;
+    con: number;
+    int: number;
+    wis: number;
+    cha: number;
+  };
 };
 
 async function createCharacter(payload: CreateCharacterPayload) {

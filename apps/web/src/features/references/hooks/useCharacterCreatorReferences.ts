@@ -5,6 +5,7 @@ import type {
   ReferenceAbilityScore,
   ReferenceBackground,
   ReferenceClass,
+  ReferenceRuleDocument,
   ReferenceSkill,
   ReferenceSpecies,
 } from "../../../types/reference";
@@ -36,13 +37,14 @@ function useCharacterCreatorReferences(): UseCharacterCreatorReferencesResult {
   useEffect(() => {
     async function fetchReferences() {
       try {
-        const [abilityScores, skills, species, classes, backgrounds] =
+        const [abilityScores, skills, species, classes, backgrounds, alignments] =
           await Promise.all([
             api.get<ReferenceAbilityScore[]>("/references/ability-scores"),
             api.get<ReferenceSkill[]>("/references/skills"),
             api.get<ReferenceSpecies[]>("/references/species"),
             api.get<ReferenceClass[]>("/references/classes"),
             api.get<ReferenceBackground[]>("/references/backgrounds"),
+            api.get<ReferenceRuleDocument[]>("/references/rules/alignments"),
           ]);
 
         setState({
@@ -52,6 +54,7 @@ function useCharacterCreatorReferences(): UseCharacterCreatorReferencesResult {
             species,
             classes,
             backgrounds,
+            alignments,
           },
           loading: false,
           error: null,

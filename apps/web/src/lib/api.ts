@@ -40,7 +40,18 @@ async function post<TResponse, TBody>(path: string, body: TBody) {
   return (await response.json()) as TResponse;
 }
 
+async function deleteRequest(path: string) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+}
+
 const api = {
+  delete: deleteRequest,
   get,
   post,
 };

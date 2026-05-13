@@ -4,6 +4,35 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { createCharacter } from "../features/characters/api/createCharacter";
 import { useCharacterCreatorReferences } from "../features/references/hooks/useCharacterCreatorReferences";
 
+type AbilityScoreKey = "str" | "dex" | "con" | "int" | "wis" | "cha";
+
+const abilityScoreFields: { key: AbilityScoreKey; label: string }[] = [
+  {
+    key: "str",
+    label: "STR",
+  },
+  {
+    key: "dex",
+    label: "DEX",
+  },
+  {
+    key: "con",
+    label: "CON",
+  },
+  {
+    key: "int",
+    label: "INT",
+  },
+  {
+    key: "wis",
+    label: "WIS",
+  },
+  {
+    key: "cha",
+    label: "CHA",
+  },
+];
+
 function CreateCharacterPage() {
   const { references, loading, error } = useCharacterCreatorReferences();
   const navigate = useNavigate();
@@ -12,7 +41,16 @@ function CreateCharacterPage() {
   const [speciesIndex, setSpeciesIndex] = useState("");
   const [classIndex, setClassIndex] = useState("");
   const [backgroundIndex, setBackgroundIndex] = useState("");
+  const [alignment, setAlignment] = useState("");
   const [selectedSkillIndexes, setSelectedSkillIndexes] = useState<string[]>([]);
+  const [abilityScores, setAbilityScores] = useState<Record<AbilityScoreKey, number>>({
+    str: 10,
+    dex: 10,
+    con: 10,
+    int: 10,
+    wis: 10,
+    cha: 10,
+  });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -30,6 +68,27 @@ function CreateCharacterPage() {
     () => references?.backgrounds.find((item: { index: string }) => item.index === backgroundIndex),
     [references, backgroundIndex],
   );
+
+  const selectedAlignment = useMemo(
+    () => references?.alignments.find((item) => item.index === alignment),
+    [references, alignment],
+  );
+
+  const conModifier = Math.floor((abilityScores.con - 10) / 2);
+  const dexModifier = Math.floor((abilityScores.dex - 10) / 2);
+  const previewMaxHp = selectedClass
+    ? Math.max(1, selectedClass.hitDie + conModifier)
+    : null;
+  const previewArmorClass = 10 + dexModifier;
+
+  function updateAbilityScore(ability: AbilityScoreKey, value: number) {
+    const nextValue = Number.isNaN(value) ? 10 : Math.min(20, Math.max(3, value));
+
+    setAbilityScores((currentScores) => ({
+      ...currentScores,
+      [ability]: nextValue,
+    }));
+  }
 
   function toggleSkill(skillIndex: string) {
     setSelectedSkillIndexes((currentSkills) => {
@@ -58,7 +117,9 @@ function CreateCharacterPage() {
         speciesIndex,
         classIndex,
         backgroundIndex,
+        alignment: alignment || null,
         skillIndexes: selectedSkillIndexes,
+        abilityScores,
       });
 
       navigate("/characters");
@@ -168,6 +229,51 @@ function CreateCharacterPage() {
                 </select>
               </label>
 
+              <label className="characters-select-field">
+                <span className="characters-control-label">Alignment</span>
+                <select
+                  value={alignment}
+                  onChange={(event) => setAlignment(event.target.value)}
+                  className="characters-select-input"
+                  disabled={saving}
+                >
+                  <option value="">No alignment</option>
+                  {references.alignments.map((alignmentOption) => (
+                    <option key={alignmentOption.index} value={alignmentOption.index}>
+                      {alignmentOption.name ?? alignmentOption.index}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div>
+                <span className="characters-control-label">Ability Scores</span>
+                <div className="character-summary-grid">
+                  {abilityScoreFields.map((abilityScoreField) => (
+                    <label key={abilityScoreField.key} className="characters-search-field">
+                      <span className="characters-control-label">
+                        {abilityScoreField.label}
+                      </span>
+                      <input
+                        type="number"
+                        min={3}
+                        max={20}
+                        value={abilityScores[abilityScoreField.key]}
+                        onChange={(event) =>
+                          updateAbilityScore(
+                            abilityScoreField.key,
+                            event.currentTarget.valueAsNumber,
+                          )
+                        }
+                        className="characters-search-input"
+                        disabled={saving}
+                        required
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <span className="characters-control-label">Skill Proficiencies</span>
                 <div className="character-summary-grid">
@@ -203,6 +309,17 @@ function CreateCharacterPage() {
                 <p>
                   <strong>Background:</strong>{" "}
                   {selectedBackground?.name ?? "Not selected"}
+                </p>
+                <p>
+                  <strong>Alignment:</strong>{" "}
+                  {selectedAlignment?.name ?? "None"}
+                </p>
+                <p>
+                  <strong>HP:</strong>{" "}
+                  {previewMaxHp === null ? "Choose a class" : previewMaxHp}
+                </p>
+                <p>
+                  <strong>Armor Class:</strong> {previewArmorClass}
                 </p>
                 <p>
                   <strong>Selected skills:</strong>{" "}
