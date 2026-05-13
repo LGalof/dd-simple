@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 
 type CharacterMutationData = {
@@ -145,7 +146,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
   const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const [species, characterClass, background, skills, selectedProficiencies] =
       await Promise.all([
         tx.refSpecies.findUnique({
@@ -241,7 +242,7 @@ async function updateCharacterForUser(
   const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existingCharacter = await tx.character.findFirst({
       where: {
         id: characterId,
