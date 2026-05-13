@@ -1,5 +1,9 @@
-import type { Prisma, RefProficiency, RefSkill } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
+
+type ReferenceIndexRecord = {
+  index: string;
+};
 
 type CharacterMutationData = {
   name: string;
@@ -187,7 +191,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
     }
 
     const existingSkillIndexes = new Set(
-      skills.map((skill: RefSkill) => skill.index),
+      skills.map((skill: ReferenceIndexRecord) => skill.index),
     );
     const invalidSkillIndexes = data.skillIndexes.filter(
       (skillIndex) => !existingSkillIndexes.has(skillIndex),
@@ -217,14 +221,14 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
           create: abilityScoreRows(data),
         },
         skills: {
-          create: skills.map((skill: RefSkill) => ({
+          create: skills.map((skill: ReferenceIndexRecord) => ({
             skillIndex: skill.index,
             isProficient: selectedSkillIndexes.has(skill.index),
             customBonus: 0,
           })),
         },
         proficiencies: {
-          create: selectedProficiencies.map((proficiency: RefProficiency) => ({
+          create: selectedProficiencies.map((proficiency: ReferenceIndexRecord) => ({
             proficiencyIndex: proficiency.index,
             sourceType: "manual",
           })),
@@ -296,7 +300,7 @@ async function updateCharacterForUser(
     }
 
     const existingSkillIndexes = new Set(
-      skills.map((skill: RefSkill) => skill.index),
+      skills.map((skill: ReferenceIndexRecord) => skill.index),
     );
     const invalidSkillIndexes = data.skillIndexes.filter(
       (skillIndex) => !existingSkillIndexes.has(skillIndex),
@@ -351,7 +355,7 @@ async function updateCharacterForUser(
     );
 
     await Promise.all(
-      skills.map((skill: RefSkill) =>
+      skills.map((skill: ReferenceIndexRecord) =>
         tx.characterSkill.upsert({
           where: {
             characterId_skillIndex: {
@@ -384,7 +388,7 @@ async function updateCharacterForUser(
 
     if (selectedProficiencies.length > 0) {
       await tx.characterProficiency.createMany({
-        data: selectedProficiencies.map((proficiency: RefProficiency) => ({
+        data: selectedProficiencies.map((proficiency: ReferenceIndexRecord) => ({
           characterId,
           proficiencyIndex: proficiency.index,
           sourceType: "manual",
