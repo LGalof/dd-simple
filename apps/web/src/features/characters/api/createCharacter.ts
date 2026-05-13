@@ -1,26 +1,8 @@
 import { api } from "../../../lib/api";
-import type { Character } from "../../../types/character";
+import type { Character, CharacterSavePayload } from "../../../types/character";
 
-type CreateCharacterPayload = {
-  name: string;
-  speciesIndex: string;
-  classIndex: string;
-  backgroundIndex: string;
-  alignment: string | null;
-  skillIndexes: string[];
-  abilityScores: {
-    str: number;
-    dex: number;
-    con: number;
-    int: number;
-    wis: number;
-    cha: number;
-  };
-};
-
-async function createCharacter(payload: CreateCharacterPayload) {
-  return api.post<Character, CreateCharacterPayload>("/characters", payload);
+async function createCharacter(payload: CharacterSavePayload) {
+  return api.post<Character, CharacterSavePayload>("/characters", payload);
 }
 
 export { createCharacter };
-export type { CreateCharacterPayload };

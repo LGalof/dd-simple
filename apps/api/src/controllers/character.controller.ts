@@ -6,6 +6,7 @@ import {
   deleteCharacterForUser,
   findAllCharacters,
   findCharacterById,
+  updateCharacterForUser,
 } from "../services/character.service.js";
 
 const DEMO_USER_EMAIL = "demo@ddsimple.local";
@@ -14,7 +15,7 @@ const ABILITY_SCORE_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
 type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
 type AbilityScoreRequestBody = Record<AbilityScoreKey, number>;
 
-type CreateCharacterRequestBody = {
+type CharacterMutationRequestBody = {
   name?: unknown;
   speciesIndex?: unknown;
   classIndex?: unknown;
@@ -24,7 +25,7 @@ type CreateCharacterRequestBody = {
   abilityScores?: unknown;
 };
 
-type ValidCreateCharacterRequestBody = {
+type ValidCharacterMutationRequestBody = {
   name: string;
   speciesIndex: string;
   classIndex: string;
@@ -53,14 +54,14 @@ function isAbilityScoresBody(value: unknown): value is AbilityScoreRequestBody {
   });
 }
 
-function isCreateCharacterRequestBody(
+function isCharacterMutationRequestBody(
   body: unknown,
-): body is ValidCreateCharacterRequestBody {
+): body is ValidCharacterMutationRequestBody {
   if (!body || typeof body !== "object") {
     return false;
   }
 
-  const candidate = body as CreateCharacterRequestBody;
+  const candidate = body as CharacterMutationRequestBody;
 
   return (
     typeof candidate.name === "string" &&
@@ -145,7 +146,7 @@ async function createCharacter(req: Request, res: Response) {
   try {
     const body = req.body;
 
-    if (!isCreateCharacterRequestBody(body)) {
+    if (!isCharacterMutationRequestBody(body)) {
       res.status(400).json({
         error:
           "Request body must include name, speciesIndex, classIndex, backgroundIndex, skillIndexes, and abilityScores from 3 to 20",
@@ -196,6 +197,77 @@ async function createCharacter(req: Request, res: Response) {
   }
 }
 
+async function updateCharacter(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const body = req.body;
+
+    if (!isCharacterMutationRequestBody(body)) {
+      res.status(400).json({
+        error:
+          "Request body must include name, speciesIndex, classIndex, backgroundIndex, skillIndexes, and abilityScores from 3 to 20",
+      });
+      return;
+    }
+
+    const demoUser = await findDemoUser();
+
+    if (!demoUser) {
+      res.status(404).json({
+        error: "Demo user not found",
+      });
+      return;
+    }
+
+    const character = await updateCharacterForUser(demoUser.id, id, {
+      name: body.name.trim(),
+      speciesIndex: body.speciesIndex.trim(),
+      classIndex: body.classIndex.trim(),
+      backgroundIndex: body.backgroundIndex.trim(),
+      alignment: body.alignment?.trim() || null,
+      skillIndexes: body.skillIndexes,
+      abilityScores: body.abilityScores,
+    });
+
+    if (!character) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(character);
+  } catch (error) {
+    if (error instanceof CharacterReferenceNotFoundError) {
+      res.status(404).json({
+        error: error.message,
+      });
+      return;
+    }
+
+    if (isUniqueConstraintError(error)) {
+      res.status(400).json({
+        error: "A character with this name already exists for the demo user",
+      });
+      return;
+    }
+
+    console.error("Failed to update character:", error);
+
+    res.status(500).json({
+      error: "Failed to update character",
+    });
+  }
+}
+
 async function deleteCharacter(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -235,4 +307,10 @@ async function deleteCharacter(req: Request, res: Response) {
   }
 }
 
-export { createCharacter, deleteCharacter, getCharacterById, getCharacters };
+export {
+  createCharacter,
+  deleteCharacter,
+  getCharacterById,
+  getCharacters,
+  updateCharacter,
+};

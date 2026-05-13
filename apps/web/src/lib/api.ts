@@ -40,6 +40,22 @@ async function post<TResponse, TBody>(path: string, body: TBody) {
   return (await response.json()) as TResponse;
 }
 
+async function patch<TResponse, TBody>(path: string, body: TBody) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseErrorMessage(response));
+  }
+
+  return (await response.json()) as TResponse;
+}
+
 async function deleteRequest(path: string) {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "DELETE",
@@ -53,6 +69,7 @@ async function deleteRequest(path: string) {
 const api = {
   delete: deleteRequest,
   get,
+  patch,
   post,
 };
 

@@ -391,8 +391,12 @@ h1 {
 }
 
 .characters-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   align-self: end;
   min-height: 56px;
+  padding: 0 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
   background: rgba(31, 41, 55, 0.78);
@@ -400,15 +404,20 @@ h1 {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .primary-button,
 .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 999px;
   padding: 0.8rem 1.1rem;
   font: inherit;
   cursor: pointer;
+  text-decoration: none;
   transition:
     transform 160ms ease,
     opacity 160ms ease,

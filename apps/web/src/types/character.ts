@@ -4,6 +4,25 @@ type Ability = {
   fullName?: string;
 };
 
+type CharacterAbilityScoresInput = {
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+};
+
+type CharacterSavePayload = {
+  name: string;
+  speciesIndex: string;
+  classIndex: string;
+  backgroundIndex: string;
+  alignment: string | null;
+  skillIndexes: string[];
+  abilityScores: CharacterAbilityScoresInput;
+};
+
 type AbilityScore = {
   abilityIndex: string;
   score: number;
@@ -40,6 +59,9 @@ type DiceRoll = {
 type Character = {
   id: string;
   createdAt: string;
+  speciesIndex: string;
+  classIndex: string;
+  backgroundIndex: string;
   name: string;
   level: number;
   experiencePoints: number;
@@ -63,4 +85,12 @@ type Character = {
   diceRolls: DiceRoll[];
 };
 
-export type { AbilityScore, Character, CharacterSkill, DiceRoll, InventoryItem };
+export type {
+  AbilityScore,
+  Character,
+  CharacterAbilityScoresInput,
+  CharacterSavePayload,
+  CharacterSkill,
+  DiceRoll,
+  InventoryItem,
+};

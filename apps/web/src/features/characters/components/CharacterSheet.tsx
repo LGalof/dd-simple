@@ -4,6 +4,7 @@ import type { Character } from "../../../types/character";
 import {
   abilityModifier,
   calculateSkillBonus,
+  formatAlignment,
   formatModifier,
   proficiencyBonus,
 } from "../utils/characterFormat";
@@ -73,7 +74,7 @@ function CharacterSheet({ character }: CharacterSheetProps) {
         <StatBox label="Speed" value={`${character.speed} ft`} />
         <StatBox label="Proficiency" value={formatModifier(characterProficiencyBonus)} />
         <StatBox label="Initiative" value={formatModifier(initiativeModifier)} />
-        <StatBox label="Alignment" value={character.alignment ?? "-"} />
+        <StatBox label="Alignment" value={formatAlignment(character.alignment)} />
       </div>
 
       <div className="content-grid">

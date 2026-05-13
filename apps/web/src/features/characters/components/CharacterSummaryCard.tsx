@@ -1,4 +1,6 @@
+import { Link } from "react-router-dom";
 import type { Character } from "../../../types/character";
+import { formatAlignment } from "../utils/characterFormat";
 
 type CharacterSummaryCardProps = {
   character: Character;
@@ -14,7 +16,11 @@ function CharacterSummaryCard({
   const initials = character.name.slice(0, 1).toUpperCase();
   const speciesName = character.species.name;
   const className = character.class.name;
-  const alignment = character.alignment ?? "No alignment";
+  const alignment = formatAlignment(character.alignment);
+
+  function rememberSelectedCharacter() {
+    localStorage.setItem("lastSelectedCharacterId", character.id);
+  }
 
   return (
     <article className="character-summary-card">
@@ -45,12 +51,16 @@ function CharacterSummaryCard({
       </div>
 
       <div className="character-summary-actions">
-        <button type="button" className="secondary-button">
-          View
-        </button>
-        <button type="button" className="secondary-button">
+        <Link
+          to={`/characters/${character.id}`}
+          className="secondary-button"
+          onClick={rememberSelectedCharacter}
+        >
+          Open Sheet
+        </Link>
+        <Link to={`/characters/${character.id}/edit`} className="secondary-button">
           Edit
-        </button>
+        </Link>
         <button
           type="button"
           className="secondary-button secondary-button-danger"

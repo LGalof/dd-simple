@@ -6,6 +6,18 @@ function formatModifier(value: number) {
   return value >= 0 ? `+${value}` : `${value}`;
 }
 
+function formatAlignment(alignment?: string | null) {
+  if (!alignment?.trim()) {
+    return "Not selected";
+  }
+
+  return alignment
+    .split("-")
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
+
 function proficiencyBonus(level: number) {
   if (level >= 17) {
     return 6;
@@ -44,4 +56,10 @@ function calculateSkillBonus({
   );
 }
 
-export { abilityModifier, calculateSkillBonus, formatModifier, proficiencyBonus };
+export {
+  abilityModifier,
+  calculateSkillBonus,
+  formatAlignment,
+  formatModifier,
+  proficiencyBonus,
+};

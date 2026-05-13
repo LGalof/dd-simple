@@ -2,16 +2,18 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { CharacterDashboardPage } from "./pages/CharacterDashboardPage";
 import { MyCharactersPage } from "./pages/MyCharactersPage";
 import { CreateCharacterPage } from "./pages/CreateCharacterPage";
+import { EditCharacterPage } from "./pages/EditCharacterPage";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<CharacterDashboardPage />} />
+        <Route path="/" element={<Navigate to="/characters" replace />} />
         <Route path="/characters" element={<MyCharactersPage />} />
         <Route path="/characters/new" element={<CreateCharacterPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-
+        <Route path="/characters/:characterId" element={<CharacterDashboardPage />} />
+        <Route path="/characters/:characterId/edit" element={<EditCharacterPage />} />
+        <Route path="*" element={<Navigate to="/characters" replace />} />
       </Routes>
     </BrowserRouter>
   );
