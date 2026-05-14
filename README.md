@@ -94,3 +94,10 @@ This initial setup includes:
 - basic CI workflow
 
 Business features, authentication, and realtime functionality are intentionally deferred.
+
+## Acknowledgements
+
+The project uses D&D 5e reference data from the open-source 5e-bits/5e-database project.
+
+Source:
+https://github.com/5e-bits/5e-database
