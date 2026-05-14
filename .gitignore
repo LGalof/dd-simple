@@ -53,7 +53,7 @@ $RECYCLE.BIN/
 
 # Local database/data files
 postgres_data/
-data/
+/data/
 *.sqlite
 *.sqlite3
 *.db
