@@ -1,66 +1,10 @@
-type Ability = {
-  index: string;
-  name: string;
-  fullName?: string;
-};
-
-type AbilityScore = {
-  abilityIndex: string;
-  score: number;
-  ability: Ability;
-};
-
-type CharacterSkill = {
-  skillIndex: string;
-  isProficient: boolean;
-  customBonus: number;
-  skill: {
-    name: string;
-    ability: Ability;
-  };
-};
-
-type InventoryItem = {
-  id: string;
-  quantity: number;
-  equipped: boolean;
-  equipment: {
-    name: string;
-  };
-};
-
-type DiceRoll = {
-  id: string;
-  rollType: string;
-  formula: string;
-  total: number;
-  reason: string | null;
-};
-
-type Character = {
-  id: string;
-  createdAt: string;
-  name: string;
-  level: number;
-  experiencePoints: number;
-  alignment: string | null;
-  maxHp: number;
-  currentHp: number;
-  armorClass: number;
-  speed: number;
-  species: {
-    name: string;
-  };
-  class: {
-    name: string;
-  };
-  background: {
-    name: string;
-  };
-  abilityScores: AbilityScore[];
-  skills: CharacterSkill[];
-  inventory: InventoryItem[];
-  diceRolls: DiceRoll[];
-};
-
-export type { AbilityScore, Character, CharacterSkill, DiceRoll, InventoryItem };
+export type {
+  AbilityScore,
+  AbilityScores,
+  Character,
+  CharacterProficiency,
+  CharacterSavePayload,
+  CharacterSkill,
+  DiceRoll,
+  InventoryItem,
+} from "@dd-simple/shared";
