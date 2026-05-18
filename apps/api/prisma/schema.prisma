@@ -12,6 +12,7 @@ model User {
   id          String      @id @default(uuid()) @db.Uuid
   email       String      @unique
   displayName String?
+  passwordHash String?
 
   characters  Character[]
   diceRolls   DiceRoll[]  @relation("DiceRollUser")

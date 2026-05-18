@@ -4,13 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "dev": "../../.tools/node22/node.exe ../../node_modules/tsx/dist/cli.mjs src/index.ts",
+    "build": "../../.tools/node22/node.exe ../../node_modules/typescript/bin/tsc -p tsconfig.json",
+    "start": "../../.tools/node22/node.exe dist/index.js",
+    "prisma:generate": "../../.tools/node22/node.exe ../../node_modules/prisma/build/index.js generate",
+    "prisma:migrate": "../../.tools/node22/node.exe ../../node_modules/prisma/build/index.js migrate dev",
+    "prisma:studio": "../../.tools/node22/node.exe ../../node_modules/prisma/build/index.js studio",
+    "prisma:seed": "../../.tools/node22/node.exe ../../node_modules/tsx/dist/cli.mjs prisma/seed.ts"
   },
 
   "dependencies": {
@@ -28,8 +28,6 @@
     "typescript": "^5.6.3"
   },
   "prisma": {
-  "seed": "tsx prisma/seed.ts"
+  "seed": "../../.tools/node22/node.exe ../../node_modules/tsx/dist/cli.mjs prisma/seed.ts"
 }
 }
-
-

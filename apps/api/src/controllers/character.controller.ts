@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { prisma } from "../lib/prisma.js";
+import { getAuthenticatedUser } from "../middleware/auth.js";
 import {
   CharacterReferenceNotFoundError,
   createCharacterForUser,
@@ -9,7 +9,6 @@ import {
   updateCharacterForUser,
 } from "../services/character.service.js";
 
-const DEMO_USER_EMAIL = "demo@ddsimple.local";
 const ABILITY_SCORE_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
 type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
@@ -90,26 +89,9 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
-async function findDemoUser() {
-  return prisma.user.findUnique({
-    where: {
-      email: DEMO_USER_EMAIL,
-    },
-  });
-}
-
-async function getCharacters(_req: Request, res: Response) {
+async function getCharacters(req: Request, res: Response) {
   try {
-    const demoUser = await findDemoUser();
-
-    if (!demoUser) {
-      res.status(404).json({
-        error: "Demo user not found",
-      });
-      return;
-    }
-
-    const characters = await findAllCharactersForUser(demoUser.id);
+    const characters = await findAllCharactersForUser(getAuthenticatedUser(req).id);
 
     res.json(characters);
   } catch (error) {
@@ -132,16 +114,10 @@ async function getCharacterById(req: Request, res: Response) {
       return;
     }
 
-    const demoUser = await findDemoUser();
-
-    if (!demoUser) {
-      res.status(404).json({
-        error: "Demo user not found",
-      });
-      return;
-    }
-
-    const character = await findCharacterByIdForUser(demoUser.id, id);
+    const character = await findCharacterByIdForUser(
+      getAuthenticatedUser(req).id,
+      id,
+    );
 
     if (!character) {
       res.status(404).json({
@@ -172,16 +148,7 @@ async function createCharacter(req: Request, res: Response) {
       return;
     }
 
-    const demoUser = await findDemoUser();
-
-    if (!demoUser) {
-      res.status(404).json({
-        error: "Demo user not found",
-      });
-      return;
-    }
-
-    const character = await createCharacterForUser(demoUser.id, {
+    const character = await createCharacterForUser(getAuthenticatedUser(req).id, {
       name: body.name.trim(),
       speciesIndex: body.speciesIndex.trim(),
       classIndex: body.classIndex.trim(),
@@ -202,7 +169,7 @@ async function createCharacter(req: Request, res: Response) {
 
     if (isUniqueConstraintError(error)) {
       res.status(400).json({
-        error: "A character with this name already exists for the demo user",
+        error: "A character with this name already exists for your account",
       });
       return;
     }
@@ -236,24 +203,19 @@ async function updateCharacter(req: Request, res: Response) {
       return;
     }
 
-    const demoUser = await findDemoUser();
-
-    if (!demoUser) {
-      res.status(404).json({
-        error: "Demo user not found",
-      });
-      return;
-    }
-
-    const character = await updateCharacterForUser(demoUser.id, id, {
-      name: body.name.trim(),
-      speciesIndex: body.speciesIndex.trim(),
-      classIndex: body.classIndex.trim(),
-      backgroundIndex: body.backgroundIndex.trim(),
-      alignment: body.alignment?.trim() || null,
-      skillIndexes: body.skillIndexes,
-      abilityScores: body.abilityScores,
-    });
+    const character = await updateCharacterForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      {
+        name: body.name.trim(),
+        speciesIndex: body.speciesIndex.trim(),
+        classIndex: body.classIndex.trim(),
+        backgroundIndex: body.backgroundIndex.trim(),
+        alignment: body.alignment?.trim() || null,
+        skillIndexes: body.skillIndexes,
+        abilityScores: body.abilityScores,
+      },
+    );
 
     if (!character) {
       res.status(404).json({
@@ -273,7 +235,7 @@ async function updateCharacter(req: Request, res: Response) {
 
     if (isUniqueConstraintError(error)) {
       res.status(400).json({
-        error: "A character with this name already exists for the demo user",
+        error: "A character with this name already exists for your account",
       });
       return;
     }
@@ -297,16 +259,7 @@ async function deleteCharacter(req: Request, res: Response) {
       return;
     }
 
-    const demoUser = await findDemoUser();
-
-    if (!demoUser) {
-      res.status(404).json({
-        error: "Demo user not found",
-      });
-      return;
-    }
-
-    const deleted = await deleteCharacterForUser(demoUser.id, id);
+    const deleted = await deleteCharacterForUser(getAuthenticatedUser(req).id, id);
 
     if (!deleted) {
       res.status(404).json({

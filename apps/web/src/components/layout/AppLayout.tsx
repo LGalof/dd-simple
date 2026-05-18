@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../features/auth/AuthContext";
 
 type AppLayoutProps = {
   children: ReactNode;
@@ -14,6 +15,7 @@ function AppLayout({
   navigation,
   variant = "default",
 }: AppLayoutProps) {
+  const { logout, user } = useAuth();
   const layoutClassName =
     variant === "wide-left" ? "app-layout app-layout-wide-left" : "app-layout";
   const shellClassName =
@@ -51,6 +53,15 @@ function AppLayout({
                 >
                   My Characters
                 </NavLink>
+                {user && (
+                  <button
+                    type="button"
+                    className="app-nav-link app-nav-button"
+                    onClick={logout}
+                  >
+                    Odjava
+                  </button>
+                )}
               </>
             )}
           </nav>

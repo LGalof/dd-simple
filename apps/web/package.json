@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.app.json && vite build",
-    "preview": "vite preview"
+    "dev": "../../.tools/node22/node.exe ../../node_modules/vite/bin/vite.js",
+    "build": "../../.tools/node22/node.exe ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.app.json; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; ../../.tools/node22/node.exe ../../node_modules/vite/bin/vite.js build",
+    "preview": "../../.tools/node22/node.exe ../../node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
     "react": "^18.3.1",

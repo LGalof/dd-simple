@@ -7,9 +7,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @dd-simple/web && npm run build --workspace @dd-simple/api",
-    "dev:web": "npm run dev --workspace @dd-simple/web",
-    "dev:api": "npm run dev --workspace @dd-simple/api"
+    "dev": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
+    "build": "npm run build --workspace @dd-simple/web; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; npm run build --workspace @dd-simple/api",
+    "dev:web": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-web.ps1",
+    "dev:api": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-api.ps1"
   }
 }
-

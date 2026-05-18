@@ -6,8 +6,11 @@ import {
   getCharacters,
   updateCharacter,
 } from "../controllers/character.controller.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const charactersRouter = Router();
+
+charactersRouter.use(requireAuth);
 
 charactersRouter.post("/characters", createCharacter);
 
