@@ -19,7 +19,9 @@ type UseCharacterCreatorReferencesResult =
       error: string;
     };
 
-function useCharacterCreatorReferences(): UseCharacterCreatorReferencesResult {
+function useCharacterCreatorReferences(
+  token?: string | null,
+): UseCharacterCreatorReferencesResult {
   const [state, setState] = useState<UseCharacterCreatorReferencesResult>({
     references: null,
     loading: true,
@@ -30,7 +32,9 @@ function useCharacterCreatorReferences(): UseCharacterCreatorReferencesResult {
     async function loadReferences() {
       try {
         setState({
-          references: await fetchCharacterCreatorReferences(),
+          references: await fetchCharacterCreatorReferences({
+            token,
+          }),
           loading: false,
           error: null,
         });
@@ -44,7 +48,7 @@ function useCharacterCreatorReferences(): UseCharacterCreatorReferencesResult {
     }
 
     void loadReferences();
-  }, []);
+  }, [token]);
 
   return state;
 }

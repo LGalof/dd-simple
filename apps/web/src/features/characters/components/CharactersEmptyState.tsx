@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 function CharactersEmptyState() {
   return (
     <div className="empty-state-card">
@@ -10,9 +12,9 @@ function CharactersEmptyState() {
         </p>
       </div>
 
-      <button type="button" className="primary-button primary-button-uppercase">
+      <Link to="/characters/new" className="primary-button primary-button-uppercase">
         Create a Character
-      </button>
+      </Link>
     </div>
   );
 }

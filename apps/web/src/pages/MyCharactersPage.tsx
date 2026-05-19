@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { CharacterSummaryCard } from "../features/characters/components/CharacterSummaryCard";
 import { CharactersEmptyState } from "../features/characters/components/CharactersEmptyState";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
+import { setSelectedCharacterId } from "../features/characters/utils/selectedCharacter";
+import type { Character } from "../types/character";
 
 function MyCharactersPage() {
-  const { characters, loading, error } = useCharacters();
+  const { characters, deletingCharacterId, loading, error, removeCharacter } = useCharacters();
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
   const [sortValue, setSortValue] = useState("created-oldest");
   const slotLimit = 6;
@@ -51,6 +55,21 @@ function MyCharactersPage() {
     });
   }, [characters, searchValue, sortValue]);
 
+  function handleDeleteCharacter(character: Character) {
+    const confirmed = window.confirm(`Delete ${character.name}? This cannot be undone.`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    void removeCharacter(character.id);
+  }
+
+  function handleSelectCharacter(character: Character) {
+    setSelectedCharacterId(character.id);
+    navigate("/");
+  }
+
   return (
     <AppLayout>
       <section className="page-section my-characters-page">
@@ -66,9 +85,9 @@ function MyCharactersPage() {
             </p>
           </div>
 
-          <button type="button" className="primary-button primary-button-uppercase">
+          <Link to="/characters/new" className="primary-button primary-button-uppercase">
             Create a Character
-          </button>
+          </Link>
         </div>
 
         <div className="characters-library-controls">
@@ -131,7 +150,13 @@ function MyCharactersPage() {
         {!loading && !error && visibleCharacters.length > 0 && (
           <div className="character-summary-grid">
             {visibleCharacters.map((character) => (
-              <CharacterSummaryCard key={character.id} character={character} />
+              <CharacterSummaryCard
+                key={character.id}
+                character={character}
+                deleting={deletingCharacterId === character.id}
+                onDelete={handleDeleteCharacter}
+                onSelect={handleSelectCharacter}
+              />
             ))}
           </div>
         )}

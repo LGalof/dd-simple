@@ -38,8 +38,6 @@ type ReferenceRuleDocument = {
 };
 
 type CharacterCreatorReferences = {
-  abilityScores: ReferenceAbilityScore[];
-  skills: ReferenceSkill[];
   species: ReferenceSpecies[];
   classes: ReferenceClass[];
   backgrounds: ReferenceBackground[];

@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/routing/ProtectedRoute";
 import { AuthProvider } from "./features/auth/AuthContext";
 import { AuthPage } from "./pages/AuthPage";
 import { CharacterDashboardPage } from "./pages/CharacterDashboardPage";
+import { CreateCharacterPage } from "./pages/CreateCharacterPage";
 import { MyCharactersPage } from "./pages/MyCharactersPage";
 
 function App() {
@@ -27,6 +28,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MyCharactersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/characters/new"
+            element={
+              <ProtectedRoute>
+                <CreateCharacterPage />
               </ProtectedRoute>
             }
           />
