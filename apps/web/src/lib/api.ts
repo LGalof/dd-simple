@@ -53,6 +53,34 @@ async function post<T>(path: string, body: unknown, options: RequestOptions = {}
   return (await response.json()) as T;
 }
 
+async function patch<T>(path: string, body: unknown, options: RequestOptions = {}) {
+  const response = await fetchApi(path, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(options.token),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return (await response.json()) as T;
+}
+
+async function deleteRequest(path: string, options: RequestOptions = {}) {
+  const response = await fetchApi(path, {
+    method: "DELETE",
+    headers: authHeaders(options.token),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+}
+
 async function fetchApi(path: string, init: RequestInit) {
   try {
     return await fetch(`${API_BASE_URL}${path}`, init);
@@ -64,7 +92,9 @@ async function fetchApi(path: string, init: RequestInit) {
 }
 
 const api = {
+  delete: deleteRequest,
   get,
+  patch,
   post,
 };
 
