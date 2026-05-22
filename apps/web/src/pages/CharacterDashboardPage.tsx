@@ -15,8 +15,11 @@ function CharacterDashboardPage() {
     classOptions,
     closePanel,
     confirmSelection,
+    applyHitPointConfiguration,
     handleRollAbility,
     handleRollAllAbilities,
+    hitPointPreview,
+    hitPointSettings,
     openPanel,
     pendingSelection,
     previewCharacter,
@@ -43,11 +46,14 @@ function CharacterDashboardPage() {
               background={selectedBackground}
               characterLevel={previewCharacter.level}
               classOption={selectedClass}
+              hitPointPreview={hitPointPreview}
               onAbilityAssignmentChange={updateAbilityAssignment}
+              onApplyHitPointSettings={applyHitPointConfiguration}
               onOpenPanel={openPanel}
               onRollAbility={handleRollAbility}
               onRollAllAbilities={handleRollAllAbilities}
               species={selectedSpecies}
+              hitPointSettings={hitPointSettings}
             />
 
             <CharacterSheet character={previewCharacter} />

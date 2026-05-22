@@ -10,9 +10,14 @@ import type {
   BuilderSelectionKind,
   CharacterBuilderState,
   ClassOption,
+  HitPointSettings,
   SpeciesOption,
 } from "../types/characterBuilder";
-import { buildCharacterPreview } from "../utils/buildCharacterPreview";
+import {
+  buildCharacterPreview,
+  calculateHitPointPreview,
+  synchronizeHitPointRolls,
+} from "../utils/buildCharacterPreview";
 import {
   rerollAbilityAssignments,
   rollAbilitySet,
@@ -21,6 +26,24 @@ import {
 const abilityOrder = ["str", "dex", "con", "int", "wis", "cha"];
 
 function createInitialBuilderState(character: Character): CharacterBuilderState {
+  const initialClass =
+    classOptions.find((classOption) => classOption.name === character.class.name) ??
+    classOptions[0];
+  const constitutionScore =
+    character.abilityScores.find((abilityScore) => abilityScore.abilityIndex === "con")?.score ??
+    10;
+  const initialHitPointPreview = calculateHitPointPreview({
+    constitutionScore,
+    hitDie: initialClass.hitDie,
+    level: character.level,
+    settings: {
+      bonusHp: 0,
+      calculationMode: "fixed",
+      overrideMaxHp: null,
+      rolledHitPoints: synchronizeHitPointRolls(character.level, initialClass.hitDie, []),
+    },
+  });
+
   return {
     speciesIndex:
       speciesOptions.find((species) => species.name === character.species.name)?.index ??
@@ -33,6 +56,16 @@ function createInitialBuilderState(character: Character): CharacterBuilderState 
       classOptions.find((classOption) => classOption.name === character.class.name)?.index ??
       classOptions[0].index,
     level: character.level,
+    hitPointSettings: {
+      bonusHp: character.maxHp - initialHitPointPreview.totalFixedHp,
+      calculationMode: "fixed",
+      overrideMaxHp: null,
+      rolledHitPoints: synchronizeHitPointRolls(
+        character.level,
+        initialClass.hitDie,
+        [],
+      ),
+    },
     abilityAssignments: [...character.abilityScores]
       .sort(
         (left, right) =>
@@ -86,6 +119,24 @@ function useCharacterBuilder(character: Character | undefined) {
       classOptions[0],
     [builderState?.classIndex],
   );
+  const hitPointPreview = useMemo(() => {
+    if (!builderState) {
+      return null;
+    }
+
+    const constitutionScore = getAssignedAbilityScore(
+      builderState.abilityAssignments,
+      "con",
+      10,
+    );
+
+    return calculateHitPointPreview({
+      constitutionScore,
+      hitDie: selectedClass.hitDie,
+      level: builderState.level,
+      settings: builderState.hitPointSettings,
+    });
+  }, [builderState, selectedClass.hitDie]);
 
   const previewCharacter = useMemo(() => {
     if (!character || !builderState) {
@@ -111,6 +162,49 @@ function useCharacterBuilder(character: Character | undefined) {
         ? {
             ...currentState,
             level: clampLevel(nextLevel),
+          }
+        : currentState,
+    );
+  }
+
+  function updateHitPointSettings(nextSettings: HitPointSettings) {
+    setBuilderState((currentState) =>
+      currentState
+        ? {
+            ...currentState,
+            hitPointSettings: {
+              bonusHp: nextSettings.bonusHp,
+              calculationMode: nextSettings.calculationMode,
+              overrideMaxHp: nextSettings.overrideMaxHp,
+              rolledHitPoints: synchronizeHitPointRolls(
+                currentState.level,
+                selectedClass.hitDie,
+                nextSettings.rolledHitPoints,
+              ),
+            },
+          }
+        : currentState,
+    );
+  }
+
+  function applyHitPointConfiguration(nextLevel: number, nextSettings: HitPointSettings) {
+    const normalizedLevel = clampLevel(nextLevel);
+
+    setBuilderState((currentState) =>
+      currentState
+        ? {
+            ...currentState,
+            level: normalizedLevel,
+            hitPointSettings: {
+              bonusHp: nextSettings.bonusHp,
+              calculationMode: nextSettings.calculationMode,
+              overrideMaxHp: nextSettings.overrideMaxHp,
+              rolledHitPoints: synchronizeHitPointRolls(
+                normalizedLevel,
+                selectedClass.hitDie,
+                nextSettings.rolledHitPoints,
+              ),
+            },
           }
         : currentState,
     );
@@ -246,7 +340,11 @@ function useCharacterBuilder(character: Character | undefined) {
     backgroundOptions,
     classOptions,
     handleRollAbility,
+    hitPointPreview,
+    hitPointSettings: builderState?.hitPointSettings ?? null,
     updateAbilityAssignment,
+    applyHitPointConfiguration,
+    updateHitPointSettings,
     updateLevel,
     handleRollAllAbilities,
   };
@@ -284,6 +382,15 @@ function swapAbilityAssignments(
 
     return assignment;
   });
+}
+
+function getAssignedAbilityScore(
+  assignments: CharacterBuilderState["abilityAssignments"],
+  abilityIndex: string,
+  fallbackScore: number,
+) {
+  return assignments.find((assignment) => assignment.abilityIndex === abilityIndex)?.score ??
+    fallbackScore;
 }
 
 export { useCharacterBuilder };

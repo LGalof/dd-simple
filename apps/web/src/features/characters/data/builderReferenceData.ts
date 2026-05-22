@@ -4,6 +4,7 @@ import type {
   ClassOption,
   FeatureChoiceField,
   FeatureChoiceOption,
+  SpeciesPreviewSection,
   SpeciesOption,
 } from "../types/characterBuilder";
 
@@ -23,6 +24,28 @@ function createChoiceField(id: string, label: string, values: string[]): Feature
     id,
     label,
     options: toOptions(values),
+  };
+}
+
+function createSpeciesSection({
+  id,
+  title,
+  subtitle,
+  details,
+  choiceFields = [],
+}: {
+  id: string;
+  title: string;
+  subtitle?: string;
+  details: string[];
+  choiceFields?: FeatureChoiceField[];
+}): SpeciesPreviewSection {
+  return {
+    id,
+    title,
+    subtitle,
+    details,
+    choiceFields,
   };
 }
 
@@ -140,6 +163,42 @@ const wizardSkills = [
 ];
 
 const instruments = ["Flute", "Lute", "Lyre", "Harp", "Drum", "Viol", "Pan Flute"];
+const commonSkillsAndTools = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "Forgery Kit",
+  "Gaming Set",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+  "Thieves' Tools",
+];
+
+const commonLanguages = [
+  "Common",
+  "Elvish",
+  "Dwarvish",
+  "Halfling",
+  "Infernal",
+  "Draconic",
+  "Celestial",
+  "Sylvan",
+  "Gnomish",
+  "Goblin",
+];
 
 const rogueFeatures: ClassFeature[] = [
   createFeature({
@@ -699,6 +758,42 @@ const speciesOptions: SpeciesOption[] = [
     description: "Adaptable adventurers with flexible talents and balanced attributes.",
     speed: 30,
     traits: ["Versatile", "Ambitious", "Bonus skill-ready"],
+    creatureType: "Humanoid",
+    size: "Medium",
+    languages: ["Common", "One extra language of your choice"],
+    previewSections: [
+      createSpeciesSection({
+        id: "human-creature-type",
+        title: "Creature Type",
+        details: ["You are a Humanoid."],
+      }),
+      createSpeciesSection({
+        id: "human-languages",
+        title: "Languages",
+        subtitle: "1 Choice - Origin",
+        details: [
+          "Your character can speak, read, and write Common and one extra language that fits their upbringing.",
+        ],
+        choiceFields: [createChoiceField("language", "Bonus Language", commonLanguages)],
+      }),
+      createSpeciesSection({
+        id: "human-size",
+        title: "Size",
+        details: ["You are Medium."],
+      }),
+      createSpeciesSection({
+        id: "human-speed",
+        title: "Speed",
+        details: ["Your walking speed is 30 feet."],
+      }),
+      createSpeciesSection({
+        id: "human-versatile",
+        title: "Versatile Heritage",
+        details: [
+          "Humans thrive in almost any environment and can grow into many kinds of adventurers.",
+        ],
+      }),
+    ],
   },
   {
     index: "elf",
@@ -706,6 +801,44 @@ const speciesOptions: SpeciesOption[] = [
     description: "Graceful, perceptive, and naturally attuned to keen senses.",
     speed: 30,
     traits: ["Darkvision", "Keen Senses", "Fey Ancestry"],
+    creatureType: "Humanoid",
+    size: "Medium",
+    languages: ["Common", "Elvish"],
+    previewSections: [
+      createSpeciesSection({
+        id: "elf-languages",
+        title: "Languages",
+        subtitle: "Origin",
+        details: ["Your character can speak, read, and write Common and Elvish."],
+      }),
+      createSpeciesSection({
+        id: "elf-creature-type",
+        title: "Creature Type",
+        details: ["You are a Humanoid."],
+      }),
+      createSpeciesSection({
+        id: "elf-size",
+        title: "Size",
+        details: ["You are Medium."],
+      }),
+      createSpeciesSection({
+        id: "elf-speed",
+        title: "Speed",
+        details: ["Your walking speed is 30 feet."],
+      }),
+      createSpeciesSection({
+        id: "elf-fey-ancestry",
+        title: "Fey Ancestry",
+        details: [
+          "You have advantage on saving throws you make to avoid or end the Charmed condition on yourself.",
+        ],
+      }),
+      createSpeciesSection({
+        id: "elf-darkvision",
+        title: "Darkvision",
+        details: ["You have Darkvision with a range of 60 feet."],
+      }),
+    ],
   },
   {
     index: "dwarf",
@@ -713,6 +846,52 @@ const speciesOptions: SpeciesOption[] = [
     description: "Durable explorers known for resilience and stonewise intuition.",
     speed: 25,
     traits: ["Darkvision", "Dwarven Resilience", "Tool Proficiency"],
+    creatureType: "Humanoid",
+    size: "Medium",
+    languages: ["Common", "Dwarvish"],
+    previewSections: [
+      createSpeciesSection({
+        id: "dwarf-languages",
+        title: "Languages",
+        subtitle: "Origin",
+        details: ["Your character can speak, read, and write Common and Dwarvish."],
+      }),
+      createSpeciesSection({
+        id: "dwarf-tool-training",
+        title: "Tool Training",
+        subtitle: "1 Choice",
+        details: [
+          "Many dwarves grow up around a traditional craft and bring that training into their adventures.",
+        ],
+        choiceFields: [
+          createChoiceField("tool-training", "Tool Training", [
+            "Smith's Tools",
+            "Brewer's Supplies",
+            "Mason's Tools",
+          ]),
+        ],
+      }),
+      createSpeciesSection({
+        id: "dwarf-creature-type",
+        title: "Creature Type",
+        details: ["You are a Humanoid."],
+      }),
+      createSpeciesSection({
+        id: "dwarf-size",
+        title: "Size",
+        details: ["You are Medium."],
+      }),
+      createSpeciesSection({
+        id: "dwarf-speed",
+        title: "Speed",
+        details: ["Your walking speed is 25 feet."],
+      }),
+      createSpeciesSection({
+        id: "dwarf-resilience",
+        title: "Dwarven Resilience",
+        details: ["You have resistance to Poison damage and advantage on saves against Poison."],
+      }),
+    ],
   },
   {
     index: "halfling",
@@ -720,6 +899,42 @@ const speciesOptions: SpeciesOption[] = [
     description: "Lucky wanderers who rely on agility and steady courage.",
     speed: 25,
     traits: ["Lucky", "Brave", "Halfling Nimbleness"],
+    creatureType: "Humanoid",
+    size: "Small",
+    languages: ["Common", "Halfling"],
+    previewSections: [
+      createSpeciesSection({
+        id: "halfling-languages",
+        title: "Languages",
+        subtitle: "Origin",
+        details: ["Your character can speak, read, and write Common and Halfling."],
+      }),
+      createSpeciesSection({
+        id: "halfling-creature-type",
+        title: "Creature Type",
+        details: ["You are a Humanoid."],
+      }),
+      createSpeciesSection({
+        id: "halfling-size",
+        title: "Size",
+        details: ["You are Small."],
+      }),
+      createSpeciesSection({
+        id: "halfling-speed",
+        title: "Speed",
+        details: ["Your walking speed is 25 feet."],
+      }),
+      createSpeciesSection({
+        id: "halfling-lucky",
+        title: "Lucky",
+        details: ["When you roll a 1 on the d20 of a D20 Test, you can reroll the die."],
+      }),
+      createSpeciesSection({
+        id: "halfling-brave",
+        title: "Brave",
+        details: ["You have advantage on saving throws you make to avoid or end the Frightened condition."],
+      }),
+    ],
   },
   {
     index: "tiefling",
@@ -727,6 +942,58 @@ const speciesOptions: SpeciesOption[] = [
     description: "Infernal-blooded travelers with arcane potential and darkvision.",
     speed: 30,
     traits: ["Darkvision", "Hellish Resistance", "Thaumaturgy"],
+    creatureType: "Humanoid",
+    size: "Medium",
+    languages: ["Common", "Infernal"],
+    previewSections: [
+      createSpeciesSection({
+        id: "tiefling-languages",
+        title: "Languages",
+        subtitle: "Origin",
+        details: ["Your character can speak, read, and write Common and Infernal."],
+      }),
+      createSpeciesSection({
+        id: "tiefling-creature-type",
+        title: "Creature Type",
+        details: ["You are a Humanoid."],
+      }),
+      createSpeciesSection({
+        id: "tiefling-size",
+        title: "Size",
+        details: ["You are Medium."],
+      }),
+      createSpeciesSection({
+        id: "tiefling-speed",
+        title: "Speed",
+        details: ["Your walking speed is 30 feet."],
+      }),
+      createSpeciesSection({
+        id: "tiefling-darkvision",
+        title: "Darkvision",
+        details: ["You have Darkvision with a range of 60 feet."],
+      }),
+      createSpeciesSection({
+        id: "tiefling-hellish-resistance",
+        title: "Hellish Resistance",
+        details: ["You have resistance to Fire damage."],
+      }),
+      createSpeciesSection({
+        id: "tiefling-thaumaturgy",
+        title: "Thaumaturgy",
+        subtitle: "1 Choice",
+        details: [
+          "You know the thaumaturgy cantrip through your infernal legacy.",
+          "Choose the spellcasting ability that powers this trait for your character.",
+        ],
+        choiceFields: [
+          createChoiceField("legacy-ability", "Spellcasting Ability", [
+            "Intelligence",
+            "Wisdom",
+            "Charisma",
+          ]),
+        ],
+      }),
+    ],
   },
 ];
 
@@ -734,9 +1001,55 @@ const backgroundOptions: BackgroundOption[] = [
   {
     index: "criminal",
     name: "Criminal",
-    description: "A covert past shaped by underworld contacts and streetwise instincts.",
+    description:
+      "You learned how to read a room fast, disappear when needed, and lean on the right contact when plans go sideways.",
     proficiencies: ["Stealth", "Deception", "Thieves' Tools"],
     feature: "Criminal Contact",
+    skillProficiencies: ["Deception", "Stealth"],
+    toolProficiencies: ["Thieves' Tools"],
+    previewSections: [
+      {
+        id: "criminal-origin-feat",
+        title: "Alert",
+        subtitle: "Granted Feat • 1 Choice",
+        details: [
+          "Your criminal instincts keep you ready when trouble starts.",
+          "Choose the specialization that best reflects how this background taught you to stay ahead of danger.",
+        ],
+        choiceFields: [
+          createChoiceField("alert-focus", "Alert Focus", [
+            "Ambush Scout",
+            "Lookout",
+            "Escape Planner",
+          ]),
+        ],
+      },
+      {
+        id: "criminal-ability-scores",
+        title: "Ability Scores",
+        subtitle: "3 Choices",
+        details: [
+          "The Criminal background supports Dexterity, Constitution, and Charisma.",
+          "Increase one of these scores by 2 and another by 1, or increase all three by 1.",
+        ],
+        choiceFields: [
+          createChoiceField("score-plan", "Increase Plan", [
+            "Increase two scores (+2 / +1)",
+            "Increase all three by 1",
+          ]),
+          createChoiceField("score-a", "Primary Increase", [
+            "Dexterity Score",
+            "Constitution Score",
+            "Charisma Score",
+          ]),
+          createChoiceField("score-b", "Secondary Increase", [
+            "Dexterity Score",
+            "Constitution Score",
+            "Charisma Score",
+          ]),
+        ],
+      },
+    ],
   },
   {
     index: "soldier",
@@ -744,6 +1057,50 @@ const backgroundOptions: BackgroundOption[] = [
     description: "Military training, discipline, and experience with battlefield structure.",
     proficiencies: ["Athletics", "Intimidation", "Gaming Set"],
     feature: "Military Rank",
+    skillProficiencies: ["Athletics", "Intimidation"],
+    toolProficiencies: ["Gaming Set"],
+    previewSections: [
+      {
+        id: "soldier-origin-feat",
+        title: "Tough",
+        subtitle: "Granted Feat • 1 Choice",
+        details: [
+          "Your training hardened you for long marches, close calls, and relentless pressure.",
+        ],
+        choiceFields: [
+          createChoiceField("combat-focus", "Combat Focus", [
+            "Frontline",
+            "Recon",
+            "Shield Wall",
+          ]),
+        ],
+      },
+      {
+        id: "soldier-ability-scores",
+        title: "Ability Scores",
+        subtitle: "3 Choices",
+        details: [
+          "The Soldier background supports Strength, Constitution, and Wisdom.",
+          "Choose the spread that matches your battlefield role.",
+        ],
+        choiceFields: [
+          createChoiceField("score-plan", "Increase Plan", [
+            "Increase two scores (+2 / +1)",
+            "Increase all three by 1",
+          ]),
+          createChoiceField("score-a", "Primary Increase", [
+            "Strength Score",
+            "Constitution Score",
+            "Wisdom Score",
+          ]),
+          createChoiceField("score-b", "Secondary Increase", [
+            "Strength Score",
+            "Constitution Score",
+            "Wisdom Score",
+          ]),
+        ],
+      },
+    ],
   },
   {
     index: "sage",
@@ -751,6 +1108,48 @@ const backgroundOptions: BackgroundOption[] = [
     description: "Academic research and knowledge-driven problem solving.",
     proficiencies: ["Arcana", "History", "Research Supplies"],
     feature: "Researcher",
+    skillProficiencies: ["Arcana", "History"],
+    toolProficiencies: ["Calligrapher's Supplies"],
+    previewSections: [
+      {
+        id: "sage-origin-feat",
+        title: "Skilled",
+        subtitle: "Granted Feat • 3 Choices",
+        details: [
+          "Long study made you adaptable across libraries, archives, and debate halls.",
+        ],
+        choiceFields: [
+          createChoiceField("skill-1", "Choice 1", commonSkillsAndTools),
+          createChoiceField("skill-2", "Choice 2", commonSkillsAndTools),
+          createChoiceField("skill-3", "Choice 3", commonSkillsAndTools),
+        ],
+      },
+      {
+        id: "sage-ability-scores",
+        title: "Ability Scores",
+        subtitle: "3 Choices",
+        details: [
+          "The Sage background supports Intelligence, Constitution, and Wisdom.",
+          "Shape your academic strengths to match your role in the party.",
+        ],
+        choiceFields: [
+          createChoiceField("score-plan", "Increase Plan", [
+            "Increase two scores (+2 / +1)",
+            "Increase all three by 1",
+          ]),
+          createChoiceField("score-a", "Primary Increase", [
+            "Intelligence Score",
+            "Constitution Score",
+            "Wisdom Score",
+          ]),
+          createChoiceField("score-b", "Secondary Increase", [
+            "Intelligence Score",
+            "Constitution Score",
+            "Wisdom Score",
+          ]),
+        ],
+      },
+    ],
   },
   {
     index: "acolyte",
@@ -758,6 +1157,55 @@ const backgroundOptions: BackgroundOption[] = [
     description: "Religious service with strong spiritual networks and ritual familiarity.",
     proficiencies: ["Insight", "Religion", "Holy Symbol"],
     feature: "Shelter of the Faithful",
+    skillProficiencies: ["Insight", "Religion"],
+    toolProficiencies: ["Calligrapher's Supplies"],
+    previewSections: [
+      {
+        id: "acolyte-origin-feat",
+        title: "Magic Initiate",
+        subtitle: "Granted Feat • 2 Choices",
+        details: [
+          "Your service introduced you to sacred rites and the first steps of formal spellcasting.",
+        ],
+        choiceFields: [
+          createChoiceField("initiate-list", "Spell List", [
+            "Cleric",
+            "Druid",
+            "Wizard",
+          ]),
+          createChoiceField("initiate-focus", "Sacred Focus", [
+            "Healing",
+            "Protection",
+            "Guidance",
+          ]),
+        ],
+      },
+      {
+        id: "acolyte-ability-scores",
+        title: "Ability Scores",
+        subtitle: "3 Choices",
+        details: [
+          "The Acolyte background supports Wisdom, Intelligence, and Charisma.",
+          "Choose the spread that fits your spiritual training.",
+        ],
+        choiceFields: [
+          createChoiceField("score-plan", "Increase Plan", [
+            "Increase two scores (+2 / +1)",
+            "Increase all three by 1",
+          ]),
+          createChoiceField("score-a", "Primary Increase", [
+            "Wisdom Score",
+            "Intelligence Score",
+            "Charisma Score",
+          ]),
+          createChoiceField("score-b", "Secondary Increase", [
+            "Wisdom Score",
+            "Intelligence Score",
+            "Charisma Score",
+          ]),
+        ],
+      },
+    ],
   },
 ];
 
@@ -768,6 +1216,50 @@ const classOptions: ClassOption[] = [
     description: "Precision, stealth, and tactical positioning define the rogue.",
     hitDie: 8,
     primaryAbility: "DEX",
+    previewOverview: [
+      { label: "Primary Ability", value: "Dexterity" },
+      { label: "Hit Point Die", value: "D8 per Rogue level" },
+      { label: "Saving Throw Proficiencies", value: "Dexterity and Intelligence" },
+      {
+        label: "Skill Proficiencies",
+        value:
+          "Choose 4: Acrobatics, Athletics, Deception, Insight, Intimidation, Investigation, Perception, Persuasion, Sleight of Hand, or Stealth",
+      },
+      {
+        label: "Weapon Proficiencies",
+        value: "Simple weapons and Martial weapons that have the Finesse or Light property",
+      },
+      { label: "Tool Proficiencies", value: "Thieves' Tools" },
+      { label: "Armor Training", value: "Light armor" },
+      {
+        label: "Starting Equipment",
+        value:
+          "Choose A or B:\n(A) Leather Armor, 2 Daggers, Shortsword, Shortbow, 20 Arrows, Quiver, Thieves' Tools, Burglar's Pack, and 8 GP\n(B) 100 GP",
+      },
+    ],
+    savingThrows: ["DEX", "INT"],
+    skillChoices: {
+      choose: 4,
+      options: rogueSkills,
+    },
+    proficiencies: {
+      armor: ["Light Armor"],
+      weapons: [
+        "Simple Weapons",
+        "Hand Crossbows",
+        "Longswords",
+        "Rapiers",
+        "Shortswords",
+      ],
+      tools: ["Thieves' Tools"],
+    },
+    startingEquipment: [
+      "Leather Armor",
+      "Two Daggers",
+      "Thieves' Tools",
+      "Choose a finesse weapon package or a ranged weapon package",
+      "Choose a burglar's pack, dungeoneer's pack, or explorer's pack",
+    ],
     features: rogueFeatures,
   },
   {
@@ -776,6 +1268,40 @@ const classOptions: ClassOption[] = [
     description: "Martial specialists with strong defenses and reliable combat output.",
     hitDie: 10,
     primaryAbility: "STR / DEX",
+    previewOverview: [
+      { label: "Primary Ability", value: "Strength or Dexterity" },
+      { label: "Hit Point Die", value: "D10 per Fighter level" },
+      { label: "Saving Throw Proficiencies", value: "Strength and Constitution" },
+      {
+        label: "Skill Proficiencies",
+        value:
+          "Choose 2: Acrobatics, Animal Handling, Athletics, History, Insight, Intimidation, Perception, or Survival",
+      },
+      { label: "Weapon Proficiencies", value: "Simple Weapons and Martial Weapons" },
+      { label: "Tool Proficiencies", value: "None" },
+      { label: "Armor Training", value: "All armor and Shields" },
+      {
+        label: "Starting Equipment",
+        value:
+          "Choose A or B:\n(A) Chain Mail, a Martial weapon and Shield or two Martial weapons, Light Crossbow with bolts or Handaxes, and a Dungeoneer's Pack or Explorer's Pack\n(B) 155 GP",
+      },
+    ],
+    savingThrows: ["STR", "CON"],
+    skillChoices: {
+      choose: 2,
+      options: fighterSkills,
+    },
+    proficiencies: {
+      armor: ["All Armor", "Shields"],
+      weapons: ["Simple Weapons", "Martial Weapons"],
+      tools: [],
+    },
+    startingEquipment: [
+      "Chain Mail",
+      "Martial weapon and shield or two martial weapons",
+      "Light crossbow with bolts or handaxes",
+      "Dungeoneer's pack or explorer's pack",
+    ],
     features: fighterFeatures,
   },
   {
@@ -784,6 +1310,42 @@ const classOptions: ClassOption[] = [
     description: "Scholarly spellcasters defined by spellbooks, rituals, and arcane study.",
     hitDie: 6,
     primaryAbility: "INT",
+    previewOverview: [
+      { label: "Primary Ability", value: "Intelligence" },
+      { label: "Hit Point Die", value: "D6 per Wizard level" },
+      { label: "Saving Throw Proficiencies", value: "Intelligence and Wisdom" },
+      {
+        label: "Skill Proficiencies",
+        value:
+          "Choose 2: Arcana, History, Insight, Investigation, Medicine, or Religion",
+      },
+      { label: "Weapon Proficiencies", value: "Simple Weapons" },
+      { label: "Tool Proficiencies", value: "None" },
+      { label: "Armor Training", value: "None" },
+      {
+        label: "Starting Equipment",
+        value:
+          "Choose A or B:\n(A) Spellbook, Arcane Focus or Component Pouch, Scholar's Pack or Explorer's Pack, and a Quarterstaff or Dagger\n(B) 55 GP",
+      },
+    ],
+    savingThrows: ["INT", "WIS"],
+    skillChoices: {
+      choose: 2,
+      options: wizardSkills,
+    },
+    proficiencies: {
+      armor: [],
+      weapons: [
+        "Simple Weapons",
+      ],
+      tools: [],
+    },
+    startingEquipment: [
+      "Spellbook",
+      "Arcane Focus or Component Pouch",
+      "Scholar's pack or explorer's pack",
+      "Quarterstaff or dagger",
+    ],
     features: wizardFeatures,
   },
   {
@@ -792,6 +1354,49 @@ const classOptions: ClassOption[] = [
     description: "Charismatic performers who support allies and wield flexible magic.",
     hitDie: 8,
     primaryAbility: "CHA",
+    previewOverview: [
+      { label: "Primary Ability", value: "Charisma" },
+      { label: "Hit Point Die", value: "D8 per Bard level" },
+      { label: "Saving Throw Proficiencies", value: "Dexterity and Charisma" },
+      {
+        label: "Skill Proficiencies",
+        value:
+          "Choose 3: Acrobatics, Animal Handling, Arcana, Athletics, Deception, History, Insight, Intimidation, Investigation, Medicine, Nature, Perception, Performance, Persuasion, Religion, Sleight of Hand, Stealth, or Survival",
+      },
+      {
+        label: "Weapon Proficiencies",
+        value: "Simple weapons and Martial weapons that have the Finesse or Light property",
+      },
+      { label: "Tool Proficiencies", value: "Three Musical Instruments of your choice" },
+      { label: "Armor Training", value: "Light armor" },
+      {
+        label: "Starting Equipment",
+        value:
+          "Choose A or B:\n(A) Leather Armor, Dagger, Musical Instrument, Entertainer's Pack or Diplomat's Pack\n(B) 90 GP",
+      },
+    ],
+    savingThrows: ["DEX", "CHA"],
+    skillChoices: {
+      choose: 3,
+      options: bardSkills,
+    },
+    proficiencies: {
+      armor: ["Light Armor"],
+      weapons: [
+        "Simple Weapons",
+        "Hand Crossbows",
+        "Longswords",
+        "Rapiers",
+        "Shortswords",
+      ],
+      tools: ["Three Musical Instruments"],
+    },
+    startingEquipment: [
+      "Leather Armor",
+      "Dagger",
+      "Choose a musical instrument",
+      "Entertainer's pack or diplomat's pack",
+    ],
     features: bardFeatures,
   },
 ];

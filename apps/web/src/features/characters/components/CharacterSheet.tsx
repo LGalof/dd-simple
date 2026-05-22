@@ -141,14 +141,6 @@ function CharacterSheet({ character }: CharacterSheetProps) {
     <div className="character-sheet character-sheet-reference">
       <section className="character-dashboard-toolbar">
         <div className="character-dashboard-summary-row">
-          <div className="character-dashboard-summary-chip">
-            <span>Level</span>
-            <strong>{character.level}</strong>
-          </div>
-          <div className="character-dashboard-summary-chip">
-            <span>XP</span>
-            <strong>{character.experiencePoints}</strong>
-          </div>
           <div className="character-dashboard-summary-chip character-dashboard-summary-chip-name">
             <span>Character Name</span>
             <strong>{character.name}</strong>
@@ -379,7 +371,7 @@ function CharacterSheet({ character }: CharacterSheetProps) {
                   </div>
 
                   <div className="character-actions-meta">
-                    <span>Actions · Attacks per Action: 1</span>
+                    <span>Actions - Attacks per Action: 1</span>
                     <button type="button" className="character-inline-button">
                       Manage Custom
                     </button>
