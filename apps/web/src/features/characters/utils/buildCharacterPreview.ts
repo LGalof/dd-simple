@@ -72,7 +72,7 @@ function buildCharacterPreview({
     ...character,
     level: state.level,
     maxHp: hitPointPreview.maxHp,
-    currentHp: Math.min(hitPointPreview.maxHp, character.currentHp),
+    currentHp: Math.max(0, Math.min(hitPointPreview.maxHp, state.currentHp)),
     armorClass: 10 + dexterityModifier,
     speed: species.speed,
     species: {

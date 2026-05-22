@@ -56,6 +56,8 @@ function createInitialBuilderState(character: Character): CharacterBuilderState 
       classOptions.find((classOption) => classOption.name === character.class.name)?.index ??
       classOptions[0].index,
     level: character.level,
+    currentHp: character.currentHp,
+    tempHp: 0,
     hitPointSettings: {
       bonusHp: character.maxHp - initialHitPointPreview.totalFixedHp,
       calculationMode: "fixed",
@@ -192,10 +194,8 @@ function useCharacterBuilder(character: Character | undefined) {
 
     setBuilderState((currentState) =>
       currentState
-        ? {
-            ...currentState,
-            level: normalizedLevel,
-            hitPointSettings: {
+        ? (() => {
+            const normalizedSettings = {
               bonusHp: nextSettings.bonusHp,
               calculationMode: nextSettings.calculationMode,
               overrideMaxHp: nextSettings.overrideMaxHp,
@@ -204,7 +204,70 @@ function useCharacterBuilder(character: Character | undefined) {
                 selectedClass.hitDie,
                 nextSettings.rolledHitPoints,
               ),
-            },
+            };
+            const constitutionScore = getAssignedAbilityScore(
+              currentState.abilityAssignments,
+              "con",
+              10,
+            );
+            const nextHitPointPreview = calculateHitPointPreview({
+              constitutionScore,
+              hitDie: selectedClass.hitDie,
+              level: normalizedLevel,
+              settings: normalizedSettings,
+            });
+
+            return {
+              ...currentState,
+              level: normalizedLevel,
+              currentHp: Math.min(currentState.currentHp, nextHitPointPreview.maxHp),
+              hitPointSettings: normalizedSettings,
+            };
+          })()
+        : currentState,
+    );
+  }
+
+  function applyCurrentHpAdjustment(mode: "heal" | "damage", amount: number) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+
+    setBuilderState((currentState) => {
+      if (!currentState) {
+        return currentState;
+      }
+
+      const constitutionScore = getAssignedAbilityScore(
+        currentState.abilityAssignments,
+        "con",
+        10,
+      );
+      const nextHitPointPreview = calculateHitPointPreview({
+        constitutionScore,
+        hitDie: selectedClass.hitDie,
+        level: currentState.level,
+        settings: currentState.hitPointSettings,
+      });
+      const currentHp = Math.max(0, Math.min(nextHitPointPreview.maxHp, currentState.currentHp));
+      const nextCurrentHp =
+        mode === "heal"
+          ? Math.min(nextHitPointPreview.maxHp, currentHp + amount)
+          : Math.max(0, currentHp - amount);
+
+      return {
+        ...currentState,
+        currentHp: nextCurrentHp,
+      };
+    });
+  }
+
+  function setTempHp(amount: number) {
+    setBuilderState((currentState) =>
+      currentState
+        ? {
+            ...currentState,
+            tempHp: Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0)),
           }
         : currentState,
     );
@@ -344,6 +407,8 @@ function useCharacterBuilder(character: Character | undefined) {
     hitPointSettings: builderState?.hitPointSettings ?? null,
     updateAbilityAssignment,
     applyHitPointConfiguration,
+    applyCurrentHpAdjustment,
+    setTempHp,
     updateHitPointSettings,
     updateLevel,
     handleRollAllAbilities,

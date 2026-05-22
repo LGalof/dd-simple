@@ -5,6 +5,11 @@ import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
   character: Character;
+  currentHp: number;
+  tempHp: number;
+  onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
+  onOpenInventoryLibrary: () => void;
+  onSetTempHp: (amount: number) => void;
 };
 
 type AbilityIndex = "str" | "dex" | "con" | "int" | "wis" | "cha";
@@ -26,8 +31,19 @@ type SkillWithTotal = {
 
 const abilityOrder: AbilityIndex[] = ["str", "dex", "con", "int", "wis", "cha"];
 
-function CharacterSheet({ character }: CharacterSheetProps) {
+function CharacterSheet({
+  character,
+  currentHp,
+  tempHp,
+  onApplyCurrentHpAdjustment,
+  onOpenInventoryLibrary,
+  onSetTempHp,
+}: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("actions");
+  const [isCurrentHpModalOpen, setIsCurrentHpModalOpen] = useState(false);
+  const [isTempHpModalOpen, setIsTempHpModalOpen] = useState(false);
+  const [hitPointAmountInput, setHitPointAmountInput] = useState("");
+  const [tempHpInput, setTempHpInput] = useState("");
   const equippedItems = character.inventory.filter((item) => item.equipped);
   const inventoryItems = character.inventory.filter((item) => !item.equipped);
   const sortedAbilityScores = useMemo(
@@ -91,20 +107,7 @@ function CharacterSheet({ character }: CharacterSheetProps) {
       total: modifier + (hasSaveProficiency ? proficiencyBonus : 0),
     };
   });
-  const defenseSummary = [
-    {
-      label: "Fortitude",
-      value: formatModifier(constitutionModifier + proficiencyBonus),
-    },
-    {
-      label: "Reflex",
-      value: formatModifier(dexterityModifier + proficiencyBonus),
-    },
-    {
-      label: "Will",
-      value: formatModifier(wisdomModifier + proficiencyBonus),
-    },
-  ];
+  const defenseSummary: Array<{ label: string; value: string }> = [];
   const passiveStats = [
     { label: "Passive Perception", value: 10 + getSkillTotal(skillTotals, "Perception") },
     { label: "Passive Investigation", value: 10 + getSkillTotal(skillTotals, "Investigation") },
@@ -136,6 +139,44 @@ function CharacterSheet({ character }: CharacterSheetProps) {
     { id: "notes", label: "Notes" },
     { id: "extras", label: "Extras" },
   ];
+
+  function openCurrentHpModal() {
+    setHitPointAmountInput("");
+    setIsCurrentHpModalOpen(true);
+  }
+
+  function closeCurrentHpModal() {
+    setIsCurrentHpModalOpen(false);
+    setHitPointAmountInput("");
+  }
+
+  function applyCurrentHpChange(mode: "heal" | "damage") {
+    const amount = Number.parseInt(hitPointAmountInput, 10);
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return;
+    }
+
+    onApplyCurrentHpAdjustment(mode, amount);
+    closeCurrentHpModal();
+  }
+
+  function openTempHpModal() {
+    setTempHpInput(tempHp > 0 ? String(tempHp) : "");
+    setIsTempHpModalOpen(true);
+  }
+
+  function closeTempHpModal() {
+    setIsTempHpModalOpen(false);
+    setTempHpInput("");
+  }
+
+  function applyTempHpChange() {
+    const amount = Number.parseInt(tempHpInput, 10);
+
+    onSetTempHp(Number.isFinite(amount) && amount > 0 ? amount : 0);
+    closeTempHpModal();
+  }
 
   return (
     <div className="character-sheet character-sheet-reference">
@@ -187,21 +228,23 @@ function CharacterSheet({ character }: CharacterSheetProps) {
               <strong>{character.speed} ft</strong>
               <em>Speed</em>
             </div>
-
-            <div className="character-primary-metric-card">
-              <span>Heroic</span>
-              <strong>Ready</strong>
-              <em>Inspiration</em>
-            </div>
           </div>
         </div>
 
         <div className="character-hit-points-panel">
           <div className="character-hit-points-actions">
-            <button type="button" className="character-hit-points-action">
+            <button
+              type="button"
+              className="character-hit-points-action"
+              onClick={openCurrentHpModal}
+            >
               Heal
             </button>
-            <button type="button" className="character-hit-points-action">
+            <button
+              type="button"
+              className="character-hit-points-action"
+              onClick={openCurrentHpModal}
+            >
               Damage
             </button>
           </div>
@@ -209,17 +252,21 @@ function CharacterSheet({ character }: CharacterSheetProps) {
           <div className="character-hit-points-metrics">
             <div className="character-hit-points-stat">
               <span>Current</span>
-              <strong>{character.currentHp}</strong>
+              <strong>{currentHp}</strong>
             </div>
             <div className="character-hit-points-separator">/</div>
             <div className="character-hit-points-stat">
               <span>Max</span>
               <strong>{character.maxHp}</strong>
             </div>
-            <div className="character-hit-points-stat character-hit-points-stat-muted">
+            <button
+              type="button"
+              className="character-hit-points-stat character-hit-points-stat-muted character-hit-points-stat-button"
+              onClick={openTempHpModal}
+            >
               <span>Temp</span>
-              <strong>--</strong>
-            </div>
+              <strong>{tempHp > 0 ? tempHp : "--"}</strong>
+            </button>
           </div>
 
           <div className="character-hit-points-footer">Hit Points</div>
@@ -304,12 +351,12 @@ function CharacterSheet({ character }: CharacterSheetProps) {
 
         <section className="character-main-workspace">
           <div className="character-main-status-grid">
-            <div className="character-status-badge">
+            <div className="character-status-badge character-status-badge-initiative">
               <span>Initiative</span>
               <strong>{formatModifier(dexterityModifier)}</strong>
             </div>
 
-            <div className="character-status-badge">
+            <div className="character-status-badge character-status-badge-armor">
               <span>Armor Class</span>
               <strong>{character.armorClass}</strong>
             </div>
@@ -317,12 +364,16 @@ function CharacterSheet({ character }: CharacterSheetProps) {
             <div className="character-status-panel">
               <h3>Defenses</h3>
               <div className="character-status-list">
-                {defenseSummary.map((entry) => (
-                  <div key={entry.label} className="character-status-row">
-                    <span>{entry.label}</span>
-                    <strong>{entry.value}</strong>
-                  </div>
-                ))}
+                {defenseSummary.length > 0 ? (
+                  defenseSummary.map((entry) => (
+                    <div key={entry.label} className="character-status-row">
+                      <span>{entry.label}</span>
+                      <strong>{entry.value}</strong>
+                    </div>
+                  ))
+                ) : (
+                  <p className="muted">No active defenses</p>
+                )}
               </div>
             </div>
 
@@ -414,6 +465,15 @@ function CharacterSheet({ character }: CharacterSheetProps) {
               {activeTab === "inventory" && (
                 <div className="character-inventory-stage">
                   <Card title="Inventory List">
+                    <div className="character-inventory-toolbar">
+                      <button
+                        type="button"
+                        className="character-inline-button character-inline-button-strong"
+                        onClick={onOpenInventoryLibrary}
+                      >
+                        Add Item
+                      </button>
+                    </div>
                     <div className="list">
                       {inventoryItems.length === 0 && <p className="muted">Inventory is empty.</p>}
 
@@ -534,7 +594,7 @@ function CharacterSheet({ character }: CharacterSheetProps) {
                       <div className="list-row">
                         <span>Hit Points</span>
                         <strong>
-                          {character.currentHp}/{character.maxHp}
+                          {currentHp}/{character.maxHp}
                         </strong>
                       </div>
                     </div>
@@ -545,6 +605,131 @@ function CharacterSheet({ character }: CharacterSheetProps) {
           </section>
         </section>
       </section>
+
+      {isCurrentHpModalOpen ? (
+        <div className="character-hp-modal-backdrop" onClick={closeCurrentHpModal}>
+          <section
+            className="character-hp-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <header className="character-hp-modal-header">
+              <h3>Adjust Current HP</h3>
+              <button
+                type="button"
+                className="character-hp-modal-close"
+                onClick={closeCurrentHpModal}
+                aria-label="Close current HP dialog"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="character-hp-modal-body">
+              <label className="character-hp-modal-field">
+                <span>Amount</span>
+                <input
+                  type="number"
+                  min="1"
+                  className="character-hp-modal-input"
+                  value={hitPointAmountInput}
+                  onChange={(event) => setHitPointAmountInput(event.target.value)}
+                  placeholder="Enter HP amount"
+                />
+              </label>
+            </div>
+
+            <footer className="character-hp-modal-actions">
+              <button
+                type="button"
+                className="character-hp-modal-button character-hp-modal-button-secondary"
+                onClick={closeCurrentHpModal}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="character-hp-modal-button"
+                onClick={() => applyCurrentHpChange("heal")}
+              >
+                Heal
+              </button>
+              <button
+                type="button"
+                className="character-hp-modal-button character-hp-modal-button-danger"
+                onClick={() => applyCurrentHpChange("damage")}
+              >
+                Damage
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+
+      {isTempHpModalOpen ? (
+        <div className="character-hp-modal-backdrop" onClick={closeTempHpModal}>
+          <section
+            className="character-hp-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <header className="character-hp-modal-header">
+              <h3>Set Temporary HP</h3>
+              <button
+                type="button"
+                className="character-hp-modal-close"
+                onClick={closeTempHpModal}
+                aria-label="Close temporary HP dialog"
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="character-hp-modal-body">
+              <label className="character-hp-modal-field">
+                <span>Temporary Hit Points</span>
+                <input
+                  type="number"
+                  min="0"
+                  className="character-hp-modal-input"
+                  value={tempHpInput}
+                  onChange={(event) => setTempHpInput(event.target.value)}
+                  placeholder="Enter temp HP"
+                />
+              </label>
+            </div>
+
+            <footer className="character-hp-modal-actions">
+              <button
+                type="button"
+                className="character-hp-modal-button character-hp-modal-button-secondary"
+                onClick={closeTempHpModal}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="character-hp-modal-button character-hp-modal-button-secondary"
+                onClick={() => {
+                  onSetTempHp(0);
+                  closeTempHpModal();
+                }}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="character-hp-modal-button"
+                onClick={applyTempHpChange}
+              >
+                Apply
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

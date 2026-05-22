@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$node = Join-Path $root ".tools\node22\node.exe"
+$node = "node"
 $tsx = Join-Path $root "node_modules\tsx\dist\cli.mjs"
 $vite = Join-Path $root "node_modules\vite\bin\vite.js"
 $apiRoot = Join-Path $root "apps\api"

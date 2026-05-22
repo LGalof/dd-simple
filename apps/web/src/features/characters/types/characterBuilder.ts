@@ -19,6 +19,8 @@ type CharacterBuilderState = {
   backgroundIndex: string;
   classIndex: string;
   level: number;
+  currentHp: number;
+  tempHp: number;
   abilityAssignments: AbilityAssignment[];
   hitPointSettings: HitPointSettings;
 };
