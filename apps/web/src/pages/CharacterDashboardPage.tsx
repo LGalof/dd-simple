@@ -1,13 +1,33 @@
+import { useEffect, useMemo } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { CharacterBuilderSidebar } from "../features/characters/components/CharacterBuilderSidebar";
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
+import {
+  clearSelectedCharacterId,
+  getSelectedCharacterId,
+} from "../features/characters/utils/selectedCharacter";
 
 function CharacterDashboardPage() {
   const { characters, loading, error } = useCharacters();
-  const character = characters[0];
+  const selectedCharacterId = getSelectedCharacterId();
+  const selectedCharacter = useMemo(
+    () =>
+      selectedCharacterId
+        ? characters.find((character) => character.id === selectedCharacterId)
+        : undefined,
+    [characters, selectedCharacterId],
+  );
+  const character = selectedCharacter ?? characters[0];
+
+  useEffect(() => {
+    if (!loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {
+      clearSelectedCharacterId(selectedCharacterId);
+    }
+  }, [characters.length, loading, selectedCharacter, selectedCharacterId]);
+
   const {
     activePanel,
     backgroundOptions,

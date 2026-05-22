@@ -752,6 +752,7 @@ async function seedDemoCharacter() {
     create: {
       email: "demo@ddsimple.local",
       displayName: "Demo Player",
+      passwordHash: null,
     },
   });
 

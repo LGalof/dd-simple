@@ -1,0 +1,66 @@
+import { api } from "../../../lib/api";
+import type {
+  CharacterCreatorReferences,
+  ReferenceAbilityScore,
+  ReferenceBackground,
+  ReferenceClass,
+  ReferenceRuleDocument,
+  ReferenceSkill,
+  ReferenceSpecies,
+} from "../../../types/reference";
+
+type FetchReferenceOptions = {
+  token?: string | null;
+};
+
+async function fetchAbilityScores(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceAbilityScore[]>("/references/ability-scores", options);
+}
+
+async function fetchSkills(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceSkill[]>("/references/skills", options);
+}
+
+async function fetchSpecies(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceSpecies[]>("/references/species", options);
+}
+
+async function fetchClasses(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceClass[]>("/references/classes", options);
+}
+
+async function fetchBackgrounds(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceBackground[]>("/references/backgrounds", options);
+}
+
+async function fetchAlignments(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceRuleDocument[]>("/references/rules/alignments", options);
+}
+
+async function fetchCharacterCreatorReferences(
+  options: FetchReferenceOptions = {},
+): Promise<CharacterCreatorReferences> {
+  const [species, classes, backgrounds, alignments] = await Promise.all([
+    fetchSpecies(options),
+    fetchClasses(options),
+    fetchBackgrounds(options),
+    fetchAlignments(options),
+  ]);
+
+  return {
+    species,
+    classes,
+    backgrounds,
+    alignments,
+  };
+}
+
+export {
+  fetchAbilityScores,
+  fetchAlignments,
+  fetchBackgrounds,
+  fetchCharacterCreatorReferences,
+  fetchClasses,
+  fetchSkills,
+  fetchSpecies,
+};

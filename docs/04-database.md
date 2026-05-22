@@ -18,6 +18,7 @@ Fields:
 - id
 - email
 - displayName
+- passwordHash
 - createdAt
 - updatedAt
 
