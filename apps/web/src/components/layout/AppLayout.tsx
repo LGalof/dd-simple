@@ -53,6 +53,14 @@ function AppLayout({
                 >
                   My Characters
                 </NavLink>
+                <NavLink
+                  to="/inventory"
+                  className={({ isActive }) =>
+                    isActive ? "app-nav-link app-nav-link-active" : "app-nav-link"
+                  }
+                >
+                  Inventory
+                </NavLink>
                 {user && (
                   <button
                     type="button"

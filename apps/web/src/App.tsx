@@ -4,6 +4,7 @@ import { AuthProvider } from "./features/auth/AuthContext";
 import { AuthPage } from "./pages/AuthPage";
 import { CharacterDashboardPage } from "./pages/CharacterDashboardPage";
 import { CreateCharacterPage } from "./pages/CreateCharacterPage";
+import { InventorySandboxPage } from "./pages/InventorySandboxPage";
 import { MyCharactersPage } from "./pages/MyCharactersPage";
 
 function App() {
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CreateCharacterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute>
+                <InventorySandboxPage />
               </ProtectedRoute>
             }
           />
