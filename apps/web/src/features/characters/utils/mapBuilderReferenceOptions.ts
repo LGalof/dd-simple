@@ -1,6 +1,7 @@
 import type {
   ReferenceBackground,
   ReferenceClass,
+  ReferenceRuleDocument,
   ReferenceSpecies,
 } from "../../../types/reference";
 import type {
@@ -17,7 +18,17 @@ type ReferenceItem = {
 };
 
 type ChoiceOption = {
+  choice?: Choice;
+  count?: unknown;
   item?: ReferenceItem;
+  items?: ChoiceOption[];
+  of?: ReferenceItem;
+  unit?: unknown;
+};
+
+type ChoiceOptionData = {
+  label: string;
+  value: string;
 };
 
 type Choice = {
@@ -26,6 +37,7 @@ type Choice = {
   from?: {
     options?: ChoiceOption[];
   };
+  type?: unknown;
 };
 
 type SpeciesSourceJson = {
@@ -66,9 +78,22 @@ type ClassSourceJson = {
   proficiencies?: ReferenceItem[];
   proficiency_choices?: Choice[];
   saving_throws?: ReferenceItem[];
-  starting_equipment_options?: Array<{
-    desc?: unknown;
-  }>;
+  starting_equipment_options?: Choice[];
+};
+
+type FeatureSourceJson = {
+  desc?: unknown;
+  feature_specific?: unknown;
+  level?: unknown;
+  name?: unknown;
+};
+
+type LevelSourceJson = {
+  class?: {
+    index?: unknown;
+  };
+  features?: ReferenceItem[];
+  level?: unknown;
 };
 
 function mapSpeciesReferences(
@@ -222,6 +247,8 @@ function mapBackgroundReferences(
 function mapClassReferences(
   references: ReferenceClass[],
   fallbackOptions: ClassOption[],
+  levelDocuments: ReferenceRuleDocument[] = [],
+  featureDocuments: ReferenceRuleDocument[] = [],
 ): ClassOption[] {
   if (references.length === 0) {
     return fallbackOptions;
@@ -245,7 +272,12 @@ function mapClassReferences(
     const startingEquipment = (sourceJson.starting_equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
-    const features = fallback?.features ?? createDatabaseClassFeature(reference);
+    const features = createReferenceBackedClassFeatures(
+      reference,
+      sourceJson,
+      levelDocuments,
+      featureDocuments,
+    );
 
     return {
       index: reference.index,
@@ -278,16 +310,264 @@ function mapClassReferences(
   });
 }
 
-function createDatabaseClassFeature(reference: ReferenceClass): ClassFeature[] {
-  return [
-    {
-      id: `${reference.index}-database-overview`,
-      level: 1,
-      title: `${reference.name} Progression`,
-      summary:
-        "Class progression data is available from the rules database; feature choice handling is not wired into this modal yet.",
-    },
+function createReferenceBackedClassFeatures(
+  reference: ReferenceClass,
+  sourceJson: ClassSourceJson,
+  levelDocuments: ReferenceRuleDocument[],
+  featureDocuments: ReferenceRuleDocument[],
+): ClassFeature[] {
+  const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+  const classChoiceFields = [
+    ...(sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
+      createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
+    ),
+    ...(sourceJson.starting_equipment_options ?? []).flatMap((choice, index) =>
+      createChoiceFieldsFromChoice(choice, `class-equipment-${index}`, "Starting Equipment"),
+    ),
   ];
+  const classChoiceFeature = classChoiceFields.length > 0
+    ? [
+        createFeature({
+          id: `${reference.index}-class-choices`,
+          level: 1,
+          title: `${reference.name} Choices`,
+          summary: "Choose class options from the reference data.",
+          choiceFields: classChoiceFields,
+        }),
+      ]
+    : [];
+  const levelFeatures = levelDocuments
+    .map((document) => ({
+      document,
+      sourceJson: asRecord(document.sourceJson) as LevelSourceJson,
+    }))
+    .filter(({ sourceJson }) => sourceJson.class?.index === reference.index)
+    .sort((left, right) => {
+      const leftLevel = numberValue(left.sourceJson.level) ?? 0;
+      const rightLevel = numberValue(right.sourceJson.level) ?? 0;
+
+      return leftLevel - rightLevel || left.document.index.localeCompare(right.document.index);
+    })
+    .flatMap(({ sourceJson }) => {
+      const level = numberValue(sourceJson.level) ?? 1;
+      const featureReferences = Array.isArray(sourceJson.features) ? sourceJson.features : [];
+
+      return featureReferences
+        .map((featureReference) => {
+          const featureIndex = stringValue(featureReference.index);
+
+          if (!featureIndex) {
+            return null;
+          }
+
+          const featureDocument = featureDocumentMap.get(featureIndex);
+          const featureSourceJson = asRecord(featureDocument?.sourceJson) as FeatureSourceJson;
+          const descriptions = Array.isArray(featureSourceJson.desc)
+            ? featureSourceJson.desc.filter((entry): entry is string => typeof entry === "string")
+            : [];
+          const choiceFields = createChoiceFieldsFromChoice(
+            featureSourceJson.feature_specific,
+            `feature-${featureIndex}`,
+            "Feature Choice",
+          );
+
+          return createFeature({
+            id: featureIndex,
+            level: numberValue(featureSourceJson.level) ?? level,
+            title:
+              stringValue(featureSourceJson.name) ??
+              featureDocument?.name ??
+              stringValue(featureReference.name) ??
+              featureIndex,
+            summary: trimDescription(
+              descriptions[0] ?? "No description available from reference data.",
+            ),
+            details: descriptions.slice(1).map(trimDescription).filter(isPresent),
+            choiceFields: choiceFields.length > 0 ? choiceFields : undefined,
+          });
+        })
+        .filter(isPresent);
+    });
+  return levelFeatures.length > 0
+    ? [...classChoiceFeature, ...levelFeatures]
+    : [
+        ...classChoiceFeature,
+        createFeature({
+          id: `${reference.index}-reference-unavailable`,
+          level: 1,
+          title: "Class features are not available from reference data.",
+          summary: "Class features are not available from reference data.",
+        }),
+      ];
+}
+
+function createFeature(feature: ClassFeature): ClassFeature {
+  return {
+    ...feature,
+    details: feature.details?.length ? feature.details : undefined,
+    choiceFields: feature.choiceFields?.length ? feature.choiceFields : undefined,
+  };
+}
+
+function createChoiceFieldsFromChoice(
+  value: unknown,
+  baseId: string,
+  fallbackLabel: string,
+): FeatureChoiceField[] {
+  const groups: Array<{
+    choose: number;
+    id: string;
+    label: string;
+    options: ChoiceOptionData[];
+    optionKind: string;
+  }> = [];
+
+  collectChoiceGroups(value, baseId, fallbackLabel, groups);
+
+  return groups.flatMap((group) =>
+    Array.from({ length: group.choose }, (_, index) =>
+      createChoiceField(
+        group.choose === 1 ? group.id : `${group.id}-${index + 1}`,
+        group.choose === 1
+          ? singleChoiceFieldLabel(group.optionKind)
+          : `${capitalize(group.optionKind)} ${index + 1}`,
+        group.options,
+        {
+          choiceGroupId: group.id,
+          choiceGroupLabel: group.label,
+          choiceGroupLimit: group.choose,
+        },
+      ),
+    ),
+  );
+}
+
+function collectChoiceGroups(
+  value: unknown,
+  baseId: string,
+  fallbackLabel: string,
+  groups: Array<{
+    choose: number;
+    id: string;
+    label: string;
+    options: ChoiceOptionData[];
+    optionKind: string;
+  }>,
+) {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) =>
+      collectChoiceGroups(entry, `${baseId}-${index}`, fallbackLabel, groups),
+    );
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const choose = numberValue(value.choose);
+  const options = getChoiceOptions(value);
+
+  if (choose && options.length > 0) {
+    const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
+
+    groups.push({
+      choose,
+      id: baseId,
+      label: choiceGroupLabel(choose, optionKind, fallbackLabel),
+      options: options.map((option) => ({
+        label: cleanChoiceOptionLabel(option.rawLabel),
+        value: option.value,
+      })),
+      optionKind,
+    });
+  }
+
+  Object.entries(value).forEach(([key, nestedValue]) => {
+    if (key === "from") {
+      return;
+    }
+
+    collectChoiceGroups(nestedValue, `${baseId}-${key}`, toTitle(key), groups);
+  });
+}
+
+function getChoiceOptions(value: Record<string, unknown>) {
+  const from = isRecord(value.from) ? value.from : null;
+  const rawOptions = Array.isArray(from?.options) ? from.options : [];
+
+  return rawOptions.map(choiceOptionData).filter(isPresent);
+}
+
+function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: string }) | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const item = isRecord(value.item) ? value.item : null;
+  const of = isRecord(value.of) ? value.of : null;
+  const choice = isRecord(value.choice) ? value.choice as Choice : null;
+  const items = Array.isArray(value.items) ? value.items : null;
+  const count = numberValue(value.count);
+  const unit = stringValue(value.unit);
+  const reference = referenceLabel(item) ?? referenceLabel(of);
+  const referenceIndex = stringValue(item?.index) ?? stringValue(of?.index);
+
+  if (reference) {
+    const rawLabel = count && count > 1 ? `${count} ${reference}` : reference;
+
+    return {
+      label: cleanChoiceOptionLabel(rawLabel),
+      rawLabel,
+      value: referenceIndex ?? slugify(rawLabel),
+    };
+  }
+
+  if (choice) {
+    const choose = numberValue(choice.choose);
+    const type = stringValue(choice.type) ?? "option";
+    const rawLabel = choose ? `Choose ${choose} ${type}` : stringValue(choice.desc);
+
+    return rawLabel
+      ? {
+          label: cleanChoiceOptionLabel(rawLabel),
+          rawLabel,
+          value: slugify(rawLabel),
+        }
+      : null;
+  }
+
+  if (items) {
+    const options = items.map(choiceOptionData).filter(isPresent);
+
+    if (options.length === 0) {
+      return null;
+    }
+
+    const rawLabel = options.map((option) => option.rawLabel).join(", ");
+
+    return {
+      label: options.map((option) => option.label).join(", "),
+      rawLabel,
+      value: options.map((option) => option.value).join("+"),
+    };
+  }
+
+  if (count !== null && unit) {
+    const rawLabel = `${count} ${unit}`;
+
+    return {
+      label: rawLabel,
+      rawLabel,
+      value: slugify(rawLabel),
+    };
+  }
+
+  return null;
+}
+
+function referenceLabel(value: Record<string, unknown> | null) {
+  return stringValue(value?.name);
 }
 
 function createAbilityScoreChoiceFields(options: string[]): FeatureChoiceField[] {
@@ -305,13 +585,85 @@ function createAbilityScoreChoiceFields(options: string[]): FeatureChoiceField[]
   ];
 }
 
-function createChoiceField(id: string, label: string, options: string[]): FeatureChoiceField {
+function inferChoiceOptionKind(options: string[], fallbackLabel: string) {
+  const normalizedOptions = options.map((option) => option.toLowerCase());
+  const normalizedFallback = fallbackLabel.toLowerCase();
+
+  if (normalizedOptions.every((option) => option.startsWith("skill: "))) {
+    return "skill proficiency";
+  }
+
+  if (normalizedOptions.every((option) => option.startsWith("tool: "))) {
+    return "tool proficiency";
+  }
+
+  if (normalizedOptions.every((option) => option.startsWith("weapon: "))) {
+    return "weapon proficiency";
+  }
+
+  if (normalizedOptions.every((option) => option.startsWith("armor: "))) {
+    return "armor proficiency";
+  }
+
+  if (normalizedFallback.includes("equipment")) {
+    return "equipment choice";
+  }
+
+  return "option";
+}
+
+function choiceGroupLabel(choose: number, optionKind: string, fallbackLabel: string) {
+  if (optionKind === "equipment choice") {
+    return "Choose starting equipment";
+  }
+
+  if (optionKind === "option") {
+    return choose === 1 ? `Choose ${choose} option` : `Choose ${choose} options`;
+  }
+
+  return `Choose ${choose} ${pluralize(optionKind, choose)}`;
+}
+
+function singleChoiceFieldLabel(optionKind: string) {
+  return optionKind === "equipment choice" ? "Equipment choice" : capitalize(optionKind);
+}
+
+function cleanChoiceOptionLabel(value: string) {
+  return value
+    .replace(/^Skill: /, "")
+    .replace(/^Tool: /, "")
+    .replace(/^Weapon: /, "")
+    .replace(/^Armor: /, "");
+}
+
+function pluralize(value: string, count: number) {
+  if (count === 1) {
+    return value;
+  }
+
+  return value.endsWith("y") ? `${value.slice(0, -1)}ies` : `${value}s`;
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function createChoiceField(
+  id: string,
+  label: string,
+  options: Array<string | ChoiceOptionData>,
+  metadata: Pick<
+    FeatureChoiceField,
+    "choiceGroupId" | "choiceGroupLabel" | "choiceGroupLimit"
+  > = {},
+): FeatureChoiceField {
   return {
+    ...metadata,
     id,
     label,
     options: options.map((option) => ({
-      value: option.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
-      label: option,
+      value: typeof option === "string" ? slugify(option) : option.value,
+      label: typeof option === "string" ? option : option.label,
     })),
   };
 }
@@ -348,7 +700,11 @@ function groupClassProficiencies(proficiencies: string[]) {
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
+  return isRecord(value) ? value : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function referenceName(value: ReferenceItem | undefined): string | null {
@@ -365,6 +721,22 @@ function numberValue(value: unknown): number | null {
 
 function isPresent<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
+}
+
+function trimDescription(value: string) {
+  const trimmedValue = value.replace(/\s+/g, " ").trim();
+
+  return trimmedValue.length > 320 ? `${trimmedValue.slice(0, 317).trim()}...` : trimmedValue;
+}
+
+function toTitle(value: string) {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
 function stripReferencePrefix(value: string) {

@@ -43,6 +43,7 @@ function CharacterDashboardPage() {
     classOptions,
     closePanel,
     confirmSelection,
+    featureChoices,
     applyHitPointConfiguration,
     applyCurrentHpAdjustment,
     handleRollAbility,
@@ -56,6 +57,7 @@ function CharacterDashboardPage() {
     selectedClass,
     selectedPanelOption,
     selectedSpecies,
+    setFeatureChoices,
     setTempHp,
     setSelection,
     speciesOptions,
@@ -104,9 +106,11 @@ function CharacterDashboardPage() {
                   hitPointPreview={hitPointPreview}
                   onAbilityAssignmentChange={updateAbilityAssignment}
                   onApplyHitPointSettings={applyHitPointConfiguration}
+                  onFeatureChoicesChange={setFeatureChoices}
                   onOpenPanel={openPanel}
                   onRollAbility={handleRollAbility}
                   onRollAllAbilities={handleRollAllAbilities}
+                  selectedChoices={featureChoices}
                   species={selectedSpecies}
                   hitPointSettings={hitPointSettings}
                 />

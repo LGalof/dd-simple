@@ -8,6 +8,7 @@ import {
 import {
   fetchBackgrounds,
   fetchClasses,
+  fetchRuleDocuments,
   fetchSpecies,
 } from "../../references/api/fetchReferences";
 import type {
@@ -15,6 +16,7 @@ import type {
   BuilderSelectionKind,
   CharacterBuilderState,
   ClassOption,
+  FeatureChoiceSelections,
   HitPointSettings,
   SpeciesOption,
 } from "../types/characterBuilder";
@@ -111,10 +113,21 @@ function clampLevel(value: number) {
   return Math.max(1, Math.min(20, value));
 }
 
+function getSelectedSkillIndexes(featureChoices: FeatureChoiceSelections) {
+  return [
+    ...new Set(
+      Object.values(featureChoices)
+        .filter((selectedIndex) => selectedIndex.startsWith("skill-"))
+        .map((selectedIndex) => selectedIndex.replace(/^skill-/, "")),
+    ),
+  ];
+}
+
 function useCharacterBuilder(character: Character | undefined) {
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
   const [activePanel, setActivePanel] = useState<BuilderSelectionKind | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
+  const [featureChoices, setFeatureChoices] = useState<FeatureChoiceSelections>({});
   const [referenceOptions, setReferenceOptions] = useState({
     backgroundOptions,
     classOptions,
@@ -126,10 +139,12 @@ function useCharacterBuilder(character: Character | undefined) {
       setBuilderState(null);
       setActivePanel(null);
       setPendingSelection(null);
+      setFeatureChoices({});
       return;
     }
 
     setBuilderState(createBuilderStateFromOptions(character, referenceOptions));
+    setFeatureChoices({});
   }, [character?.id, referenceOptions]);
 
   useEffect(() => {
@@ -137,10 +152,24 @@ function useCharacterBuilder(character: Character | undefined) {
 
     async function loadReferenceOptions() {
       try {
-        const [speciesReferences, backgroundReferences, classReferences] = await Promise.all([
+        const [
+          speciesReferences,
+          backgroundReferences,
+          classReferences,
+          levelRuleDocuments,
+          featureRuleDocuments,
+        ] = await Promise.all([
           fetchSpecies(),
           fetchBackgrounds(),
           fetchClasses(),
+          fetchRuleDocuments("levels").catch((error) => {
+            console.warn("Class level reference data is unavailable.", error);
+            return [];
+          }),
+          fetchRuleDocuments("features").catch((error) => {
+            console.warn("Class feature reference data is unavailable.", error);
+            return [];
+          }),
         ]);
 
         if (!isCurrentRequest) {
@@ -149,7 +178,12 @@ function useCharacterBuilder(character: Character | undefined) {
 
         const nextSpeciesOptions = mapSpeciesReferences(speciesReferences, speciesOptions);
         const nextBackgroundOptions = mapBackgroundReferences(backgroundReferences, backgroundOptions);
-        const nextClassOptions = mapClassReferences(classReferences, classOptions);
+        const nextClassOptions = mapClassReferences(
+          classReferences,
+          classOptions,
+          levelRuleDocuments,
+          featureRuleDocuments,
+        );
 
         if (
           nextSpeciesOptions.length > 0 &&
@@ -211,6 +245,10 @@ function useCharacterBuilder(character: Character | undefined) {
       settings: builderState.hitPointSettings,
     });
   }, [builderState, selectedClass.hitDie]);
+  const selectedSkillIndexes = useMemo(
+    () => getSelectedSkillIndexes(featureChoices),
+    [featureChoices],
+  );
 
   const previewCharacter = useMemo(() => {
     if (!character || !builderState) {
@@ -221,10 +259,18 @@ function useCharacterBuilder(character: Character | undefined) {
       background: selectedBackground,
       character,
       classOption: selectedClass,
+      selectedSkillIndexes,
       species: selectedSpecies,
       state: builderState,
     });
-  }, [builderState, character, selectedBackground, selectedClass, selectedSpecies]);
+  }, [
+    builderState,
+    character,
+    selectedBackground,
+    selectedClass,
+    selectedSkillIndexes,
+    selectedSpecies,
+  ]);
 
   function updateLevel(nextLevel: number) {
     if (!Number.isFinite(nextLevel)) {
@@ -427,6 +473,10 @@ function useCharacterBuilder(character: Character | undefined) {
       ...(activePanel === "class" ? { classIndex: pendingSelection } : {}),
     });
 
+    if (activePanel === "class") {
+      setFeatureChoices({});
+    }
+
     closePanel();
   }
 
@@ -464,6 +514,7 @@ function useCharacterBuilder(character: Character | undefined) {
     builderState,
     closePanel,
     confirmSelection,
+    featureChoices,
     openPanel,
     pendingSelection,
     previewCharacter,
@@ -472,6 +523,7 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedPanelOption,
     selectedSpecies,
     setSelection,
+    setFeatureChoices,
     speciesOptions: referenceOptions.speciesOptions,
     backgroundOptions: referenceOptions.backgroundOptions,
     classOptions: referenceOptions.classOptions,

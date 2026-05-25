@@ -53,7 +53,12 @@ type FeatureChoiceOption = {
   label: string;
 };
 
+type FeatureChoiceSelections = Record<string, string>;
+
 type FeatureChoiceField = {
+  choiceGroupId?: string;
+  choiceGroupLabel?: string;
+  choiceGroupLimit?: number;
   id: string;
   label: string;
   options: FeatureChoiceOption[];
@@ -121,6 +126,7 @@ export type {
   ClassOption,
   FeatureChoiceField,
   FeatureChoiceOption,
+  FeatureChoiceSelections,
   HitPointSettings,
   SpeciesPreviewSection,
   SpeciesOption,

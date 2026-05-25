@@ -12,7 +12,7 @@ app.use(express.json());
 
 app.use(healthRouter);
 app.use(authRouter);
-app.use(charactersRouter);
 app.use(referencesRouter);
+app.use(charactersRouter);
 
 export { app };
