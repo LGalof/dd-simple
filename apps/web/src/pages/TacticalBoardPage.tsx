@@ -2,7 +2,9 @@ import {
   Castle,
   ChevronLeft,
   ChevronRight,
+  Copy,
   Download,
+  FilePlus,
   Footprints,
   Mountain,
   Plus,
@@ -186,6 +188,8 @@ function TacticalBoardPage() {
       ? validInitiativeOrder[activeInitiativeIndex % validInitiativeOrder.length]
       : "";
   const activeToken = tokens.find((token) => token.id === activeTokenId) ?? null;
+  const selectedSavedBoard =
+    savedBoards.find((board) => board.id === selectedSavedBoardId) ?? null;
   const selectedReach = selectedToken ? Math.floor(selectedToken.speed / cellDistance) : 0;
   const selectedOccupiedCells = useMemo(
     () => (selectedToken ? getOccupiedCells(selectedToken) : []),
@@ -412,7 +416,7 @@ function TacticalBoardPage() {
     setMessage(nextMessage);
   }
 
-  function saveNamedBoard() {
+  function saveNamedBoard({ asNew = false }: { asNew?: boolean } = {}) {
     const name = boardName.trim();
 
     if (!name) {
@@ -421,7 +425,7 @@ function TacticalBoardPage() {
     }
 
     const nextEntry: SavedBoardEntry = {
-      id: selectedSavedBoardId || `board-${Date.now()}`,
+      id: asNew || !selectedSavedBoardId ? `board-${Date.now()}` : selectedSavedBoardId,
       name,
       updatedAt: new Date().toISOString(),
       state: getCurrentBoardState(),
@@ -435,7 +439,7 @@ function TacticalBoardPage() {
       );
     });
     setSelectedSavedBoardId(nextEntry.id);
-    setMessage(`${name} saved.`);
+    setMessage(asNew ? `${name} saved as a new board.` : `${name} saved.`);
   }
 
   function loadNamedBoard(boardId = selectedSavedBoardId) {
@@ -465,6 +469,18 @@ function TacticalBoardPage() {
     setSelectedSavedBoardId(remainingBoards[0]?.id ?? "");
     setBoardName(remainingBoards[0]?.name ?? "Forest Road");
     setMessage(`${savedBoard.name} deleted.`);
+  }
+
+  function startBlankBoard() {
+    setTokens([]);
+    setTerrain({});
+    setSelectedTokenId("");
+    setInitiativeOrder([]);
+    setActiveInitiativeIndex(0);
+    setSelectedSavedBoardId("");
+    setBoardName("New Encounter Board");
+    setHoverCell(null);
+    setMessage("Blank board ready for DM prep.");
   }
 
   function advanceInitiative(direction: 1 | -1) {
@@ -598,12 +614,21 @@ function TacticalBoardPage() {
             </button>
 
             <div className="battle-panel-heading">
-              <span>Save</span>
-              <strong>Saved Boards</strong>
+              <span>DM Prep</span>
+              <strong>Saved Maps</strong>
+            </div>
+
+            <div className="battle-saved-board-meta">
+              <span>{savedBoards.length} saved</span>
+              <strong>
+                {selectedSavedBoard
+                  ? `Updated ${formatSavedBoardDate(selectedSavedBoard.updatedAt)}`
+                  : "No map selected"}
+              </strong>
             </div>
 
             <label className="battle-field">
-              <span>Board Name</span>
+              <span>Map Name</span>
               <input
                 value={boardName}
                 onChange={(event) => setBoardName(event.target.value)}
@@ -611,7 +636,7 @@ function TacticalBoardPage() {
               />
             </label>
             <label className="battle-field">
-              <span>Load Saved Board</span>
+              <span>Prepared Maps</span>
               <select
                 value={selectedSavedBoardId}
                 onChange={(event) => {
@@ -625,7 +650,7 @@ function TacticalBoardPage() {
                   }
                 }}
               >
-                <option value="">No saved board selected</option>
+                <option value="">Choose a saved map</option>
                 {savedBoards.map((board) => (
                   <option key={board.id} value={board.id}>
                     {board.name}
@@ -634,7 +659,7 @@ function TacticalBoardPage() {
               </select>
             </label>
             <div className="battle-field-row">
-              <button type="button" className="battle-primary-button" onClick={saveNamedBoard}>
+              <button type="button" className="battle-primary-button" onClick={() => saveNamedBoard()}>
                 <Save size={17} />
                 Save
               </button>
@@ -643,9 +668,27 @@ function TacticalBoardPage() {
                 Load
               </button>
             </div>
+            <div className="battle-field-row">
+              <button
+                type="button"
+                className="battle-primary-button battle-primary-button-muted"
+                onClick={() => saveNamedBoard({ asNew: true })}
+              >
+                <Copy size={17} />
+                Save As
+              </button>
+              <button
+                type="button"
+                className="battle-primary-button battle-primary-button-muted"
+                onClick={startBlankBoard}
+              >
+                <FilePlus size={17} />
+                Blank
+              </button>
+            </div>
             <button type="button" className="battle-danger-button" onClick={deleteNamedBoard}>
               <Trash2 size={17} />
-              Delete Saved Board
+              Delete Saved Map
             </button>
 
             <div className="battle-panel-heading">
@@ -1132,6 +1175,19 @@ function decodeBoardState(code: string): SavedBoardState | null {
   } catch {
     return null;
   }
+}
+
+function formatSavedBoardDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "unknown";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function loadSavedBoardEntries(): SavedBoardEntry[] {

@@ -4321,6 +4321,12 @@ h1 {
   color: #dcfce7;
 }
 
+.battle-primary-button-muted {
+  border-color: rgba(147, 197, 253, 0.28);
+  background: linear-gradient(180deg, rgba(30, 64, 175, 0.7), rgba(30, 41, 59, 0.82));
+  color: #dbeafe;
+}
+
 .battle-danger-button {
   border: 1px solid rgba(248, 113, 113, 0.42);
   background: linear-gradient(180deg, rgba(153, 27, 27, 0.72), rgba(69, 10, 10, 0.82));
@@ -4340,6 +4346,28 @@ h1 {
 
 .battle-field-row {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.battle-saved-board-meta {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.55rem;
+  border: 1px solid rgba(147, 197, 253, 0.16);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.battle-saved-board-meta span {
+  color: #93c5fd;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.battle-saved-board-meta strong {
+  color: #f8fafc;
+  font-size: 0.84rem;
 }
 
 .battle-field span {
