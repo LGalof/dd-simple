@@ -5,6 +5,11 @@ import {
   classOptions,
   speciesOptions,
 } from "../data/builderReferenceData";
+import {
+  fetchBackgrounds,
+  fetchClasses,
+  fetchSpecies,
+} from "../../references/api/fetchReferences";
 import type {
   BackgroundOption,
   BuilderSelectionKind,
@@ -22,13 +27,33 @@ import {
   rerollAbilityAssignments,
   rollAbilitySet,
 } from "../utils/rollAbilityScores";
+import {
+  mapBackgroundReferences,
+  mapClassReferences,
+  mapSpeciesReferences,
+} from "../utils/mapBuilderReferenceOptions";
 
 const abilityOrder = ["str", "dex", "con", "int", "wis", "cha"];
 
 function createInitialBuilderState(character: Character): CharacterBuilderState {
+  return createBuilderStateFromOptions(character, {
+    backgroundOptions,
+    classOptions,
+    speciesOptions,
+  });
+}
+
+function createBuilderStateFromOptions(
+  character: Character,
+  options: {
+    backgroundOptions: BackgroundOption[];
+    classOptions: ClassOption[];
+    speciesOptions: SpeciesOption[];
+  },
+): CharacterBuilderState {
   const initialClass =
-    classOptions.find((classOption) => classOption.name === character.class.name) ??
-    classOptions[0];
+    options.classOptions.find((classOption) => classOption.name === character.class.name) ??
+    options.classOptions[0];
   const constitutionScore =
     character.abilityScores.find((abilityScore) => abilityScore.abilityIndex === "con")?.score ??
     10;
@@ -46,15 +71,15 @@ function createInitialBuilderState(character: Character): CharacterBuilderState 
 
   return {
     speciesIndex:
-      speciesOptions.find((species) => species.name === character.species.name)?.index ??
-      speciesOptions[0].index,
+      options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
+      options.speciesOptions[0].index,
     backgroundIndex:
-      backgroundOptions.find(
+      options.backgroundOptions.find(
         (background) => background.name === character.background.name,
-      )?.index ?? backgroundOptions[0].index,
+      )?.index ?? options.backgroundOptions[0].index,
     classIndex:
-      classOptions.find((classOption) => classOption.name === character.class.name)?.index ??
-      classOptions[0].index,
+      options.classOptions.find((classOption) => classOption.name === character.class.name)?.index ??
+      options.classOptions[0].index,
     level: character.level,
     currentHp: character.currentHp,
     tempHp: 0,
@@ -90,6 +115,11 @@ function useCharacterBuilder(character: Character | undefined) {
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
   const [activePanel, setActivePanel] = useState<BuilderSelectionKind | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
+  const [referenceOptions, setReferenceOptions] = useState({
+    backgroundOptions,
+    classOptions,
+    speciesOptions,
+  });
 
   useEffect(() => {
     if (!character) {
@@ -99,27 +129,69 @@ function useCharacterBuilder(character: Character | undefined) {
       return;
     }
 
-    setBuilderState(createInitialBuilderState(character));
-  }, [character?.id]);
+    setBuilderState(createBuilderStateFromOptions(character, referenceOptions));
+  }, [character?.id, referenceOptions]);
+
+  useEffect(() => {
+    let isCurrentRequest = true;
+
+    async function loadReferenceOptions() {
+      try {
+        const [speciesReferences, backgroundReferences, classReferences] = await Promise.all([
+          fetchSpecies(),
+          fetchBackgrounds(),
+          fetchClasses(),
+        ]);
+
+        if (!isCurrentRequest) {
+          return;
+        }
+
+        const nextSpeciesOptions = mapSpeciesReferences(speciesReferences, speciesOptions);
+        const nextBackgroundOptions = mapBackgroundReferences(backgroundReferences, backgroundOptions);
+        const nextClassOptions = mapClassReferences(classReferences, classOptions);
+
+        if (
+          nextSpeciesOptions.length > 0 &&
+          nextBackgroundOptions.length > 0 &&
+          nextClassOptions.length > 0
+        ) {
+          setReferenceOptions({
+            backgroundOptions: nextBackgroundOptions,
+            classOptions: nextClassOptions,
+            speciesOptions: nextSpeciesOptions,
+          });
+        }
+      } catch (error) {
+        console.warn("Falling back to built-in builder reference data.", error);
+      }
+    }
+
+    void loadReferenceOptions();
+
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, []);
 
   const selectedSpecies = useMemo(
     () =>
-      speciesOptions.find((species) => species.index === builderState?.speciesIndex) ??
-      speciesOptions[0],
-    [builderState?.speciesIndex],
+      referenceOptions.speciesOptions.find((species) => species.index === builderState?.speciesIndex) ??
+      referenceOptions.speciesOptions[0],
+    [builderState?.speciesIndex, referenceOptions.speciesOptions],
   );
   const selectedBackground = useMemo(
     () =>
-      backgroundOptions.find(
+      referenceOptions.backgroundOptions.find(
         (background) => background.index === builderState?.backgroundIndex,
-      ) ?? backgroundOptions[0],
-    [builderState?.backgroundIndex],
+      ) ?? referenceOptions.backgroundOptions[0],
+    [builderState?.backgroundIndex, referenceOptions.backgroundOptions],
   );
   const selectedClass = useMemo(
     () =>
-      classOptions.find((classOption) => classOption.index === builderState?.classIndex) ??
-      classOptions[0],
-    [builderState?.classIndex],
+      referenceOptions.classOptions.find((classOption) => classOption.index === builderState?.classIndex) ??
+      referenceOptions.classOptions[0],
+    [builderState?.classIndex, referenceOptions.classOptions],
   );
   const hitPointPreview = useMemo(() => {
     if (!builderState) {
@@ -369,22 +441,23 @@ function useCharacterBuilder(character: Character | undefined) {
 
     if (activePanel === "species") {
       return (
-        speciesOptions.find((species) => species.index === pendingSelection) ?? speciesOptions[0]
+        referenceOptions.speciesOptions.find((species) => species.index === pendingSelection) ??
+        referenceOptions.speciesOptions[0]
       );
     }
 
     if (activePanel === "background") {
       return (
-        backgroundOptions.find((background) => background.index === pendingSelection) ??
-        backgroundOptions[0]
+        referenceOptions.backgroundOptions.find((background) => background.index === pendingSelection) ??
+        referenceOptions.backgroundOptions[0]
       );
     }
 
     return (
-      classOptions.find((classOption) => classOption.index === pendingSelection) ??
-      classOptions[0]
+      referenceOptions.classOptions.find((classOption) => classOption.index === pendingSelection) ??
+      referenceOptions.classOptions[0]
     );
-  }, [activePanel, pendingSelection]);
+  }, [activePanel, pendingSelection, referenceOptions]);
 
   return {
     activePanel,
@@ -399,9 +472,9 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedPanelOption,
     selectedSpecies,
     setSelection,
-    speciesOptions,
-    backgroundOptions,
-    classOptions,
+    speciesOptions: referenceOptions.speciesOptions,
+    backgroundOptions: referenceOptions.backgroundOptions,
+    classOptions: referenceOptions.classOptions,
     handleRollAbility,
     hitPointPreview,
     hitPointSettings: builderState?.hitPointSettings ?? null,
