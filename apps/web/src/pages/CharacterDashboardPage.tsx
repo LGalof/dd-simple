@@ -3,15 +3,22 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { CharacterBuilderSidebar } from "../features/characters/components/CharacterBuilderSidebar";
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
+import type { WorkspaceTab } from "../features/characters/components/CharacterSheet";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import {
   clearSelectedCharacterId,
   getSelectedCharacterId,
 } from "../features/characters/utils/selectedCharacter";
+import {
+  InventoryDetailsSidebar,
+  useInventorySandboxController,
+} from "./InventorySandboxPage";
 
 function CharacterDashboardPage() {
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
+  const inventoryController = useInventorySandboxController();
   const { characters, loading, error } = useCharacters();
   const selectedCharacterId = getSelectedCharacterId();
   const selectedCharacter = useMemo(
@@ -107,11 +114,19 @@ function CharacterDashboardPage() {
             </div>
 
             <CharacterSheet
+              activeTab={activeWorkspaceTab}
               character={previewCharacter}
               currentHp={builderState.currentHp}
+              inventoryController={inventoryController}
+              onActiveTabChange={setActiveWorkspaceTab}
               tempHp={builderState.tempHp}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onSetTempHp={setTempHp}
+            />
+
+            <InventoryDetailsSidebar
+              controller={inventoryController}
+              isOpen={activeWorkspaceTab === "inventory"}
             />
           </div>
         )}

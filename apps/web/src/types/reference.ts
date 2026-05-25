@@ -30,6 +30,18 @@ type ReferenceBackground = BackgroundDefinition & {
   sourceJson?: unknown;
 };
 
+type ReferenceEquipment = {
+  index: string;
+  name: string;
+  equipmentCategory?: string | null;
+  itemType?: string | null;
+  costQuantity?: number | null;
+  costUnit?: string | null;
+  weight?: number | null;
+  description?: string | null;
+  sourceJson?: unknown;
+};
+
 type ReferenceRuleDocument = {
   category: string;
   index: string;
@@ -49,6 +61,7 @@ export type {
   ReferenceAbilityScore,
   ReferenceBackground,
   ReferenceClass,
+  ReferenceEquipment,
   ReferenceRuleDocument,
   ReferenceSkill,
   ReferenceSpecies,

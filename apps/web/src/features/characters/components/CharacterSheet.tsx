@@ -1,12 +1,18 @@
 import { useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
-import { InventorySandboxPage } from "../../../pages/InventorySandboxPage";
+import {
+  InventoryWorkbench,
+  type InventorySandboxController,
+} from "../../../pages/InventorySandboxPage";
 import type { Character } from "../../../types/character";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
+  activeTab: WorkspaceTab;
   character: Character;
   currentHp: number;
+  inventoryController: InventorySandboxController;
+  onActiveTabChange: (tab: WorkspaceTab) => void;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
   onSetTempHp: (amount: number) => void;
@@ -32,13 +38,15 @@ type SkillWithTotal = {
 const abilityOrder: AbilityIndex[] = ["str", "dex", "con", "int", "wis", "cha"];
 
 function CharacterSheet({
+  activeTab,
   character,
   currentHp,
+  inventoryController,
+  onActiveTabChange,
   tempHp,
   onApplyCurrentHpAdjustment,
   onSetTempHp,
 }: CharacterSheetProps) {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("actions");
   const [isCurrentHpModalOpen, setIsCurrentHpModalOpen] = useState(false);
   const [isTempHpModalOpen, setIsTempHpModalOpen] = useState(false);
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
@@ -394,7 +402,7 @@ function CharacterSheet({
                       ? "character-tab-button character-tab-button-active"
                       : "character-tab-button"
                   }
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => onActiveTabChange(tab.id)}
                 >
                   {tab.label}
                 </button>
@@ -461,7 +469,7 @@ function CharacterSheet({
               )}
 
               {activeTab === "inventory" && (
-                <InventorySandboxPage embedded />
+                <InventoryWorkbench controller={inventoryController} embedded hideDetailsPanel />
               )}
 
               {activeTab === "features" && (
@@ -950,3 +958,4 @@ function getFeatureHighlights(
 }
 
 export { CharacterSheet };
+export type { WorkspaceTab };
