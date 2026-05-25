@@ -12,7 +12,7 @@ type AnyRecord = Record<string, any>;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DATA_DIR = path.join(__dirname, "seed-data", "5e", "2024");
+const DATA_DIR = path.join(__dirname, "seed-data", "5e", "mixed");
 
 const FILES = {
   abilityScores: "5e-SRD-Ability-Scores.json",
