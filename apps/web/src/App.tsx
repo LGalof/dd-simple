@@ -6,6 +6,7 @@ import { CharacterDashboardPage } from "./pages/CharacterDashboardPage";
 import { CreateCharacterPage } from "./pages/CreateCharacterPage";
 import { InventorySandboxPage } from "./pages/InventorySandboxPage";
 import { MyCharactersPage } from "./pages/MyCharactersPage";
+import { TacticalBoardPage } from "./pages/TacticalBoardPage";
 
 function App() {
   return (
@@ -47,6 +48,10 @@ function App() {
                 <InventorySandboxPage />
               </ProtectedRoute>
             }
+          />
+          <Route
+            path="/board"
+            element={<TacticalBoardPage />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

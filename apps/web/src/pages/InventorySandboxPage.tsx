@@ -101,6 +101,10 @@ type ItemTemplate = Omit<NewItemForm, "location"> & {
   weight: number;
 };
 
+type InventorySandboxPageProps = {
+  embedded?: boolean;
+};
+
 const inventoryStorageKey = "dd-simple.inventory-sandbox.v1";
 
 const initialContainers: InventoryContainer[] = [
@@ -466,7 +470,7 @@ const itemTemplates: ItemTemplate[] = [
   },
 ];
 
-function InventorySandboxPage() {
+function InventorySandboxPage({ embedded = false }: InventorySandboxPageProps = {}) {
   const savedInventoryState = useMemo(() => loadSavedInventoryState(), []);
   const [containers, setContainers] = useState(
     savedInventoryState?.containers ?? initialContainers,
@@ -1094,10 +1098,14 @@ function InventorySandboxPage() {
     }
   }
 
-  return (
-    <AppLayout variant="wide-left">
-      <section className="inventory-workbench" onKeyDown={handleKeyboard} tabIndex={-1}>
-        <header className="inventory-workbench-header">
+  const content = (
+    <section
+      className={embedded ? "inventory-workbench inventory-workbench-embedded" : "inventory-workbench"}
+      onKeyDown={handleKeyboard}
+      tabIndex={-1}
+    >
+        {!embedded && (
+          <header className="inventory-workbench-header">
           <div>
             <p className="eyebrow">Inventory Prototype</p>
             <h1>Drag and Drop Equipment</h1>
@@ -1118,7 +1126,8 @@ function InventorySandboxPage() {
             </button>
             <span className="inventory-status">{message}</span>
           </div>
-        </header>
+          </header>
+        )}
 
         <div className="inventory-layout">
           <section className="equipment-panel">
@@ -2264,8 +2273,13 @@ function InventorySandboxPage() {
           </aside>
         </div>
       </section>
-    </AppLayout>
   );
+
+  if (embedded) {
+    return content;
+  }
+
+  return <AppLayout variant="wide-left">{content}</AppLayout>;
 }
 
 type InventoryGridProps = {

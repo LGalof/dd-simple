@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
+import { InventorySandboxPage } from "../../../pages/InventorySandboxPage";
 import type { Character } from "../../../types/character";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
@@ -8,7 +9,6 @@ type CharacterSheetProps = {
   currentHp: number;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
-  onOpenInventoryLibrary: () => void;
   onSetTempHp: (amount: number) => void;
 };
 
@@ -36,7 +36,6 @@ function CharacterSheet({
   currentHp,
   tempHp,
   onApplyCurrentHpAdjustment,
-  onOpenInventoryLibrary,
   onSetTempHp,
 }: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("actions");
@@ -45,7 +44,6 @@ function CharacterSheet({
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
   const [tempHpInput, setTempHpInput] = useState("");
   const equippedItems = character.inventory.filter((item) => item.equipped);
-  const inventoryItems = character.inventory.filter((item) => !item.equipped);
   const sortedAbilityScores = useMemo(
     () =>
       [...character.abilityScores].sort(
@@ -463,38 +461,7 @@ function CharacterSheet({
               )}
 
               {activeTab === "inventory" && (
-                <div className="character-inventory-stage">
-                  <Card title="Inventory List">
-                    <div className="character-inventory-toolbar">
-                      <button
-                        type="button"
-                        className="character-inline-button character-inline-button-strong"
-                        onClick={onOpenInventoryLibrary}
-                      >
-                        Add Item
-                      </button>
-                    </div>
-                    <div className="list">
-                      {inventoryItems.length === 0 && <p className="muted">Inventory is empty.</p>}
-
-                      {inventoryItems.map((item) => (
-                        <div key={item.id} className="list-row">
-                          <span>{item.equipment.name}</span>
-                          <strong>x{item.quantity}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-
-                  <div className="character-grid-placeholder">
-                    <div className="character-grid-placeholder-copy">
-                      <strong>Inventory Grid Workspace</strong>
-                      <p>
-                        This reserved area is sized for the future drag-and-drop inventory grid.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <InventorySandboxPage embedded />
               )}
 
               {activeTab === "features" && (

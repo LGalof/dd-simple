@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { CharacterBuilderSidebar } from "../features/characters/components/CharacterBuilderSidebar";
-import { InventoryLibrarySidebar } from "../features/characters/components/InventoryLibrarySidebar";
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
@@ -12,7 +11,6 @@ import {
 } from "../features/characters/utils/selectedCharacter";
 
 function CharacterDashboardPage() {
-  const [isInventoryLibraryOpen, setIsInventoryLibraryOpen] = useState(false);
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const { characters, loading, error } = useCharacters();
   const selectedCharacterId = getSelectedCharacterId();
@@ -113,13 +111,7 @@ function CharacterDashboardPage() {
               currentHp={builderState.currentHp}
               tempHp={builderState.tempHp}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
-              onOpenInventoryLibrary={() => setIsInventoryLibraryOpen(true)}
               onSetTempHp={setTempHp}
-            />
-
-            <InventoryLibrarySidebar
-              isOpen={isInventoryLibraryOpen}
-              onClose={() => setIsInventoryLibraryOpen(false)}
             />
           </div>
         )}
