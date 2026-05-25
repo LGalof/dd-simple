@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { AbilityScore } from "../../../types/character";
 import type {
   AbilityAssignment,
@@ -434,7 +435,8 @@ function CharacterBuilderSidebar({
         </div>
       </aside>
 
-      {isHitPointPanelOpen && hitPointPreview && draftHitPointTotals ? (
+      {isHitPointPanelOpen && hitPointPreview && draftHitPointTotals
+        ? createPortal(
         <div className="builder-hp-modal-backdrop" onClick={closeHitPointPanel}>
           <section
             className="builder-hp-modal"
@@ -627,8 +629,10 @@ function CharacterBuilderSidebar({
               </button>
             </footer>
           </section>
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+      )
+        : null}
     </>
   );
 }

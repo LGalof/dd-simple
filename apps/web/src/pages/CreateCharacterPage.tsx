@@ -95,8 +95,8 @@ function CreateCharacterPage() {
         )}
 
         {!authLoading && !loading && !error && references && (
-          <form onSubmit={handleSubmit}>
-            <label className="characters-search-field page-placeholder-card">
+          <form className="character-create-form" onSubmit={handleSubmit}>
+            <label className="characters-search-field page-placeholder-card character-create-name-card">
               <span className="characters-control-label">Character Name</span>
               <input
                 type="text"
@@ -182,15 +182,17 @@ function CreateCharacterPage() {
               </select>
             </label>
 
-            {saveError && <p className="error-message">Error: {saveError}</p>}
+            <div className="character-create-footer">
+              {saveError && <p className="error-message">Error: {saveError}</p>}
 
-            <button
-              type="submit"
-              className="primary-button primary-button-uppercase"
-              disabled={saving}
-            >
-              {saving ? "Creating Character..." : "Create Character"}
-            </button>
+              <button
+                type="submit"
+                className="primary-button primary-button-uppercase"
+                disabled={saving}
+              >
+                {saving ? "Creating Character..." : "Create Character"}
+              </button>
+            </div>
           </form>
         )}
       </section>
