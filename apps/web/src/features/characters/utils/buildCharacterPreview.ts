@@ -80,10 +80,12 @@ function buildCharacterPreview({
     },
     class: {
       name: classOption.name,
-    },
+      proficiencies: classOption.proficiencies,
+    } as Character["class"],
     background: {
       name: background.name,
-    },
+      toolProficiencies: background.toolProficiencies,
+    } as Character["background"],
     abilityScores: nextAbilityScores,
   };
 }
