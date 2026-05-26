@@ -71,6 +71,8 @@ type TrainingReferenceCharacter = Character & {
   };
 };
 
+type LiveInventoryItem = InventorySandboxController["items"][number];
+
 const abilityOrder: AbilityIndex[] = ["str", "dex", "con", "int", "wis", "cha"];
 const skillOrder = [
   "Acrobatics",
@@ -109,6 +111,10 @@ function CharacterSheet({
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
   const [tempHpInput, setTempHpInput] = useState("");
   const equippedItems = character.inventory.filter((item) => item.equipped);
+  const liveEquippedInventoryItems = useMemo(
+    () => inventoryController.items.filter((item) => item.location === "equipped"),
+    [inventoryController.items],
+  );
   const sortedAbilityScores = useMemo(
     () =>
       [...character.abilityScores].sort(
@@ -180,6 +186,7 @@ function CharacterSheet({
   ];
   const training = getTrainingProfile(character);
   const weaponActions = getWeaponActions(
+    liveEquippedInventoryItems,
     equippedItems,
     dexterityModifier,
     strengthModifier,
@@ -953,11 +960,40 @@ function isPresent<T>(value: T | null | undefined): value is T {
 }
 
 function getWeaponActions(
+  liveEquippedItems: LiveInventoryItem[],
   equippedItems: Character["inventory"],
   dexterityModifier: number,
   strengthModifier: number,
   proficiencyBonus: number,
 ) {
+  const liveAttackItems = liveEquippedItems.filter((item) => item.kind === "weapon");
+
+  if (liveAttackItems.length > 0) {
+    return liveAttackItems.map((item) => {
+      const profile = getAttackProfile(
+        item.name,
+        dexterityModifier,
+        strengthModifier,
+        proficiencyBonus,
+      );
+      const attackBonus = profile.attackBonus + item.attackBonus;
+      const damage = formatInventoryDamage(
+        item.damage,
+        profile.usesDexterity ? dexterityModifier : strengthModifier,
+      );
+      const notes = item.notes || profile.notes;
+
+      return {
+        damage,
+        hit: formatModifier(attackBonus),
+        name: item.name,
+        notes,
+        range: profile.range,
+        type: profile.type,
+      };
+    });
+  }
+
   const attackItems = equippedItems.filter((item) => isAttackItem(item.equipment.name));
   const actions = attackItems.map((item) => {
     const profile = getAttackProfile(
@@ -1016,6 +1052,7 @@ function getAttackProfile(
       notes: "Ranged weapon",
       range: "80/320 ft.",
       type: "Ranged Attack",
+      usesDexterity: true,
     };
   }
 
@@ -1026,6 +1063,7 @@ function getAttackProfile(
       notes: "Finesse, light, thrown",
       range: "20/60 ft.",
       type: "Melee / Thrown",
+      usesDexterity: true,
     };
   }
 
@@ -1036,6 +1074,7 @@ function getAttackProfile(
       notes: "Finesse",
       range: "5 ft.",
       type: "Melee Attack",
+      usesDexterity: true,
     };
   }
 
@@ -1045,11 +1084,25 @@ function getAttackProfile(
     notes: "Weapon attack",
     range: "5 ft.",
     type: "Melee Attack",
+    usesDexterity: false,
   };
 }
 
 function formatInlineModifier(value: number) {
   return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+}
+
+function formatInventoryDamage(baseDamage: string, modifier: number) {
+  const trimmedDamage = baseDamage.trim();
+
+  if (!trimmedDamage) {
+    return `1 ${formatInlineModifier(modifier)}`;
+  }
+
+  const diceMatch = trimmedDamage.match(/\d+d\d+/i);
+  const damagePrefix = diceMatch ? diceMatch[0] : trimmedDamage;
+
+  return `${damagePrefix} ${formatInlineModifier(modifier)}`;
 }
 
 function getFeatureHighlights(
