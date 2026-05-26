@@ -7,6 +7,7 @@ import type {
   BuilderSelectionKind,
   ClassFeature,
   ClassOption,
+  FeatureChoiceSelections,
   HitPointSettings,
   SpeciesOption,
 } from "../types/characterBuilder";
@@ -25,9 +26,13 @@ type CharacterBuilderSidebarProps = {
   hitPointPreview: HitPointPreview | null;
   onAbilityAssignmentChange: (slotId: string, nextAbilityIndex: string) => void;
   onApplyHitPointSettings: (nextLevel: number, nextSettings: HitPointSettings) => void;
+  onFeatureChoicesChange: (
+    updater: (currentChoices: FeatureChoiceSelections) => FeatureChoiceSelections,
+  ) => void;
   onOpenPanel: (kind: BuilderSelectionKind) => void;
   onRollAbility: (slotId: string) => void;
   onRollAllAbilities: () => void;
+  selectedChoices: FeatureChoiceSelections;
   species: SpeciesOption;
   hitPointSettings: HitPointSettings | null;
 };
@@ -42,14 +47,15 @@ function CharacterBuilderSidebar({
   hitPointSettings,
   onAbilityAssignmentChange,
   onApplyHitPointSettings,
+  onFeatureChoicesChange,
   onOpenPanel,
   onRollAbility,
   onRollAllAbilities,
+  selectedChoices,
   species,
 }: CharacterBuilderSidebarProps) {
   const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
   const [isHitPointPanelOpen, setIsHitPointPanelOpen] = useState(false);
-  const [selectedChoices, setSelectedChoices] = useState<Record<string, string>>({});
   const [draftLevel, setDraftLevel] = useState(1);
   const [draftBonusHp, setDraftBonusHp] = useState("0");
   const [draftCalculationMode, setDraftCalculationMode] = useState<"fixed" | "rolled">("fixed");
@@ -58,8 +64,8 @@ function CharacterBuilderSidebar({
 
   useEffect(() => {
     setExpandedFeatureId(classOption.features[0]?.id ?? null);
-    setSelectedChoices({});
-  }, [classOption.index]);
+    onFeatureChoicesChange(() => ({}));
+  }, [classOption.index, onFeatureChoicesChange]);
 
   useEffect(() => {
     if (!hitPointPreview || !hitPointSettings || isHitPointPanelOpen) {
@@ -122,11 +128,33 @@ function CharacterBuilderSidebar({
     );
   }
 
-  function updateChoice(featureId: string, fieldId: string, value: string) {
-    setSelectedChoices((currentChoices) => ({
-      ...currentChoices,
-      [`${featureId}:${fieldId}`]: value,
-    }));
+  function updateChoice(
+    featureId: string,
+    fieldId: string,
+    value: string,
+    choiceFields: ClassFeature["choiceFields"] = [],
+  ) {
+    onFeatureChoicesChange((currentChoices) => {
+      const field = choiceFields.find((choiceField) => choiceField.id === fieldId);
+      const groupFields = field ? getChoiceGroupFields(choiceFields, field) : [];
+      const isDuplicateSelection = Boolean(
+        value &&
+          groupFields.some(
+            (groupField) =>
+              groupField.id !== fieldId &&
+              currentChoices[`${featureId}:${groupField.id}`] === value,
+          ),
+      );
+
+      if (isDuplicateSelection) {
+        return currentChoices;
+      }
+
+      return {
+        ...currentChoices,
+        [`${featureId}:${fieldId}`]: value,
+      };
+    });
   }
 
   function openHitPointPanel() {
@@ -403,25 +431,54 @@ function CharacterBuilderSidebar({
                         <div className="builder-feature-choice-list">
                           {feature.choiceFields.map((field) => {
                             const choiceKey = `${feature.id}:${field.id}`;
+                            const selectedValue = selectedChoices[choiceKey] ?? "";
+                            const groupFields = getChoiceGroupFields(feature.choiceFields, field);
+                            const groupSelectedValues = getChoiceGroupSelectedValues(
+                              feature.id,
+                              groupFields,
+                              selectedChoices,
+                            );
+                            const isFirstGroupField = groupFields[0]?.id === field.id;
 
                             return (
-                              <label key={choiceKey} className="builder-feature-choice-field">
-                                <span>{field.label}</span>
-                                <select
-                                  className="builder-feature-select"
-                                  value={selectedChoices[choiceKey] ?? ""}
-                                  onChange={(event) =>
-                                    updateChoice(feature.id, field.id, event.target.value)
-                                  }
-                                >
-                                  <option value="">Choose {field.label.toLowerCase()}</option>
-                                  {field.options.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
+                              <div key={choiceKey} className="builder-feature-choice-field">
+                                {field.choiceGroupLabel && isFirstGroupField ? (
+                                  <span>
+                                    {field.choiceGroupLabel} - {groupSelectedValues.length} /{" "}
+                                    {field.choiceGroupLimit ?? groupFields.length} selected
+                                  </span>
+                                ) : null}
+                                <label className="builder-feature-choice-field">
+                                  <span>{field.label}</span>
+                                  <select
+                                    className="builder-feature-select"
+                                    value={selectedValue}
+                                    onChange={(event) =>
+                                      updateChoice(
+                                        feature.id,
+                                        field.id,
+                                        event.target.value,
+                                        feature.choiceFields,
+                                      )
+                                    }
+                                  >
+                                    <option value="">Choose {field.label.toLowerCase()}</option>
+                                    {field.options.map((option) => (
+                                      <option
+                                        key={option.value}
+                                        value={option.value}
+                                        disabled={isChoiceOptionSelectedElsewhere(
+                                          option.value,
+                                          selectedValue,
+                                          groupSelectedValues,
+                                        )}
+                                      >
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
                             );
                           })}
                         </div>
@@ -673,6 +730,39 @@ function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string
   return feature.choiceFields.every((field) =>
     Boolean(selectedChoices[`${feature.id}:${field.id}`]),
   );
+}
+
+function getChoiceGroupFields(
+  choiceFields: ClassFeature["choiceFields"],
+  field: NonNullable<ClassFeature["choiceFields"]>[number],
+) {
+  if (!choiceFields?.length || !field.choiceGroupId) {
+    return [field];
+  }
+
+  return choiceFields.filter((choiceField) => choiceField.choiceGroupId === field.choiceGroupId);
+}
+
+function getChoiceGroupSelectedValues(
+  featureId: string,
+  groupFields: NonNullable<ClassFeature["choiceFields"]>,
+  selectedChoices: Record<string, string>,
+) {
+  return [
+    ...new Set(
+      groupFields
+        .map((field) => selectedChoices[`${featureId}:${field.id}`])
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+}
+
+function isChoiceOptionSelectedElsewhere(
+  optionValue: string,
+  selectedValue: string,
+  groupSelectedValues: string[],
+) {
+  return optionValue !== selectedValue && groupSelectedValues.includes(optionValue);
 }
 
 function formatOrdinal(value: number) {

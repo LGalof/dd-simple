@@ -35,7 +35,64 @@ type SkillWithTotal = {
   total: number;
 };
 
+type ReferenceItem = {
+  name?: unknown;
+};
+
+type ProficiencySourceJson = {
+  proficiencies?: ReferenceItem[];
+  proficiency_choices?: Array<{
+    desc?: unknown;
+  }>;
+};
+
+type LanguageSourceJson = {
+  languages?: ReferenceItem[];
+  language_options?: {
+    desc?: unknown;
+  };
+};
+
+type TrainingReferenceCharacter = Character & {
+  background: Character["background"] & {
+    sourceJson?: unknown;
+    toolProficiencies?: string[];
+  };
+  class: Character["class"] & {
+    proficiencies?: {
+      armor: string[];
+      tools: string[];
+      weapons: string[];
+    };
+    sourceJson?: unknown;
+  };
+  species: Character["species"] & {
+    sourceJson?: unknown;
+  };
+};
+
 const abilityOrder: AbilityIndex[] = ["str", "dex", "con", "int", "wis", "cha"];
+const skillOrder = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+];
+const unavailableTrainingValue = "Not available from current reference data";
 
 function CharacterSheet({
   activeTab,
@@ -88,18 +145,20 @@ function CharacterSheet({
             : 6;
   const skillTotals = useMemo(
     () =>
-      character.skills.map((characterSkill) => {
-        const abilityScore = abilityScoreMap.get(characterSkill.skill.ability.index);
-        const baseModifier = abilityScore ? abilityModifier(abilityScore.score) : 0;
-        const proficiencyModifier = characterSkill.isProficient ? proficiencyBonus : 0;
+      character.skills
+        .map((characterSkill) => {
+          const abilityScore = abilityScoreMap.get(characterSkill.skill.ability.index);
+          const baseModifier = abilityScore ? abilityModifier(abilityScore.score) : 0;
+          const proficiencyModifier = characterSkill.isProficient ? proficiencyBonus : 0;
 
-        return {
-          ability: characterSkill.skill.ability.index.toUpperCase(),
-          isProficient: characterSkill.isProficient,
-          name: characterSkill.skill.name,
-          total: baseModifier + proficiencyModifier + characterSkill.customBonus,
-        };
-      }),
+          return {
+            ability: characterSkill.skill.ability.index.toUpperCase(),
+            isProficient: characterSkill.isProficient,
+            name: characterSkill.skill.name,
+            total: baseModifier + proficiencyModifier + characterSkill.customBonus,
+          };
+        })
+        .sort(compareSkills),
     [abilityScoreMap, character.skills, proficiencyBonus],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
@@ -119,11 +178,7 @@ function CharacterSheet({
     { label: "Passive Investigation", value: 10 + getSkillTotal(skillTotals, "Investigation") },
     { label: "Passive Insight", value: 10 + getSkillTotal(skillTotals, "Insight") },
   ];
-  const training = getTrainingProfile(
-    character.class.name,
-    character.background.name,
-    character.species.name,
-  );
+  const training = getTrainingProfile(character);
   const weaponActions = getWeaponActions(
     equippedItems,
     dexterityModifier,
@@ -759,49 +814,138 @@ function getSkillTotal(skills: SkillWithTotal[], name: string) {
   return skills.find((skill) => skill.name === name)?.total ?? 0;
 }
 
-function getTrainingProfile(className: string, backgroundName: string, speciesName: string) {
-  const classKey = className.toLowerCase();
-  const backgroundKey = backgroundName.toLowerCase();
-  const speciesKey = speciesName.toLowerCase();
+function compareSkills(left: SkillWithTotal, right: SkillWithTotal) {
+  const leftIndex = skillOrder.indexOf(left.name);
+  const rightIndex = skillOrder.indexOf(right.name);
 
-  const armor =
-    classKey === "fighter"
-      ? ["All Armor", "Shields"]
-      : classKey === "cleric"
-        ? ["Light Armor", "Medium Armor", "Shields"]
-        : classKey === "ranger"
-          ? ["Light Armor", "Medium Armor", "Shields"]
-          : ["Light Armor"];
-  const weapons =
-    classKey === "fighter"
-      ? ["Simple Weapons", "Martial Weapons"]
-      : classKey === "rogue"
-        ? ["Simple Weapons", "Hand Crossbows", "Rapiers", "Shortswords"]
-        : classKey === "wizard"
-          ? ["Daggers", "Darts", "Slings", "Quarterstaffs"]
-          : ["Simple Weapons"];
-  const tools =
-    backgroundKey === "criminal"
-      ? ["Thieves' Tools", "Gaming Set"]
-      : backgroundKey === "sage"
-        ? ["Calligrapher's Supplies"]
-        : backgroundKey === "soldier"
-          ? ["Gaming Set", "Vehicles (Land)"]
-          : ["Artisan's Tools"];
-  const languages =
-    speciesKey === "elf"
-      ? ["Common", "Elvish"]
-      : speciesKey === "dwarf"
-        ? ["Common", "Dwarvish"]
-        : speciesKey === "tiefling"
-          ? ["Common", "Infernal"]
-          : ["Common", "One Bonus Language"];
-  const senses =
-    speciesKey === "elf" || speciesKey === "dwarf" || speciesKey === "tiefling"
-      ? "Darkvision 60 ft."
-      : "Standard vision";
+  if (leftIndex !== -1 || rightIndex !== -1) {
+    return (leftIndex === -1 ? Number.POSITIVE_INFINITY : leftIndex) -
+      (rightIndex === -1 ? Number.POSITIVE_INFINITY : rightIndex);
+  }
 
-  return { armor, languages, senses, tools, weapons };
+  return left.name.localeCompare(right.name);
+}
+
+function getTrainingProfile(character: Character) {
+  const trainingCharacter = character as TrainingReferenceCharacter;
+  const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
+  const backgroundSourceJson = getProficiencySourceJson(trainingCharacter.background.sourceJson);
+  const speciesSourceJson = getLanguageSourceJson(trainingCharacter.species.sourceJson);
+  const groupedClassProficiencies = groupClassProficiencies(
+    getReferenceNames(classSourceJson.proficiencies),
+  );
+  const armor = withUnavailableFallback(
+    groupedClassProficiencies.armor.length > 0
+      ? groupedClassProficiencies.armor
+      : trainingCharacter.class.proficiencies?.armor ?? [],
+  );
+  const weapons = withUnavailableFallback(
+    groupedClassProficiencies.weapons.length > 0
+      ? groupedClassProficiencies.weapons
+      : trainingCharacter.class.proficiencies?.weapons ?? [],
+  );
+  const classTools =
+    groupedClassProficiencies.tools.length > 0
+      ? groupedClassProficiencies.tools
+      : trainingCharacter.class.proficiencies?.tools ?? [];
+  const backgroundTools = getToolProficiencies(backgroundSourceJson);
+  const mappedBackgroundTools = trainingCharacter.background.toolProficiencies ?? [];
+  const tools = withUnavailableFallback([
+    ...classTools,
+    ...(backgroundTools.length > 0 ? backgroundTools : mappedBackgroundTools),
+  ]);
+  const languages = withUnavailableFallback(getLanguages(speciesSourceJson));
+
+  return {
+    armor,
+    languages,
+    senses: unavailableTrainingValue,
+    tools,
+    weapons,
+  };
+}
+
+function getProficiencySourceJson(sourceJson: unknown): ProficiencySourceJson {
+  return typeof sourceJson === "object" && sourceJson !== null
+    ? sourceJson as ProficiencySourceJson
+    : {};
+}
+
+function getLanguageSourceJson(sourceJson: unknown): LanguageSourceJson {
+  return typeof sourceJson === "object" && sourceJson !== null
+    ? sourceJson as LanguageSourceJson
+    : {};
+}
+
+function getReferenceNames(references: ReferenceItem[] | undefined) {
+  return (references ?? []).map((reference) => stringValue(reference.name)).filter(isPresent);
+}
+
+function groupClassProficiencies(proficiencies: string[]) {
+  return proficiencies.reduce(
+    (groups, proficiency) => {
+      const normalizedName = stripReferencePrefix(proficiency);
+      const normalizedKey = normalizedName.toLowerCase();
+
+      if (proficiency.startsWith("Saving Throw:") || proficiency.startsWith("Skill:")) {
+        return groups;
+      }
+
+      if (proficiency.startsWith("Tool:")) {
+        groups.tools.push(normalizedName);
+        return groups;
+      }
+
+      if (normalizedKey.includes("armor") || normalizedKey === "shields") {
+        groups.armor.push(normalizedName);
+        return groups;
+      }
+
+      groups.weapons.push(normalizedName);
+      return groups;
+    },
+    {
+      armor: [] as string[],
+      tools: [] as string[],
+      weapons: [] as string[],
+    },
+  );
+}
+
+function getToolProficiencies(sourceJson: ProficiencySourceJson) {
+  return [
+    ...getReferenceNames(sourceJson.proficiencies)
+      .filter((proficiency) => proficiency.startsWith("Tool:"))
+      .map(stripReferencePrefix),
+    ...(sourceJson.proficiency_choices ?? [])
+      .map((choice) => stringValue(choice.desc))
+      .filter(isPresent),
+  ];
+}
+
+function getLanguages(sourceJson: LanguageSourceJson) {
+  return [
+    ...getReferenceNames(sourceJson.languages),
+    stringValue(sourceJson.language_options?.desc),
+  ].filter(isPresent);
+}
+
+function withUnavailableFallback(values: string[]) {
+  const uniqueValues = [...new Set(values.filter((value) => value.length > 0))];
+
+  return uniqueValues.length > 0 ? uniqueValues : [unavailableTrainingValue];
+}
+
+function stripReferencePrefix(value: string) {
+  return value.replace(/^Skill: /, "").replace(/^Tool: /, "").replace(/^Saving Throw: /, "");
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value !== null && value !== undefined;
 }
 
 function getWeaponActions(

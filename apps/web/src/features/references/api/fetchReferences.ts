@@ -42,6 +42,13 @@ async function fetchAlignments(options: FetchReferenceOptions = {}) {
   return api.get<ReferenceRuleDocument[]>("/references/rules/alignments", options);
 }
 
+async function fetchRuleDocuments(category: string, options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceRuleDocument[]>(
+    `/references/rules/${encodeURIComponent(category)}`,
+    options,
+  );
+}
+
 async function fetchCharacterCreatorReferences(
   options: FetchReferenceOptions = {},
 ): Promise<CharacterCreatorReferences> {
@@ -67,6 +74,7 @@ export {
   fetchCharacterCreatorReferences,
   fetchClasses,
   fetchEquipment,
+  fetchRuleDocuments,
   fetchSkills,
   fetchSpecies,
 };

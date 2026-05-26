@@ -20,6 +20,7 @@ type CharacterMutationRequestBody = {
   classIndex?: unknown;
   backgroundIndex?: unknown;
   alignment?: unknown;
+  level?: unknown;
   skillIndexes?: unknown;
   abilityScores?: unknown;
 };
@@ -30,6 +31,7 @@ type ValidCharacterMutationRequestBody = {
   classIndex: string;
   backgroundIndex: string;
   alignment?: string | null;
+  level?: number;
   skillIndexes: string[];
   abilityScores: AbilityScoreRequestBody;
 };
@@ -74,6 +76,11 @@ function isCharacterMutationRequestBody(
     (candidate.alignment === undefined ||
       candidate.alignment === null ||
       typeof candidate.alignment === "string") &&
+    (candidate.level === undefined ||
+      (typeof candidate.level === "number" &&
+        Number.isInteger(candidate.level) &&
+        candidate.level >= 1 &&
+        candidate.level <= 20)) &&
     Array.isArray(candidate.skillIndexes) &&
     candidate.skillIndexes.every((skillIndex) => typeof skillIndex === "string") &&
     isAbilityScoresBody(candidate.abilityScores)
@@ -154,6 +161,7 @@ async function createCharacter(req: Request, res: Response) {
       classIndex: body.classIndex.trim(),
       backgroundIndex: body.backgroundIndex.trim(),
       alignment: body.alignment?.trim() || null,
+      level: body.level,
       skillIndexes: body.skillIndexes,
       abilityScores: body.abilityScores,
     });
@@ -212,6 +220,7 @@ async function updateCharacter(req: Request, res: Response) {
         classIndex: body.classIndex.trim(),
         backgroundIndex: body.backgroundIndex.trim(),
         alignment: body.alignment?.trim() || null,
+        level: body.level,
         skillIndexes: body.skillIndexes,
         abilityScores: body.abilityScores,
       },
