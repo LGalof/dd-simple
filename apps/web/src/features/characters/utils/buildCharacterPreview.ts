@@ -12,6 +12,7 @@ type BuildCharacterPreviewOptions = {
   background: BackgroundOption;
   character: Character;
   classOption: ClassOption;
+  persistedSkillIndexes?: string[];
   selectedSkillIndexes?: string[];
   species: SpeciesOption;
   state: CharacterBuilderState;
@@ -44,6 +45,7 @@ function buildCharacterPreview({
   background,
   character,
   classOption,
+  persistedSkillIndexes,
   selectedSkillIndexes = [],
   species,
   state,
@@ -70,6 +72,12 @@ function buildCharacterPreview({
     settings: state.hitPointSettings,
   });
   const selectedSkillIndexSet = new Set(selectedSkillIndexes);
+  const persistedSkillIndexSet = new Set(
+    persistedSkillIndexes ??
+      character.skills
+        .filter((characterSkill) => characterSkill.isProficient)
+        .map((characterSkill) => characterSkill.skillIndex),
+  );
 
   return {
     ...character,
@@ -93,7 +101,8 @@ function buildCharacterPreview({
     skills: character.skills.map((characterSkill) => ({
       ...characterSkill,
       isProficient:
-        characterSkill.isProficient || selectedSkillIndexSet.has(characterSkill.skillIndex),
+        persistedSkillIndexSet.has(characterSkill.skillIndex) ||
+        selectedSkillIndexSet.has(characterSkill.skillIndex),
     })),
   };
 }

@@ -72,6 +72,26 @@ type TrainingReferenceCharacter = Character & {
 };
 
 const abilityOrder: AbilityIndex[] = ["str", "dex", "con", "int", "wis", "cha"];
+const skillOrder = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+];
 const unavailableTrainingValue = "Not available from current reference data";
 
 function CharacterSheet({
@@ -125,18 +145,20 @@ function CharacterSheet({
             : 6;
   const skillTotals = useMemo(
     () =>
-      character.skills.map((characterSkill) => {
-        const abilityScore = abilityScoreMap.get(characterSkill.skill.ability.index);
-        const baseModifier = abilityScore ? abilityModifier(abilityScore.score) : 0;
-        const proficiencyModifier = characterSkill.isProficient ? proficiencyBonus : 0;
+      character.skills
+        .map((characterSkill) => {
+          const abilityScore = abilityScoreMap.get(characterSkill.skill.ability.index);
+          const baseModifier = abilityScore ? abilityModifier(abilityScore.score) : 0;
+          const proficiencyModifier = characterSkill.isProficient ? proficiencyBonus : 0;
 
-        return {
-          ability: characterSkill.skill.ability.index.toUpperCase(),
-          isProficient: characterSkill.isProficient,
-          name: characterSkill.skill.name,
-          total: baseModifier + proficiencyModifier + characterSkill.customBonus,
-        };
-      }),
+          return {
+            ability: characterSkill.skill.ability.index.toUpperCase(),
+            isProficient: characterSkill.isProficient,
+            name: characterSkill.skill.name,
+            total: baseModifier + proficiencyModifier + characterSkill.customBonus,
+          };
+        })
+        .sort(compareSkills),
     [abilityScoreMap, character.skills, proficiencyBonus],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
@@ -790,6 +812,18 @@ function getSavingThrowProficiencies(className: string): AbilityIndex[] {
 
 function getSkillTotal(skills: SkillWithTotal[], name: string) {
   return skills.find((skill) => skill.name === name)?.total ?? 0;
+}
+
+function compareSkills(left: SkillWithTotal, right: SkillWithTotal) {
+  const leftIndex = skillOrder.indexOf(left.name);
+  const rightIndex = skillOrder.indexOf(right.name);
+
+  if (leftIndex !== -1 || rightIndex !== -1) {
+    return (leftIndex === -1 ? Number.POSITIVE_INFINITY : leftIndex) -
+      (rightIndex === -1 ? Number.POSITIVE_INFINITY : rightIndex);
+  }
+
+  return left.name.localeCompare(right.name);
 }
 
 function getTrainingProfile(character: Character) {

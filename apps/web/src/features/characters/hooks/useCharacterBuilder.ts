@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../../../types/character";
 import {
   backgroundOptions,
@@ -123,11 +123,19 @@ function getSelectedSkillIndexes(featureChoices: FeatureChoiceSelections) {
   ];
 }
 
+function getProficientSkillIndexes(character: Character) {
+  return character.skills
+    .filter((characterSkill) => characterSkill.isProficient)
+    .map((characterSkill) => characterSkill.skillIndex);
+}
+
 function useCharacterBuilder(character: Character | undefined) {
+  const previousCharacterIdRef = useRef<string | null>(null);
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
   const [activePanel, setActivePanel] = useState<BuilderSelectionKind | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
   const [featureChoices, setFeatureChoices] = useState<FeatureChoiceSelections>({});
+  const [persistedSkillIndexes, setPersistedSkillIndexes] = useState<string[]>([]);
   const [referenceOptions, setReferenceOptions] = useState({
     backgroundOptions,
     classOptions,
@@ -140,11 +148,17 @@ function useCharacterBuilder(character: Character | undefined) {
       setActivePanel(null);
       setPendingSelection(null);
       setFeatureChoices({});
+      setPersistedSkillIndexes([]);
+      previousCharacterIdRef.current = null;
       return;
     }
 
     setBuilderState(createBuilderStateFromOptions(character, referenceOptions));
-    setFeatureChoices({});
+    if (previousCharacterIdRef.current !== character.id) {
+      setFeatureChoices({});
+      setPersistedSkillIndexes(getProficientSkillIndexes(character));
+      previousCharacterIdRef.current = character.id;
+    }
   }, [character?.id, referenceOptions]);
 
   useEffect(() => {
@@ -259,6 +273,7 @@ function useCharacterBuilder(character: Character | undefined) {
       background: selectedBackground,
       character,
       classOption: selectedClass,
+      persistedSkillIndexes,
       selectedSkillIndexes,
       species: selectedSpecies,
       state: builderState,
@@ -268,6 +283,7 @@ function useCharacterBuilder(character: Character | undefined) {
     character,
     selectedBackground,
     selectedClass,
+    persistedSkillIndexes,
     selectedSkillIndexes,
     selectedSpecies,
   ]);
@@ -521,7 +537,9 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedBackground,
     selectedClass,
     selectedPanelOption,
+    selectedSkillIndexes,
     selectedSpecies,
+    persistedSkillIndexes,
     setSelection,
     setFeatureChoices,
     speciesOptions: referenceOptions.speciesOptions,

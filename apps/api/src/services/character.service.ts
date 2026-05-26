@@ -15,6 +15,7 @@ type CharacterMutationData = {
   classIndex: string;
   backgroundIndex: string;
   alignment: string | null;
+  level?: number;
   skillIndexes: string[];
   abilityScores: {
     str: number;
@@ -46,6 +47,9 @@ const characterInclude = {
     },
   },
   skills: {
+    orderBy: {
+      skillIndex: "asc" as const,
+    },
     include: {
       skill: {
         include: {
@@ -136,6 +140,9 @@ async function findAllCharactersForUser(userId: string) {
         },
       },
       skills: {
+        orderBy: {
+          skillIndex: "asc",
+        },
         include: {
           skill: {
             include: {
@@ -236,7 +243,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
         backgroundIndex: data.backgroundIndex,
-        level: 1,
+        level: data.level ?? 1,
         experiencePoints: 0,
         alignment: data.alignment,
         maxHp,
@@ -366,6 +373,7 @@ async function updateCharacterForUser(
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
         backgroundIndex: data.backgroundIndex,
+        level: data.level ?? existingCharacter.level,
         alignment: data.alignment,
         maxHp,
         currentHp,

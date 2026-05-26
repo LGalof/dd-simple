@@ -153,6 +153,7 @@ export type CharacterSavePayload = {
   classIndex: string;
   backgroundIndex: string;
   alignment: string | null;
+  level?: number;
   skillIndexes: string[];
   abilityScores: AbilityScores;
 };

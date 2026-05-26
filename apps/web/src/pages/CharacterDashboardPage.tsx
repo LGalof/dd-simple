@@ -14,12 +14,23 @@ import {
   InventoryDetailsSidebar,
   useInventorySandboxController,
 } from "./InventorySandboxPage";
+import type { AbilityScores, Character, CharacterSavePayload } from "../types/character";
+
+const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
 function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const inventoryController = useInventorySandboxController();
-  const { characters, loading, error } = useCharacters();
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const {
+    characters,
+    loading,
+    error,
+    saveCharacter,
+    saveError,
+    savingCharacterId,
+  } = useCharacters();
   const selectedCharacterId = getSelectedCharacterId();
   const selectedCharacter = useMemo(
     () =>
@@ -56,13 +67,38 @@ function CharacterDashboardPage() {
     selectedBackground,
     selectedClass,
     selectedPanelOption,
+    selectedSkillIndexes,
     selectedSpecies,
+    persistedSkillIndexes,
     setFeatureChoices,
     setTempHp,
     setSelection,
     speciesOptions,
     updateAbilityAssignment,
   } = useCharacterBuilder(character);
+  const isSavingBuild = Boolean(character && savingCharacterId === character.id);
+
+  async function handleSaveBuild() {
+    if (!character || !builderState) {
+      return;
+    }
+
+    setSaveSuccessMessage(null);
+
+    const updatedCharacter = await saveCharacter(
+      character.id,
+      buildCharacterSavePayload(
+        character,
+        builderState,
+        persistedSkillIndexes,
+        selectedSkillIndexes,
+      ),
+    );
+
+    if (updatedCharacter) {
+      setSaveSuccessMessage("Build saved.");
+    }
+  }
 
   return (
     <AppLayout variant="wide-left">
@@ -97,6 +133,16 @@ function CharacterDashboardPage() {
               </button>
 
               <div className="dashboard-builder-panel">
+                <button
+                  type="button"
+                  className="primary-button primary-button-uppercase"
+                  disabled={isSavingBuild}
+                  onClick={handleSaveBuild}
+                >
+                  {isSavingBuild ? "Saving..." : "Save Build"}
+                </button>
+                {saveSuccessMessage ? <p className="muted">{saveSuccessMessage}</p> : null}
+                {saveError ? <p className="error-message">{saveError}</p> : null}
                 <CharacterBuilderSidebar
                   abilityAssignments={builderState.abilityAssignments}
                   abilityScores={previewCharacter.abilityScores}
@@ -149,6 +195,49 @@ function CharacterDashboardPage() {
       />
     </AppLayout>
   );
+}
+
+function buildCharacterSavePayload(
+  character: Character,
+  builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+  persistedSkillIndexes: string[],
+  selectedSkillIndexes: string[],
+): CharacterSavePayload {
+  return {
+    name: character.name,
+    speciesIndex: builderState.speciesIndex,
+    classIndex: builderState.classIndex,
+    backgroundIndex: builderState.backgroundIndex,
+    alignment: character.alignment,
+    level: builderState.level,
+    skillIndexes: [...new Set([...persistedSkillIndexes, ...selectedSkillIndexes])],
+    abilityScores: buildAbilityScorePayload(character, builderState),
+  };
+}
+
+function buildAbilityScorePayload(
+  character: Character,
+  builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+): AbilityScores {
+  const abilityScores = Object.fromEntries(
+    abilityScoreIndexes.map((abilityIndex) => [
+      abilityIndex,
+      character.abilityScores.find((abilityScore) => abilityScore.abilityIndex === abilityIndex)
+        ?.score ?? 10,
+    ]),
+  ) as AbilityScores;
+
+  builderState.abilityAssignments.forEach((assignment) => {
+    if (isAbilityScoreIndex(assignment.abilityIndex)) {
+      abilityScores[assignment.abilityIndex] = assignment.score;
+    }
+  });
+
+  return abilityScores;
+}
+
+function isAbilityScoreIndex(value: string): value is keyof AbilityScores {
+  return abilityScoreIndexes.some((abilityIndex) => abilityIndex === value);
 }
 
 export { CharacterDashboardPage };
