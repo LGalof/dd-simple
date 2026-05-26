@@ -36,6 +36,8 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   overflow-y: auto;
+  --dashboard-workspace-top: 0.45rem;
+  --dashboard-workspace-height: calc(100vh - 2rem - var(--dashboard-workspace-top));
 }
 
 .app-layout {
@@ -50,16 +52,23 @@ body {
   max-width: none;
   margin: 0;
   min-height: calc(100vh - 2rem);
-  grid-template-rows: auto auto;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .app-layout-wide-left .app-layout-content {
-  min-height: auto;
+  min-height: 0;
   overflow: visible;
 }
 
 .app-layout-wide-left .app-header {
   padding: 0.6rem 0.85rem;
+}
+
+.app-layout-wide-left .character-section {
+  position: sticky;
+  top: var(--dashboard-workspace-top);
+  height: var(--dashboard-workspace-height);
+  min-height: var(--dashboard-workspace-height);
 }
 
 .app-layout-wide-left .app-brand-mark {
@@ -206,17 +215,13 @@ h1 {
   margin: 0;
 }
 
-.app-layout-wide-left .character-section {
-  height: auto;
-  min-height: auto;
-}
-
 .dashboard-layout {
   display: grid;
   grid-template-columns: minmax(320px, 388px) minmax(0, 1fr) 304px;
   gap: 0.75rem;
   align-items: start;
-  min-height: 0;
+  min-height: 100%;
+  height: 100%;
   overflow: visible;
 }
 
@@ -231,7 +236,8 @@ h1 {
 .dashboard-builder-shell {
   position: relative;
   min-width: 0;
-  align-self: start;
+  align-self: stretch;
+  height: 100%;
   overflow: visible;
 }
 
@@ -244,6 +250,12 @@ h1 {
 }
 
 .dashboard-builder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   transition:
     transform 280ms ease,
     opacity 220ms ease;
@@ -289,12 +301,13 @@ h1 {
 .builder-sidebar {
   display: grid;
   gap: 0.85rem;
-  position: sticky;
-  top: 0.5rem;
-  align-self: start;
+  position: relative;
+  top: auto;
+  align-self: stretch;
+  flex: 1 1 auto;
   height: auto;
   min-height: 0;
-  max-height: calc(100vh - 1rem);
+  max-height: none;
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 0.2rem;
@@ -304,10 +317,10 @@ h1 {
   display: grid;
   min-width: 0;
   position: sticky;
-  top: 0.5rem;
+  top: 0;
   align-self: start;
-  height: calc((100vh - 1rem) * 0.8);
-  max-height: calc((100vh - 1rem) * 0.8);
+  height: 100%;
+  max-height: 100%;
   overflow: hidden;
   isolation: isolate;
 }
@@ -330,7 +343,7 @@ h1 {
 .inventory-details-panel-rail,
 .inventory-library-panel {
   height: 100%;
-  max-height: calc((100vh - 1rem) * 0.8);
+  max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   transition:
@@ -1726,18 +1739,19 @@ h1 {
   --sheet-accent-soft: #ecd8a4;
   --sheet-accent-border: rgba(212, 176, 106, 0.38);
   gap: 0.75rem;
-  height: auto;
+  height: 100%;
   min-height: 0;
   min-width: 0;
-  overflow: visible;
-  grid-template-rows: auto auto auto;
+  overflow: hidden;
+  padding-right: 0;
+  grid-template-rows: auto auto minmax(0, 1fr);
   align-content: start;
 }
 
 .character-dashboard-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
-  gap: 0.4rem;
+  grid-template-columns: minmax(220px, 300px) minmax(360px, 1fr);
+  gap: 0.28rem;
   align-items: start;
   min-width: 0;
 }
@@ -1745,12 +1759,12 @@ h1 {
 .character-dashboard-summary-row,
 .character-dashboard-toolbar-actions {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.28rem;
   align-items: start;
 }
 
 .character-dashboard-summary-row {
-  grid-template-columns: minmax(220px, 300px);
+  grid-template-columns: 1fr;
 }
 
 .character-dashboard-summary-chip {
@@ -1910,93 +1924,102 @@ h1 {
 .character-dashboard-top-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 200px;
-  gap: 0.4rem;
+  gap: 0.28rem;
   align-items: stretch;
   min-width: 0;
 }
 
 .character-primary-stats {
+  --character-top-card-width: 86px;
+  --character-top-card-height: 96px;
+  --character-top-card-title-size: 0.54rem;
+  --character-top-card-value-size: 1.34rem;
+  --character-top-card-badge-size: 1.34rem;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.7rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.42rem;
   width: 100%;
   height: 100%;
   min-height: 0;
   min-width: 0;
   align-self: stretch;
+  justify-content: start;
 }
 
 .character-primary-ability-grid,
 .character-primary-utility-grid {
   display: grid;
-  gap: 0.4rem;
+  align-items: start;
 }
 
 .character-primary-ability-grid {
   grid-template-columns: repeat(6, minmax(0, 1fr));
-}
-
-.character-primary-ability-grid .character-primary-stat-card {
-  width: 100%;
-  justify-self: stretch;
+  justify-content: start;
+  justify-items: start;
+  gap: 0.32rem;
 }
 
 .character-primary-utility-grid {
-  grid-template-columns: repeat(2, minmax(80px, 1fr));
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
   align-content: stretch;
+  justify-content: end;
+  justify-self: end;
+  width: max-content;
+  margin-left: 1rem;
+  gap: 0.28rem;
 }
 
 .character-primary-stat-card,
 .character-primary-metric-card {
   display: grid;
   justify-items: center;
-  align-content: space-between;
-  gap: 0.15rem;
-  min-height: 54px;
-  padding: 0.38rem 0.28rem 0.34rem;
+  align-content: start;
+  gap: 0;
+  grid-template-rows: auto 1fr auto;
+  min-height: var(--character-top-card-height);
+  padding: 0.12rem 0.18rem 0.18rem;
   text-align: center;
 }
 
 .character-primary-stat-card span,
 .character-primary-metric-card span {
   color: var(--sheet-accent-soft);
-  font-size: 0.48rem;
+  font-size: var(--character-top-card-title-size);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  line-height: 1.05;
+  margin-top: 0.88rem;
 }
 
 .character-primary-stat-card strong,
 .character-primary-metric-card strong {
   color: #f9fafb;
-  font-size: 1.12rem;
+  font-size: 1.04rem;
   line-height: 1;
   text-shadow: 0 0 14px rgba(212, 176, 106, 0.14);
+  align-self: center;
 }
 
 .character-primary-stat-card strong {
-  font-size: 1.34rem;
-}
-
-.character-primary-metric-card strong {
-  font-size: 1.04rem;
+  font-size: var(--character-top-card-value-size);
+  margin-top: -0.1rem;
 }
 
 .character-primary-stat-card em,
 .character-primary-metric-card em {
   color: #fef3c7;
-  font-size: 0.62rem;
+  font-size: 0.5rem;
   font-style: normal;
   text-transform: uppercase;
 }
 
 .character-primary-stat-card em {
-  margin-top: auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.34rem;
-  min-height: 1.34rem;
+  min-width: var(--character-top-card-badge-size);
+  min-height: var(--character-top-card-badge-size);
   padding: 0 0.34rem;
   border: 1px solid rgba(212, 176, 106, 0.28);
   border-radius: 999px;
@@ -2004,12 +2027,39 @@ h1 {
     linear-gradient(180deg, rgba(212, 176, 106, 0.08), rgba(17, 24, 39, 0.92)),
     rgba(31, 41, 55, 0.92);
   box-shadow: inset 0 0 0 1px rgba(212, 176, 106, 0.04);
+  align-self: end;
+  margin-bottom: 0.02rem;
+}
+
+.character-primary-ability-grid .character-primary-stat-card {
+  width: var(--character-top-card-width);
+  height: var(--character-top-card-height);
+  max-height: var(--character-top-card-height);
+  justify-self: start;
+}
+
+.character-primary-utility-grid .character-primary-metric-card {
+  min-width: 80px;
+  min-height: var(--character-top-card-height);
+}
+
+.character-primary-metric-card em {
+  align-self: end;
+}
+
+.character-primary-utility-grid .character-primary-metric-card em {
+  color: var(--sheet-accent-soft);
+  font-size: var(--character-top-card-title-size);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.05;
+  margin-bottom: 0.72rem;
 }
 
 .character-hit-points-panel {
   display: grid;
-  gap: 0.35rem;
-  padding: 0.42rem 0.5rem;
+  gap: 0.25rem;
+  padding: 0.36rem 0.44rem;
   width: 200px;
   min-width: 0;
 }
@@ -2017,12 +2067,12 @@ h1 {
 .character-hit-points-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .character-hit-points-action,
 .character-inline-button {
-  min-height: 24px;
+  min-height: 22px;
   border: 1px solid var(--sheet-accent-border);
   border-radius: 10px;
   background:
@@ -2031,7 +2081,7 @@ h1 {
   color: #f3e5bf;
   font: inherit;
   font-weight: 600;
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(212, 176, 106, 0.04);
 }
@@ -2076,7 +2126,7 @@ h1 {
 
 .character-hit-points-stat strong {
   color: #f9fafb;
-  font-size: 1.26rem;
+  font-size: 1.12rem;
   line-height: 1;
   text-shadow: 0 0 14px rgba(212, 176, 106, 0.14);
 }
@@ -2210,25 +2260,50 @@ h1 {
 
 .character-dashboard-main-grid {
   display: grid;
-  grid-template-columns: 210px 286px minmax(0, 1fr);
-  gap: 0.45rem;
+  grid-template-columns: minmax(0, 496px) minmax(0, 1fr);
+  gap: 0.3rem;
   align-items: start;
+  height: 100%;
   min-height: 0;
   min-width: 0;
   align-content: start;
 }
 
-.character-dashboard-left-stack {
+.character-dashboard-reference-columns {
   display: grid;
+  grid-template-columns: 210px 286px;
+  grid-template-areas:
+    "left skills"
+    "support support";
+  gap: 0.3rem;
+  align-items: start;
+  align-content: start;
+  min-width: 0;
+}
+
+.character-dashboard-left-stack {
+  grid-area: left;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 0.45rem;
+  align-self: stretch;
+  height: 100%;
   min-height: 0;
   min-width: 0;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .character-reference-card {
   display: grid;
-  gap: 0.5rem;
-  padding: 0.45rem;
+  gap: 0.36rem;
+  padding: 0.38rem;
+}
+
+.character-reference-card-training {
+  align-content: start;
+  min-height: 100%;
 }
 
 .character-reference-card-header {
@@ -2285,7 +2360,8 @@ h1 {
 .character-actions-stage,
 .character-inventory-stage {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.32rem;
+  min-height: 0;
 }
 
 .character-passive-row {
@@ -2351,12 +2427,16 @@ h1 {
 }
 
 .character-skills-board {
+  grid-area: skills;
   display: grid;
-  gap: 0.35rem;
-  padding: 0.58rem;
-  min-height: 100%;
+  grid-template-rows: auto auto auto;
+  gap: 0.24rem;
+  padding: 0.42rem;
+  align-self: start;
+  height: auto;
+  min-height: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
   align-content: start;
 }
 
@@ -2372,6 +2452,8 @@ h1 {
 .character-skills-table {
   display: grid;
   gap: 0;
+  min-height: auto;
+  overflow: visible;
 }
 
 .character-skill-table-row {
@@ -2379,8 +2461,8 @@ h1 {
   grid-template-columns: 18px 34px minmax(0, 1fr) 54px;
   align-items: center;
   gap: 0.4rem;
-  min-height: 36px;
-  padding: 0.15rem 0.15rem;
+  min-height: 26px;
+  padding: 0.1rem 0.12rem;
   border-bottom: 1px solid rgba(212, 176, 106, 0.1);
   background:
     linear-gradient(90deg, rgba(212, 176, 106, 0.025), rgba(212, 176, 106, 0) 38%),
@@ -2439,17 +2521,20 @@ h1 {
 
 .character-main-workspace {
   display: grid;
-  gap: 0.4rem;
+  grid-template-rows: minmax(0, 1fr);
+  align-self: start;
+  height: 100%;
   min-height: 0;
   min-width: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.character-main-status-grid {
+.character-dashboard-support-grid {
+  grid-area: support;
   display: grid;
-  grid-template-columns: 84px 84px minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 0.35rem;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 0.24rem;
+  align-items: start;
   min-width: 0;
 }
 
@@ -2474,7 +2559,7 @@ h1 {
 }
 
 .character-status-badge-initiative {
-  min-height: 84px;
+  min-height: 72px;
 }
 
 .character-status-badge-initiative::before,
@@ -2488,13 +2573,13 @@ h1 {
 }
 
 .character-status-badge-armor {
-  min-height: 84px;
+  min-height: 72px;
 }
 
 .character-status-panel {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.4rem 0.48rem;
+  gap: 0.22rem;
+  padding: 0.32rem 0.4rem;
 }
 
 .character-status-row {
@@ -2521,13 +2606,15 @@ h1 {
 }
 
 .character-workspace-panel-reference {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  height: auto;
+  height: 100%;
   min-width: 0;
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   isolation: isolate;
-  padding: 0.45rem;
+  padding: 0.38rem;
   border: 1px solid var(--sheet-accent-border);
   background:
     linear-gradient(180deg, rgba(212, 176, 106, 0.03), rgba(17, 24, 39, 0.84)),
@@ -2538,8 +2625,8 @@ h1 {
 }
 
 .character-tab-bar-reference {
-  gap: 0.45rem;
-  padding-bottom: 0.3rem;
+  gap: 0.35rem;
+  padding-bottom: 0.2rem;
 }
 
 .character-tab-bar-reference .character-tab-button {
@@ -2554,8 +2641,11 @@ h1 {
 }
 
 .character-tab-panel-reference {
+  display: grid;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
+  padding-right: 0;
 }
 
 .character-action-filter-bar {
@@ -2600,12 +2690,20 @@ h1 {
   padding: 0 0.5rem;
 }
 
+.character-actions-stage {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
+}
+
 .character-actions-table {
   display: grid;
   gap: 0;
   border: 1px solid var(--sheet-accent-border);
   border-radius: 16px;
-  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   background:
     linear-gradient(180deg, rgba(212, 176, 106, 0.025), rgba(17, 24, 39, 0.9)),
     rgba(17, 24, 39, 0.8);
@@ -2618,7 +2716,7 @@ h1 {
   grid-template-columns: minmax(140px, 2fr) 70px 70px 78px minmax(72px, 1fr);
   gap: 0.45rem;
   align-items: center;
-  padding: 0.34rem 0.45rem;
+  padding: 0.24rem 0.32rem;
 }
 
 .character-actions-table-header {
@@ -2680,6 +2778,8 @@ h1 {
 .character-inventory-stage {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  height: 100%;
+  overflow: hidden;
 }
 
 .character-inventory-toolbar {
@@ -3983,16 +4083,29 @@ h1 {
 
 .inventory-layout {
   display: grid;
-  grid-template-columns: min(270px, 18vw) minmax(0, 1fr) min(360px, 24vw);
+  grid-template-columns: minmax(0, 1fr) min(360px, 24vw);
   gap: 0.85rem;
   min-height: 0;
   overflow: hidden;
   align-items: start;
 }
 
+.inventory-main-scroll {
+  display: grid;
+  grid-template-columns: min(270px, 18vw) minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-items: start;
+  align-content: start;
+  padding-right: 0.15rem;
+}
+
 .inventory-workbench-embedded {
-  min-height: 44rem;
-  height: auto;
+  min-height: 0;
+  height: 100%;
   padding: 0;
   border-radius: 12px;
 }
@@ -4002,11 +4115,16 @@ h1 {
   overflow: visible;
 }
 
+.inventory-workbench-embedded .inventory-main-scroll {
+  grid-template-columns: 1fr;
+  max-height: 100%;
+}
+
 .inventory-workbench-embedded .inventory-grid-stack {
   order: 1;
   width: 100%;
   max-width: 100%;
-  overflow: auto;
+  overflow: visible;
 }
 
 .inventory-workbench-embedded .equipment-panel {
@@ -4019,7 +4137,7 @@ h1 {
 
 .inventory-workbench-embedded .equipment-panel,
 .inventory-workbench-embedded .inventory-details-panel {
-  max-height: 44rem;
+  max-height: 100%;
 }
 
 .inventory-workbench-embedded .inventory-grid-stack {
@@ -4050,8 +4168,8 @@ h1 {
 }
 
 .equipment-panel {
-  max-height: 100%;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
   z-index: 2;
 }
 
@@ -4060,10 +4178,9 @@ h1 {
   flex-wrap: wrap;
   gap: 0.85rem;
   min-width: 0;
-  max-height: 100%;
-  overflow: auto;
+  max-height: none;
+  overflow: visible;
   align-content: flex-start;
-  padding-right: 0.15rem;
   padding-bottom: 0.35rem;
 }
 
@@ -5169,11 +5286,11 @@ h1 {
   }
 
   .character-dashboard-main-grid {
-    grid-template-columns: minmax(200px, 0.9fr) minmax(240px, 1fr);
+    grid-template-columns: 1fr;
   }
 
-  .character-main-workspace {
-    grid-column: 1 / -1;
+  .character-dashboard-reference-columns {
+    grid-template-columns: minmax(200px, 0.9fr) minmax(240px, 1fr);
   }
 
   .dashboard-layout {
@@ -5203,9 +5320,17 @@ h1 {
 
   .character-dashboard-top-grid,
   .character-dashboard-main-grid,
-  .character-main-status-grid,
+  .character-dashboard-support-grid,
   .character-inventory-stage {
     grid-template-columns: 1fr;
+  }
+
+  .character-dashboard-reference-columns {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "left"
+      "skills"
+      "support";
   }
 
   .character-primary-stats {
@@ -5228,6 +5353,13 @@ h1 {
 }
 
 @media (max-width: 1080px) {
+  .app-layout-wide-left .character-section {
+    position: static;
+    top: auto;
+    height: auto;
+    min-height: auto;
+  }
+
   .dashboard-layout {
     grid-template-columns: 1fr;
   }
@@ -5278,7 +5410,7 @@ h1 {
   .character-dashboard-toolbar,
   .character-dashboard-top-grid,
   .character-dashboard-main-grid,
-  .character-main-status-grid,
+  .character-dashboard-support-grid,
   .character-inventory-stage {
     grid-template-columns: 1fr;
   }
@@ -5293,6 +5425,13 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  .app-layout-wide-left .character-section {
+    position: static;
+    top: auto;
+    height: auto;
+    min-height: auto;
+  }
+
   .app-shell {
     padding: 1rem;
   }
@@ -5404,9 +5543,17 @@ h1 {
   .workspace-card-grid,
   .character-dashboard-top-grid,
   .character-dashboard-main-grid,
-  .character-main-status-grid,
+  .character-dashboard-support-grid,
   .character-inventory-stage {
     grid-template-columns: 1fr;
+  }
+
+  .character-dashboard-reference-columns {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "left"
+      "skills"
+      "support";
   }
 
   .character-dashboard-summary-row,

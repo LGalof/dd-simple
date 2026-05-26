@@ -289,6 +289,18 @@ function CharacterSheet({
               <strong>{character.speed} ft</strong>
               <em>Speed</em>
             </div>
+
+            <div className="character-primary-metric-card">
+              <span>Initiative</span>
+              <strong>{formatModifier(dexterityModifier)}</strong>
+              <em>Modifier</em>
+            </div>
+
+            <div className="character-primary-metric-card">
+              <span>Armor</span>
+              <strong>{character.armorClass}</strong>
+              <em>Class</em>
+            </div>
           </div>
         </div>
 
@@ -335,93 +347,83 @@ function CharacterSheet({
       </section>
 
       <section className="character-dashboard-main-grid">
-        <aside className="character-dashboard-left-stack">
-          <section className="character-reference-card">
-            <div className="character-reference-card-header">
-              <h3>Saving Throws</h3>
-            </div>
+        <div className="character-dashboard-reference-columns">
+          <aside className="character-dashboard-left-stack">
+            <section className="character-reference-card">
+              <div className="character-reference-card-header">
+                <h3>Saving Throws</h3>
+              </div>
 
-            <div className="character-saving-throw-grid">
-              {savingThrows.map((savingThrow) => (
-                <div key={savingThrow.shortLabel} className="character-save-pill">
-                  <span>{savingThrow.shortLabel}</span>
-                  <strong>{formatModifier(savingThrow.total)}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
+              <div className="character-saving-throw-grid">
+                {savingThrows.map((savingThrow) => (
+                  <div key={savingThrow.shortLabel} className="character-save-pill">
+                    <span>{savingThrow.shortLabel}</span>
+                    <strong>{formatModifier(savingThrow.total)}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
 
-          <section className="character-reference-card">
-            <div className="character-reference-card-header">
-              <h3>Senses</h3>
-            </div>
+            <section className="character-reference-card">
+              <div className="character-reference-card-header">
+                <h3>Senses</h3>
+              </div>
 
-            <div className="character-passive-list">
-              {passiveStats.map((stat) => (
-                <div key={stat.label} className="character-passive-row">
-                  <strong>{stat.value}</strong>
-                  <span>{stat.label}</span>
-                </div>
-              ))}
-            </div>
+              <div className="character-passive-list">
+                {passiveStats.map((stat) => (
+                  <div key={stat.label} className="character-passive-row">
+                    <strong>{stat.value}</strong>
+                    <span>{stat.label}</span>
+                  </div>
+                ))}
+              </div>
 
-            <p className="character-reference-note">{training.senses}</p>
-          </section>
+              <p className="character-reference-note">{training.senses}</p>
+            </section>
 
-          <section className="character-reference-card">
+          <section className="character-reference-card character-reference-card-training">
             <div className="character-reference-card-header">
               <h3>Proficiencies &amp; Training</h3>
             </div>
 
-            <div className="character-training-stack">
-              <TrainingBlock label="Armor" values={training.armor} />
-              <TrainingBlock label="Weapons" values={training.weapons} />
-              <TrainingBlock label="Tools" values={training.tools} />
-              <TrainingBlock label="Languages" values={training.languages} />
-            </div>
-          </section>
-        </aside>
-
-        <section className="character-skills-board">
-          <div className="character-skills-board-header">
-            <span>Prof</span>
-            <span>Mod</span>
-            <h3>Skill</h3>
-            <span>Bonus</span>
-          </div>
-
-          <div className="character-skills-table">
-            {skillTotals.map((skill) => (
-              <div key={skill.name} className="character-skill-table-row">
-                <span
-                  className={
-                    skill.isProficient
-                      ? "character-skill-marker character-skill-marker-active"
-                      : "character-skill-marker"
-                  }
-                />
-                <em>{skill.ability}</em>
-                <span className="character-skill-name">{skill.name}</span>
-                <strong className="character-skill-bonus-pill">{formatModifier(skill.total)}</strong>
+              <div className="character-training-stack">
+                <TrainingBlock label="Armor" values={training.armor} />
+                <TrainingBlock label="Weapons" values={training.weapons} />
+                <TrainingBlock label="Tools" values={training.tools} />
+                <TrainingBlock label="Languages" values={training.languages} />
               </div>
-            ))}
-          </div>
+            </section>
+          </aside>
 
-          <div className="character-skills-board-footer">Additional Skills</div>
-        </section>
-
-        <section className="character-main-workspace">
-          <div className="character-main-status-grid">
-            <div className="character-status-badge character-status-badge-initiative">
-              <span>Initiative</span>
-              <strong>{formatModifier(dexterityModifier)}</strong>
+          <section className="character-skills-board">
+            <div className="character-skills-board-header">
+              <span>Prof</span>
+              <span>Mod</span>
+              <h3>Skill</h3>
+              <span>Bonus</span>
             </div>
 
-            <div className="character-status-badge character-status-badge-armor">
-              <span>Armor Class</span>
-              <strong>{character.armorClass}</strong>
+            <div className="character-skills-table">
+              {skillTotals.map((skill) => (
+                <div key={skill.name} className="character-skill-table-row">
+                  <span
+                    className={
+                      skill.isProficient
+                        ? "character-skill-marker character-skill-marker-active"
+                        : "character-skill-marker"
+                    }
+                  />
+                  <em>{skill.ability}</em>
+                  <span className="character-skill-name">{skill.name}</span>
+                  <strong className="character-skill-bonus-pill">{formatModifier(skill.total)}</strong>
+                </div>
+              ))}
             </div>
 
+            <div className="character-skills-board-footer">Additional Skills</div>
+          </section>
+
+          <div className="character-dashboard-support-grid">
             <div className="character-status-panel">
               <h3>Defenses</h3>
               <div className="character-status-list">
@@ -445,7 +447,9 @@ function CharacterSheet({
               </p>
             </div>
           </div>
+        </div>
 
+        <section className="character-main-workspace">
           <section className="character-workspace-panel character-workspace-panel-reference">
             <div className="character-tab-bar character-tab-bar-reference">
               {workspaceTabs.map((tab) => (
