@@ -4,7 +4,7 @@
 
 The Character System is the core part of the D&D Simple application.
 
-It allows authenticated users to create, configure, view, and manage Dungeons & Dragons characters through a web interface. The main goal of this system is to give players a clear character builder and a live character sheet that updates automatically when character data changes.
+It allows authenticated users to create, configure, view, and manage Dungeons & Dragons characters through a web interface. The main goal of this system is to give players a clear character builder and a live character sheet that updates when character data changes.
 
 The Character System is divided into two main views:
 
@@ -19,12 +19,26 @@ The system is designed for Dungeons & Dragons 5e-inspired gameplay, but the MVP 
 
 Users must be authenticated before they can access character-related functionality.
 
-The planned authentication method for the project is Google SSO / OAuth.
+### Planned authentication direction
+
+The planned authentication method from the original product vision is Google SSO / OAuth.
+
+### Current implementation
+
+The current implementation uses local email/password authentication with bearer-token based sessions.
+
+Implemented auth endpoints:
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /auth/me`
+
+The frontend stores the auth token in browser local storage and sends it to the backend with protected requests.
 
 ### Authentication behavior
 
-- If the user is not authenticated, the application should redirect them to the login page.
-- If the user is authenticated, the application should show the My Characters page.
+- If the user is not authenticated, the application redirects them to the login page.
+- If the user is authenticated, the application allows access to protected pages.
 - Characters belong to the authenticated user who created them.
 - A user should only be able to view, edit, or delete their own characters.
 
@@ -33,8 +47,9 @@ The planned authentication method for the project is Google SSO / OAuth.
 The following pages require authentication:
 
 - My Characters page
+- Create Character page
 - Character Dashboard / Builder page
-- Character editing page
+- Inventory page
 
 ---
 
@@ -42,26 +57,28 @@ The following pages require authentication:
 
 ## 3.1 Overview
 
-The My Characters page is the main entry point after login.
+The My Characters page is the main entry point for managing characters.
 
-It allows the user to manage their personal characters. Characters are not connected to campaigns in the MVP. Each character belongs only to the user who created it.
+It allows the user to manage their personal characters. Characters are not connected to campaigns in the current MVP. Each character belongs only to the user who created it.
 
 ## 3.2 Purpose
 
 The purpose of this page is to give users a simple overview of their existing characters and allow them to create a new one.
 
-## 3.3 Features
+## 3.3 Implemented features
 
-The page should support:
+The current implementation supports:
 
 - viewing the list of characters
-- creating a new character
-- opening the Character Dashboard for a character
-- editing an existing character
+- displaying character cards
+- creating a new character through a Create Character page
+- opening a character in the Character Dashboard
 - deleting a character
-- displaying an empty state when no characters exist
-
-Search and sorting can be added later, but they are not required for the initial MVP.
+- loading state
+- error state
+- empty state
+- search by name, level, class, or species
+- sorting by creation time, name, or level
 
 ## 3.4 Page states
 
@@ -83,19 +100,36 @@ If the authenticated user has no characters:
 
 If the authenticated user has one or more characters:
 
-- display character cards in a grid or list
-- allow the user to open, edit, or delete a character
+- display character cards in a grid
+- allow the user to open or delete a character
+- allow searching and sorting
 
 ## 3.5 Create Character flow
 
-When the user clicks Create Character:
+### Planned specification
 
-1. A new empty character draft is created.
-2. The user is immediately navigated to the Character Dashboard / Builder page.
-3. The user can start filling in character data directly in the builder.
-4. Changes are saved automatically after the user modifies character data.
+The earlier specification described a flow where clicking Create Character immediately opened an empty Character Dashboard / Builder.
 
-No separate modal or first-step form is required for the MVP.
+### Current implementation
+
+The current implementation uses a short Create Character form before opening the dashboard.
+
+The user selects:
+
+- character name
+- species
+- class
+- background
+- optional alignment
+
+After submitting the form:
+
+1. The frontend sends a create-character request to the backend.
+2. The backend creates the character with default ability scores.
+3. The frontend stores the selected character id.
+4. The user is redirected to the Character Dashboard.
+
+This flow is currently more compatible with the backend because the backend requires species, class, background, skill indexes, and ability scores when creating a character.
 
 ## 3.6 Character Card
 
@@ -112,7 +146,6 @@ A character card should display:
 Character card actions:
 
 - View / Open
-- Edit
 - Delete
 
 Level is informational in the MVP. It should be displayed, but it should not lock or unlock functionality.
@@ -130,9 +163,9 @@ The page has two main areas:
 - left sidebar for input and configuration
 - right panel for the calculated character sheet
 
-The main interaction model is:
+The intended interaction model is:
 
-User input -> state update -> recalculation -> auto-save -> UI update
+User input -> state update -> recalculation -> persistence -> UI update
 
 ## 4.2 Purpose
 
@@ -140,7 +173,27 @@ The purpose of the Character Dashboard is to let users create and manage a chara
 
 The user should not have to manually calculate common values such as ability modifiers, initiative, passive perception, basic armor class, or proficiency bonus.
 
-## 4.3 Layout
+## 4.3 Current implementation
+
+The current Character Dashboard includes:
+
+- builder sidebar
+- collapsible sidebar behavior
+- species, background, and class selection buttons
+- selection panel for species/background/class
+- ability score assignment
+- single ability score rolling
+- roll all ability scores
+- HP configuration
+- current HP heal/damage controls
+- temporary HP controls
+- dynamic class feature sections
+- live character sheet preview
+- workspace tabs for actions, spells, inventory, features, background, notes, and extras
+- integration with the inventory sandbox controller
+- manual Save Build action
+
+## 4.4 Layout
 
 ### Left sidebar
 
@@ -151,7 +204,8 @@ It contains:
 - Species selection button
 - Background selection button
 - Class selection button
-- Ability score inputs
+- HP management area
+- Ability score inputs and rolling controls
 - Dynamic class-specific sections after class selection
 
 ### Right panel
@@ -171,21 +225,29 @@ It contains:
 - speed
 - senses
 - proficiency bonus
-- combat and gameplay panel
+- combat and gameplay tabs
 
 ---
 
-## 5. Left Sidebar
+## 5. Selection Panels
 
-## 5.1 Primary selection buttons
+Selection panels are used for selecting Class, Species, and Background.
 
-At the top of the sidebar there are three primary selection buttons:
+They use the same general interaction pattern, but each panel displays data specific to the selected category.
 
-- Species
-- Background
-- Class
+The data for Class, Species, and Background comes from reference/definition data stored in the database and mapped into frontend builder options.
 
-## 5.2 Button state behavior
+Current database reference models include:
+
+- `RefClass`
+- `RefSpecies`
+- `RefBackground`
+
+These correspond to the planned concept of reusable definition data.
+
+Definition data describes available game options. User character data stores what the user selected.
+
+## 5.1 Button state behavior
 
 Before a value is selected, the button displays its default label:
 
@@ -201,237 +263,83 @@ Examples:
 - Background button becomes Soldier
 - Class button becomes Bard
 
-## 5.3 Interaction behavior
+## 5.2 Interaction behavior
 
 When the user clicks a primary selection button:
 
 1. A selection panel opens.
 2. The user chooses one item from the list.
-3. A confirmation panel is displayed.
+3. A preview/confirmation area is displayed.
 4. The user confirms or cancels the selection.
-5. If confirmed, the selected value is stored in character state.
+5. If confirmed, the selected value is stored in builder state.
 6. The button label updates.
 7. The character sheet recalculates where needed.
-8. The change is saved automatically.
 
----
+## 5.3 Class Selection Flow
 
-## 6. Selection Panels
+The Class Selection flow allows the user to select a character class.
 
-Selection panels are used for selecting Class, Species, and Background.
-
-They should use the same general interaction pattern, but each panel displays data specific to the selected category.
-
-The data for Class, Species, and Background should come from definition data stored in the database:
-
-- ClassDefinition
-- SpeciesDefinition
-- BackgroundDefinition
-
-Definition data describes available game options. User character data stores what the user selected.
-
----
-
-## 7. Class Selection Flow
-
-## 7.1 Opening the panel
-
-The user clicks the Class button in the left sidebar.
-
-A center-screen panel opens and displays the available classes.
-
-## 7.2 Class list
-
-The class list should display all available classes.
-
-Each class item may include:
+The class list should display available classes. Each class may include:
 
 - class name
-- source
-- optional icon
-- navigation indicator
-- short preview text if available
-
-The class list is used only for selection. It should not display every class feature in detail.
-
-## 7.3 Class confirmation panel
-
-After selecting a class from the list, the user sees a class confirmation panel.
-
-The confirmation panel should display a read-only preview of the selected class.
-
-The preview should include:
-
-- class name
-- source
-- description
-- primary ability
+- source/reference information if available
 - hit die
+- class features
 - saving throw proficiencies
-- basic class traits
-- class features from levels 1 to 20
 
-The MVP should avoid storing or reproducing unnecessary copyrighted rule text. Class data should be summarized or limited to the information needed for the project demonstration.
+After the class is confirmed:
 
-## 7.4 Class confirmation actions
-
-The confirmation panel has two actions:
-
-- ADD CLASS
-- CANCEL
-
-### ADD CLASS
-
-When the user clicks ADD CLASS:
-
-- the selected class is applied to the character
+- the selected class is applied to the builder state
 - the Class button label updates
 - class-specific sections appear in the left sidebar
 - relevant character sheet values are recalculated
-- the character is auto-saved
+- feature choices are reset when the class changes
 
-### CANCEL
+## 5.4 Species Selection Flow
 
-When the user clicks CANCEL:
+The Species Selection flow allows the user to select a species.
 
-- the selected class is not applied
-- the panel closes
-- the previous character state remains unchanged
-
-## 7.5 Preview mode and interactive mode
-
-The same class definition data is used in two different modes.
-
-### Preview Mode
-
-Preview Mode is shown in the center confirmation panel.
-
-Characteristics:
-
-- read-only
-- displays class information
-- shows levels 1 to 20
-- used before the user confirms the class
-
-### Interactive Mode
-
-Interactive Mode is shown in the left sidebar after the class is confirmed.
-
-Characteristics:
-
-- displayed inside dynamic class sections
-- can contain selectable options
-- can contain subclass choices, feature choices, or other future class-related inputs
-- updates character state when the user changes something
-- triggers recalculation and auto-save
-
----
-
-## 8. Species Selection Flow
-
-## 8.1 Opening the panel
-
-The user clicks the Species button in the left sidebar.
-
-A center-screen panel opens and displays the available species.
-
-## 8.2 Species list
-
-Each species item may include:
+Species data may include:
 
 - species name
-- source
-- optional icon
-- short description
-
-## 8.3 Species confirmation panel
-
-After selecting a species, the user sees a read-only confirmation panel.
-
-The panel may display:
-
-- species name
-- source
-- description
+- size
 - base speed
-- senses if available
-- relevant traits
-
-## 8.4 Confirming species
-
-When the user confirms the species:
-
-- the selected species is applied to the character
-- the Species button label updates
-- species-related values are recalculated
-- speed and senses may update
-- the character is auto-saved
-
-## 8.5 Cancelling species selection
-
-When the user cancels:
-
-- the selected species is not applied
-- the panel closes
-- the previous character state remains unchanged
-
----
-
-## 9. Background Selection Flow
-
-## 9.1 Opening the panel
-
-The user clicks the Background button in the left sidebar.
-
-A center-screen panel opens and displays the available backgrounds.
-
-## 9.2 Background list
-
-Each background item may include:
-
-- background name
-- source
-- optional icon
-- short description
-
-## 9.3 Background confirmation panel
-
-After selecting a background, the user sees a read-only confirmation panel.
-
-The panel may display:
-
-- background name
-- source
 - description
-- proficiencies or benefits if included in MVP data
-- relevant background traits
+- source JSON / reference data
 
-## 9.4 Confirming background
+After the species is confirmed:
 
-When the user confirms the background:
+- the selected species is applied to the builder state
+- the Species button label updates
+- speed and related values may update
+- the character sheet preview recalculates
 
-- the selected background is applied to the character
+## 5.5 Background Selection Flow
+
+The Background Selection flow allows the user to select a background.
+
+Background data may include:
+
+- background name
+- description
+- tool proficiencies if available
+- source JSON / reference data
+
+After the background is confirmed:
+
+- the selected background is applied to the builder state
 - the Background button label updates
-- background-related values may update
-- the character is auto-saved
-
-## 9.5 Cancelling background selection
-
-When the user cancels:
-
-- the selected background is not applied
-- the panel closes
-- the previous character state remains unchanged
+- background-related data may update
 
 ---
 
-## 10. Ability Scores
+## 6. Ability Scores
 
-## 10.1 Overview
+## 6.1 Overview
 
 Ability scores are one of the main inputs in the Character Builder.
 
-The system should support the six standard ability scores:
+The system supports the six standard ability scores:
 
 - Strength
 - Dexterity
@@ -440,29 +348,26 @@ The system should support the six standard ability scores:
 - Wisdom
 - Charisma
 
-## 10.2 Input options
+## 6.2 Current implementation
 
-The user can set ability scores in two ways:
+The current builder displays ability assignment cards.
 
-- manually entering values
-- using a ROLL button
+Users can:
 
-## 10.3 Manual input
+- roll a single ability score
+- roll all ability scores
+- assign rolled values to different ability score types
+- swap ability score assignments through dropdowns
 
-The user can manually enter ability score values.
+## 6.3 Rolling logic
 
-The MVP should validate that entered values are numeric and within a reasonable range.
-
-## 10.4 Rolling logic
-
-When the user clicks ROLL for an ability score:
+The intended rolling behavior is:
 
 1. Roll 4d6.
 2. Remove the lowest die.
 3. Sum the remaining three dice.
 4. Store the result as the ability score.
 5. Recalculate dependent values.
-6. Auto-save the character.
 
 Example:
 
@@ -472,45 +377,52 @@ Example:
 
 ---
 
-## 11. Automatic Calculation System
+## 7. Automatic Calculation System
 
-## 11.1 Overview
+## 7.1 Overview
 
 The system automatically calculates derived character sheet values from character input.
 
-The calculation system should be separated from UI components so it can be reused and tested.
+The calculation system should remain separated from visual UI components where possible.
 
-## 11.2 Calculation trigger
+## 7.2 Calculation trigger
 
-Recalculation should happen when the user changes relevant character data, such as:
+Recalculation happens when the user changes relevant character data, such as:
 
-- ability score
+- ability score assignment
 - class
 - species
 - background
 - level
-- feature selection
+- feature choice
+- HP configuration
+- current HP or temporary HP state
 - future equipment or armor selection
 
-## 11.3 Calculation flow
+## 7.3 Current calculation behavior
 
-The calculation flow is:
+The current implementation calculates or displays:
 
-Character input -> calculation utilities -> derived values -> character sheet display
-
-After recalculation, the updated character state should be auto-saved.
-
-## 11.4 Derived values should not be manually edited
-
-Derived values should normally be calculated from current character state.
-
-The system should avoid manual editing of derived values unless a future override system is intentionally added.
+- ability modifiers
+- proficiency bonus
+- saving throws
+- skills
+- passive perception
+- passive investigation
+- passive insight
+- initiative
+- armor class
+- current HP
+- max HP
+- temporary HP
+- speed
+- weapon/action previews from inventory data
 
 ---
 
-## 12. Calculation Rules
+## 8. Calculation Rules
 
-## 12.1 Ability modifier
+## 8.1 Ability modifier
 
 Formula:
 
@@ -527,7 +439,7 @@ Examples:
 | 16    | +3       |
 | 18    | +4       |
 
-## 12.2 Proficiency bonus
+## 8.2 Proficiency bonus
 
 | Level | Proficiency Bonus |
 | ----- | ----------------- |
@@ -537,7 +449,7 @@ Examples:
 | 13-16 | +5                |
 | 17-20 | +6                |
 
-## 12.3 Saving throws
+## 8.3 Saving throws
 
 Formula:
 
@@ -547,135 +459,95 @@ If the character is not proficient in that saving throw:
 
 Saving Throw = Ability Modifier
 
-## 12.4 Skills
+## 8.4 Skills
 
 Formula:
 
-Skill = Related Ability Modifier + Proficiency Bonus, if proficient
+Skill = Related Ability Modifier + Proficiency Bonus + Custom Bonus, if proficient
 
 If the character is not proficient in that skill:
 
-Skill = Related Ability Modifier
+Skill = Related Ability Modifier + Custom Bonus
 
-Future support may include expertise or other bonuses.
+## 8.5 Passive senses
 
-## 12.5 Passive perception
+Formulas:
 
-Formula:
+- Passive Perception = 10 + Perception skill
+- Passive Investigation = 10 + Investigation skill
+- Passive Insight = 10 + Insight skill
 
-Passive Perception = 10 + Perception skill
-
-## 12.6 Passive investigation
-
-Formula:
-
-Passive Investigation = 10 + Investigation skill
-
-## 12.7 Passive insight
-
-Formula:
-
-Passive Insight = 10 + Insight skill
-
-## 12.8 Initiative
+## 8.6 Initiative
 
 Formula:
 
 Initiative = Dexterity Modifier
 
-## 12.9 Armor Class MVP
+## 8.7 Armor Class MVP
 
-MVP formula:
+Current MVP formula:
 
 Armor Class = 10 + Dexterity Modifier
 
 Future versions should support armor and shield calculations.
 
-## 12.10 Hit Points MVP
+## 8.8 Hit Points
 
-MVP level 1 formula:
+The system supports basic HP calculation and previewing.
 
-Max HP = Class Hit Die + Constitution Modifier
+Current behavior includes:
 
-Future extended formula:
+- class hit die
+- constitution modifier
+- level-based HP preview
+- fixed HP mode
+- rolled HP mode
+- bonus HP
+- override max HP
+- current HP clamping
+- temporary HP as frontend state
 
-Max HP = Level-based class HP + Constitution Modifier per level + additional bonuses
+## 8.9 Attack and damage preview
 
-## 12.11 Attack modifier
+The character sheet can display action information based on inventory/equipped item data.
 
-Basic formula:
+Full weapon, item, and class-specific damage rules are not part of the current MVP.
 
-Attack Modifier = Relevant Ability Modifier + Proficiency Bonus, if proficient
+## 8.10 Spell calculations
 
-For MVP:
+Planned formulas:
 
-- melee attacks usually use Strength
-- ranged attacks usually use Dexterity
+- Spell Save DC = 8 + Proficiency Bonus + Spellcasting Ability Modifier
+- Spell Attack Bonus = Proficiency Bonus + Spellcasting Ability Modifier
 
-## 12.12 Damage modifier
-
-Basic formula:
-
-Damage = Weapon Damage + Relevant Ability Modifier
-
-Full weapon, item, and class-specific damage rules are not part of the initial MVP.
-
-## 12.13 Spell Save DC
-
-Formula:
-
-Spell Save DC = 8 + Proficiency Bonus + Spellcasting Ability Modifier
-
-## 12.14 Spell Attack Bonus
-
-Formula:
-
-Spell Attack Bonus = Proficiency Bonus + Spellcasting Ability Modifier
-
-## 12.15 Speed
-
-Speed comes from the selected species.
-
-If no species is selected, the system may display an empty value or default placeholder.
-
-## 12.16 Senses
-
-MVP senses include:
-
-- passive perception
-- passive investigation
-- passive insight
-
-Future versions may include darkvision, blindsight, tremorsense, or other senses if supported by species or features.
+The complete spell system is not yet implemented.
 
 ---
 
-## 13. Dynamic Class Sections
+## 9. Dynamic Class Sections
 
-## 13.1 Overview
+## 9.1 Overview
 
 After the user confirms a class, class-specific sections appear in the left sidebar.
 
-These sections are based on the selected class definition.
+These sections are based on selected class data and mapped reference data.
 
-## 13.2 Display behavior
+## 9.2 Display behavior
 
 Dynamic class sections should:
 
-- appear below the primary selection buttons and ability scores
+- appear below the primary selection buttons and HP/ability controls
 - be scrollable if there is too much content
-- show class information from levels 1 to 20
-- not be locked by current character level in the MVP
+- show class information across levels
+- mark future/higher-level features visually where appropriate
 
-## 13.3 Level handling
+## 9.3 Level handling
 
 Level is informational only in the MVP.
 
-The system does not prevent the user from viewing or editing class-related information from higher levels.
+The system can visually distinguish current and future features, but it does not fully enforce all D&D progression rules.
 
-The user is responsible for filling in appropriate values for their intended character.
-
-## 13.4 Section types
+## 9.4 Section types
 
 Dynamic sections can be:
 
@@ -683,42 +555,21 @@ Dynamic sections can be:
 - expandable / collapsible
 - interactive
 
-## 13.5 Informational sections
-
-Informational sections display read-only class information.
-
-Examples:
-
-- class traits
-- feature descriptions
-- level-based feature overview
-
-## 13.6 Interactive sections
-
-Interactive sections allow the user to make choices that affect character state.
-
-Examples:
-
-- subclass selection
-- feature options
-- proficiency choices
-- future spell choices
-
-Interactive sections should update character state, trigger recalculation, and auto-save changes.
+Interactive sections allow the user to make choices that affect character state, such as proficiency or feature choices.
 
 ---
 
-## 14. Right Panel – Live Character Sheet
+## 10. Right Panel – Live Character Sheet
 
-## 14.1 Overview
+## 10.1 Overview
 
 The right panel displays a live character sheet preview.
 
-It updates automatically when the user changes data in the left sidebar.
+It updates when the user changes data in the left sidebar.
 
-## 14.2 Displayed information
+## 10.2 Displayed information
 
-The right panel should display:
+The right panel currently displays or supports:
 
 - character name
 - level
@@ -735,106 +586,82 @@ The right panel should display:
 - armor class
 - current HP
 - max HP
+- temporary HP
 - speed
-
-## 14.3 Live update behavior
-
-When input changes:
-
-1. Character state updates.
-2. Calculation utilities recalculate derived values.
-3. The right panel updates immediately.
-4. Character data is auto-saved.
+- training / proficiency information
+- action tabs
+- spell placeholder tab
+- inventory tab
+- features and traits tab
+- background tab
+- notes tab
+- extras tab
 
 ---
 
-## 15. Combat & Gameplay Panel
+## 11. Combat & Gameplay Panel
 
-## 15.1 Overview
+## 11.1 Overview
 
 The Combat & Gameplay Panel is part of the right side character sheet.
 
 Its purpose is to give the player quick access to information used during gameplay.
 
-## 15.2 Sections
+## 11.2 Sections
 
-The panel should include placeholders or MVP sections for:
+The current sheet includes workspace tabs for:
 
 - Actions
-- Bonus Actions
-- Reactions
 - Spells
 - Inventory
 - Features & Traits
+- Background
 - Notes
+- Extras
 
-## 15.3 MVP behavior
-
-For the MVP, this panel can display placeholder sections or simple read-only lists.
-
-More advanced interaction is planned for later iterations.
-
-## 15.4 Future behavior
+## 11.3 Future behavior
 
 Future versions may include:
 
 - usable actions
-- spell management
-- inventory interaction
+- complete spell management
+- backend-persistent inventory interaction
 - item effects
 - dice roll integration
 - combat state tracking
 
 ---
 
-## 16. Auto-save
+## 12. Saving Behavior
 
-## 16.1 Overview
+## 12.1 Planned behavior
 
-Character saving should happen automatically after changes.
+The functional goal is auto-save after changes.
 
-The user should not need to click a manual Save button for normal editing.
+The desired flow is:
 
-## 16.2 Auto-save triggers
+1. update local UI state immediately
+2. wait briefly after the user stops editing
+3. send update request to backend
+4. show saving/saved/error state if needed
 
-Auto-save should trigger after changes such as:
+## 12.2 Current implementation
 
-- character name change
-- level change
-- class selection
-- species selection
-- background selection
-- ability score change
-- class feature selection
-- future inventory or equipment changes
+The current implementation uses a manual Save Build button.
 
-## 16.3 Auto-save behavior
+This saves the builder state to the backend after the user changes selections, ability scores, level, and related builder values.
 
-The system should avoid saving on every keystroke if that causes too many API requests.
+Manual saving is acceptable for the current development stage because it reduces API noise and makes state persistence easier to debug.
 
-A debounce or delayed save mechanism can be used.
+## 12.3 Future improvement
 
-Recommended behavior:
-
-- update local UI state immediately
-- wait briefly after the user stops editing
-- send update request to backend
-- show a saving/saved/error indicator if needed
-
-## 16.4 Error handling
-
-If auto-save fails:
-
-- show an error state
-- keep local changes visible
-- allow retrying automatically or manually
-- do not silently discard user input
+The manual Save Build action should later be replaced or extended with a debounced auto-save mechanism.
 
 ---
 
-## 17. Data Model Concept
+## 13. Data Model Concept
 
-## 17.1 User character data
+## 13.1 User character data
 
 User character data represents the specific character created by a user.
 
@@ -846,114 +673,193 @@ Examples:
 - selected species
 - selected background
 - ability scores
+- selected skill proficiencies
 - selected feature options
+- current HP
+- max HP
+- armor class
+- inventory records
+- dice rolls
 
-## 17.2 Definition data
+## 13.2 Reference data
 
-Definition data represents reusable game options available to all users.
+Reference data represents reusable game options available to all users.
 
-Definition data includes:
+Current reference data includes:
 
-- ClassDefinition
-- SpeciesDefinition
-- BackgroundDefinition
-- ClassFeatureDefinition
+- ability scores
+- skills
+- species
+- classes
+- backgrounds
+- proficiencies
+- equipment
+- generic rule documents
 
-## 17.3 Separation of data
+## 13.3 Separation of data
 
-The system should separate definition data from user character data.
+The system separates reference data from user character data.
 
 Example:
 
-- ClassDefinition describes what a Bard is.
-- Character stores that the user selected Bard for their character.
+- `RefClass` describes what a class is.
+- `Character` stores that the user selected a specific class for their character.
 
-This makes it easier to reuse the same class, species, and background data across many users and characters.
+This makes it easier to reuse the same class, species, background, skill, equipment, and rule data across many users and characters.
 
 ---
 
-## 18. MVP Scope
+## 14. Inventory System
 
-## 18.1 Included in MVP
+## 14.1 Current implementation
 
-The MVP Character System includes:
+The current project contains an inventory sandbox and inventory workspace integration.
 
-- Google SSO / OAuth authentication
+The inventory prototype supports:
+
+- containers
+- item dimensions
+- item location
+- equipment slots
+- item metadata
+- local browser persistence
+- item templates
+- basic item management interactions
+
+## 14.2 Current limitation
+
+The current inventory system is not yet fully connected to backend character inventory persistence.
+
+The Prisma schema includes `CharacterInventory`, but the frontend inventory sandbox currently acts mainly as a prototype.
+
+## 14.3 Future behavior
+
+Future versions should support:
+
+- saving inventory per character
+- loading inventory from the backend
+- applying equipped item effects
+- calculating AC and attack changes from equipment
+- drag-and-drop persistence
+
+---
+
+## 15. Tactical Board / Virtual Tabletop
+
+## 15.1 Current implementation
+
+The current project contains a tactical board prototype.
+
+The prototype supports:
+
+- grid board
+- tokens
+- token movement
+- token HP and max HP
+- initiative values
+- initiative order
+- terrain painting
+- saved board state in browser storage
+- browser-tab synchronization through storage events
+
+## 15.2 Current limitation
+
+The tactical board is currently a frontend prototype.
+
+It is not yet connected to backend sessions or WebSocket realtime synchronization.
+
+## 15.3 Future behavior
+
+Future versions should support:
+
+- backend session state
+- joining sessions by code
+- Dungeon Master and player roles
+- WebSocket realtime synchronization
+- shared token movement
+- shared HP and initiative updates
+
+---
+
+## 16. MVP Scope
+
+## 16.1 Included in current implementation
+
+The current implementation includes:
+
+- local email/password authentication
+- protected frontend routes
 - My Characters page
-- create character flow
+- Create Character page
 - Character Dashboard / Builder page
 - class selection flow
 - species selection flow
 - background selection flow
-- ability score input
 - ability score rolling
-- automatic ability modifier calculation
 - basic derived calculations
 - live character sheet preview
-- auto-save after changes
-- basic backend persistence
+- manual build saving
+- backend character persistence
+- reference-data API
+- inventory prototype
+- tactical board prototype
 
-## 18.2 Not included in MVP
+## 16.2 Planned but not fully implemented
+
+The following features are planned but not fully implemented yet:
+
+- Google SSO / OAuth
+- debounced auto-save
+- backend-persistent inventory UI
+- full dice rolling system
+- dice roll history UI
+- session creation and joining
+- Dungeon Master / player roles
+- WebSocket realtime synchronization
+- full virtual tabletop integration
+- complete spell system
+- advanced rule engine
+- production deployment
+
+## 16.3 Not included in MVP
 
 The MVP does not include:
 
 - full Dungeons & Dragons rules engine
 - full campaign management
-- multiplayer gameplay
-- real-time synchronization
-- full inventory item effects
-- complete spell system
-- full virtual tabletop
 - voice or video communication
 - mobile application
-- advanced item, feat, or subclass automation
-
-## 18.3 Planned future features
-
-Future iterations may include:
-
-- inventory system
-- drag-and-drop inventory
-- dice rolling system
-- dice roll history
-- session system
-- Dungeon Master and player roles
-- virtual tabletop
-- token movement
-- WebSocket real-time synchronization
-- rule engine improvements
-- UI polish
-- deployment improvements
+- complete automation for every spell, feat, item, and subclass rule
 
 ---
 
-## 19. Open Questions
+## 17. Open Questions
 
 The following details can be defined later:
 
-- exact visual style of the Character Dashboard
-- exact class/species/background data format
-- whether class data will be manually seeded or imported from a source
+- final Google SSO/OAuth provider configuration
+- final auto-save debounce timing
+- final item/equipment effect model
 - final spell system behavior
-- final inventory behavior
-- final equipment and armor calculation behavior
-- exact deployment provider
+- final session and WebSocket event model
+- final deployment provider
+- final test coverage expectations
 
 ---
 
-## 20. Acceptance Criteria for the Character System MVP
+## 18. Acceptance Criteria for the Character System MVP
 
 The Character System MVP is considered complete when:
 
 - authenticated users can access the application
 - unauthenticated users are redirected to login
 - users can view their characters
-- users can create a new empty character
+- users can create a new character
 - users can open the Character Dashboard
 - users can select class, species, and background
-- users can enter or roll ability scores
+- users can roll ability scores
 - modifiers and basic derived values calculate automatically
-- the right character sheet updates live
-- character changes are auto-saved
+- the right character sheet updates from builder changes
+- character changes can be saved to the backend
 - character data persists in the database
 - users cannot access other users' characters
