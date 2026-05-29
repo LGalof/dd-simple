@@ -71,7 +71,8 @@ async function findCharacterActionsForUser(
   const effectiveLevel = overrides.level ?? character.level;
   const effectiveSubspeciesIndex = overrides.subspeciesIndex;
 
-  const [featureDocuments, traitDocuments] = await Promise.all([
+  const [featureDocuments, traitDocuments]: [RuleDocumentRecord[], RuleDocumentRecord[]] =
+    await Promise.all([
     prisma.refRuleDocument.findMany({
       where: {
         category: "features",
@@ -90,13 +91,15 @@ async function findCharacterActionsForUser(
         sourceJson: true,
       },
     }),
-  ]);
+    ]);
 
   const classFeatureActions = featureDocuments
-    .map((document) => toClassFeatureAction(document, effectiveClassIndex, effectiveLevel))
+    .map((document: RuleDocumentRecord) =>
+      toClassFeatureAction(document, effectiveClassIndex, effectiveLevel),
+    )
     .filter(isPresent);
   const speciesTraitActions = traitDocuments
-    .map((document) =>
+    .map((document: RuleDocumentRecord) =>
       toSpeciesTraitAction(document, effectiveSpeciesIndex, effectiveSubspeciesIndex),
     )
     .filter(isPresent);
