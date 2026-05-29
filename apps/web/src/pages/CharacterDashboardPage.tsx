@@ -4,6 +4,7 @@ import { CharacterBuilderSidebar } from "../features/characters/components/Chara
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
 import type { WorkspaceTab } from "../features/characters/components/CharacterSheet";
+import { useCharacterActions } from "../features/characters/hooks/useCharacterActions";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import {
@@ -15,6 +16,7 @@ import {
   useInventorySandboxController,
 } from "./InventorySandboxPage";
 import type { AbilityScores, Character, CharacterSavePayload } from "../types/character";
+import type { SpeciesOption } from "../features/characters/types/characterBuilder";
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -49,6 +51,7 @@ function CharacterDashboardPage() {
 
   const {
     activePanel,
+    backgroundChoices,
     backgroundOptions,
     builderState,
     classOptions,
@@ -69,6 +72,7 @@ function CharacterDashboardPage() {
     selectedPanelOption,
     selectedSkillIndexes,
     selectedSpecies,
+    speciesChoices,
     persistedSkillIndexes,
     setFeatureChoices,
     setTempHp,
@@ -76,6 +80,41 @@ function CharacterDashboardPage() {
     speciesOptions,
     updateAbilityAssignment,
   } = useCharacterBuilder(character);
+  const builderActionPreview = useMemo(
+    () => ({
+      classIndex: builderState?.classIndex ?? character?.classIndex,
+      level: builderState?.level ?? character?.level,
+      subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
+      speciesIndex: builderState?.speciesIndex ?? character?.speciesIndex,
+    }),
+    [
+      builderState?.classIndex,
+      builderState?.level,
+      builderState?.speciesIndex,
+      character?.classIndex,
+      character?.level,
+      character?.speciesIndex,
+      selectedSpecies,
+      speciesChoices,
+    ],
+  );
+  const defenseSummary = useMemo(() => {
+    const selectedHeritage = getSelectedSpeciesHeritage(selectedSpecies, speciesChoices);
+
+    return selectedHeritage
+      ? [
+          {
+            label: "Damage Resistance",
+            value: selectedHeritage.damageType,
+          },
+        ]
+      : [];
+  }, [selectedSpecies, speciesChoices]);
+  const {
+    actions: normalizedActionsWithPreview,
+    error: normalizedActionsErrorWithPreview,
+    loading: normalizedActionsLoadingWithPreview,
+  } = useCharacterActions(character?.id ?? null, builderActionPreview);
   const isSavingBuild = Boolean(character && savingCharacterId === character.id);
 
   async function handleSaveBuild() {
@@ -168,7 +207,11 @@ function CharacterDashboardPage() {
               character={previewCharacter}
               currentHp={builderState.currentHp}
               inventoryController={inventoryController}
+              normalizedActions={normalizedActionsWithPreview}
+              normalizedActionsError={normalizedActionsErrorWithPreview}
+              normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
+              defenseSummary={defenseSummary}
               tempHp={builderState.tempHp}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onSetTempHp={setTempHp}
@@ -184,6 +227,7 @@ function CharacterDashboardPage() {
 
       <CharacterSelectionPanel
         activePanel={activePanel}
+        backgroundSelectionValues={backgroundChoices}
         backgroundOptions={backgroundOptions}
         classOptions={classOptions}
         onClose={closePanel}
@@ -191,6 +235,7 @@ function CharacterDashboardPage() {
         onSelect={setSelection}
         pendingSelection={pendingSelection}
         selectedOption={selectedPanelOption}
+        speciesSelectionValues={speciesChoices}
         speciesOptions={speciesOptions}
       />
     </AppLayout>
@@ -238,6 +283,32 @@ function buildAbilityScorePayload(
 
 function isAbilityScoreIndex(value: string): value is keyof AbilityScores {
   return abilityScoreIndexes.some((abilityIndex) => abilityIndex === value);
+}
+
+function getSelectedSpeciesHeritage(
+  species: SpeciesOption | undefined,
+  speciesChoices: Record<string, string>,
+) {
+  if (!species?.heritageOptions?.length) {
+    return null;
+  }
+
+  const selectedIndex = getSelectedSpeciesHeritageIndex(species, speciesChoices);
+
+  return species.heritageOptions.find((option) => option.index === selectedIndex) ?? null;
+}
+
+function getSelectedSpeciesHeritageIndex(
+  species: SpeciesOption | undefined,
+  speciesChoices: Record<string, string>,
+) {
+  if (!species) {
+    return undefined;
+  }
+
+  const choiceKey = `${species.index}:${species.index}-heritage-choice:heritage`;
+
+  return speciesChoices[choiceKey];
 }
 
 export { CharacterDashboardPage };

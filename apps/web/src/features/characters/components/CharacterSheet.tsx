@@ -4,6 +4,10 @@ import {
   InventoryWorkbench,
   type InventorySandboxController,
 } from "../../../pages/InventorySandboxPage";
+import type {
+  ActionActivationType,
+  CharacterActionEntry,
+} from "../../../types/characterAction";
 import type { Character } from "../../../types/character";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
@@ -11,7 +15,11 @@ type CharacterSheetProps = {
   activeTab: WorkspaceTab;
   character: Character;
   currentHp: number;
+  defenseSummary: Array<{ label: string; value: string }>;
   inventoryController: InventorySandboxController;
+  normalizedActions: CharacterActionEntry[];
+  normalizedActionsError: string | null;
+  normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
@@ -33,6 +41,20 @@ type SkillWithTotal = {
   isProficient: boolean;
   name: string;
   total: number;
+};
+
+type ActionFilter = "all" | ActionActivationType;
+
+type ActionDisplayRow = {
+  activationType: ActionActivationType;
+  damage: string;
+  displayMode: "detail" | "table";
+  hit: string;
+  id: string;
+  notes: string;
+  range: string;
+  subtitle: string;
+  title: string;
 };
 
 type ReferenceItem = {
@@ -100,7 +122,11 @@ function CharacterSheet({
   activeTab,
   character,
   currentHp,
+  defenseSummary,
   inventoryController,
+  normalizedActions,
+  normalizedActionsError,
+  normalizedActionsLoading,
   onActiveTabChange,
   tempHp,
   onApplyCurrentHpAdjustment,
@@ -108,6 +134,7 @@ function CharacterSheet({
 }: CharacterSheetProps) {
   const [isCurrentHpModalOpen, setIsCurrentHpModalOpen] = useState(false);
   const [isTempHpModalOpen, setIsTempHpModalOpen] = useState(false);
+  const [activeActionFilter, setActiveActionFilter] = useState<ActionFilter>("all");
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
   const [tempHpInput, setTempHpInput] = useState("");
   const equippedItems = character.inventory.filter((item) => item.equipped);
@@ -178,7 +205,6 @@ function CharacterSheet({
       total: modifier + (hasSaveProficiency ? proficiencyBonus : 0),
     };
   });
-  const defenseSummary: Array<{ label: string; value: string }> = [];
   const passiveStats = [
     { label: "Passive Perception", value: 10 + getSkillTotal(skillTotals, "Perception") },
     { label: "Passive Investigation", value: 10 + getSkillTotal(skillTotals, "Investigation") },
@@ -191,7 +217,71 @@ function CharacterSheet({
     dexterityModifier,
     strengthModifier,
     proficiencyBonus,
+    training.weapons,
   );
+  const actionFilterOptions: Array<{ id: ActionFilter; label: string }> = [
+    { id: "all", label: "All" },
+    { id: "action", label: "Action" },
+    { id: "bonus_action", label: "Bonus Action" },
+    { id: "reaction", label: "Reaction" },
+    { id: "other", label: "Other" },
+  ];
+  const actionRows = useMemo<ActionDisplayRow[]>(
+    () => [
+      ...weaponActions.map((action, index) => ({
+        activationType: "attack" as const,
+        damage: action.damage,
+        displayMode: "table" as const,
+        hit: action.hit,
+        id: `weapon-${index}-${action.name.toLowerCase().replace(/\s+/g, "-")}`,
+        notes: action.notes,
+        range: action.range,
+        subtitle: action.type,
+        title: action.name,
+      })),
+      ...normalizedActions.map((action) => ({
+        activationType: action.activationType,
+        damage: "--",
+        displayMode: "detail" as const,
+        hit: "--",
+        id: action.id,
+        notes: action.description,
+        range: "--",
+        subtitle: getReadableActionSubtitle(action),
+        title: action.title,
+      })),
+    ],
+    [normalizedActions, weaponActions],
+  );
+  const filteredActionRows = useMemo(
+    () =>
+      actionRows.filter((action) => {
+        if (activeActionFilter === "all") {
+          return true;
+        }
+
+        if (activeActionFilter === "action") {
+          return action.activationType === "action" || action.activationType === "attack";
+        }
+
+        return action.activationType === activeActionFilter;
+      }),
+    [actionRows, activeActionFilter],
+  );
+  const attackActionRows = useMemo(
+    () => filteredActionRows.filter((action) => action.displayMode === "table"),
+    [filteredActionRows],
+  );
+  const detailActionRows = useMemo(
+    () => filteredActionRows.filter((action) => action.displayMode === "detail"),
+    [filteredActionRows],
+  );
+  const shouldShowActionsInCombat =
+    (activeActionFilter === "all" ||
+      activeActionFilter === "attack" ||
+      activeActionFilter === "action") &&
+    attackActionRows.length > 0;
+  const hasVisibleActionContent = attackActionRows.length > 0 || detailActionRows.length > 0;
   const featureHighlights = getFeatureHighlights(
     character.class.name,
     character.background.name,
@@ -477,19 +567,21 @@ function CharacterSheet({
 
             <div className="character-tab-panel character-tab-panel-reference">
               {activeTab === "actions" && (
-                <div className="character-actions-stage">
+                <div className="character-actions-stage character-tab-scroll-stage">
                   <div className="character-action-filter-bar">
-                    {["All", "Attack", "Action", "Bonus", "Reaction", "Other"].map((filter) => (
-                      <span
-                        key={filter}
+                    {actionFilterOptions.map((filter) => (
+                      <button
+                        key={filter.id}
+                        type="button"
                         className={
-                          filter === "All"
+                          activeActionFilter === filter.id
                             ? "character-action-filter-pill character-action-filter-pill-active"
                             : "character-action-filter-pill"
                         }
+                        onClick={() => setActiveActionFilter(filter.id)}
                       >
-                        {filter}
-                      </span>
+                        {filter.label}
+                      </button>
                     ))}
                   </div>
 
@@ -500,38 +592,107 @@ function CharacterSheet({
                     </button>
                   </div>
 
-                  <div className="character-actions-table">
-                    <div className="character-actions-table-header">
-                      <span>Attack</span>
-                      <span>Range</span>
-                      <span>Hit / DC</span>
-                      <span>Damage</span>
-                      <span>Notes</span>
-                    </div>
-
-                    {weaponActions.map((action) => (
-                      <div key={action.name} className="character-actions-table-row">
-                        <div className="character-actions-cell character-actions-cell-main">
-                          <strong>{action.name}</strong>
-                          <em>{action.type}</em>
-                        </div>
-                        <span>{action.range}</span>
-                        <strong>{action.hit}</strong>
-                        <strong>{action.damage}</strong>
-                        <span>{action.notes}</span>
+                  {attackActionRows.length > 0 ? (
+                    <div className="character-actions-table">
+                      <div className="character-actions-table-header">
+                        <span>Attack</span>
+                        <span>Range</span>
+                        <span>Hit / DC</span>
+                        <span>Damage</span>
+                        <span>Notes</span>
                       </div>
-                    ))}
-                  </div>
+
+                      {attackActionRows.map((action) => (
+                        <div key={action.id} className="character-actions-table-row">
+                          <div className="character-actions-cell character-actions-cell-main">
+                            <strong>{action.title}</strong>
+                            <em>{action.subtitle}</em>
+                          </div>
+                          <span>{action.range}</span>
+                          <strong>{action.hit}</strong>
+                          <strong>{action.damage}</strong>
+                          <span>{action.notes}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {normalizedActionsLoading ? (
+                    <p className="muted">Loading normalized actions...</p>
+                  ) : null}
+                  {normalizedActionsError ? (
+                    <p className="error-message">Actions unavailable: {normalizedActionsError}</p>
+                  ) : null}
+
+                  {!normalizedActionsLoading && !normalizedActionsError && !hasVisibleActionContent ? (
+                    <p className="muted">
+                      {activeActionFilter === "all"
+                        ? "No action entries are currently available."
+                        : `No ${formatActivationLabel(activeActionFilter).toLowerCase()} entries are currently available.`}
+                    </p>
+                  ) : null}
+
+                  {shouldShowActionsInCombat ? (
+                    <div className="character-actions-combat">
+                      <strong>Actions in Combat</strong>
+                      <p>
+                        Attack, Dash, Disengage, Dodge, Grapple, Help, Hide, Improvise,
+                        Influence, Magic, Ready, Search, Shove, Study, Utilize
+                      </p>
+                      <div className="character-actions-combat-entry">
+                        <strong>Unarmed Strike</strong>
+                        <p>
+                          You make a melee attack that involves using your body to deal one of the
+                          following effects:
+                        </p>
+                        <p>
+                          <em>Damage.</em> You make an attack roll against the creature, and on a
+                          hit, you deal 1 + STR Bludgeoning damage.
+                        </p>
+                        <p>
+                          <em>Grapple.</em> The target must succeed on a Str./Dex. (it chooses
+                          which) saving throw (DC = 8 + Prof. Bonus + Str.) or it has the
+                          Grappled condition.
+                        </p>
+                        <p>
+                          <em>Shove.</em> The target must succeed on a Str./Dex. (it chooses which)
+                          saving throw (DC = 8 + Prof. Bonus + Str.) or you can either push it 5
+                          ft. away or cause it to have the Prone condition.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {detailActionRows.length > 0 ? (
+                    <div className="character-actions-detail-list">
+                      {detailActionRows.map((action) => (
+                        <article key={action.id} className="character-actions-detail-card">
+                          <div className="character-actions-detail-card-header">
+                            <div className="character-actions-cell character-actions-cell-main">
+                              <strong>{action.title}</strong>
+                              <em>{action.subtitle}</em>
+                            </div>
+                            <span className="character-actions-detail-tag">
+                              {formatActivationLabel(action.activationType)}
+                            </span>
+                          </div>
+                          <p>{action.notes}</p>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
               {activeTab === "spells" && (
-                <Card title="Spells">
-                  <p className="muted">
-                    Spell management will live here later. This area is reserved for spell slots,
-                    prepared spells, and casting references.
-                  </p>
-                </Card>
+                <div className="character-tab-scroll-stage">
+                  <Card title="Spells">
+                    <p className="muted">
+                      Spell management will live here later. This area is reserved for spell slots,
+                      prepared spells, and casting references.
+                    </p>
+                  </Card>
+                </div>
               )}
 
               {activeTab === "inventory" && (
@@ -539,107 +700,115 @@ function CharacterSheet({
               )}
 
               {activeTab === "features" && (
-                <div className="workspace-card-grid">
-                  <Card title="Class Features">
-                    <div className="list">
-                      {featureHighlights.map((highlight) => (
-                        <div key={highlight.title} className="character-feature-entry">
-                          <strong>{highlight.title}</strong>
-                          <p>{highlight.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
+                <div className="character-tab-scroll-stage">
+                  <div className="workspace-card-grid">
+                    <Card title="Class Features">
+                      <div className="list">
+                        {featureHighlights.map((highlight) => (
+                          <div key={highlight.title} className="character-feature-entry">
+                            <strong>{highlight.title}</strong>
+                            <p>{highlight.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
 
-                  <Card title="Origin">
-                    <div className="list">
-                      <div className="list-row">
-                        <span>Species</span>
-                        <strong>{character.species.name}</strong>
+                    <Card title="Origin">
+                      <div className="list">
+                        <div className="list-row">
+                          <span>Species</span>
+                          <strong>{character.species.name}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Class</span>
+                          <strong>{character.class.name}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Background</span>
+                          <strong>{character.background.name}</strong>
+                        </div>
                       </div>
-                      <div className="list-row">
-                        <span>Class</span>
-                        <strong>{character.class.name}</strong>
-                      </div>
-                      <div className="list-row">
-                        <span>Background</span>
-                        <strong>{character.background.name}</strong>
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  </div>
                 </div>
               )}
 
               {activeTab === "background" && (
-                <div className="workspace-card-grid">
-                  <Card title="Character Profile">
-                    <div className="list">
-                      <div className="list-row">
-                        <span>Name</span>
-                        <strong>{character.name}</strong>
+                <div className="character-tab-scroll-stage">
+                  <div className="workspace-card-grid">
+                    <Card title="Character Profile">
+                      <div className="list">
+                        <div className="list-row">
+                          <span>Name</span>
+                          <strong>{character.name}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Alignment</span>
+                          <strong>{character.alignment ?? "Unaligned"}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Size</span>
+                          <strong>{sizeLabel}</strong>
+                        </div>
                       </div>
-                      <div className="list-row">
-                        <span>Alignment</span>
-                        <strong>{character.alignment ?? "Unaligned"}</strong>
-                      </div>
-                      <div className="list-row">
-                        <span>Size</span>
-                        <strong>{sizeLabel}</strong>
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
 
-                  <Card title="Background Hooks">
+                    <Card title="Background Hooks">
+                      <p className="muted">
+                        {character.background.name} informs tool access, social flavor, and quest
+                        hooks. This panel is reserved for deeper campaign-facing notes later on.
+                      </p>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "notes" && (
+                <div className="character-tab-scroll-stage">
+                  <Card title="Notes">
                     <p className="muted">
-                      {character.background.name} informs tool access, social flavor, and quest
-                      hooks. This panel is reserved for deeper campaign-facing notes later on.
+                      Use this area later for session notes, encounter reminders, and party plans.
                     </p>
                   </Card>
                 </div>
               )}
 
-              {activeTab === "notes" && (
-                <Card title="Notes">
-                  <p className="muted">
-                    Use this area later for session notes, encounter reminders, and party plans.
-                  </p>
-                </Card>
-              )}
-
               {activeTab === "extras" && (
-                <div className="workspace-card-grid">
-                  <Card title="Recent Dice Rolls">
-                    <div className="list">
-                      {character.diceRolls.map((roll) => (
-                        <div key={roll.id} className="list-row">
-                          <span>
-                            {roll.reason ?? roll.rollType}{" "}
-                            <span className="muted">({roll.formula})</span>
-                          </span>
-                          <strong>{roll.total}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
+                <div className="character-tab-scroll-stage">
+                  <div className="workspace-card-grid">
+                    <Card title="Recent Dice Rolls">
+                      <div className="list">
+                        {character.diceRolls.map((roll) => (
+                          <div key={roll.id} className="list-row">
+                            <span>
+                              {roll.reason ?? roll.rollType}{" "}
+                              <span className="muted">({roll.formula})</span>
+                            </span>
+                            <strong>{roll.total}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
 
-                  <Card title="Quick Summary">
-                    <div className="list">
-                      <div className="list-row">
-                        <span>Speed</span>
-                        <strong>{character.speed} ft</strong>
+                    <Card title="Quick Summary">
+                      <div className="list">
+                        <div className="list-row">
+                          <span>Speed</span>
+                          <strong>{character.speed} ft</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Proficiency</span>
+                          <strong>{formatModifier(proficiencyBonus)}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Hit Points</span>
+                          <strong>
+                            {currentHp}/{character.maxHp}
+                          </strong>
+                        </div>
                       </div>
-                      <div className="list-row">
-                        <span>Proficiency</span>
-                        <strong>{formatModifier(proficiencyBonus)}</strong>
-                      </div>
-                      <div className="list-row">
-                        <span>Hit Points</span>
-                        <strong>
-                          {currentHp}/{character.maxHp}
-                        </strong>
-                      </div>
-                    </div>
-                  </Card>
+                    </Card>
+                  </div>
                 </div>
               )}
             </div>
@@ -825,6 +994,38 @@ function getSkillTotal(skills: SkillWithTotal[], name: string) {
   return skills.find((skill) => skill.name === name)?.total ?? 0;
 }
 
+function getActionSubtitle(action: CharacterActionEntry) {
+  const sourceLabel = action.sourceType === "class_feature" ? "Class Feature" : "Species Trait";
+  const activationLabel = formatActivationLabel(action.activationType);
+  const levelLabel = action.level ? `Level ${action.level}` : null;
+
+  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" • ");
+}
+
+function getReadableActionSubtitle(action: CharacterActionEntry) {
+  const sourceLabel = action.sourceType === "class_feature" ? "Class Feature" : "Species Trait";
+  const activationLabel = formatActivationLabel(action.activationType);
+  const levelLabel = action.level ? `Level ${action.level}` : null;
+
+  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
+}
+
+function formatActivationLabel(activationType: ActionActivationType) {
+  switch (activationType) {
+    case "attack":
+      return "Attack";
+    case "action":
+      return "Action";
+    case "bonus_action":
+      return "Bonus Action";
+    case "reaction":
+      return "Reaction";
+    case "other":
+    default:
+      return "Other";
+  }
+}
+
 function compareSkills(left: SkillWithTotal, right: SkillWithTotal) {
   const leftIndex = skillOrder.indexOf(left.name);
   const rightIndex = skillOrder.indexOf(right.name);
@@ -965,33 +1166,47 @@ function getWeaponActions(
   dexterityModifier: number,
   strengthModifier: number,
   proficiencyBonus: number,
+  weaponProficiencies: string[],
 ) {
-  const liveAttackItems = liveEquippedItems.filter((item) => item.kind === "weapon");
+  const unarmedStrikeAction = {
+    damage: `1 + ${Math.max(1, strengthModifier)}`,
+    hit: formatModifier(strengthModifier + proficiencyBonus),
+    name: "Unarmed Strike",
+    notes: "Melee",
+    range: "5 ft.",
+    type: "Melee Attack",
+  };
+
+  const liveAttackItems = liveEquippedItems.filter(isLiveAttackItem);
 
   if (liveAttackItems.length > 0) {
-    return liveAttackItems.map((item) => {
-      const profile = getAttackProfile(
-        item.name,
-        dexterityModifier,
-        strengthModifier,
-        proficiencyBonus,
-      );
-      const attackBonus = profile.attackBonus + item.attackBonus;
-      const damage = formatInventoryDamage(
-        item.damage,
-        profile.usesDexterity ? dexterityModifier : strengthModifier,
-      );
-      const notes = item.notes || profile.notes;
+    return [
+      ...liveAttackItems.map((item) => {
+        const profile = getAttackProfile(
+          item.name,
+          dexterityModifier,
+          strengthModifier,
+          proficiencyBonus,
+          weaponProficiencies,
+        );
+        const attackBonus = profile.attackBonus + item.attackBonus;
+        const damage = formatInventoryDamage(
+          item.damage,
+          profile.damageModifier,
+        );
+        const notes = item.notes || profile.notes;
 
-      return {
-        damage,
-        hit: formatModifier(attackBonus),
-        name: item.name,
-        notes,
-        range: profile.range,
-        type: profile.type,
-      };
-    });
+        return {
+          damage,
+          hit: formatModifier(attackBonus),
+          name: item.name,
+          notes,
+          range: profile.range,
+          type: profile.type,
+        };
+      }),
+      unarmedStrikeAction,
+    ];
   }
 
   const attackItems = equippedItems.filter((item) => isAttackItem(item.equipment.name));
@@ -1001,6 +1216,7 @@ function getWeaponActions(
       dexterityModifier,
       strengthModifier,
       proficiencyBonus,
+      weaponProficiencies,
     );
 
     return {
@@ -1014,27 +1230,16 @@ function getWeaponActions(
   });
 
   if (actions.length > 0) {
-    return actions;
+    return [...actions, unarmedStrikeAction];
   }
 
-  return [
-    {
-      damage: `1 + ${Math.max(1, strengthModifier)}`,
-      hit: formatModifier(strengthModifier + proficiencyBonus),
-      name: "Unarmed Strike",
-      notes: "Melee",
-      range: "5 ft.",
-      type: "Melee Attack",
-    },
-  ];
+  return [unarmedStrikeAction];
 }
 
 function isAttackItem(name: string) {
   const normalizedName = name.toLowerCase();
 
-  return ["dagger", "sword", "bow", "staff", "mace", "axe", "crossbow", "sling"].some((keyword) =>
-    normalizedName.includes(keyword),
-  );
+  return getWeaponKind(normalizedName) !== null;
 }
 
 function getAttackProfile(
@@ -1042,50 +1247,161 @@ function getAttackProfile(
   dexterityModifier: number,
   strengthModifier: number,
   proficiencyBonus: number,
+  weaponProficiencies: string[],
 ) {
   const normalizedName = itemName.toLowerCase();
+  const weaponKind = getWeaponKind(normalizedName) ?? "simpleMelee";
+  const isProficient = hasWeaponProficiency(normalizedName, weaponKind, weaponProficiencies);
 
-  if (normalizedName.includes("shortbow") || normalizedName.includes("longbow")) {
+  if (weaponKind === "bow") {
     return {
-      attackBonus: dexterityModifier + proficiencyBonus,
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0),
       damage: `1d6 ${formatInlineModifier(dexterityModifier)}`,
+      damageModifier: dexterityModifier,
       notes: "Ranged weapon",
-      range: "80/320 ft.",
+      range: normalizedName.includes("longbow") ? "150/600 ft." : "80/320 ft.",
       type: "Ranged Attack",
-      usesDexterity: true,
     };
   }
 
-  if (normalizedName.includes("dagger")) {
+  if (weaponKind === "crossbow") {
     return {
-      attackBonus: dexterityModifier + proficiencyBonus,
-      damage: `1d4 ${formatInlineModifier(dexterityModifier)}`,
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0),
+      damage: `1d6 ${formatInlineModifier(dexterityModifier)}`,
+      damageModifier: dexterityModifier,
+      notes: "Ranged weapon",
+      range: normalizedName.includes("hand") ? "30/120 ft." : "80/320 ft.",
+      type: "Ranged Attack",
+    };
+  }
+
+  if (weaponKind === "dagger") {
+    const modifier = Math.max(dexterityModifier, strengthModifier);
+
+    return {
+      attackBonus: modifier + (isProficient ? proficiencyBonus : 0),
+      damage: `1d4 ${formatInlineModifier(modifier)}`,
+      damageModifier: modifier,
       notes: "Finesse, light, thrown",
       range: "20/60 ft.",
       type: "Melee / Thrown",
-      usesDexterity: true,
     };
   }
 
-  if (normalizedName.includes("rapier") || normalizedName.includes("shortsword")) {
+  if (weaponKind === "finesseMelee") {
+    const modifier = Math.max(dexterityModifier, strengthModifier);
+
     return {
-      attackBonus: dexterityModifier + proficiencyBonus,
-      damage: `1d8 ${formatInlineModifier(dexterityModifier)}`,
+      attackBonus: modifier + (isProficient ? proficiencyBonus : 0),
+      damage: `1d8 ${formatInlineModifier(modifier)}`,
+      damageModifier: modifier,
       notes: "Finesse",
       range: "5 ft.",
       type: "Melee Attack",
-      usesDexterity: true,
+    };
+  }
+
+  if (weaponKind === "sling") {
+    return {
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0),
+      damage: `1d4 ${formatInlineModifier(dexterityModifier)}`,
+      damageModifier: dexterityModifier,
+      notes: "Ranged weapon",
+      range: "30/120 ft.",
+      type: "Ranged Attack",
     };
   }
 
   return {
-    attackBonus: strengthModifier + proficiencyBonus,
+    attackBonus: strengthModifier + (isProficient ? proficiencyBonus : 0),
     damage: `1d6 ${formatInlineModifier(strengthModifier)}`,
+    damageModifier: strengthModifier,
     notes: "Weapon attack",
     range: "5 ft.",
     type: "Melee Attack",
-    usesDexterity: false,
   };
+}
+
+function isLiveAttackItem(item: LiveInventoryItem) {
+  return item.kind === "weapon" && item.damage.trim().length > 0 && !item.name.toLowerCase().includes("shield");
+}
+
+function getWeaponKind(normalizedName: string) {
+  if (normalizedName.includes("shield")) {
+    return null;
+  }
+
+  if (normalizedName.includes("longbow") || normalizedName.includes("shortbow")) {
+    return "bow";
+  }
+
+  if (normalizedName.includes("crossbow")) {
+    return "crossbow";
+  }
+
+  if (normalizedName.includes("dagger")) {
+    return "dagger";
+  }
+
+  if (
+    normalizedName.includes("rapier") ||
+    normalizedName.includes("shortsword")
+  ) {
+    return "finesseMelee";
+  }
+
+  if (normalizedName.includes("sling")) {
+    return "sling";
+  }
+
+  if (
+    ["sword", "warhammer", "hammer", "mace", "axe", "staff", "club", "spear"].some((keyword) =>
+      normalizedName.includes(keyword),
+    )
+  ) {
+    return "simpleMelee";
+  }
+
+  return null;
+}
+
+function hasWeaponProficiency(
+  normalizedName: string,
+  weaponKind: string,
+  weaponProficiencies: string[],
+) {
+  const proficiencies = weaponProficiencies.map((entry) => entry.toLowerCase());
+
+  if (
+    proficiencies.some((entry) =>
+      normalizedName.includes(entry) || entry.includes(normalizedName),
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    ["dagger", "sling", "bow", "crossbow", "simpleMelee"].includes(weaponKind) &&
+    proficiencies.some((entry) => entry.includes("simple weapon"))
+  ) {
+    return true;
+  }
+
+  if (
+    ["finesseMelee"].includes(weaponKind) &&
+    proficiencies.some((entry) => entry.includes("martial weapon"))
+  ) {
+    return true;
+  }
+
+  if (
+    normalizedName.includes("warhammer") &&
+    proficiencies.some((entry) => entry.includes("martial weapon"))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function formatInlineModifier(value: number) {

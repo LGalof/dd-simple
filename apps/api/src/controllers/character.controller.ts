@@ -8,6 +8,7 @@ import {
   findCharacterByIdForUser,
   updateCharacterForUser,
 } from "../services/character.service.js";
+import { findCharacterActionsForUser } from "../services/character-actions.service.js";
 
 const ABILITY_SCORE_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -139,6 +140,61 @@ async function getCharacterById(req: Request, res: Response) {
 
     res.status(500).json({
       error: "Failed to fetch character",
+    });
+  }
+}
+
+async function getCharacterActions(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const classIndex =
+      typeof req.query.classIndex === "string" && req.query.classIndex.trim().length > 0
+        ? req.query.classIndex.trim()
+        : undefined;
+    const speciesIndex =
+      typeof req.query.speciesIndex === "string" && req.query.speciesIndex.trim().length > 0
+        ? req.query.speciesIndex.trim()
+        : undefined;
+    const subspeciesIndex =
+      typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
+        ? req.query.subspeciesIndex.trim()
+        : undefined;
+    const level =
+      typeof req.query.level === "string" &&
+      Number.isInteger(Number(req.query.level)) &&
+      Number(req.query.level) >= 1 &&
+      Number(req.query.level) <= 20
+        ? Number(req.query.level)
+        : undefined;
+
+    const actions = await findCharacterActionsForUser(getAuthenticatedUser(req).id, id, {
+      classIndex,
+      level,
+      subspeciesIndex,
+      speciesIndex,
+    });
+
+    if (!actions) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(actions);
+  } catch (error) {
+    console.error("Failed to fetch character actions:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch character actions",
     });
   }
 }
@@ -290,6 +346,7 @@ async function deleteCharacter(req: Request, res: Response) {
 export {
   createCharacter,
   deleteCharacter,
+  getCharacterActions,
   getCharacterById,
   getCharacters,
   updateCharacter,

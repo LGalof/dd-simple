@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createCharacter,
   deleteCharacter,
+  getCharacterActions,
   getCharacterById,
   getCharacters,
   updateCharacter,
@@ -15,6 +16,8 @@ charactersRouter.use(requireAuth);
 charactersRouter.post("/characters", createCharacter);
 
 charactersRouter.get("/characters", getCharacters);
+
+charactersRouter.get("/characters/:id/actions", getCharacterActions);
 
 charactersRouter.get("/characters/:id", getCharacterById);
 

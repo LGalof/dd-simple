@@ -8,18 +8,24 @@ import type {
 
 type CharacterSelectionPanelProps = {
   activePanel: BuilderSelectionKind | null;
+  backgroundSelectionValues: Record<string, string>;
   backgroundOptions: BackgroundOption[];
   classOptions: ClassOption[];
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (nextOptions?: {
+    backgroundChoices?: Record<string, string>;
+    speciesChoices?: Record<string, string>;
+  }) => void;
   onSelect: (nextSelection: string) => void;
   pendingSelection: string | null;
   selectedOption: BackgroundOption | ClassOption | SpeciesOption | null;
+  speciesSelectionValues: Record<string, string>;
   speciesOptions: SpeciesOption[];
 };
 
 function CharacterSelectionPanel({
   activePanel,
+  backgroundSelectionValues,
   backgroundOptions,
   classOptions,
   onClose,
@@ -27,6 +33,7 @@ function CharacterSelectionPanel({
   onSelect,
   pendingSelection,
   selectedOption,
+  speciesSelectionValues,
   speciesOptions,
 }: CharacterSelectionPanelProps) {
   const [expandedPreviewFeatureIds, setExpandedPreviewFeatureIds] = useState<string[]>([]);
@@ -51,7 +58,7 @@ function CharacterSelectionPanel({
       setExpandedPreviewFeatureIds([]);
       setExpandedBackgroundSectionIds([]);
       setExpandedSpeciesSectionIds([]);
-      setBackgroundPreviewChoices({});
+      setBackgroundPreviewChoices(backgroundSelectionValues);
       setSpeciesPreviewChoices({});
       return;
     }
@@ -61,7 +68,7 @@ function CharacterSelectionPanel({
       setExpandedBackgroundSectionIds([]);
       setExpandedSpeciesSectionIds([]);
       setBackgroundPreviewChoices({});
-      setSpeciesPreviewChoices({});
+      setSpeciesPreviewChoices(speciesSelectionValues);
       return;
     }
 
@@ -70,7 +77,7 @@ function CharacterSelectionPanel({
     setExpandedSpeciesSectionIds([]);
     setBackgroundPreviewChoices({});
     setSpeciesPreviewChoices({});
-  }, [activePanel, selectedOption]);
+  }, [activePanel, backgroundSelectionValues, selectedOption, speciesSelectionValues]);
 
   if (!activePanel || !selectedOption) {
     return null;
@@ -490,7 +497,27 @@ function CharacterSelectionPanel({
             <button
               type="button"
               className="primary-button primary-button-uppercase"
-              onClick={onConfirm}
+              onClick={() =>
+                onConfirm(
+                  speciesPreviewOption
+                    ? {
+                        speciesChoices: Object.fromEntries(
+                          Object.entries(speciesPreviewChoices).filter(([key]) =>
+                            key.startsWith(`${speciesPreviewOption.index}:`),
+                          ),
+                        ),
+                      }
+                    : backgroundPreviewOption
+                      ? {
+                          backgroundChoices: Object.fromEntries(
+                            Object.entries(backgroundPreviewChoices).filter(([key]) =>
+                              key.startsWith(`${backgroundPreviewOption.index}:`),
+                            ),
+                          ),
+                        }
+                    : undefined,
+                )
+              }
             >
               {actionLabel}
             </button>

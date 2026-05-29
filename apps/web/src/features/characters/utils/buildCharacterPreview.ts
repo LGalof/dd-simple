@@ -104,6 +104,7 @@ function buildCharacterPreview({
         persistedSkillIndexSet.has(characterSkill.skillIndex) ||
         selectedSkillIndexSet.has(characterSkill.skillIndex),
     })),
+    proficiencies: character.proficiencies,
   };
 }
 
