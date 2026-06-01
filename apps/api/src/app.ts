@@ -4,6 +4,7 @@ import { authRouter } from "./routes/auth.js";
 import { charactersRouter } from "./routes/characters.js";
 import { healthRouter } from "./routes/health.js";
 import { referencesRouter } from "./routes/references.js";
+import { roomsRouter } from "./routes/rooms.js";
 
 const app = express();
 
@@ -14,5 +15,6 @@ app.use(healthRouter);
 app.use(authRouter);
 app.use(referencesRouter);
 app.use(charactersRouter);
+app.use(roomsRouter);
 
 export { app };
