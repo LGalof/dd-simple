@@ -7,6 +7,9 @@ import { CreateCharacterPage } from "./pages/CreateCharacterPage";
 import { InventorySandboxPage } from "./pages/InventorySandboxPage";
 import { MyCharactersPage } from "./pages/MyCharactersPage";
 import { TacticalBoardPage } from "./pages/TacticalBoardPage";
+import { CreateRoomPage } from "./pages/CreateRoomPage";
+import { JoinRoomPage } from "./pages/JoinRoomPage";
+import { RoomPage } from "./pages/RoomPage";
 
 function App() {
   return (
@@ -38,6 +41,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <CreateCharacterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rooms/create"
+            element={
+              <ProtectedRoute>
+                <CreateRoomPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rooms/join"
+            element={
+              <ProtectedRoute>
+                <JoinRoomPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/room/:roomCode"
+            element={
+              <ProtectedRoute>
+                <RoomPage />
               </ProtectedRoute>
             }
           />

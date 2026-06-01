@@ -34,13 +34,16 @@ function RoomPage() {
   const activeRoom = socketRoom ?? room;
 
   useEffect(() => {
-    if (!roomCode || !token) {
+    const code = roomCode;
+    const authToken = token;
+
+    if (!code || !authToken) {
       setLoading(false);
       setRoom(null);
       return;
     }
 
-    async function loadRoom() {
+    async function loadRoom(roomCode: string, token: string) {
       setLoading(true);
       setError(null);
 
@@ -54,7 +57,7 @@ function RoomPage() {
       }
     }
 
-    void loadRoom();
+    void loadRoom(code, authToken);
   }, [roomCode, token]);
 
   return (
