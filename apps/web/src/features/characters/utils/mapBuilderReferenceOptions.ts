@@ -1,6 +1,7 @@
 import type {
   ReferenceBackground,
   ReferenceClass,
+  ReferenceClassFeature,
   ReferenceRuleDocument,
   ReferenceSpecies,
 } from "../../../types/reference";
@@ -272,12 +273,17 @@ function mapClassReferences(
     const startingEquipment = (sourceJson.starting_equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
-    const features = createReferenceBackedClassFeatures(
-      reference,
-      sourceJson,
-      levelDocuments,
-      featureDocuments,
-    );
+    const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
+    const normalizedFeatures = createNormalizedClassFeatures(reference.features ?? []);
+    const features =
+      normalizedFeatures.length > 0
+        ? [...classChoiceFeature, ...normalizedFeatures]
+        : createReferenceBackedClassFeatures(
+            reference,
+            sourceJson,
+            levelDocuments,
+            featureDocuments,
+          );
 
     return {
       index: reference.index,
@@ -310,13 +316,7 @@ function mapClassReferences(
   });
 }
 
-function createReferenceBackedClassFeatures(
-  reference: ReferenceClass,
-  sourceJson: ClassSourceJson,
-  levelDocuments: ReferenceRuleDocument[],
-  featureDocuments: ReferenceRuleDocument[],
-): ClassFeature[] {
-  const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSourceJson): ClassFeature[] {
   const classChoiceFields = [
     ...(sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
       createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
@@ -325,7 +325,8 @@ function createReferenceBackedClassFeatures(
       createChoiceFieldsFromChoice(choice, `class-equipment-${index}`, "Starting Equipment"),
     ),
   ];
-  const classChoiceFeature = classChoiceFields.length > 0
+
+  return classChoiceFields.length > 0
     ? [
         createFeature({
           id: `${reference.index}-class-choices`,
@@ -336,6 +337,41 @@ function createReferenceBackedClassFeatures(
         }),
       ]
     : [];
+}
+
+function createNormalizedClassFeatures(features: ReferenceClassFeature[]): ClassFeature[] {
+  return features
+    .map((feature) => {
+      const featureSourceJson = asRecord(feature.sourceJson) as FeatureSourceJson;
+      const choiceFields = createChoiceFieldsFromChoice(
+        featureSourceJson.feature_specific,
+        `feature-${feature.index ?? feature.id}`,
+        "Feature Choice",
+      );
+
+      return createFeature({
+        id: feature.index ?? feature.id,
+        level: feature.level,
+        title: feature.title ?? feature.name ?? feature.index ?? feature.id,
+        summary:
+          feature.summary ??
+          feature.description ??
+          "No description available from reference data.",
+        details: feature.details,
+        choiceFields: choiceFields.length > 0 ? choiceFields : undefined,
+      });
+    })
+    .sort((left, right) => left.level - right.level || left.title.localeCompare(right.title));
+}
+
+function createReferenceBackedClassFeatures(
+  reference: ReferenceClass,
+  sourceJson: ClassSourceJson,
+  levelDocuments: ReferenceRuleDocument[],
+  featureDocuments: ReferenceRuleDocument[],
+): ClassFeature[] {
+  const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+  const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
   const levelFeatures = levelDocuments
     .map((document) => ({
       document,

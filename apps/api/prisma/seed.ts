@@ -19,6 +19,8 @@ const FILES = {
   skills: "5e-SRD-Skills.json",
   species: "5e-SRD-Species.json",
   classes: "5e-SRD-Classes.json",
+  levels: "5e-SRD-Levels.json",
+  features: "5e-SRD-Features.json",
   backgrounds: "5e-SRD-Backgrounds.json",
   proficiencies: "5e-SRD-Proficiencies.json",
   equipment: "5e-SRD-Equipment.json",
@@ -112,6 +114,20 @@ function toDescription(...values: unknown[]): string | null {
   }
 
   return null;
+}
+
+function descriptionParts(value: unknown): string[] {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()];
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
 }
 
 function sourceJson(value: AnyRecord): Prisma.InputJsonValue {
@@ -377,6 +393,114 @@ async function seedClasses() {
         name: stringOrNull(cls.name) ?? index,
         hitDie: intOrDefault(cls.hit_die ?? cls.hitDie, 8),
         sourceJson: sourceJson(cls),
+      },
+    });
+  }
+}
+
+async function seedClassLevels() {
+  console.log("Seeding RefClassLevel...");
+
+  const levels = readJsonArray(FILES.levels);
+
+  for (const level of levels) {
+    const classIndex = indexFromRef(level.class);
+    const levelNumber = numberOrNull(level.level);
+
+    if (!classIndex || levelNumber === null) {
+      console.warn("Skipping class level without class/level", level);
+      continue;
+    }
+
+    if (level.subclass) {
+      continue;
+    }
+
+    const classExists = await prisma.refClass.findUnique({
+      where: {
+        index: classIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!classExists) {
+      console.warn(`Skipping class level ${classIndex}:${levelNumber}, because class does not exist.`);
+      continue;
+    }
+
+    await prisma.refClassLevel.upsert({
+      where: {
+        classIndex_level: {
+          classIndex,
+          level: Math.trunc(levelNumber),
+        },
+      },
+      update: {
+        sourceJson: sourceJson(level),
+      },
+      create: {
+        classIndex,
+        level: Math.trunc(levelNumber),
+        sourceJson: sourceJson(level),
+      },
+    });
+  }
+}
+
+async function seedClassFeatures() {
+  console.log("Seeding RefClassFeature...");
+
+  const features = readJsonArray(FILES.features);
+
+  for (const feature of features) {
+    const index = getItemIndex(feature);
+    const classIndex = indexFromRef(feature.class);
+    const level = numberOrNull(feature.level);
+
+    if (!index || !classIndex || level === null) {
+      console.warn("Skipping class feature without index/class/level", feature);
+      continue;
+    }
+
+    const classExists = await prisma.refClass.findUnique({
+      where: {
+        index: classIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!classExists) {
+      console.warn(`Skipping class feature ${index}, because class ${classIndex} does not exist.`);
+      continue;
+    }
+
+    const descriptions = descriptionParts(feature.desc ?? feature.description);
+    const details = descriptions.slice(1);
+
+    await prisma.refClassFeature.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(feature.name) ?? index,
+        classIndex,
+        level: Math.trunc(level),
+        description: descriptions[0] ?? null,
+        details: jsonValue(details),
+        sourceJson: sourceJson(feature),
+      },
+      create: {
+        index,
+        name: stringOrNull(feature.name) ?? index,
+        classIndex,
+        level: Math.trunc(level),
+        description: descriptions[0] ?? null,
+        details: jsonValue(details),
+        sourceJson: sourceJson(feature),
       },
     });
   }
@@ -1031,6 +1155,8 @@ async function main() {
   await seedSkills();
   await seedSpecies();
   await seedClasses();
+  await seedClassLevels();
+  await seedClassFeatures();
   await seedBackgrounds();
   await seedProficiencies();
   await seedEquipment();

@@ -1,6 +1,7 @@
 import type {
   AbilityDefinition,
   BackgroundDefinition,
+  ClassFeatureDefinition,
   ClassDefinition,
   SpeciesDefinition,
 } from "@dd-simple/shared";
@@ -22,7 +23,23 @@ type ReferenceSpecies = SpeciesDefinition & {
   sourceJson?: unknown;
 };
 
-type ReferenceClass = ClassDefinition & {
+type ReferenceClassFeature = ClassFeatureDefinition & {
+  index?: string;
+  name?: string;
+  description?: string | null;
+  sourceJson?: unknown;
+};
+
+type ReferenceClassLevel = {
+  id: string;
+  classIndex: string;
+  level: number;
+  sourceJson?: unknown;
+};
+
+type ReferenceClass = Omit<ClassDefinition, "features"> & {
+  features?: ReferenceClassFeature[];
+  levels?: ReferenceClassLevel[];
   sourceJson?: unknown;
 };
 
@@ -61,6 +78,8 @@ export type {
   ReferenceAbilityScore,
   ReferenceBackground,
   ReferenceClass,
+  ReferenceClassFeature,
+  ReferenceClassLevel,
   ReferenceEquipment,
   ReferenceRuleDocument,
   ReferenceSkill,

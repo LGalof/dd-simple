@@ -106,8 +106,37 @@ model RefClass {
   sourceJson Json?
 
   characters Character[]
+  levels     RefClassLevel[]
+  features   RefClassFeature[]
 
   @@map("ref_classes")
+}
+
+model RefClassLevel {
+  id         String @id @default(uuid()) @db.Uuid
+  classIndex String
+  level      Int
+  sourceJson Json?
+
+  class      RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+
+  @@unique([classIndex, level])
+  @@map("ref_class_levels")
+}
+
+model RefClassFeature {
+  id          String @id @default(uuid()) @db.Uuid
+  index       String @unique
+  name        String
+  classIndex  String
+  level       Int
+  description String?
+  details     Json?
+  sourceJson  Json?
+
+  class       RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+
+  @@map("ref_class_features")
 }
 
 model RefBackground {

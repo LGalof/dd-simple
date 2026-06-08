@@ -27,12 +27,51 @@ function findSpecies() {
   });
 }
 
-function findClasses() {
-  return prisma.refClass.findMany({
+function stringArrayFromJson(value: unknown) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+async function findClasses() {
+  const classes = await prisma.refClass.findMany({
     orderBy: {
       name: "asc",
     },
+    include: {
+      levels: {
+        orderBy: {
+          level: "asc",
+        },
+      },
+      features: {
+        orderBy: [
+          {
+            level: "asc",
+          },
+          {
+            name: "asc",
+          },
+        ],
+      },
+    },
   });
+
+  return classes.map((characterClass) => ({
+    ...characterClass,
+    features: characterClass.features.map((feature) => ({
+      id: feature.index,
+      index: feature.index,
+      level: feature.level,
+      title: feature.name,
+      name: feature.name,
+      summary: feature.description ?? "No description available from reference data.",
+      description: feature.description,
+      details: stringArrayFromJson(feature.details),
+      sourceJson: feature.sourceJson,
+    })),
+    levels: characterClass.levels,
+  }));
 }
 
 function findBackgrounds() {

@@ -166,25 +166,26 @@ function useCharacterBuilder(character: Character | undefined) {
 
     async function loadReferenceOptions() {
       try {
-        const [
-          speciesReferences,
-          backgroundReferences,
-          classReferences,
-          levelRuleDocuments,
-          featureRuleDocuments,
-        ] = await Promise.all([
+        const [speciesReferences, backgroundReferences, classReferences] = await Promise.all([
           fetchSpecies(),
           fetchBackgrounds(),
           fetchClasses(),
-          fetchRuleDocuments("levels").catch((error) => {
-            console.warn("Class level reference data is unavailable.", error);
-            return [];
-          }),
-          fetchRuleDocuments("features").catch((error) => {
-            console.warn("Class feature reference data is unavailable.", error);
-            return [];
-          }),
         ]);
+        const hasNormalizedClassFeatures = classReferences.length > 0 && classReferences.every(
+          (classReference) => (classReference.features ?? []).length > 0,
+        );
+        const [levelRuleDocuments, featureRuleDocuments] = hasNormalizedClassFeatures
+          ? [[], []]
+          : await Promise.all([
+              fetchRuleDocuments("levels").catch((error) => {
+                console.warn("Class level reference data is unavailable.", error);
+                return [];
+              }),
+              fetchRuleDocuments("features").catch((error) => {
+                console.warn("Class feature reference data is unavailable.", error);
+                return [];
+              }),
+            ]);
 
         if (!isCurrentRequest) {
           return;
