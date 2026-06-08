@@ -33,6 +33,21 @@ function stringArrayFromJson(value: unknown) {
     : [];
 }
 
+function primaryAbilityLabel(
+  primaryAbilities: Array<{
+    abilityScore: {
+      fullName: string;
+      name: string;
+    };
+  }>,
+) {
+  const labels = primaryAbilities.map(
+    (primaryAbility) => primaryAbility.abilityScore.fullName ?? primaryAbility.abilityScore.name,
+  );
+
+  return labels.length > 0 ? labels.join(" / ") : null;
+}
+
 async function findClasses() {
   const classes = await prisma.refClass.findMany({
     orderBy: {
@@ -83,11 +98,20 @@ async function findClasses() {
           },
         },
       },
+      primaryAbilities: {
+        orderBy: {
+          abilityScoreIndex: "asc",
+        },
+        include: {
+          abilityScore: true,
+        },
+      },
     },
   });
 
   return classes.map((characterClass) => ({
     ...characterClass,
+    primaryAbility: primaryAbilityLabel(characterClass.primaryAbilities),
     features: characterClass.features.map((feature) => ({
       id: feature.index,
       index: feature.index,
@@ -101,6 +125,14 @@ async function findClasses() {
     })),
     levels: characterClass.levels,
   }));
+}
+
+function findAlignments() {
+  return prisma.refAlignment.findMany({
+    orderBy: {
+      name: "asc",
+    },
+  });
 }
 
 function findBackgrounds() {
@@ -151,6 +183,7 @@ function findRuleDocumentByCategoryAndIndex(category: string, index: string) {
 
 export {
   findAbilityScores,
+  findAlignments,
   findBackgrounds,
   findClasses,
   findEquipment,

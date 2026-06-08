@@ -16,6 +16,7 @@ const DATA_DIR = path.join(__dirname, "seed-data", "5e", "mixed");
 
 const FILES = {
   abilityScores: "5e-SRD-Ability-Scores.json",
+  alignments: "5e-SRD-Alignments.json",
   skills: "5e-SRD-Skills.json",
   species: "5e-SRD-Species.json",
   classes: "5e-SRD-Classes.json",
@@ -215,6 +216,31 @@ function choiceOptions(choice: AnyRecord): AnyRecord[] {
     .filter((item): item is AnyRecord => Boolean(item && typeof item === "object"));
 }
 
+function primaryAbilityReferences(cls: AnyRecord): AnyRecord[] {
+  const primaryAbility = cls.primary_ability ?? cls.primaryAbility;
+
+  if (!primaryAbility || typeof primaryAbility !== "object") {
+    return [];
+  }
+
+  const primaryAbilityRecord = primaryAbility as AnyRecord;
+  const abilityScores = primaryAbilityRecord.ability_scores ?? primaryAbilityRecord.abilityScores;
+
+  if (Array.isArray(abilityScores)) {
+    return abilityScores.filter((item): item is AnyRecord => Boolean(item && typeof item === "object"));
+  }
+
+  const options = primaryAbilityRecord.ability_score_options?.from?.options;
+
+  if (Array.isArray(options)) {
+    return options
+      .map((option) => (option && typeof option === "object" ? (option as AnyRecord).item : null))
+      .filter((item): item is AnyRecord => Boolean(item && typeof item === "object"));
+  }
+
+  return [];
+}
+
 function proficiencyGrantType(proficiency: AnyRecord | null, fallbackIndex: string, fallbackLabel: string | null) {
   const type = stringOrNull(proficiency?.type)?.toLowerCase() ?? "";
   const index = fallbackIndex.toLowerCase();
@@ -319,6 +345,40 @@ async function seedAbilityScores() {
         fullName,
         description: toDescription(ability.description, ability.desc),
         sourceJson: sourceJson(ability),
+      },
+    });
+  }
+}
+
+async function seedAlignments() {
+  console.log("Seeding RefAlignment...");
+
+  const alignments = readJsonArray(FILES.alignments);
+
+  for (const alignment of alignments) {
+    const index = getItemIndex(alignment);
+
+    if (!index) {
+      console.warn("Skipping alignment without index/name", alignment);
+      continue;
+    }
+
+    await prisma.refAlignment.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(alignment.name) ?? index,
+        abbreviation: stringOrNull(alignment.abbreviation) ?? stringOrNull(alignment.shortName),
+        description: toDescription(alignment.description, alignment.desc),
+        sourceJson: sourceJson(alignment),
+      },
+      create: {
+        index,
+        name: stringOrNull(alignment.name) ?? index,
+        abbreviation: stringOrNull(alignment.abbreviation) ?? stringOrNull(alignment.shortName),
+        description: toDescription(alignment.description, alignment.desc),
+        sourceJson: sourceJson(alignment),
       },
     });
   }
@@ -555,6 +615,60 @@ async function seedClassFeatures() {
         sourceJson: sourceJson(feature),
       },
     });
+  }
+}
+
+async function seedClassPrimaryAbilities() {
+  console.log("Seeding RefClassPrimaryAbility...");
+
+  const classes = readJsonArray(FILES.classes);
+  const abilityScores = await prisma.refAbilityScore.findMany({
+    select: {
+      index: true,
+    },
+  });
+  const abilityScoreIndexes = new Set(abilityScores.map((abilityScore) => abilityScore.index));
+
+  await prisma.refClassPrimaryAbility.deleteMany();
+
+  for (const cls of classes) {
+    const classIndex = getItemIndex(cls);
+
+    if (!classIndex) {
+      console.warn("Skipping class primary ability without class index", cls);
+      continue;
+    }
+
+    const classExists = await prisma.refClass.findUnique({
+      where: {
+        index: classIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!classExists) {
+      console.warn(`Skipping class primary ability for ${classIndex}, because class does not exist.`);
+      continue;
+    }
+
+    for (const abilityReference of primaryAbilityReferences(cls)) {
+      const abilityScoreIndex = indexFromRef(abilityReference);
+
+      if (!abilityScoreIndex || !abilityScoreIndexes.has(abilityScoreIndex)) {
+        console.warn(`Skipping class primary ability ${classIndex}:${abilityScoreIndex ?? "unknown"}, because ability score does not exist.`);
+        continue;
+      }
+
+      await prisma.refClassPrimaryAbility.create({
+        data: {
+          classIndex,
+          abilityScoreIndex,
+          sourceJson: sourceJson(abilityReference),
+        },
+      });
+    }
   }
 }
 
@@ -1348,9 +1462,11 @@ async function main() {
   await seedGenericRuleDocuments();
 
   await seedAbilityScores();
+  await seedAlignments();
   await seedSkills();
   await seedSpecies();
   await seedClasses();
+  await seedClassPrimaryAbilities();
   await seedClassLevels();
   await seedClassFeatures();
   await seedBackgrounds();

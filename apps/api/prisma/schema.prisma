@@ -69,6 +69,7 @@ model RefAbilityScore {
 
   skills      RefSkill[]
   characterScores CharacterAbilityScore[]
+  classPrimaryAbilities RefClassPrimaryAbility[]
 
   @@map("ref_ability_scores")
 }
@@ -111,6 +112,7 @@ model RefClass {
   features   RefClassFeature[]
   proficiencyGrants RefClassProficiencyGrant[]
   skillChoices      RefClassSkillChoice[]
+  primaryAbilities  RefClassPrimaryAbility[]
 
   @@map("ref_classes")
 }
@@ -182,6 +184,29 @@ model RefClassSkillChoiceOption {
 
   @@unique([choiceId, proficiencyIndex])
   @@map("ref_class_skill_choice_options")
+}
+
+model RefClassPrimaryAbility {
+  id                String @id @default(uuid()) @db.Uuid
+  classIndex        String
+  abilityScoreIndex String
+  sourceJson        Json?
+
+  class             RefClass        @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  abilityScore      RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
+
+  @@unique([classIndex, abilityScoreIndex])
+  @@map("ref_class_primary_abilities")
+}
+
+model RefAlignment {
+  index        String @id
+  name         String
+  abbreviation String?
+  description  String?
+  sourceJson   Json?
+
+  @@map("ref_alignments")
 }
 
 model RefBackground {

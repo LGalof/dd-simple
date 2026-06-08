@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getAbilityScores,
+  getAlignments,
   getBackgrounds,
   getClasses,
   getEquipment,
@@ -14,6 +15,7 @@ import {
 const referencesRouter = Router();
 
 referencesRouter.get("/references/ability-scores", getAbilityScores);
+referencesRouter.get("/references/alignments", getAlignments);
 referencesRouter.get("/references/skills", getSkills);
 referencesRouter.get("/references/species", getSpecies);
 referencesRouter.get("/references/classes", getClasses);

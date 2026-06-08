@@ -65,6 +65,30 @@ async function seedReferences() {
     ],
   });
 
+  await prisma.refAlignment.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        index: "lawful-good",
+        name: "Lawful Good",
+        abbreviation: "LG",
+        description: "A character who tries to do the right thing within honorable rules.",
+      },
+      {
+        index: "neutral-good",
+        name: "Neutral Good",
+        abbreviation: "NG",
+        description: "A character who helps others according to their needs.",
+      },
+      {
+        index: "chaotic-neutral",
+        name: "Chaotic Neutral",
+        abbreviation: "CN",
+        description: "A character who follows personal freedom and impulse.",
+      },
+    ],
+  });
+
   await prisma.refSkill.createMany({
     skipDuplicates: true,
     data: [
@@ -136,6 +160,28 @@ async function seedReferences() {
         name: "Wizard",
         hitDie: 6,
         sourceJson: { saving_throws: [{ index: "int" }, { index: "wis" }] },
+      },
+    ],
+  });
+
+  await prisma.refClassPrimaryAbility.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        classIndex: "rogue",
+        abilityScoreIndex: "dex",
+      },
+      {
+        classIndex: "fighter",
+        abilityScoreIndex: "str",
+      },
+      {
+        classIndex: "fighter",
+        abilityScoreIndex: "dex",
+      },
+      {
+        classIndex: "wizard",
+        abilityScoreIndex: "int",
       },
     ],
   });

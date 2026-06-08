@@ -19,6 +19,14 @@ type ReferenceSkill = {
   ability: ReferenceAbilityScore;
 };
 
+type ReferenceAlignment = {
+  index: string;
+  name: string;
+  abbreviation?: string | null;
+  description?: string | null;
+  sourceJson?: unknown;
+};
+
 type ReferenceSpecies = SpeciesDefinition & {
   sourceJson?: unknown;
 };
@@ -67,11 +75,20 @@ type ReferenceClassSkillChoice = {
   options?: ReferenceClassSkillChoiceOption[];
 };
 
+type ReferenceClassPrimaryAbility = {
+  id: string;
+  classIndex: string;
+  abilityScoreIndex: string;
+  sourceJson?: unknown;
+  abilityScore?: ReferenceAbilityScore;
+};
+
 type ReferenceClass = Omit<ClassDefinition, "features"> & {
   features?: ReferenceClassFeature[];
   levels?: ReferenceClassLevel[];
   proficiencyGrants?: ReferenceClassProficiencyGrant[];
   skillChoices?: ReferenceClassSkillChoice[];
+  primaryAbilities?: ReferenceClassPrimaryAbility[];
   sourceJson?: unknown;
 };
 
@@ -102,16 +119,18 @@ type CharacterCreatorReferences = {
   species: ReferenceSpecies[];
   classes: ReferenceClass[];
   backgrounds: ReferenceBackground[];
-  alignments: ReferenceRuleDocument[];
+  alignments: ReferenceAlignment[];
 };
 
 export type {
   CharacterCreatorReferences,
   ReferenceAbilityScore,
+  ReferenceAlignment,
   ReferenceBackground,
   ReferenceClass,
   ReferenceClassFeature,
   ReferenceClassLevel,
+  ReferenceClassPrimaryAbility,
   ReferenceClassProficiencyGrant,
   ReferenceClassSkillChoice,
   ReferenceClassSkillChoiceOption,

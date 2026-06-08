@@ -259,7 +259,11 @@ function mapClassReferences(
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
     const sourceJson = asRecord(reference.sourceJson) as ClassSourceJson;
     const hitDie = reference.hitDie ?? numberValue(sourceJson.hit_die) ?? fallback?.hitDie ?? 8;
-    const primaryAbility = stringValue(sourceJson.primary_ability?.desc) ?? fallback?.primaryAbility ?? "Unknown";
+    const primaryAbility =
+      formatPrimaryAbilities(reference.primaryAbilities) ??
+      stringValue(sourceJson.primary_ability?.desc) ??
+      fallback?.primaryAbility ??
+      "Unknown";
     const savingThrows = (sourceJson.saving_throws ?? []).map(referenceName).filter(isPresent);
     const proficiencyChoice = sourceJson.proficiency_choices?.[0];
     const skillOptions =
@@ -314,6 +318,18 @@ function mapClassReferences(
       features,
     };
   });
+}
+
+function formatPrimaryAbilities(primaryAbilities: ReferenceClass["primaryAbilities"]) {
+  const labels = (primaryAbilities ?? [])
+    .map((primaryAbility) =>
+      primaryAbility.abilityScore?.fullName ??
+      primaryAbility.abilityScore?.name ??
+      primaryAbility.abilityScoreIndex,
+    )
+    .filter(isPresent);
+
+  return labels.length > 0 ? labels.join(" / ") : null;
 }
 
 function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSourceJson): ClassFeature[] {
