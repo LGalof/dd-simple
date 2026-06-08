@@ -82,6 +82,7 @@ model RefSkill {
 
   ability      RefAbilityScore @relation(fields: [abilityIndex], references: [index])
   characterSkills CharacterSkill[]
+  classSkillChoiceOptions RefClassSkillChoiceOption[]
 
   @@map("ref_skills")
 }
@@ -108,6 +109,8 @@ model RefClass {
   characters Character[]
   levels     RefClassLevel[]
   features   RefClassFeature[]
+  proficiencyGrants RefClassProficiencyGrant[]
+  skillChoices      RefClassSkillChoice[]
 
   @@map("ref_classes")
 }
@@ -139,6 +142,48 @@ model RefClassFeature {
   @@map("ref_class_features")
 }
 
+model RefClassProficiencyGrant {
+  id               String @id @default(uuid()) @db.Uuid
+  classIndex       String
+  proficiencyIndex String
+  grantType        String
+  sourceLabel      String?
+  sourceJson       Json?
+
+  class            RefClass       @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  proficiency      RefProficiency @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+
+  @@unique([classIndex, proficiencyIndex, grantType])
+  @@map("ref_class_proficiency_grants")
+}
+
+model RefClassSkillChoice {
+  id          String @id @default(uuid()) @db.Uuid
+  classIndex  String
+  chooseCount Int
+  description String?
+  sourceJson  Json?
+
+  class       RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  options     RefClassSkillChoiceOption[]
+
+  @@map("ref_class_skill_choices")
+}
+
+model RefClassSkillChoiceOption {
+  id               String @id @default(uuid()) @db.Uuid
+  choiceId         String @db.Uuid
+  proficiencyIndex String
+  skillIndex       String?
+
+  choice           RefClassSkillChoice @relation(fields: [choiceId], references: [id], onDelete: Cascade)
+  proficiency      RefProficiency      @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+  skill            RefSkill?           @relation(fields: [skillIndex], references: [index], onDelete: SetNull)
+
+  @@unique([choiceId, proficiencyIndex])
+  @@map("ref_class_skill_choice_options")
+}
+
 model RefBackground {
   index       String @id
   name        String
@@ -157,6 +202,8 @@ model RefProficiency {
   sourceJson Json?
 
   characterProficiencies CharacterProficiency[]
+  classProficiencyGrants RefClassProficiencyGrant[]
+  classSkillChoiceOptions RefClassSkillChoiceOption[]
 
   @@map("ref_proficiencies")
 }

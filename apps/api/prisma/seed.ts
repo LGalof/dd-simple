@@ -187,6 +187,58 @@ function equipmentItemType(item: AnyRecord): string | null {
   );
 }
 
+function skillIndexFromProficiencyIndex(index: string): string | null {
+  return index.startsWith("skill-") ? index.replace(/^skill-/, "") : null;
+}
+
+function isSkillProficiencyReference(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as AnyRecord;
+  const index = stringOrNull(record.index);
+  const name = stringOrNull(record.name);
+
+  return Boolean(index?.startsWith("skill-") || name?.startsWith("Skill: "));
+}
+
+function choiceOptions(choice: AnyRecord): AnyRecord[] {
+  const options = choice.from?.options;
+
+  if (!Array.isArray(options)) {
+    return [];
+  }
+
+  return options
+    .map((option) => (option && typeof option === "object" ? (option as AnyRecord).item : null))
+    .filter((item): item is AnyRecord => Boolean(item && typeof item === "object"));
+}
+
+function proficiencyGrantType(proficiency: AnyRecord | null, fallbackIndex: string, fallbackLabel: string | null) {
+  const type = stringOrNull(proficiency?.type)?.toLowerCase() ?? "";
+  const index = fallbackIndex.toLowerCase();
+  const label = (fallbackLabel ?? stringOrNull(proficiency?.name) ?? "").toLowerCase();
+
+  if (index.startsWith("saving-throw-") || label.startsWith("saving throw")) {
+    return "SAVING_THROW";
+  }
+
+  if (type.includes("armor") || label.includes("armor") || index.includes("armor") || index === "shields") {
+    return "ARMOR";
+  }
+
+  if (type.includes("weapon") || label.includes("weapon") || index.includes("weapon")) {
+    return "WEAPON";
+  }
+
+  if (type.includes("tool") || label.includes("tool") || label.includes("instrument") || index.includes("kit")) {
+    return "TOOL";
+  }
+
+  return "OTHER";
+}
+
 async function seedGenericRuleDocuments() {
   console.log("Seeding all 5e JSON documents into RefRuleDocument...");
 
@@ -575,6 +627,150 @@ async function seedProficiencies() {
         sourceJson: sourceJson(proficiency),
       },
     });
+  }
+}
+
+async function seedClassProficiencyData() {
+  console.log("Seeding class proficiency grants and skill choices...");
+
+  const classes = readJsonArray(FILES.classes);
+  const proficiencies = await prisma.refProficiency.findMany();
+  const proficiencyByIndex = new Map(proficiencies.map((proficiency) => [proficiency.index, proficiency]));
+  const skills = await prisma.refSkill.findMany({
+    select: {
+      index: true,
+    },
+  });
+  const skillIndexes = new Set(skills.map((skill) => skill.index));
+
+  await prisma.refClassSkillChoice.deleteMany();
+
+  for (const cls of classes) {
+    const classIndex = getItemIndex(cls);
+
+    if (!classIndex) {
+      console.warn("Skipping class proficiency data without class index", cls);
+      continue;
+    }
+
+    const classExists = await prisma.refClass.findUnique({
+      where: {
+        index: classIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!classExists) {
+      console.warn(`Skipping class proficiency data for ${classIndex}, because class does not exist.`);
+      continue;
+    }
+
+    const grantReferences = new Map<string, AnyRecord>();
+
+    if (Array.isArray(cls.proficiencies)) {
+      for (const proficiency of cls.proficiencies) {
+        const proficiencyIndex = indexFromRef(proficiency);
+
+        if (proficiencyIndex) {
+          grantReferences.set(proficiencyIndex, proficiency);
+        }
+      }
+    }
+
+    if (Array.isArray(cls.saving_throws)) {
+      for (const savingThrow of cls.saving_throws) {
+        const abilityIndex = indexFromRef(savingThrow);
+
+        if (abilityIndex) {
+          const proficiencyIndex = `saving-throw-${abilityIndex}`;
+          grantReferences.set(proficiencyIndex, {
+            index: proficiencyIndex,
+            name: `Saving Throw: ${stringOrNull((savingThrow as AnyRecord).name) ?? abilityIndex.toUpperCase()}`,
+          });
+        }
+      }
+    }
+
+    for (const [proficiencyIndex, grantReference] of grantReferences) {
+      const proficiency = proficiencyByIndex.get(proficiencyIndex) ?? null;
+
+      if (!proficiency) {
+        console.warn(`Skipping class grant ${classIndex}:${proficiencyIndex}, because proficiency does not exist.`);
+        continue;
+      }
+
+      const sourceLabel = stringOrNull(grantReference.name) ?? proficiency.name;
+      const grantType = proficiencyGrantType(proficiency, proficiencyIndex, sourceLabel);
+
+      await prisma.refClassProficiencyGrant.upsert({
+        where: {
+          classIndex_proficiencyIndex_grantType: {
+            classIndex,
+            proficiencyIndex,
+            grantType,
+          },
+        },
+        update: {
+          sourceLabel,
+          sourceJson: sourceJson(grantReference),
+        },
+        create: {
+          classIndex,
+          proficiencyIndex,
+          grantType,
+          sourceLabel,
+          sourceJson: sourceJson(grantReference),
+        },
+      });
+    }
+
+    if (!Array.isArray(cls.proficiency_choices)) {
+      continue;
+    }
+
+    for (const choice of cls.proficiency_choices) {
+      if (!choice || typeof choice !== "object") {
+        continue;
+      }
+
+      const choiceRecord = choice as AnyRecord;
+      const options = choiceOptions(choiceRecord);
+      const skillOptions = options.filter(isSkillProficiencyReference);
+
+      if (skillOptions.length === 0 || skillOptions.length !== options.length) {
+        continue;
+      }
+
+      const createdChoice = await prisma.refClassSkillChoice.create({
+        data: {
+          classIndex,
+          chooseCount: intOrDefault(choiceRecord.choose, 0),
+          description: stringOrNull(choiceRecord.desc),
+          sourceJson: sourceJson(choiceRecord),
+        },
+      });
+
+      for (const option of skillOptions) {
+        const proficiencyIndex = indexFromRef(option);
+
+        if (!proficiencyIndex || !proficiencyByIndex.has(proficiencyIndex)) {
+          console.warn(`Skipping class skill choice option ${classIndex}:${proficiencyIndex ?? "unknown"}, because proficiency does not exist.`);
+          continue;
+        }
+
+        const skillIndex = skillIndexFromProficiencyIndex(proficiencyIndex);
+
+        await prisma.refClassSkillChoiceOption.create({
+          data: {
+            choiceId: createdChoice.id,
+            proficiencyIndex,
+            skillIndex: skillIndex && skillIndexes.has(skillIndex) ? skillIndex : null,
+          },
+        });
+      }
+    }
   }
 }
 
@@ -1159,6 +1355,7 @@ async function main() {
   await seedClassFeatures();
   await seedBackgrounds();
   await seedProficiencies();
+  await seedClassProficiencyData();
   await seedEquipment();
 
   await ensureMinimumDemoReferences();

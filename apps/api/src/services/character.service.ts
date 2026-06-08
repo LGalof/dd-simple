@@ -121,6 +121,27 @@ function getClassSavingThrowProficiencyIndexes(sourceJson: unknown) {
   );
 }
 
+async function getClassProficiencyGrantIndexes(
+  tx: Prisma.TransactionClient,
+  classIndex: string,
+  sourceJson: unknown,
+) {
+  const classProficiencyGrants = await tx.refClassProficiencyGrant.findMany({
+    where: {
+      classIndex,
+    },
+    select: {
+      proficiencyIndex: true,
+    },
+  });
+
+  if (classProficiencyGrants.length > 0) {
+    return [...new Set(classProficiencyGrants.map((grant) => grant.proficiencyIndex))];
+  }
+
+  return getClassSavingThrowProficiencyIndexes(sourceJson);
+}
+
 async function findAllCharactersForUser(userId: string) {
   return prisma.character.findMany({
     where: {
@@ -227,10 +248,15 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
-    const classSavingThrowProficiencies = await tx.refProficiency.findMany({
+    const classProficiencyGrantIndexes = await getClassProficiencyGrantIndexes(
+      tx,
+      characterClass.index,
+      characterClass.sourceJson,
+    );
+    const classGrantedProficiencies = await tx.refProficiency.findMany({
       where: {
         index: {
-          in: getClassSavingThrowProficiencyIndexes(characterClass.sourceJson),
+          in: classProficiencyGrantIndexes,
         },
       },
     });
@@ -266,7 +292,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
               proficiencyIndex: proficiency.index,
               sourceType: "manual",
             })),
-            ...classSavingThrowProficiencies.map(
+            ...classGrantedProficiencies.map(
               (proficiency: ReferenceIndexRecord) => ({
                 proficiencyIndex: proficiency.index,
                 sourceType: "class",
@@ -351,10 +377,15 @@ async function updateCharacterForUser(
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
-    const classSavingThrowProficiencies = await tx.refProficiency.findMany({
+    const classProficiencyGrantIndexes = await getClassProficiencyGrantIndexes(
+      tx,
+      characterClass.index,
+      characterClass.sourceJson,
+    );
+    const classGrantedProficiencies = await tx.refProficiency.findMany({
       where: {
         index: {
-          in: getClassSavingThrowProficiencyIndexes(characterClass.sourceJson),
+          in: classProficiencyGrantIndexes,
         },
       },
     });
@@ -439,9 +470,6 @@ async function updateCharacterForUser(
       where: {
         characterId,
         sourceType: "class",
-        proficiencyIndex: {
-          startsWith: "saving-throw-",
-        },
       },
     });
 
@@ -456,9 +484,9 @@ async function updateCharacterForUser(
       });
     }
 
-    if (classSavingThrowProficiencies.length > 0) {
+    if (classGrantedProficiencies.length > 0) {
       await tx.characterProficiency.createMany({
-        data: classSavingThrowProficiencies.map(
+        data: classGrantedProficiencies.map(
           (proficiency: ReferenceIndexRecord) => ({
             characterId,
             proficiencyIndex: proficiency.index,

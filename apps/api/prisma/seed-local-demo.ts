@@ -200,6 +200,48 @@ async function seedReferences() {
     ],
   });
 
+  await prisma.refClassProficiencyGrant.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        classIndex: "rogue",
+        proficiencyIndex: "saving-throw-dex",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Dexterity Saving Throw",
+      },
+      {
+        classIndex: "rogue",
+        proficiencyIndex: "saving-throw-int",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Intelligence Saving Throw",
+      },
+      {
+        classIndex: "fighter",
+        proficiencyIndex: "saving-throw-str",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Strength Saving Throw",
+      },
+      {
+        classIndex: "fighter",
+        proficiencyIndex: "saving-throw-con",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Constitution Saving Throw",
+      },
+      {
+        classIndex: "wizard",
+        proficiencyIndex: "saving-throw-int",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Intelligence Saving Throw",
+      },
+      {
+        classIndex: "wizard",
+        proficiencyIndex: "saving-throw-wis",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Wisdom Saving Throw",
+      },
+    ],
+  });
+
   await prisma.refEquipment.createMany({
     skipDuplicates: true,
     data: [

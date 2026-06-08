@@ -37,9 +37,41 @@ type ReferenceClassLevel = {
   sourceJson?: unknown;
 };
 
+type ReferenceClassProficiencyGrant = {
+  id: string;
+  classIndex: string;
+  proficiencyIndex: string;
+  grantType: string;
+  sourceLabel?: string | null;
+  sourceJson?: unknown;
+  proficiency?: {
+    index: string;
+    name: string;
+    type: string;
+  };
+};
+
+type ReferenceClassSkillChoiceOption = {
+  id: string;
+  choiceId: string;
+  proficiencyIndex: string;
+  skillIndex?: string | null;
+};
+
+type ReferenceClassSkillChoice = {
+  id: string;
+  classIndex: string;
+  chooseCount: number;
+  description?: string | null;
+  sourceJson?: unknown;
+  options?: ReferenceClassSkillChoiceOption[];
+};
+
 type ReferenceClass = Omit<ClassDefinition, "features"> & {
   features?: ReferenceClassFeature[];
   levels?: ReferenceClassLevel[];
+  proficiencyGrants?: ReferenceClassProficiencyGrant[];
+  skillChoices?: ReferenceClassSkillChoice[];
   sourceJson?: unknown;
 };
 
@@ -80,6 +112,9 @@ export type {
   ReferenceClass,
   ReferenceClassFeature,
   ReferenceClassLevel,
+  ReferenceClassProficiencyGrant,
+  ReferenceClassSkillChoice,
+  ReferenceClassSkillChoiceOption,
   ReferenceEquipment,
   ReferenceRuleDocument,
   ReferenceSkill,

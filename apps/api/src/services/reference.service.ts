@@ -54,6 +54,35 @@ async function findClasses() {
           },
         ],
       },
+      proficiencyGrants: {
+        orderBy: [
+          {
+            grantType: "asc",
+          },
+          {
+            proficiencyIndex: "asc",
+          },
+        ],
+        include: {
+          proficiency: true,
+        },
+      },
+      skillChoices: {
+        orderBy: {
+          chooseCount: "asc",
+        },
+        include: {
+          options: {
+            orderBy: {
+              proficiencyIndex: "asc",
+            },
+            include: {
+              proficiency: true,
+              skill: true,
+            },
+          },
+        },
+      },
     },
   });
 
