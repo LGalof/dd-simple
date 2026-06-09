@@ -64,6 +64,12 @@ type ReferenceClassSkillChoiceOption = {
   choiceId: string;
   proficiencyIndex: string;
   skillIndex?: string | null;
+  proficiency?: {
+    index: string;
+    name: string;
+    type: string;
+  };
+  skill?: ReferenceSkill | null;
 };
 
 type ReferenceClassSkillChoice = {

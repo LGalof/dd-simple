@@ -264,16 +264,19 @@ function mapClassReferences(
       stringValue(sourceJson.primary_ability?.desc) ??
       fallback?.primaryAbility ??
       "Unknown";
-    const savingThrows = (sourceJson.saving_throws ?? []).map(referenceName).filter(isPresent);
+    const fallbackSavingThrows = (sourceJson.saving_throws ?? []).map(referenceName).filter(isPresent);
+    const savingThrows = normalizedGrantLabels(reference, "SAVING_THROW") ?? fallbackSavingThrows;
     const proficiencyChoice = sourceJson.proficiency_choices?.[0];
-    const skillOptions =
+    const normalizedSkillChoice = normalizedClassSkillChoice(reference);
+    const fallbackSkillOptions =
       proficiencyChoice?.from?.options
         ?.map((option) => referenceName(option.item))
         .filter(isPresent)
         .filter((name) => name.startsWith("Skill: "))
         .map(stripReferencePrefix) ?? fallback?.skillChoices.options ?? [];
-    const proficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
-    const groupedProficiencies = groupClassProficiencies(proficiencies);
+    const skillOptions = normalizedSkillChoice?.options ?? fallbackSkillOptions;
+    const fallbackProficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
+    const groupedProficiencies = normalizedGroupedProficiencies(reference) ?? groupClassProficiencies(fallbackProficiencies);
     const startingEquipment = (sourceJson.starting_equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
@@ -301,7 +304,10 @@ function mapClassReferences(
         { label: "Saving Throw Proficiencies", value: formatList(savingThrows) },
         {
           label: "Skill Proficiencies",
-          value: stringValue(proficiencyChoice?.desc) ?? formatChoose(skillOptions, numberValue(proficiencyChoice?.choose)),
+          value:
+            normalizedSkillChoice?.description ??
+            stringValue(proficiencyChoice?.desc) ??
+            formatChoose(skillOptions, normalizedSkillChoice?.choose ?? numberValue(proficiencyChoice?.choose)),
         },
         { label: "Weapon Proficiencies", value: formatList(groupedProficiencies.weapons) },
         { label: "Tool Proficiencies", value: formatList(groupedProficiencies.tools) },
@@ -310,7 +316,7 @@ function mapClassReferences(
       ],
       savingThrows,
       skillChoices: {
-        choose: numberValue(proficiencyChoice?.choose) ?? fallback?.skillChoices.choose ?? 0,
+        choose: normalizedSkillChoice?.choose ?? numberValue(proficiencyChoice?.choose) ?? fallback?.skillChoices.choose ?? 0,
         options: skillOptions,
       },
       proficiencies: groupedProficiencies,
@@ -332,11 +338,93 @@ function formatPrimaryAbilities(primaryAbilities: ReferenceClass["primaryAbiliti
   return labels.length > 0 ? labels.join(" / ") : null;
 }
 
+function normalizedGrantLabels(reference: ReferenceClass, grantType: string): string[] | null {
+  const labels = (reference.proficiencyGrants ?? [])
+    .filter((grant) => grant.grantType === grantType)
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+
+  return labels.length > 0 ? labels : null;
+}
+
+function normalizedGroupedProficiencies(reference: ReferenceClass) {
+  const grants = reference.proficiencyGrants ?? [];
+
+  if (grants.length === 0) {
+    return null;
+  }
+
+  return {
+    armor: grantLabelsByType(grants, "ARMOR"),
+    tools: grantLabelsByType(grants, "TOOL"),
+    weapons: grantLabelsByType(grants, "WEAPON"),
+  };
+}
+
+function grantLabelsByType(
+  grants: NonNullable<ReferenceClass["proficiencyGrants"]>,
+  grantType: string,
+) {
+  return grants
+    .filter((grant) => grant.grantType === grantType)
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+}
+
+function normalizedClassSkillChoice(reference: ReferenceClass) {
+  const choice = (reference.skillChoices ?? []).find((classSkillChoice) => {
+    const options = classSkillChoice.options ?? [];
+
+    return options.length > 0;
+  });
+
+  if (!choice) {
+    return null;
+  }
+
+  const options = (choice.options ?? [])
+    .map((option) =>
+      option.proficiency?.name ??
+      option.skill?.name ??
+      option.skillIndex ??
+      option.proficiencyIndex,
+    )
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+
+  return options.length > 0
+    ? {
+        choose: choice.chooseCount,
+        description: choice.description ?? undefined,
+        options,
+        valueOptions: (choice.options ?? []).map((option) => ({
+          label: stripReferencePrefix(
+            option.proficiency?.name ??
+            option.skill?.name ??
+            option.skillIndex ??
+            option.proficiencyIndex,
+          ),
+          value: option.proficiencyIndex,
+        })),
+      }
+    : null;
+}
+
 function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSourceJson): ClassFeature[] {
+  const normalizedSkillChoice = normalizedClassSkillChoice(reference);
+  const sourceProficiencyChoices = sourceJson.proficiency_choices ?? [];
+  const sourceFallbackChoices = normalizedSkillChoice
+    ? sourceProficiencyChoices.filter((choice) => !isSourceSkillChoice(choice))
+    : sourceProficiencyChoices;
   const classChoiceFields = [
-    ...(sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
-    ),
+    ...(normalizedSkillChoice
+      ? createChoiceFieldsFromNormalizedSkillChoice(normalizedSkillChoice)
+      : []),
+    ...sourceFallbackChoices.flatMap((choice, index) =>
+          createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
+        ),
     ...(sourceJson.starting_equipment_options ?? []).flatMap((choice, index) =>
       createChoiceFieldsFromChoice(choice, `class-equipment-${index}`, "Starting Equipment"),
     ),
@@ -353,6 +441,34 @@ function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSo
         }),
       ]
     : [];
+}
+
+function isSourceSkillChoice(choice: Choice) {
+  const options = choice.from?.options ?? [];
+
+  return options.length > 0 && options.every((option) => {
+    const index = stringValue(option.item?.index);
+    const name = stringValue(option.item?.name);
+
+    return Boolean(index?.startsWith("skill-") || name?.startsWith("Skill: "));
+  });
+}
+
+function createChoiceFieldsFromNormalizedSkillChoice(
+  choice: NonNullable<ReturnType<typeof normalizedClassSkillChoice>>,
+): FeatureChoiceField[] {
+  return Array.from({ length: choice.choose }, (_, index) =>
+    createChoiceField(
+      choice.choose === 1 ? "class-skill-choice" : `class-skill-choice-${index + 1}`,
+      choice.choose === 1 ? "Skill proficiency" : `Skill proficiency ${index + 1}`,
+      choice.valueOptions,
+      {
+        choiceGroupId: "class-skill-choice",
+        choiceGroupLabel: choice.description ?? `Choose ${choice.choose} skill proficiencies`,
+        choiceGroupLimit: choice.choose,
+      },
+    ),
+  );
 }
 
 function createNormalizedClassFeatures(features: ReferenceClassFeature[]): ClassFeature[] {
