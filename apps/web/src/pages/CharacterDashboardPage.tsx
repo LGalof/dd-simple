@@ -15,8 +15,16 @@ import {
   InventoryDetailsSidebar,
   useInventorySandboxController,
 } from "./InventorySandboxPage";
-import type { AbilityScores, Character, CharacterSavePayload } from "../types/character";
-import type { SpeciesOption } from "../features/characters/types/characterBuilder";
+import type {
+  AbilityScores,
+  Character,
+  CharacterFeatureSelection,
+  CharacterSavePayload,
+} from "../types/character";
+import type {
+  FeatureChoiceSelections,
+  SpeciesOption,
+} from "../features/characters/types/characterBuilder";
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -70,7 +78,6 @@ function CharacterDashboardPage() {
     selectedBackground,
     selectedClass,
     selectedPanelOption,
-    selectedSkillIndexes,
     selectedSpecies,
     speciesChoices,
     persistedSkillIndexes,
@@ -130,7 +137,7 @@ function CharacterDashboardPage() {
         character,
         builderState,
         persistedSkillIndexes,
-        selectedSkillIndexes,
+        featureChoices,
       ),
     );
 
@@ -246,7 +253,7 @@ function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   persistedSkillIndexes: string[],
-  selectedSkillIndexes: string[],
+  featureChoices: FeatureChoiceSelections,
 ): CharacterSavePayload {
   return {
     name: character.name,
@@ -255,9 +262,31 @@ function buildCharacterSavePayload(
     backgroundIndex: builderState.backgroundIndex,
     alignment: character.alignment,
     level: builderState.level,
-    skillIndexes: [...new Set([...persistedSkillIndexes, ...selectedSkillIndexes])],
+    skillIndexes: persistedSkillIndexes,
+    choices: buildClassSkillChoices(builderState.classIndex, featureChoices),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
+}
+
+function buildClassSkillChoices(
+  classIndex: string,
+  featureChoices: FeatureChoiceSelections,
+): CharacterFeatureSelection[] {
+  return Object.entries(featureChoices)
+    .filter(([, selectedIndex]) => selectedIndex.startsWith("skill-"))
+    .map(([choiceKey, selectedIndex]) => {
+      const [featureId, fieldId] = choiceKey.split(":");
+
+      return {
+        choiceType: "class-skill-choice",
+        featureId,
+        fieldId,
+        sourceType: "class",
+        sourceIndex: `${classIndex}:${featureId}:${fieldId}`,
+        selectedType: "skill",
+        selectedIndex,
+      };
+    });
 }
 
 function buildAbilityScorePayload(

@@ -99,8 +99,9 @@ export type ClassDefinition = {
 };
 
 export type CharacterFeatureSelection = {
+  id?: string;
   characterId?: string;
-  featureId: string;
+  featureId?: string;
   fieldId?: string;
   choiceType?: string;
   sourceType?: string;
@@ -143,6 +144,7 @@ export type Character = {
   abilityScores: AbilityScore[];
   skills: CharacterSkill[];
   proficiencies?: CharacterProficiency[];
+  choices?: CharacterFeatureSelection[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];
 };
@@ -155,5 +157,6 @@ export type CharacterSavePayload = {
   alignment: string | null;
   level?: number;
   skillIndexes: string[];
+  choices?: CharacterFeatureSelection[];
   abilityScores: AbilityScores;
 };

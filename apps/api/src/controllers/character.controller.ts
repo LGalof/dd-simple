@@ -23,7 +23,24 @@ type CharacterMutationRequestBody = {
   alignment?: unknown;
   level?: unknown;
   skillIndexes?: unknown;
+  choices?: unknown;
   abilityScores?: unknown;
+};
+
+type CharacterChoiceRequestBody = {
+  choiceType?: unknown;
+  sourceType?: unknown;
+  sourceIndex?: unknown;
+  selectedType?: unknown;
+  selectedIndex?: unknown;
+};
+
+type ValidCharacterChoiceRequestBody = {
+  choiceType: string;
+  sourceType: string;
+  sourceIndex: string;
+  selectedType: string;
+  selectedIndex: string;
 };
 
 type ValidCharacterMutationRequestBody = {
@@ -34,6 +51,7 @@ type ValidCharacterMutationRequestBody = {
   alignment?: string | null;
   level?: number;
   skillIndexes: string[];
+  choices?: ValidCharacterChoiceRequestBody[];
   abilityScores: AbilityScoreRequestBody;
 };
 
@@ -54,6 +72,26 @@ function isAbilityScoresBody(value: unknown): value is AbilityScoreRequestBody {
       score <= 20
     );
   });
+}
+
+function isCharacterChoiceRequestBody(
+  value: unknown,
+): value is ValidCharacterChoiceRequestBody {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as CharacterChoiceRequestBody;
+
+  return (
+    candidate.choiceType === "class-skill-choice" &&
+    candidate.sourceType === "class" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "skill" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.startsWith("skill-")
+  );
 }
 
 function isCharacterMutationRequestBody(
@@ -84,6 +122,9 @@ function isCharacterMutationRequestBody(
         candidate.level <= 20)) &&
     Array.isArray(candidate.skillIndexes) &&
     candidate.skillIndexes.every((skillIndex) => typeof skillIndex === "string") &&
+    (candidate.choices === undefined ||
+      (Array.isArray(candidate.choices) &&
+        candidate.choices.every(isCharacterChoiceRequestBody))) &&
     isAbilityScoresBody(candidate.abilityScores)
   );
 }
@@ -219,6 +260,7 @@ async function createCharacter(req: Request, res: Response) {
       alignment: body.alignment?.trim() || null,
       level: body.level,
       skillIndexes: body.skillIndexes,
+      choices: body.choices,
       abilityScores: body.abilityScores,
     });
 
@@ -278,6 +320,7 @@ async function updateCharacter(req: Request, res: Response) {
         alignment: body.alignment?.trim() || null,
         level: body.level,
         skillIndexes: body.skillIndexes,
+        choices: body.choices,
         abilityScores: body.abilityScores,
       },
     );

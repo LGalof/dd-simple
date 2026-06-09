@@ -13,6 +13,14 @@ type ClassProficiencyGrantIndex = {
   proficiencyIndex: string;
 };
 
+type CharacterChoiceInput = {
+  choiceType?: string;
+  sourceType?: string;
+  sourceIndex?: string;
+  selectedType?: string;
+  selectedIndex: string;
+};
+
 type CharacterMutationData = {
   name: string;
   speciesIndex: string;
@@ -21,6 +29,7 @@ type CharacterMutationData = {
   alignment: string | null;
   level?: number;
   skillIndexes: string[];
+  choices?: CharacterChoiceInput[];
   abilityScores: {
     str: number;
     dex: number;
@@ -32,6 +41,11 @@ type CharacterMutationData = {
 };
 
 type CreateCharacterData = CharacterMutationData;
+
+const CLASS_CHOICE_SOURCE_TYPE = "class";
+const CLASS_SKILL_CHOICE_TYPE = "class-skill-choice";
+const CLASS_SKILL_CHOICE_SELECTED_TYPE = "skill";
+const CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE = "class-choice";
 
 class CharacterReferenceNotFoundError extends Error {
   constructor(message: string) {
@@ -145,6 +159,81 @@ function getClassSavingThrowProficiencyIndexes(sourceJson: unknown) {
   );
 }
 
+function isSkillProficiencyIndex(index: string) {
+  return index.startsWith("skill-");
+}
+
+function skillIndexFromProficiencyIndex(index: string) {
+  return isSkillProficiencyIndex(index) ? index.replace(/^skill-/, "") : null;
+}
+
+function normalizeClassSkillChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  classIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== CLASS_CHOICE_SOURCE_TYPE ||
+        choice.choiceType !== CLASS_SKILL_CHOICE_TYPE ||
+        choice.selectedType !== CLASS_SKILL_CHOICE_SELECTED_TYPE ||
+        !isSkillProficiencyIndex(choice.selectedIndex)
+      ) {
+        return false;
+      }
+
+      return Boolean(choice.sourceIndex);
+    })
+    .map((choice) => ({
+      choiceType: CLASS_SKILL_CHOICE_TYPE,
+      sourceType: CLASS_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeClassChoiceSourceIndex(choice.sourceIndex, classIndex),
+      selectedType: CLASS_SKILL_CHOICE_SELECTED_TYPE,
+      selectedIndex: choice.selectedIndex,
+    }));
+}
+
+function normalizeClassChoiceSourceIndex(sourceIndex: string | undefined, classIndex: string) {
+  if (!sourceIndex) {
+    return classIndex;
+  }
+
+  const [, ...choiceKeyParts] = sourceIndex.split(":");
+  const choiceKey = choiceKeyParts.join(":");
+
+  return choiceKey ? `${classIndex}:${choiceKey}` : classIndex;
+}
+
+async function findAllowedClassSkillChoiceProficiencyIndexes(
+  tx: Prisma.TransactionClient,
+  classIndex: string,
+) {
+  const choices = await tx.refClassSkillChoice.findMany({
+    where: {
+      classIndex,
+    },
+    include: {
+      options: {
+        select: {
+          proficiencyIndex: true,
+        },
+      },
+    },
+  });
+
+  return new Set(
+    choices.flatMap((choice) =>
+      choice.options.map((option) => option.proficiencyIndex),
+    ),
+  );
+}
+
+function getSkillIndexesFromProficiencyIndexes(proficiencyIndexes: string[]) {
+  return proficiencyIndexes
+    .map(skillIndexFromProficiencyIndex)
+    .filter((skillIndex): skillIndex is string => Boolean(skillIndex));
+}
+
 async function getClassProficiencyGrantIndexes(
   tx: Prisma.TransactionClient,
   classIndex: string,
@@ -226,6 +315,7 @@ async function findAllCharactersForUser(userId: string) {
           equipment: true,
         },
       },
+      choices: true,
       diceRolls: {
         orderBy: {
           rolledAt: "desc",
@@ -355,7 +445,6 @@ async function updateCharacterForUser(
   characterId: string,
   data: CharacterMutationData,
 ) {
-  const selectedSkillIndexes = new Set(data.skillIndexes);
   const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
@@ -371,7 +460,14 @@ async function updateCharacterForUser(
       return null;
     }
 
-    const [species, characterClass, background, skills, selectedProficiencies] =
+    const [
+      species,
+      characterClass,
+      background,
+      skills,
+      selectedProficiencies,
+      existingProficiencies,
+    ] =
       await Promise.all([
         tx.refSpecies.findUnique({
           where: {
@@ -394,6 +490,15 @@ async function updateCharacterForUser(
             index: {
               in: data.skillIndexes.map((skillIndex) => `skill-${skillIndex}`),
             },
+          },
+        }),
+        tx.characterProficiency.findMany({
+          where: {
+            characterId,
+          },
+          select: {
+            proficiencyIndex: true,
+            sourceType: true,
           },
         }),
       ]);
@@ -421,6 +526,27 @@ async function updateCharacterForUser(
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const classSkillChoices = normalizeClassSkillChoices(data.choices, characterClass.index);
+    const allowedClassSkillChoiceProficiencyIndexes =
+      await findAllowedClassSkillChoiceProficiencyIndexes(tx, characterClass.index);
+    const invalidClassSkillChoices = classSkillChoices.filter(
+      (choice) => !allowedClassSkillChoiceProficiencyIndexes.has(choice.selectedIndex),
+    );
+
+    if (invalidClassSkillChoices.length > 0) {
+      throw new CharacterReferenceNotFoundError("Class skill choice not found");
+    }
+
+    const classSkillChoiceProficiencyIndexes = [
+      ...new Set(classSkillChoices.map((choice) => choice.selectedIndex)),
+    ];
+    const classSkillChoiceProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: classSkillChoiceProficiencyIndexes,
+        },
+      },
+    });
     const classProficiencyGrantIndexes = await getClassProficiencyGrantIndexes(
       tx,
       characterClass.index,
@@ -433,6 +559,24 @@ async function updateCharacterForUser(
         },
       },
     });
+    const preservedExistingSkillProficiencyIndexes = existingProficiencies
+      .filter((proficiency) => {
+        if (
+          proficiency.sourceType === "class" ||
+          proficiency.sourceType === CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE
+        ) {
+          return false;
+        }
+
+        return isSkillProficiencyIndex(proficiency.proficiencyIndex);
+      })
+      .map((proficiency) => proficiency.proficiencyIndex);
+    const finalSkillIndexes = new Set([
+      ...data.skillIndexes,
+      ...getSkillIndexesFromProficiencyIndexes(preservedExistingSkillProficiencyIndexes),
+      ...getSkillIndexesFromProficiencyIndexes(classProficiencyGrantIndexes),
+      ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
+    ]);
     const maxHp = Math.max(1, characterClass.hitDie + conModifier);
     const currentHp =
       existingCharacter.currentHp === existingCharacter.maxHp
@@ -488,32 +632,50 @@ async function updateCharacterForUser(
             },
           },
           update: {
-            isProficient: selectedSkillIndexes.has(skill.index),
+            isProficient: finalSkillIndexes.has(skill.index),
           },
           create: {
             characterId,
             skillIndex: skill.index,
-            isProficient: selectedSkillIndexes.has(skill.index),
+            isProficient: finalSkillIndexes.has(skill.index),
             customBonus: 0,
           },
         }),
       ),
     );
 
-    await tx.characterProficiency.deleteMany({
+    await tx.characterChoice.deleteMany({
       where: {
         characterId,
-        sourceType: "manual",
-        proficiencyIndex: {
-          startsWith: "skill-",
-        },
+        sourceType: CLASS_CHOICE_SOURCE_TYPE,
+        choiceType: CLASS_SKILL_CHOICE_TYPE,
       },
     });
+
+    if (classSkillChoices.length > 0) {
+      await tx.characterChoice.createMany({
+        data: classSkillChoices.map((choice) => ({
+          characterId,
+          choiceType: choice.choiceType,
+          sourceType: choice.sourceType,
+          sourceIndex: choice.sourceIndex,
+          selectedType: choice.selectedType,
+          selectedIndex: choice.selectedIndex,
+        })),
+      });
+    }
 
     await tx.characterProficiency.deleteMany({
       where: {
         characterId,
-        sourceType: "class",
+        OR: [
+          {
+            sourceType: "class",
+          },
+          {
+            sourceType: CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE,
+          },
+        ],
       },
     });
 
@@ -524,6 +686,19 @@ async function updateCharacterForUser(
           proficiencyIndex: proficiency.index,
           sourceType: "manual",
         })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (classSkillChoiceProficiencies.length > 0) {
+      await tx.characterProficiency.createMany({
+        data: classSkillChoiceProficiencies.map(
+          (proficiency: ReferenceIndexRecord) => ({
+            characterId,
+            proficiencyIndex: proficiency.index,
+            sourceType: CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE,
+          }),
+        ),
         skipDuplicates: true,
       });
     }

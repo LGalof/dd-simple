@@ -64,8 +64,7 @@ function CharacterBuilderSidebar({
 
   useEffect(() => {
     setExpandedFeatureId(classOption.features[0]?.id ?? null);
-    onFeatureChoicesChange(() => ({}));
-  }, [classOption.index, onFeatureChoicesChange]);
+  }, [classOption.index]);
 
   useEffect(() => {
     if (!hitPointPreview || !hitPointSettings || isHitPointPanelOpen) {
