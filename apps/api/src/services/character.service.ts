@@ -9,6 +9,10 @@ type ClassSourceJson = {
   saving_throws?: ReferenceIndexRecord[];
 };
 
+type ClassProficiencyGrantIndex = {
+  proficiencyIndex: string;
+};
+
 type CharacterMutationData = {
   name: string;
   speciesIndex: string;
@@ -146,7 +150,7 @@ async function getClassProficiencyGrantIndexes(
   classIndex: string,
   sourceJson: unknown,
 ) {
-  const classProficiencyGrants = await tx.refClassProficiencyGrant.findMany({
+  const classProficiencyGrants: ClassProficiencyGrantIndex[] = await tx.refClassProficiencyGrant.findMany({
     where: {
       classIndex,
     },
@@ -156,7 +160,7 @@ async function getClassProficiencyGrantIndexes(
   });
 
   if (classProficiencyGrants.length > 0) {
-    return [...new Set(classProficiencyGrants.map((grant) => grant.proficiencyIndex))];
+    return [...new Set(classProficiencyGrants.map((grant: ClassProficiencyGrantIndex) => grant.proficiencyIndex))];
   }
 
   return getClassSavingThrowProficiencyIndexes(sourceJson);

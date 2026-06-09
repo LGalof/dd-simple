@@ -65,8 +65,23 @@ function primaryAbilityLabel(
   return labels.length > 0 ? labels.join(" / ") : null;
 }
 
+type RefClassFeatureRow = {
+  index: string;
+  level: number;
+  name: string;
+  description: string | null;
+  details: unknown;
+  sourceJson: unknown;
+};
+
+type RefClassWithDetails = {
+  primaryAbilities: Parameters<typeof primaryAbilityLabel>[0];
+  features: RefClassFeatureRow[];
+  levels: unknown[];
+};
+
 async function findClasses() {
-  const classes = await prisma.refClass.findMany({
+  const classes: RefClassWithDetails[] = await prisma.refClass.findMany({
     orderBy: {
       name: "asc",
     },
@@ -126,10 +141,10 @@ async function findClasses() {
     },
   });
 
-  return classes.map((characterClass) => ({
+  return classes.map((characterClass: RefClassWithDetails) => ({
     ...characterClass,
     primaryAbility: primaryAbilityLabel(characterClass.primaryAbilities),
-    features: characterClass.features.map((feature) => ({
+    features: characterClass.features.map((feature: RefClassFeatureRow) => ({
       id: feature.index,
       index: feature.index,
       level: feature.level,
