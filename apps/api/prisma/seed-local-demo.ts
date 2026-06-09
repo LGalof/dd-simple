@@ -65,6 +65,30 @@ async function seedReferences() {
     ],
   });
 
+  await prisma.refAlignment.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        index: "lawful-good",
+        name: "Lawful Good",
+        abbreviation: "LG",
+        description: "A character who tries to do the right thing within honorable rules.",
+      },
+      {
+        index: "neutral-good",
+        name: "Neutral Good",
+        abbreviation: "NG",
+        description: "A character who helps others according to their needs.",
+      },
+      {
+        index: "chaotic-neutral",
+        name: "Chaotic Neutral",
+        abbreviation: "CN",
+        description: "A character who follows personal freedom and impulse.",
+      },
+    ],
+  });
+
   await prisma.refSkill.createMany({
     skipDuplicates: true,
     data: [
@@ -116,6 +140,76 @@ async function seedReferences() {
     ],
   });
 
+  await prisma.refSpeciesTrait.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        speciesIndex: "human",
+        traitIndex: "resourceful",
+        name: "Resourceful",
+        description: "You gain Heroic Inspiration whenever you finish a Long Rest.",
+      },
+      {
+        speciesIndex: "human",
+        traitIndex: "skillful",
+        name: "Skillful",
+        description: "You gain proficiency in one skill of your choice.",
+      },
+      {
+        speciesIndex: "elf",
+        traitIndex: "darkvision-60",
+        name: "Darkvision (60 ft.)",
+        description: "You have Darkvision with a range of 60 feet.",
+      },
+      {
+        speciesIndex: "elf",
+        traitIndex: "fey-ancestry",
+        name: "Fey Ancestry",
+        description: "You have Advantage on saving throws against being Charmed.",
+      },
+      {
+        speciesIndex: "dwarf",
+        traitIndex: "dwarven-resilience",
+        name: "Dwarven Resilience",
+        description: "You have hardy resistance against poison.",
+      },
+    ],
+  });
+
+  await prisma.refSpeciesSizeOption.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        speciesIndex: "human",
+        size: "Medium",
+      },
+      {
+        speciesIndex: "elf",
+        size: "Medium",
+      },
+      {
+        speciesIndex: "dwarf",
+        size: "Medium",
+      },
+    ],
+  });
+
+  await prisma.refSubspecies.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        index: "elven-lineage-high-elf",
+        name: "Elven Lineage: High Elf",
+        speciesIndex: "elf",
+      },
+      {
+        index: "elven-lineage-wood-elf",
+        name: "Elven Lineage: Wood Elf",
+        speciesIndex: "elf",
+      },
+    ],
+  });
+
   await prisma.refClass.createMany({
     skipDuplicates: true,
     data: [
@@ -136,6 +230,28 @@ async function seedReferences() {
         name: "Wizard",
         hitDie: 6,
         sourceJson: { saving_throws: [{ index: "int" }, { index: "wis" }] },
+      },
+    ],
+  });
+
+  await prisma.refClassPrimaryAbility.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        classIndex: "rogue",
+        abilityScoreIndex: "dex",
+      },
+      {
+        classIndex: "fighter",
+        abilityScoreIndex: "str",
+      },
+      {
+        classIndex: "fighter",
+        abilityScoreIndex: "dex",
+      },
+      {
+        classIndex: "wizard",
+        abilityScoreIndex: "int",
       },
     ],
   });
@@ -197,6 +313,120 @@ async function seedReferences() {
       { index: "martial-weapons", name: "Martial Weapons", type: "weapon" },
       { index: "thieves-tools", name: "Thieves' Tools", type: "tool" },
       { index: "calligraphers-supplies", name: "Calligrapher's Supplies", type: "tool" },
+    ],
+  });
+
+  await prisma.refClassProficiencyGrant.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        classIndex: "rogue",
+        proficiencyIndex: "saving-throw-dex",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Dexterity Saving Throw",
+      },
+      {
+        classIndex: "rogue",
+        proficiencyIndex: "saving-throw-int",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Intelligence Saving Throw",
+      },
+      {
+        classIndex: "fighter",
+        proficiencyIndex: "saving-throw-str",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Strength Saving Throw",
+      },
+      {
+        classIndex: "fighter",
+        proficiencyIndex: "saving-throw-con",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Constitution Saving Throw",
+      },
+      {
+        classIndex: "wizard",
+        proficiencyIndex: "saving-throw-int",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Intelligence Saving Throw",
+      },
+      {
+        classIndex: "wizard",
+        proficiencyIndex: "saving-throw-wis",
+        grantType: "SAVING_THROW",
+        sourceLabel: "Wisdom Saving Throw",
+      },
+    ],
+  });
+
+  await prisma.refBackgroundAbilityOption.createMany({
+    skipDuplicates: true,
+    data: [
+      { backgroundIndex: "criminal", abilityScoreIndex: "dex" },
+      { backgroundIndex: "criminal", abilityScoreIndex: "con" },
+      { backgroundIndex: "criminal", abilityScoreIndex: "int" },
+      { backgroundIndex: "soldier", abilityScoreIndex: "str" },
+      { backgroundIndex: "soldier", abilityScoreIndex: "dex" },
+      { backgroundIndex: "soldier", abilityScoreIndex: "con" },
+      { backgroundIndex: "sage", abilityScoreIndex: "con" },
+      { backgroundIndex: "sage", abilityScoreIndex: "int" },
+      { backgroundIndex: "sage", abilityScoreIndex: "wis" },
+    ],
+  });
+
+  await prisma.refBackgroundFeatGrant.createMany({
+    skipDuplicates: true,
+    data: [
+      { backgroundIndex: "criminal", featIndex: "alert", sourceLabel: "Alert" },
+      { backgroundIndex: "soldier", featIndex: "savage-attacker", sourceLabel: "Savage Attacker" },
+      { backgroundIndex: "sage", featIndex: "magic-initiate", sourceLabel: "Magic Initiate" },
+    ],
+  });
+
+  await prisma.refBackgroundProficiencyGrant.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        backgroundIndex: "criminal",
+        proficiencyIndex: "skill-stealth",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Stealth",
+      },
+      {
+        backgroundIndex: "criminal",
+        proficiencyIndex: "thieves-tools",
+        grantType: "TOOL",
+        sourceLabel: "Thieves' Tools",
+      },
+      {
+        backgroundIndex: "soldier",
+        proficiencyIndex: "skill-athletics",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Athletics",
+      },
+      {
+        backgroundIndex: "soldier",
+        proficiencyIndex: "skill-intimidation",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Intimidation",
+      },
+      {
+        backgroundIndex: "sage",
+        proficiencyIndex: "skill-arcana",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Arcana",
+      },
+      {
+        backgroundIndex: "sage",
+        proficiencyIndex: "skill-history",
+        grantType: "SKILL",
+        sourceLabel: "Skill: History",
+      },
+      {
+        backgroundIndex: "sage",
+        proficiencyIndex: "calligraphers-supplies",
+        grantType: "TOOL",
+        sourceLabel: "Calligrapher's Supplies",
+      },
     ],
   });
 

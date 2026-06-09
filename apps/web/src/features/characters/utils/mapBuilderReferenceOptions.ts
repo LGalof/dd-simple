@@ -1,8 +1,10 @@
 import type {
   ReferenceBackground,
   ReferenceClass,
+  ReferenceClassFeature,
   ReferenceRuleDocument,
   ReferenceSpecies,
+  ReferenceSubspecies,
 } from "../../../types/reference";
 import type {
   BackgroundOption,
@@ -123,7 +125,6 @@ type LevelSourceJson = {
 
 function mapSpeciesReferences(
   references: ReferenceSpecies[],
-  subspeciesDocuments: ReferenceRuleDocument[] = [],
   fallbackOptions: SpeciesOption[],
 ): SpeciesOption[] {
   if (references.length === 0) {
@@ -133,12 +134,18 @@ function mapSpeciesReferences(
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
     const sourceJson = asRecord(reference.sourceJson) as SpeciesSourceJson;
-    const traitNames = (sourceJson.traits ?? []).map(referenceName).filter(isPresent);
-    const subspeciesNames = (sourceJson.subspecies ?? []).map(referenceName).filter(isPresent);
-    const sizeOptions = sourceJson.size_options?.from?.options
-      ?.map((option) => stringValue(option.size))
-      .filter(isPresent);
-    const heritageOptions = getSpeciesHeritageOptions(reference.index, subspeciesDocuments);
+    const normalizedTraits = normalizedSpeciesTraits(reference);
+    const fallbackTraitNames = (sourceJson.traits ?? []).map(referenceName).filter(isPresent);
+    const traitNames = normalizedTraits.names.length > 0 ? normalizedTraits.names : fallbackTraitNames;
+    const subspeciesNames =
+      normalizedSpeciesSubspecies(reference) ??
+      (sourceJson.subspecies ?? []).map(referenceName).filter(isPresent);
+    const sizeOptions =
+      normalizedSpeciesSizeOptions(reference) ??
+      sourceJson.size_options?.from?.options
+        ?.map((option) => stringValue(option.size))
+        .filter(isPresent);
+    const heritageOptions = normalizedSpeciesHeritageOptions(reference);
     const size = reference.size ?? stringValue(sourceJson.size) ?? sizeOptions?.join(" or ") ?? "Unknown";
     const sizeDescription = stringValue(sourceJson.size_options?.desc);
     const creatureType = stringValue(sourceJson.type) ?? fallback?.creatureType ?? "Unknown";
@@ -235,7 +242,7 @@ function mapSpeciesReferences(
               {
                 id: `${reference.index}-traits`,
                 title: "Traits",
-                details: traits,
+                details: normalizedTraits.details.length > 0 ? normalizedTraits.details : traits,
               },
             ]
           : []),
@@ -254,6 +261,56 @@ function mapSpeciesReferences(
   });
 }
 
+function normalizedSpeciesTraits(reference: ReferenceSpecies) {
+  const traits = reference.traits ?? [];
+
+  return {
+    details: traits
+      .map((trait) =>
+        trait.description ? `${trait.name}: ${trimDescription(trait.description)}` : trait.name,
+      )
+      .filter(isPresent),
+    names: traits.map((trait) => trait.name).filter(isPresent),
+  };
+}
+
+function normalizedSpeciesSubspecies(reference: ReferenceSpecies) {
+  const names = (reference.subspecies ?? []).map((subspecies) => subspecies.name).filter(isPresent);
+
+  return names.length > 0 ? names : null;
+}
+
+function normalizedSpeciesSizeOptions(reference: ReferenceSpecies) {
+  const sizes = (reference.sizeOptions ?? []).map((sizeOption) => sizeOption.size).filter(isPresent);
+
+  return sizes.length > 0 ? sizes : null;
+}
+
+function normalizedSpeciesHeritageOptions(reference: ReferenceSpecies): SpeciesHeritageOption[] {
+  return (reference.subspecies ?? [])
+    .map((subspecies) => speciesHeritageOption(subspecies))
+    .filter(isPresent);
+}
+
+function speciesHeritageOption(subspecies: ReferenceSubspecies): SpeciesHeritageOption | null {
+  const sourceJson = asRecord(subspecies.sourceJson) as SubspeciesSourceJson;
+  const traitIndexes = (sourceJson.traits ?? [])
+    .map((trait) => stringValue(trait.index))
+    .filter(isPresent);
+
+  if (!subspecies.index) {
+    return null;
+  }
+
+  return {
+    breathWeaponTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("breath-weapon")),
+    damageType: stringValue(sourceJson.damage_type?.name) ?? "Unknown",
+    index: subspecies.index,
+    name: subspecies.name,
+    resistanceTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("damage-resistance")),
+  };
+}
+
 function mapBackgroundReferences(
   references: ReferenceBackground[],
   featDocuments: ReferenceRuleDocument[] = [],
@@ -268,24 +325,36 @@ function mapBackgroundReferences(
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
     const sourceJson = asRecord(reference.sourceJson) as BackgroundSourceJson;
-    const proficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
-    const skillProficiencies = proficiencies.filter((name) => name.startsWith("Skill: ")).map(stripReferencePrefix);
-    const fixedToolProficiencies = proficiencies
-      .filter((name) => name.startsWith("Tool: "))
-      .map(stripReferencePrefix);
+    const normalizedProficiencies = normalizedBackgroundProficiencies(reference);
+    const fallbackProficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
+    const proficiencies = normalizedProficiencies.all ?? fallbackProficiencies;
+    const skillProficiencies =
+      normalizedProficiencies.skills ??
+      fallbackProficiencies.filter((name) => name.startsWith("Skill: ")).map(stripReferencePrefix);
+    const fixedToolProficiencies =
+      normalizedProficiencies.tools ??
+      fallbackProficiencies.filter((name) => name.startsWith("Tool: ")).map(stripReferencePrefix);
     const proficiencyChoiceFields = (sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
       createChoiceFieldsFromChoice(choice, `${reference.index}-proficiency-choice-${index}`, "Tool Choice"),
     );
-    const toolProficiencies = fixedToolProficiencies;
-    const abilityScoreOptions = (sourceJson.ability_scores ?? [])
-      .map(referenceName)
-      .filter(isPresent)
-      .map((name) => `${abilityLabel(name)} Score`);
-    const featIndex = stringValue(sourceJson.feat?.index);
+    const toolProficiencies = [
+      ...fixedToolProficiencies,
+      ...(sourceJson.proficiency_choices ?? [])
+        .map((choice) => stringValue(choice.desc))
+        .filter(isPresent),
+    ];
+    const abilityScoreOptions =
+      normalizedBackgroundAbilityScoreOptions(reference) ??
+      (sourceJson.ability_scores ?? [])
+        .map(referenceName)
+        .filter(isPresent)
+        .map((name) => `${abilityLabel(name)} Score`);
+    const normalizedFeat = normalizedBackgroundFeat(reference);
+    const featIndex = normalizedFeat?.index ?? stringValue(sourceJson.feat?.index);
     const featDocument = featIndex ? featDocumentMap.get(featIndex) : null;
     const featSourceJson = asRecord(featDocument?.sourceJson) as FeatSourceJson;
-    const featName = referenceName(sourceJson.feat) ?? fallback?.feature ?? "Origin Feature";
-    const featNote = stringValue(sourceJson.feat?.note);
+    const featName = normalizedFeat?.name ?? referenceName(sourceJson.feat) ?? fallback?.feature ?? "Origin Feature";
+    const featNote = normalizedFeat?.note ?? stringValue(sourceJson.feat?.note);
     const featDetails = getFeatDetails(reference.name, featName, featNote, featSourceJson, fallback?.description);
     const equipmentDetails = (sourceJson.equipment_options ?? [])
       .map((option) => stringValue(option.desc))
@@ -361,6 +430,64 @@ function mapBackgroundReferences(
   });
 }
 
+function normalizedBackgroundProficiencies(reference: ReferenceBackground) {
+  const grants = reference.proficiencyGrants ?? [];
+
+  if (grants.length === 0) {
+    return {};
+  }
+
+  return {
+    all: grants
+      .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+      .filter(isPresent),
+    skills: backgroundGrantLabelsByType(grants, "SKILL"),
+    tools: backgroundGrantLabelsByType(grants, "TOOL"),
+  };
+}
+
+function backgroundGrantLabelsByType(
+  grants: NonNullable<ReferenceBackground["proficiencyGrants"]>,
+  grantType: string,
+) {
+  return grants
+    .filter((grant) => grant.grantType === grantType)
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+}
+
+function normalizedBackgroundAbilityScoreOptions(reference: ReferenceBackground) {
+  const options = (reference.abilityOptions ?? [])
+    .map((abilityOption) =>
+      abilityOption.abilityScore?.fullName ??
+      abilityOption.abilityScore?.name ??
+      abilityOption.abilityScoreIndex,
+    )
+    .filter(isPresent)
+    .map((name) => `${abilityLabel(name)} Score`);
+
+  return options.length > 0 ? options : null;
+}
+
+function normalizedBackgroundFeat(reference: ReferenceBackground) {
+  const featGrant = reference.featGrants?.[0];
+
+  if (!featGrant) {
+    return null;
+  }
+
+  const [name, note] = (featGrant.sourceLabel ?? featGrant.featIndex)
+    .split(": ")
+    .map((part) => part.trim());
+
+  return {
+    index: featGrant.featIndex,
+    name: name.length > 0 ? name : featGrant.featIndex,
+    note: note?.length ? note : null,
+  };
+}
+
 function mapClassReferences(
   references: ReferenceClass[],
   fallbackOptions: ClassOption[],
@@ -375,26 +502,38 @@ function mapClassReferences(
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
     const sourceJson = asRecord(reference.sourceJson) as ClassSourceJson;
     const hitDie = reference.hitDie ?? numberValue(sourceJson.hit_die) ?? fallback?.hitDie ?? 8;
-    const primaryAbility = stringValue(sourceJson.primary_ability?.desc) ?? fallback?.primaryAbility ?? "Unknown";
-    const savingThrows = (sourceJson.saving_throws ?? []).map(referenceName).filter(isPresent);
+    const primaryAbility =
+      formatPrimaryAbilities(reference.primaryAbilities) ??
+      stringValue(sourceJson.primary_ability?.desc) ??
+      fallback?.primaryAbility ??
+      "Unknown";
+    const fallbackSavingThrows = (sourceJson.saving_throws ?? []).map(referenceName).filter(isPresent);
+    const savingThrows = normalizedGrantLabels(reference, "SAVING_THROW") ?? fallbackSavingThrows;
     const proficiencyChoice = sourceJson.proficiency_choices?.[0];
-    const skillOptions =
+    const normalizedSkillChoice = normalizedClassSkillChoice(reference);
+    const fallbackSkillOptions =
       proficiencyChoice?.from?.options
         ?.map((option) => referenceName(option.item))
         .filter(isPresent)
         .filter((name) => name.startsWith("Skill: "))
         .map(stripReferencePrefix) ?? fallback?.skillChoices.options ?? [];
-    const proficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
-    const groupedProficiencies = groupClassProficiencies(proficiencies);
+    const skillOptions = normalizedSkillChoice?.options ?? fallbackSkillOptions;
+    const fallbackProficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
+    const groupedProficiencies = normalizedGroupedProficiencies(reference) ?? groupClassProficiencies(fallbackProficiencies);
     const startingEquipment = (sourceJson.starting_equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
-    const features = createReferenceBackedClassFeatures(
-      reference,
-      sourceJson,
-      levelDocuments,
-      featureDocuments,
-    );
+    const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
+    const normalizedFeatures = createNormalizedClassFeatures(reference.features ?? []);
+    const features =
+      normalizedFeatures.length > 0
+        ? [...classChoiceFeature, ...normalizedFeatures]
+        : createReferenceBackedClassFeatures(
+            reference,
+            sourceJson,
+            levelDocuments,
+            featureDocuments,
+          );
 
     return {
       index: reference.index,
@@ -408,7 +547,10 @@ function mapClassReferences(
         { label: "Saving Throw Proficiencies", value: formatList(savingThrows) },
         {
           label: "Skill Proficiencies",
-          value: stringValue(proficiencyChoice?.desc) ?? formatChoose(skillOptions, numberValue(proficiencyChoice?.choose)),
+          value:
+            normalizedSkillChoice?.description ??
+            stringValue(proficiencyChoice?.desc) ??
+            formatChoose(skillOptions, normalizedSkillChoice?.choose ?? numberValue(proficiencyChoice?.choose)),
         },
         { label: "Weapon Proficiencies", value: formatList(groupedProficiencies.weapons) },
         { label: "Tool Proficiencies", value: formatList(groupedProficiencies.tools) },
@@ -417,7 +559,7 @@ function mapClassReferences(
       ],
       savingThrows,
       skillChoices: {
-        choose: numberValue(proficiencyChoice?.choose) ?? fallback?.skillChoices.choose ?? 0,
+        choose: normalizedSkillChoice?.choose ?? numberValue(proficiencyChoice?.choose) ?? fallback?.skillChoices.choose ?? 0,
         options: skillOptions,
       },
       proficiencies: groupedProficiencies,
@@ -427,22 +569,111 @@ function mapClassReferences(
   });
 }
 
-function createReferenceBackedClassFeatures(
-  reference: ReferenceClass,
-  sourceJson: ClassSourceJson,
-  levelDocuments: ReferenceRuleDocument[],
-  featureDocuments: ReferenceRuleDocument[],
-): ClassFeature[] {
-  const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+function formatPrimaryAbilities(primaryAbilities: ReferenceClass["primaryAbilities"]) {
+  const labels = (primaryAbilities ?? [])
+    .map((primaryAbility) =>
+      primaryAbility.abilityScore?.fullName ??
+      primaryAbility.abilityScore?.name ??
+      primaryAbility.abilityScoreIndex,
+    )
+    .filter(isPresent);
+
+  return labels.length > 0 ? labels.join(" / ") : null;
+}
+
+function normalizedGrantLabels(reference: ReferenceClass, grantType: string): string[] | null {
+  const labels = (reference.proficiencyGrants ?? [])
+    .filter((grant) => grant.grantType === grantType)
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+
+  return labels.length > 0 ? labels : null;
+}
+
+function normalizedGroupedProficiencies(reference: ReferenceClass) {
+  const grants = reference.proficiencyGrants ?? [];
+
+  if (grants.length === 0) {
+    return null;
+  }
+
+  return {
+    armor: grantLabelsByType(grants, "ARMOR"),
+    tools: grantLabelsByType(grants, "TOOL"),
+    weapons: grantLabelsByType(grants, "WEAPON"),
+  };
+}
+
+function grantLabelsByType(
+  grants: NonNullable<ReferenceClass["proficiencyGrants"]>,
+  grantType: string,
+) {
+  return grants
+    .filter((grant) => grant.grantType === grantType)
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+}
+
+function normalizedClassSkillChoice(reference: ReferenceClass) {
+  const choice = (reference.skillChoices ?? []).find((classSkillChoice) => {
+    const options = classSkillChoice.options ?? [];
+
+    return options.length > 0;
+  });
+
+  if (!choice) {
+    return null;
+  }
+
+  const options = (choice.options ?? [])
+    .map((option) =>
+      option.proficiency?.name ??
+      option.skill?.name ??
+      option.skillIndex ??
+      option.proficiencyIndex,
+    )
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+
+  return options.length > 0
+    ? {
+        choose: choice.chooseCount,
+        description: choice.description ?? undefined,
+        options,
+        valueOptions: (choice.options ?? []).map((option) => ({
+          label: stripReferencePrefix(
+            option.proficiency?.name ??
+            option.skill?.name ??
+            option.skillIndex ??
+            option.proficiencyIndex,
+          ),
+          value: option.proficiencyIndex,
+        })),
+      }
+    : null;
+}
+
+function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSourceJson): ClassFeature[] {
+  const normalizedSkillChoice = normalizedClassSkillChoice(reference);
+  const sourceProficiencyChoices = sourceJson.proficiency_choices ?? [];
+  const sourceFallbackChoices = normalizedSkillChoice
+    ? sourceProficiencyChoices.filter((choice) => !isSourceSkillChoice(choice))
+    : sourceProficiencyChoices;
   const classChoiceFields = [
-    ...(sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
-    ),
+    ...(normalizedSkillChoice
+      ? createChoiceFieldsFromNormalizedSkillChoice(normalizedSkillChoice)
+      : []),
+    ...sourceFallbackChoices.flatMap((choice, index) =>
+          createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
+        ),
     ...(sourceJson.starting_equipment_options ?? []).flatMap((choice, index) =>
       createChoiceFieldsFromChoice(choice, `class-equipment-${index}`, "Starting Equipment"),
     ),
   ];
-  const classChoiceFeature = classChoiceFields.length > 0
+
+  return classChoiceFields.length > 0
     ? [
         createFeature({
           id: `${reference.index}-class-choices`,
@@ -453,6 +684,69 @@ function createReferenceBackedClassFeatures(
         }),
       ]
     : [];
+}
+
+function isSourceSkillChoice(choice: Choice) {
+  const options = choice.from?.options ?? [];
+
+  return options.length > 0 && options.every((option) => {
+    const index = stringValue(option.item?.index);
+    const name = stringValue(option.item?.name);
+
+    return Boolean(index?.startsWith("skill-") || name?.startsWith("Skill: "));
+  });
+}
+
+function createChoiceFieldsFromNormalizedSkillChoice(
+  choice: NonNullable<ReturnType<typeof normalizedClassSkillChoice>>,
+): FeatureChoiceField[] {
+  return Array.from({ length: choice.choose }, (_, index) =>
+    createChoiceField(
+      choice.choose === 1 ? "class-skill-choice" : `class-skill-choice-${index + 1}`,
+      choice.choose === 1 ? "Skill proficiency" : `Skill proficiency ${index + 1}`,
+      choice.valueOptions,
+      {
+        choiceGroupId: "class-skill-choice",
+        choiceGroupLabel: choice.description ?? `Choose ${choice.choose} skill proficiencies`,
+        choiceGroupLimit: choice.choose,
+      },
+    ),
+  );
+}
+
+function createNormalizedClassFeatures(features: ReferenceClassFeature[]): ClassFeature[] {
+  return features
+    .map((feature) => {
+      const featureSourceJson = asRecord(feature.sourceJson) as FeatureSourceJson;
+      const choiceFields = createChoiceFieldsFromChoice(
+        featureSourceJson.feature_specific,
+        `feature-${feature.index ?? feature.id}`,
+        "Feature Choice",
+      );
+
+      return createFeature({
+        id: feature.index ?? feature.id,
+        level: feature.level,
+        title: feature.title ?? feature.name ?? feature.index ?? feature.id,
+        summary:
+          feature.summary ??
+          feature.description ??
+          "No description available from reference data.",
+        details: feature.details,
+        choiceFields: choiceFields.length > 0 ? choiceFields : undefined,
+      });
+    })
+    .sort((left, right) => left.level - right.level || left.title.localeCompare(right.title));
+}
+
+function createReferenceBackedClassFeatures(
+  reference: ReferenceClass,
+  sourceJson: ClassSourceJson,
+  levelDocuments: ReferenceRuleDocument[],
+  featureDocuments: ReferenceRuleDocument[],
+): ClassFeature[] {
+  const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+  const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
   const levelFeatures = levelDocuments
     .map((document) => ({
       document,
@@ -816,29 +1110,6 @@ function createChoiceField(
       label: typeof option === "string" ? option : option.label,
     })),
   };
-}
-
-function getSpeciesHeritageOptions(
-  speciesIndex: string,
-  subspeciesDocuments: ReferenceRuleDocument[],
-): SpeciesHeritageOption[] {
-  return subspeciesDocuments
-    .map((document) => asRecord(document.sourceJson) as SubspeciesSourceJson)
-    .filter((sourceJson) => sourceJson.species?.index === speciesIndex)
-    .map((sourceJson) => {
-      const traitIndexes = (sourceJson.traits ?? [])
-        .map((trait) => stringValue(trait.index))
-        .filter(isPresent);
-
-      return {
-        breathWeaponTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("breath-weapon")),
-        damageType: stringValue(sourceJson.damage_type?.name) ?? "Unknown",
-        index: stringValue(sourceJson.index) ?? "",
-        name: stringValue(sourceJson.name) ?? "Unknown Heritage",
-        resistanceTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("damage-resistance")),
-      };
-    })
-    .filter((option) => option.index.length > 0);
 }
 
 function shortHeritageName(value: string) {

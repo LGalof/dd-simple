@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import {
   findAbilityScores,
+  findAlignments,
   findBackgrounds,
   findClasses,
   findEquipment,
@@ -35,6 +36,20 @@ async function getSkills(_req: Request, res: Response) {
 
     res.status(500).json({
       error: "Failed to fetch skills",
+    });
+  }
+}
+
+async function getAlignments(_req: Request, res: Response) {
+  try {
+    const alignments = await findAlignments();
+
+    res.json(alignments);
+  } catch (error) {
+    console.error("Failed to fetch alignments:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch alignments",
     });
   }
 }
@@ -164,6 +179,7 @@ async function getRuleDocumentByCategoryAndIndex(req: Request, res: Response) {
 
 export {
   getAbilityScores,
+  getAlignments,
   getBackgrounds,
   getClasses,
   getEquipment,

@@ -2,6 +2,7 @@ import { api } from "../../../lib/api";
 import type {
   CharacterCreatorReferences,
   ReferenceAbilityScore,
+  ReferenceAlignment,
   ReferenceBackground,
   ReferenceClass,
   ReferenceEquipment,
@@ -39,7 +40,11 @@ async function fetchEquipment(options: FetchReferenceOptions = {}) {
 }
 
 async function fetchAlignments(options: FetchReferenceOptions = {}) {
-  return api.get<ReferenceRuleDocument[]>("/references/rules/alignments", options);
+  try {
+    return await api.get<ReferenceAlignment[]>("/references/alignments", options);
+  } catch {
+    return api.get<ReferenceAlignment[]>("/references/rules/alignments", options);
+  }
 }
 
 async function fetchRuleDocuments(category: string, options: FetchReferenceOptions = {}) {

@@ -69,6 +69,8 @@ model RefAbilityScore {
 
   skills      RefSkill[]
   characterScores CharacterAbilityScore[]
+  classPrimaryAbilities RefClassPrimaryAbility[]
+  backgroundAbilityOptions RefBackgroundAbilityOption[]
 
   @@map("ref_ability_scores")
 }
@@ -82,6 +84,7 @@ model RefSkill {
 
   ability      RefAbilityScore @relation(fields: [abilityIndex], references: [index])
   characterSkills CharacterSkill[]
+  classSkillChoiceOptions RefClassSkillChoiceOption[]
 
   @@map("ref_skills")
 }
@@ -95,8 +98,49 @@ model RefSpecies {
   sourceJson  Json?
 
   characters  Character[]
+  traits      RefSpeciesTrait[]
+  sizeOptions RefSpeciesSizeOption[]
+  subspecies  RefSubspecies[]
 
   @@map("ref_species")
+}
+
+model RefSpeciesTrait {
+  id           String @id @default(uuid()) @db.Uuid
+  speciesIndex String
+  traitIndex   String
+  name         String
+  description  String?
+  sourceJson   Json?
+
+  species      RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+
+  @@unique([speciesIndex, traitIndex])
+  @@map("ref_species_traits")
+}
+
+model RefSpeciesSizeOption {
+  id           String @id @default(uuid()) @db.Uuid
+  speciesIndex String
+  size         String
+  sourceJson   Json?
+
+  species      RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+
+  @@unique([speciesIndex, size])
+  @@map("ref_species_size_options")
+}
+
+model RefSubspecies {
+  index       String @id
+  name        String
+  speciesIndex String
+  description String?
+  sourceJson  Json?
+
+  species     RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+
+  @@map("ref_subspecies")
 }
 
 model RefClass {
@@ -106,8 +150,105 @@ model RefClass {
   sourceJson Json?
 
   characters Character[]
+  levels     RefClassLevel[]
+  features   RefClassFeature[]
+  proficiencyGrants RefClassProficiencyGrant[]
+  skillChoices      RefClassSkillChoice[]
+  primaryAbilities  RefClassPrimaryAbility[]
 
   @@map("ref_classes")
+}
+
+model RefClassLevel {
+  id         String @id @default(uuid()) @db.Uuid
+  classIndex String
+  level      Int
+  sourceJson Json?
+
+  class      RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+
+  @@unique([classIndex, level])
+  @@map("ref_class_levels")
+}
+
+model RefClassFeature {
+  id          String @id @default(uuid()) @db.Uuid
+  index       String @unique
+  name        String
+  classIndex  String
+  level       Int
+  description String?
+  details     Json?
+  sourceJson  Json?
+
+  class       RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+
+  @@map("ref_class_features")
+}
+
+model RefClassProficiencyGrant {
+  id               String @id @default(uuid()) @db.Uuid
+  classIndex       String
+  proficiencyIndex String
+  grantType        String
+  sourceLabel      String?
+  sourceJson       Json?
+
+  class            RefClass       @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  proficiency      RefProficiency @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+
+  @@unique([classIndex, proficiencyIndex, grantType])
+  @@map("ref_class_proficiency_grants")
+}
+
+model RefClassSkillChoice {
+  id          String @id @default(uuid()) @db.Uuid
+  classIndex  String
+  chooseCount Int
+  description String?
+  sourceJson  Json?
+
+  class       RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  options     RefClassSkillChoiceOption[]
+
+  @@map("ref_class_skill_choices")
+}
+
+model RefClassSkillChoiceOption {
+  id               String @id @default(uuid()) @db.Uuid
+  choiceId         String @db.Uuid
+  proficiencyIndex String
+  skillIndex       String?
+
+  choice           RefClassSkillChoice @relation(fields: [choiceId], references: [id], onDelete: Cascade)
+  proficiency      RefProficiency      @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+  skill            RefSkill?           @relation(fields: [skillIndex], references: [index], onDelete: SetNull)
+
+  @@unique([choiceId, proficiencyIndex])
+  @@map("ref_class_skill_choice_options")
+}
+
+model RefClassPrimaryAbility {
+  id                String @id @default(uuid()) @db.Uuid
+  classIndex        String
+  abilityScoreIndex String
+  sourceJson        Json?
+
+  class             RefClass        @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  abilityScore      RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
+
+  @@unique([classIndex, abilityScoreIndex])
+  @@map("ref_class_primary_abilities")
+}
+
+model RefAlignment {
+  index        String @id
+  name         String
+  abbreviation String?
+  description  String?
+  sourceJson   Json?
+
+  @@map("ref_alignments")
 }
 
 model RefBackground {
@@ -117,8 +258,53 @@ model RefBackground {
   sourceJson  Json?
 
   characters  Character[]
+  proficiencyGrants RefBackgroundProficiencyGrant[]
+  abilityOptions    RefBackgroundAbilityOption[]
+  featGrants        RefBackgroundFeatGrant[]
 
   @@map("ref_backgrounds")
+}
+
+model RefBackgroundProficiencyGrant {
+  id               String @id @default(uuid()) @db.Uuid
+  backgroundIndex  String
+  proficiencyIndex String
+  grantType        String
+  sourceLabel      String?
+  sourceJson       Json?
+
+  background       RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  proficiency      RefProficiency  @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+
+  @@unique([backgroundIndex, proficiencyIndex, grantType])
+  @@map("ref_background_proficiency_grants")
+}
+
+model RefBackgroundAbilityOption {
+  id                String @id @default(uuid()) @db.Uuid
+  backgroundIndex   String
+  abilityScoreIndex String
+  bonusValue        Int?
+  sourceJson        Json?
+
+  background        RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  abilityScore      RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
+
+  @@unique([backgroundIndex, abilityScoreIndex])
+  @@map("ref_background_ability_options")
+}
+
+model RefBackgroundFeatGrant {
+  id              String @id @default(uuid()) @db.Uuid
+  backgroundIndex String
+  featIndex       String
+  sourceLabel     String?
+  sourceJson      Json?
+
+  background      RefBackground @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+
+  @@unique([backgroundIndex, featIndex])
+  @@map("ref_background_feat_grants")
 }
 
 model RefProficiency {
@@ -128,6 +314,9 @@ model RefProficiency {
   sourceJson Json?
 
   characterProficiencies CharacterProficiency[]
+  classProficiencyGrants RefClassProficiencyGrant[]
+  classSkillChoiceOptions RefClassSkillChoiceOption[]
+  backgroundProficiencyGrants RefBackgroundProficiencyGrant[]
 
   @@map("ref_proficiencies")
 }

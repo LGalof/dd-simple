@@ -172,26 +172,11 @@ function useCharacterBuilder(character: Character | undefined) {
           speciesReferences,
           backgroundReferences,
           classReferences,
-          levelRuleDocuments,
-          featureRuleDocuments,
-          subspeciesRuleDocuments,
           featRuleDocuments,
         ] = await Promise.all([
           fetchSpecies(),
           fetchBackgrounds(),
           fetchClasses(),
-          fetchRuleDocuments("levels").catch((error) => {
-            console.warn("Class level reference data is unavailable.", error);
-            return [];
-          }),
-          fetchRuleDocuments("features").catch((error) => {
-            console.warn("Class feature reference data is unavailable.", error);
-            return [];
-          }),
-          fetchRuleDocuments("subspecies").catch((error) => {
-            console.warn("Species heritage reference data is unavailable.", error);
-            return [];
-          }),
           fetchRuleDocuments("feats").catch((error) => {
             console.warn("Background feat reference data is unavailable.", error);
             return [];
@@ -204,7 +189,6 @@ function useCharacterBuilder(character: Character | undefined) {
 
         const nextSpeciesOptions = mapSpeciesReferences(
           speciesReferences,
-          subspeciesRuleDocuments,
           speciesOptions,
         );
         const nextBackgroundOptions = mapBackgroundReferences(
@@ -215,8 +199,6 @@ function useCharacterBuilder(character: Character | undefined) {
         const nextClassOptions = mapClassReferences(
           classReferences,
           classOptions,
-          levelRuleDocuments,
-          featureRuleDocuments,
         );
 
         if (
