@@ -288,6 +288,78 @@ async function seedReferences() {
     ],
   });
 
+  await prisma.refBackgroundAbilityOption.createMany({
+    skipDuplicates: true,
+    data: [
+      { backgroundIndex: "criminal", abilityScoreIndex: "dex" },
+      { backgroundIndex: "criminal", abilityScoreIndex: "con" },
+      { backgroundIndex: "criminal", abilityScoreIndex: "int" },
+      { backgroundIndex: "soldier", abilityScoreIndex: "str" },
+      { backgroundIndex: "soldier", abilityScoreIndex: "dex" },
+      { backgroundIndex: "soldier", abilityScoreIndex: "con" },
+      { backgroundIndex: "sage", abilityScoreIndex: "con" },
+      { backgroundIndex: "sage", abilityScoreIndex: "int" },
+      { backgroundIndex: "sage", abilityScoreIndex: "wis" },
+    ],
+  });
+
+  await prisma.refBackgroundFeatGrant.createMany({
+    skipDuplicates: true,
+    data: [
+      { backgroundIndex: "criminal", featIndex: "alert", sourceLabel: "Alert" },
+      { backgroundIndex: "soldier", featIndex: "savage-attacker", sourceLabel: "Savage Attacker" },
+      { backgroundIndex: "sage", featIndex: "magic-initiate", sourceLabel: "Magic Initiate" },
+    ],
+  });
+
+  await prisma.refBackgroundProficiencyGrant.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        backgroundIndex: "criminal",
+        proficiencyIndex: "skill-stealth",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Stealth",
+      },
+      {
+        backgroundIndex: "criminal",
+        proficiencyIndex: "thieves-tools",
+        grantType: "TOOL",
+        sourceLabel: "Thieves' Tools",
+      },
+      {
+        backgroundIndex: "soldier",
+        proficiencyIndex: "skill-athletics",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Athletics",
+      },
+      {
+        backgroundIndex: "soldier",
+        proficiencyIndex: "skill-intimidation",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Intimidation",
+      },
+      {
+        backgroundIndex: "sage",
+        proficiencyIndex: "skill-arcana",
+        grantType: "SKILL",
+        sourceLabel: "Skill: Arcana",
+      },
+      {
+        backgroundIndex: "sage",
+        proficiencyIndex: "skill-history",
+        grantType: "SKILL",
+        sourceLabel: "Skill: History",
+      },
+      {
+        backgroundIndex: "sage",
+        proficiencyIndex: "calligraphers-supplies",
+        grantType: "TOOL",
+        sourceLabel: "Calligrapher's Supplies",
+      },
+    ],
+  });
+
   await prisma.refEquipment.createMany({
     skipDuplicates: true,
     data: [

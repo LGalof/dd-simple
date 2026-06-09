@@ -40,7 +40,21 @@ const characterInclude = {
   user: true,
   species: true,
   class: true,
-  background: true,
+  background: {
+    include: {
+      proficiencyGrants: {
+        include: {
+          proficiency: true,
+        },
+      },
+      abilityOptions: {
+        include: {
+          abilityScore: true,
+        },
+      },
+      featGrants: true,
+    },
+  },
   abilityScores: {
     include: {
       ability: true,
@@ -154,7 +168,21 @@ async function findAllCharactersForUser(userId: string) {
       user: true,
       species: true,
       class: true,
-      background: true,
+      background: {
+        include: {
+          proficiencyGrants: {
+            include: {
+              proficiency: true,
+            },
+          },
+          abilityOptions: {
+            include: {
+              abilityScore: true,
+            },
+          },
+          featGrants: true,
+        },
+      },
       abilityScores: {
         include: {
           ability: true,

@@ -140,6 +140,34 @@ function findBackgrounds() {
     orderBy: {
       name: "asc",
     },
+    include: {
+      proficiencyGrants: {
+        orderBy: [
+          {
+            grantType: "asc",
+          },
+          {
+            proficiencyIndex: "asc",
+          },
+        ],
+        include: {
+          proficiency: true,
+        },
+      },
+      abilityOptions: {
+        orderBy: {
+          abilityScoreIndex: "asc",
+        },
+        include: {
+          abilityScore: true,
+        },
+      },
+      featGrants: {
+        orderBy: {
+          featIndex: "asc",
+        },
+      },
+    },
   });
 }
 

@@ -70,6 +70,7 @@ model RefAbilityScore {
   skills      RefSkill[]
   characterScores CharacterAbilityScore[]
   classPrimaryAbilities RefClassPrimaryAbility[]
+  backgroundAbilityOptions RefBackgroundAbilityOption[]
 
   @@map("ref_ability_scores")
 }
@@ -216,8 +217,53 @@ model RefBackground {
   sourceJson  Json?
 
   characters  Character[]
+  proficiencyGrants RefBackgroundProficiencyGrant[]
+  abilityOptions    RefBackgroundAbilityOption[]
+  featGrants        RefBackgroundFeatGrant[]
 
   @@map("ref_backgrounds")
+}
+
+model RefBackgroundProficiencyGrant {
+  id               String @id @default(uuid()) @db.Uuid
+  backgroundIndex  String
+  proficiencyIndex String
+  grantType        String
+  sourceLabel      String?
+  sourceJson       Json?
+
+  background       RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  proficiency      RefProficiency  @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+
+  @@unique([backgroundIndex, proficiencyIndex, grantType])
+  @@map("ref_background_proficiency_grants")
+}
+
+model RefBackgroundAbilityOption {
+  id                String @id @default(uuid()) @db.Uuid
+  backgroundIndex   String
+  abilityScoreIndex String
+  bonusValue        Int?
+  sourceJson        Json?
+
+  background        RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  abilityScore      RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
+
+  @@unique([backgroundIndex, abilityScoreIndex])
+  @@map("ref_background_ability_options")
+}
+
+model RefBackgroundFeatGrant {
+  id              String @id @default(uuid()) @db.Uuid
+  backgroundIndex String
+  featIndex       String
+  sourceLabel     String?
+  sourceJson      Json?
+
+  background      RefBackground @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+
+  @@unique([backgroundIndex, featIndex])
+  @@map("ref_background_feat_grants")
 }
 
 model RefProficiency {
@@ -229,6 +275,7 @@ model RefProficiency {
   characterProficiencies CharacterProficiency[]
   classProficiencyGrants RefClassProficiencyGrant[]
   classSkillChoiceOptions RefClassSkillChoiceOption[]
+  backgroundProficiencyGrants RefBackgroundProficiencyGrant[]
 
   @@map("ref_proficiencies")
 }

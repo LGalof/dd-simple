@@ -55,6 +55,14 @@ type LanguageSourceJson = {
 
 type TrainingReferenceCharacter = Character & {
   background: Character["background"] & {
+    proficiencyGrants?: Array<{
+      grantType: string;
+      proficiencyIndex: string;
+      sourceLabel?: string | null;
+      proficiency?: {
+        name: string;
+      } | null;
+    }>;
     sourceJson?: unknown;
     toolProficiencies?: string[];
   };
@@ -849,10 +857,17 @@ function getTrainingProfile(character: Character) {
       ? groupedClassProficiencies.tools
       : trainingCharacter.class.proficiencies?.tools ?? [];
   const backgroundTools = getToolProficiencies(backgroundSourceJson);
+  const normalizedBackgroundTools = getNormalizedBackgroundToolProficiencies(
+    trainingCharacter.background,
+  );
   const mappedBackgroundTools = trainingCharacter.background.toolProficiencies ?? [];
   const tools = withUnavailableFallback([
     ...classTools,
-    ...(backgroundTools.length > 0 ? backgroundTools : mappedBackgroundTools),
+    ...(normalizedBackgroundTools.length > 0
+      ? normalizedBackgroundTools
+      : backgroundTools.length > 0
+        ? backgroundTools
+        : mappedBackgroundTools),
   ]);
   const languages = withUnavailableFallback(getLanguages(speciesSourceJson));
 
@@ -921,6 +936,16 @@ function getToolProficiencies(sourceJson: ProficiencySourceJson) {
       .map((choice) => stringValue(choice.desc))
       .filter(isPresent),
   ];
+}
+
+function getNormalizedBackgroundToolProficiencies(
+  background: TrainingReferenceCharacter["background"],
+) {
+  return (background.proficiencyGrants ?? [])
+    .filter((grant) => grant.grantType === "TOOL")
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
 }
 
 function getLanguages(sourceJson: LanguageSourceJson) {

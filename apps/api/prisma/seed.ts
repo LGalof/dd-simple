@@ -265,6 +265,26 @@ function proficiencyGrantType(proficiency: AnyRecord | null, fallbackIndex: stri
   return "OTHER";
 }
 
+function backgroundProficiencyGrantType(proficiency: AnyRecord | null, fallbackIndex: string, fallbackLabel: string | null) {
+  const type = stringOrNull(proficiency?.type)?.toLowerCase() ?? "";
+  const index = fallbackIndex.toLowerCase();
+  const label = (fallbackLabel ?? stringOrNull(proficiency?.name) ?? "").toLowerCase();
+
+  if (index.startsWith("skill-") || label.startsWith("skill:")) {
+    return "SKILL";
+  }
+
+  if (index.startsWith("tool-") || type.includes("tool") || label.startsWith("tool:")) {
+    return "TOOL";
+  }
+
+  if (type.includes("language") || label.includes("language")) {
+    return "LANGUAGE";
+  }
+
+  return "OTHER";
+}
+
 async function seedGenericRuleDocuments() {
   console.log("Seeding all 5e JSON documents into RefRuleDocument...");
 
@@ -701,6 +721,116 @@ async function seedBackgrounds() {
         sourceJson: sourceJson(background),
       },
     });
+  }
+}
+
+async function seedBackgroundReferenceData() {
+  console.log("Seeding background proficiency, ability, and feat references...");
+
+  const backgrounds = readJsonArray(FILES.backgrounds);
+  const proficiencies = await prisma.refProficiency.findMany();
+  const proficiencyByIndex = new Map(proficiencies.map((proficiency) => [proficiency.index, proficiency]));
+  const abilityScores = await prisma.refAbilityScore.findMany({
+    select: {
+      index: true,
+    },
+  });
+  const abilityScoreIndexes = new Set(abilityScores.map((abilityScore) => abilityScore.index));
+
+  await prisma.refBackgroundProficiencyGrant.deleteMany();
+  await prisma.refBackgroundAbilityOption.deleteMany();
+  await prisma.refBackgroundFeatGrant.deleteMany();
+
+  for (const background of backgrounds) {
+    const backgroundIndex = getItemIndex(background);
+
+    if (!backgroundIndex) {
+      console.warn("Skipping background reference data without background index", background);
+      continue;
+    }
+
+    const backgroundExists = await prisma.refBackground.findUnique({
+      where: {
+        index: backgroundIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!backgroundExists) {
+      console.warn(`Skipping background reference data for ${backgroundIndex}, because background does not exist.`);
+      continue;
+    }
+
+    if (Array.isArray(background.proficiencies)) {
+      for (const proficiencyReference of background.proficiencies) {
+        const proficiencyIndex = indexFromRef(proficiencyReference);
+
+        if (!proficiencyIndex) {
+          continue;
+        }
+
+        const proficiency = proficiencyByIndex.get(proficiencyIndex) ?? null;
+
+        if (!proficiency) {
+          console.warn(`Skipping background proficiency ${backgroundIndex}:${proficiencyIndex}, because proficiency does not exist.`);
+          continue;
+        }
+
+        const sourceLabel = stringOrNull((proficiencyReference as AnyRecord).name) ?? proficiency.name;
+        const grantType = backgroundProficiencyGrantType(proficiency, proficiencyIndex, sourceLabel);
+
+        await prisma.refBackgroundProficiencyGrant.create({
+          data: {
+            backgroundIndex,
+            proficiencyIndex,
+            grantType,
+            sourceLabel,
+            sourceJson: sourceJson(proficiencyReference as AnyRecord),
+          },
+        });
+      }
+    }
+
+    if (Array.isArray(background.ability_scores)) {
+      for (const abilityReference of background.ability_scores) {
+        const abilityScoreIndex = indexFromRef(abilityReference);
+
+        if (!abilityScoreIndex || !abilityScoreIndexes.has(abilityScoreIndex)) {
+          console.warn(`Skipping background ability option ${backgroundIndex}:${abilityScoreIndex ?? "unknown"}, because ability score does not exist.`);
+          continue;
+        }
+
+        await prisma.refBackgroundAbilityOption.create({
+          data: {
+            backgroundIndex,
+            abilityScoreIndex,
+            bonusValue: numberOrNull((abilityReference as AnyRecord).bonusValue),
+            sourceJson: sourceJson(abilityReference as AnyRecord),
+          },
+        });
+      }
+    }
+
+    if (background.feat && typeof background.feat === "object") {
+      const featRecord = background.feat as AnyRecord;
+      const featIndex = indexFromRef(featRecord);
+
+      if (featIndex) {
+        const note = stringOrNull(featRecord.note);
+        const name = stringOrNull(featRecord.name) ?? featIndex;
+
+        await prisma.refBackgroundFeatGrant.create({
+          data: {
+            backgroundIndex,
+            featIndex,
+            sourceLabel: note ? `${name}: ${note}` : name,
+            sourceJson: sourceJson(featRecord),
+          },
+        });
+      }
+    }
   }
 }
 
@@ -1471,6 +1601,7 @@ async function main() {
   await seedClassFeatures();
   await seedBackgrounds();
   await seedProficiencies();
+  await seedBackgroundReferenceData();
   await seedClassProficiencyData();
   await seedEquipment();
 

@@ -189,23 +189,32 @@ function mapBackgroundReferences(
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
     const sourceJson = asRecord(reference.sourceJson) as BackgroundSourceJson;
-    const proficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
-    const skillProficiencies = proficiencies.filter((name) => name.startsWith("Skill: ")).map(stripReferencePrefix);
+    const normalizedProficiencies = normalizedBackgroundProficiencies(reference);
+    const fallbackProficiencies = (sourceJson.proficiencies ?? []).map(referenceName).filter(isPresent);
+    const proficiencies = normalizedProficiencies.all ?? fallbackProficiencies;
+    const skillProficiencies =
+      normalizedProficiencies.skills ??
+      fallbackProficiencies.filter((name) => name.startsWith("Skill: ")).map(stripReferencePrefix);
     const toolProficiencies = [
-      ...proficiencies.filter((name) => name.startsWith("Tool: ")).map(stripReferencePrefix),
+      ...(normalizedProficiencies.tools ??
+        fallbackProficiencies.filter((name) => name.startsWith("Tool: ")).map(stripReferencePrefix)),
       ...(sourceJson.proficiency_choices ?? [])
         .map((choice) => stringValue(choice.desc))
         .filter(isPresent),
     ];
-    const abilityScoreOptions = (sourceJson.ability_scores ?? [])
-      .map(referenceName)
-      .filter(isPresent)
-      .map((name) => `${abilityLabel(name)} Score`);
-    const featName = sourceJson.feat
-      ? [referenceName(sourceJson.feat), stringValue(sourceJson.feat.note)]
-          .filter(isPresent)
-          .join(": ")
-      : fallback?.feature ?? "Origin Feature";
+    const abilityScoreOptions =
+      normalizedBackgroundAbilityScoreOptions(reference) ??
+      (sourceJson.ability_scores ?? [])
+        .map(referenceName)
+        .filter(isPresent)
+        .map((name) => `${abilityLabel(name)} Score`);
+    const featName =
+      normalizedBackgroundFeatName(reference) ??
+      (sourceJson.feat
+        ? [referenceName(sourceJson.feat), stringValue(sourceJson.feat.note)]
+            .filter(isPresent)
+            .join(": ")
+        : fallback?.feature ?? "Origin Feature");
     const equipmentDetails = (sourceJson.equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
@@ -243,6 +252,54 @@ function mapBackgroundReferences(
       ],
     };
   });
+}
+
+function normalizedBackgroundProficiencies(reference: ReferenceBackground) {
+  const grants = reference.proficiencyGrants ?? [];
+
+  if (grants.length === 0) {
+    return {};
+  }
+
+  return {
+    all: grants
+      .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+      .filter(isPresent),
+    skills: backgroundGrantLabelsByType(grants, "SKILL"),
+    tools: backgroundGrantLabelsByType(grants, "TOOL"),
+  };
+}
+
+function backgroundGrantLabelsByType(
+  grants: NonNullable<ReferenceBackground["proficiencyGrants"]>,
+  grantType: string,
+) {
+  return grants
+    .filter((grant) => grant.grantType === grantType)
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+}
+
+function normalizedBackgroundAbilityScoreOptions(reference: ReferenceBackground) {
+  const options = (reference.abilityOptions ?? [])
+    .map((abilityOption) =>
+      abilityOption.abilityScore?.fullName ??
+      abilityOption.abilityScore?.name ??
+      abilityOption.abilityScoreIndex,
+    )
+    .filter(isPresent)
+    .map((name) => `${abilityLabel(name)} Score`);
+
+  return options.length > 0 ? options : null;
+}
+
+function normalizedBackgroundFeatName(reference: ReferenceBackground) {
+  const featNames = (reference.featGrants ?? [])
+    .map((featGrant) => featGrant.sourceLabel ?? featGrant.featIndex)
+    .filter(isPresent);
+
+  return featNames.length > 0 ? featNames.join(", ") : null;
 }
 
 function mapClassReferences(

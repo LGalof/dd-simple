@@ -98,7 +98,41 @@ type ReferenceClass = Omit<ClassDefinition, "features"> & {
   sourceJson?: unknown;
 };
 
+type ReferenceBackgroundProficiencyGrant = {
+  id: string;
+  backgroundIndex: string;
+  proficiencyIndex: string;
+  grantType: string;
+  sourceLabel?: string | null;
+  sourceJson?: unknown;
+  proficiency?: {
+    index: string;
+    name: string;
+    type: string;
+  };
+};
+
+type ReferenceBackgroundAbilityOption = {
+  id: string;
+  backgroundIndex: string;
+  abilityScoreIndex: string;
+  bonusValue?: number | null;
+  sourceJson?: unknown;
+  abilityScore?: ReferenceAbilityScore;
+};
+
+type ReferenceBackgroundFeatGrant = {
+  id: string;
+  backgroundIndex: string;
+  featIndex: string;
+  sourceLabel?: string | null;
+  sourceJson?: unknown;
+};
+
 type ReferenceBackground = BackgroundDefinition & {
+  abilityOptions?: ReferenceBackgroundAbilityOption[];
+  featGrants?: ReferenceBackgroundFeatGrant[];
+  proficiencyGrants?: ReferenceBackgroundProficiencyGrant[];
   sourceJson?: unknown;
 };
 
@@ -133,6 +167,9 @@ export type {
   ReferenceAbilityScore,
   ReferenceAlignment,
   ReferenceBackground,
+  ReferenceBackgroundAbilityOption,
+  ReferenceBackgroundFeatGrant,
+  ReferenceBackgroundProficiencyGrant,
   ReferenceClass,
   ReferenceClassFeature,
   ReferenceClassLevel,
