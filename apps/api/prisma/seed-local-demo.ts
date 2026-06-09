@@ -140,6 +140,76 @@ async function seedReferences() {
     ],
   });
 
+  await prisma.refSpeciesTrait.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        speciesIndex: "human",
+        traitIndex: "resourceful",
+        name: "Resourceful",
+        description: "You gain Heroic Inspiration whenever you finish a Long Rest.",
+      },
+      {
+        speciesIndex: "human",
+        traitIndex: "skillful",
+        name: "Skillful",
+        description: "You gain proficiency in one skill of your choice.",
+      },
+      {
+        speciesIndex: "elf",
+        traitIndex: "darkvision-60",
+        name: "Darkvision (60 ft.)",
+        description: "You have Darkvision with a range of 60 feet.",
+      },
+      {
+        speciesIndex: "elf",
+        traitIndex: "fey-ancestry",
+        name: "Fey Ancestry",
+        description: "You have Advantage on saving throws against being Charmed.",
+      },
+      {
+        speciesIndex: "dwarf",
+        traitIndex: "dwarven-resilience",
+        name: "Dwarven Resilience",
+        description: "You have hardy resistance against poison.",
+      },
+    ],
+  });
+
+  await prisma.refSpeciesSizeOption.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        speciesIndex: "human",
+        size: "Medium",
+      },
+      {
+        speciesIndex: "elf",
+        size: "Medium",
+      },
+      {
+        speciesIndex: "dwarf",
+        size: "Medium",
+      },
+    ],
+  });
+
+  await prisma.refSubspecies.createMany({
+    skipDuplicates: true,
+    data: [
+      {
+        index: "elven-lineage-high-elf",
+        name: "Elven Lineage: High Elf",
+        speciesIndex: "elf",
+      },
+      {
+        index: "elven-lineage-wood-elf",
+        name: "Elven Lineage: Wood Elf",
+        speciesIndex: "elf",
+      },
+    ],
+  });
+
   await prisma.refClass.createMany({
     skipDuplicates: true,
     data: [

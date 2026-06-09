@@ -19,6 +19,8 @@ const FILES = {
   alignments: "5e-SRD-Alignments.json",
   skills: "5e-SRD-Skills.json",
   species: "5e-SRD-Species.json",
+  subspecies: "5e-SRD-Subspecies.json",
+  traits: "5e-SRD-Traits.json",
   classes: "5e-SRD-Classes.json",
   levels: "5e-SRD-Levels.json",
   features: "5e-SRD-Features.json",
@@ -493,6 +495,126 @@ async function seedSpecies() {
         baseSpeed: intOrDefault(species.speed ?? species.baseSpeed ?? species.base_speed, 30),
         description: toDescription(species.description, species.desc),
         sourceJson: sourceJson(species),
+      },
+    });
+  }
+}
+
+async function seedSpeciesReferenceData() {
+  console.log("Seeding species traits, size options, and subspecies references...");
+
+  const speciesList = readJsonArray(FILES.species);
+  const traits = readJsonArray(FILES.traits);
+  const subspeciesList = readJsonArray(FILES.subspecies);
+  const traitByIndex = new Map(
+    traits
+      .map((trait) => {
+        const index = getItemIndex(trait);
+        return index ? [index, trait] as const : null;
+      })
+      .filter((entry): entry is readonly [string, AnyRecord] => entry !== null),
+  );
+
+  await prisma.refSpeciesTrait.deleteMany();
+  await prisma.refSpeciesSizeOption.deleteMany();
+  await prisma.refSubspecies.deleteMany();
+
+  for (const species of speciesList) {
+    const speciesIndex = getItemIndex(species);
+
+    if (!speciesIndex) {
+      console.warn("Skipping species reference data without species index", species);
+      continue;
+    }
+
+    const speciesExists = await prisma.refSpecies.findUnique({
+      where: {
+        index: speciesIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!speciesExists) {
+      console.warn(`Skipping species reference data for ${speciesIndex}, because species does not exist.`);
+      continue;
+    }
+
+    if (Array.isArray(species.traits)) {
+      for (const traitReference of species.traits) {
+        const traitIndex = indexFromRef(traitReference);
+
+        if (!traitIndex) {
+          continue;
+        }
+
+        const trait = traitByIndex.get(traitIndex);
+        const traitRecord = trait ?? (traitReference as AnyRecord);
+
+        await prisma.refSpeciesTrait.create({
+          data: {
+            speciesIndex,
+            traitIndex,
+            name: stringOrNull((traitReference as AnyRecord).name) ?? stringOrNull(trait?.name) ?? traitIndex,
+            description: toDescription(trait?.description, trait?.desc),
+            sourceJson: sourceJson(traitRecord),
+          },
+        });
+      }
+    }
+
+    const sizeOptions = Array.isArray(species.size_options?.from?.options)
+      ? species.size_options.from.options
+      : [];
+
+    for (const sizeOption of sizeOptions) {
+      const size = stringOrNull((sizeOption as AnyRecord).size);
+
+      if (!size) {
+        continue;
+      }
+
+      await prisma.refSpeciesSizeOption.create({
+        data: {
+          speciesIndex,
+          size,
+          sourceJson: sourceJson(sizeOption as AnyRecord),
+        },
+      });
+    }
+  }
+
+  for (const subspecies of subspeciesList) {
+    const index = getItemIndex(subspecies);
+    const speciesIndex = indexFromRef(subspecies.species);
+
+    if (!index || !speciesIndex) {
+      console.warn("Skipping subspecies without index/species", subspecies);
+      continue;
+    }
+
+    const speciesExists = await prisma.refSpecies.findUnique({
+      where: {
+        index: speciesIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+
+    if (!speciesExists) {
+      console.warn(`Skipping subspecies ${index}, because species ${speciesIndex} does not exist.`);
+      continue;
+    }
+
+    await prisma.refSubspecies.create({
+      data: {
+        index,
+        name: stringOrNull(subspecies.name) ?? index,
+        speciesIndex,
+        description: toDescription(subspecies.description, subspecies.desc),
+        sourceJson: sourceJson(subspecies),
       },
     });
   }
@@ -1595,6 +1717,7 @@ async function main() {
   await seedAlignments();
   await seedSkills();
   await seedSpecies();
+  await seedSpeciesReferenceData();
   await seedClasses();
   await seedClassPrimaryAbilities();
   await seedClassLevels();

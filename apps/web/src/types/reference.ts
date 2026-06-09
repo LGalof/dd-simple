@@ -27,8 +27,35 @@ type ReferenceAlignment = {
   sourceJson?: unknown;
 };
 
-type ReferenceSpecies = SpeciesDefinition & {
+type ReferenceSpeciesTrait = {
+  id: string;
+  speciesIndex: string;
+  traitIndex: string;
+  name: string;
+  description?: string | null;
   sourceJson?: unknown;
+};
+
+type ReferenceSpeciesSizeOption = {
+  id: string;
+  speciesIndex: string;
+  size: string;
+  sourceJson?: unknown;
+};
+
+type ReferenceSubspecies = {
+  index: string;
+  name: string;
+  speciesIndex: string;
+  description?: string | null;
+  sourceJson?: unknown;
+};
+
+type ReferenceSpecies = Omit<SpeciesDefinition, "traits"> & {
+  sizeOptions?: ReferenceSpeciesSizeOption[];
+  sourceJson?: unknown;
+  subspecies?: ReferenceSubspecies[];
+  traits?: ReferenceSpeciesTrait[];
 };
 
 type ReferenceClassFeature = ClassFeatureDefinition & {
@@ -181,4 +208,7 @@ export type {
   ReferenceRuleDocument,
   ReferenceSkill,
   ReferenceSpecies,
+  ReferenceSpeciesSizeOption,
+  ReferenceSpeciesTrait,
+  ReferenceSubspecies,
 };

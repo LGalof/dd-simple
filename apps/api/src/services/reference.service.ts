@@ -24,6 +24,23 @@ function findSpecies() {
     orderBy: {
       name: "asc",
     },
+    include: {
+      traits: {
+        orderBy: {
+          name: "asc",
+        },
+      },
+      sizeOptions: {
+        orderBy: {
+          size: "asc",
+        },
+      },
+      subspecies: {
+        orderBy: {
+          name: "asc",
+        },
+      },
+    },
   });
 }
 

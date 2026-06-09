@@ -108,11 +108,17 @@ function mapSpeciesReferences(
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
     const sourceJson = asRecord(reference.sourceJson) as SpeciesSourceJson;
-    const traitNames = (sourceJson.traits ?? []).map(referenceName).filter(isPresent);
-    const subspeciesNames = (sourceJson.subspecies ?? []).map(referenceName).filter(isPresent);
-    const sizeOptions = sourceJson.size_options?.from?.options
-      ?.map((option) => stringValue(option.size))
-      .filter(isPresent);
+    const normalizedTraits = normalizedSpeciesTraits(reference);
+    const fallbackTraitNames = (sourceJson.traits ?? []).map(referenceName).filter(isPresent);
+    const traitNames = normalizedTraits.names.length > 0 ? normalizedTraits.names : fallbackTraitNames;
+    const subspeciesNames =
+      normalizedSpeciesSubspecies(reference) ??
+      (sourceJson.subspecies ?? []).map(referenceName).filter(isPresent);
+    const sizeOptions =
+      normalizedSpeciesSizeOptions(reference) ??
+      sourceJson.size_options?.from?.options
+        ?.map((option) => stringValue(option.size))
+        .filter(isPresent);
     const size = reference.size ?? stringValue(sourceJson.size) ?? sizeOptions?.join(" or ") ?? "Unknown";
     const sizeDescription = stringValue(sourceJson.size_options?.desc);
     const creatureType = stringValue(sourceJson.type) ?? fallback?.creatureType ?? "Unknown";
@@ -159,7 +165,7 @@ function mapSpeciesReferences(
               {
                 id: `${reference.index}-traits`,
                 title: "Traits",
-                details: traits,
+                details: normalizedTraits.details.length > 0 ? normalizedTraits.details : traits,
               },
             ]
           : []),
@@ -176,6 +182,31 @@ function mapSpeciesReferences(
       ],
     };
   });
+}
+
+function normalizedSpeciesTraits(reference: ReferenceSpecies) {
+  const traits = reference.traits ?? [];
+
+  return {
+    details: traits
+      .map((trait) =>
+        trait.description ? `${trait.name}: ${trimDescription(trait.description)}` : trait.name,
+      )
+      .filter(isPresent),
+    names: traits.map((trait) => trait.name).filter(isPresent),
+  };
+}
+
+function normalizedSpeciesSubspecies(reference: ReferenceSpecies) {
+  const names = (reference.subspecies ?? []).map((subspecies) => subspecies.name).filter(isPresent);
+
+  return names.length > 0 ? names : null;
+}
+
+function normalizedSpeciesSizeOptions(reference: ReferenceSpecies) {
+  const sizes = (reference.sizeOptions ?? []).map((sizeOption) => sizeOption.size).filter(isPresent);
+
+  return sizes.length > 0 ? sizes : null;
 }
 
 function mapBackgroundReferences(

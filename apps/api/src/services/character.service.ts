@@ -38,7 +38,13 @@ class CharacterReferenceNotFoundError extends Error {
 
 const characterInclude = {
   user: true,
-  species: true,
+  species: {
+    include: {
+      traits: true,
+      sizeOptions: true,
+      subspecies: true,
+    },
+  },
   class: true,
   background: {
     include: {
@@ -166,7 +172,13 @@ async function findAllCharactersForUser(userId: string) {
     },
     include: {
       user: true,
-      species: true,
+      species: {
+        include: {
+          traits: true,
+          sizeOptions: true,
+          subspecies: true,
+        },
+      },
       class: true,
       background: {
         include: {

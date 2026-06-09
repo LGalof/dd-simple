@@ -98,8 +98,49 @@ model RefSpecies {
   sourceJson  Json?
 
   characters  Character[]
+  traits      RefSpeciesTrait[]
+  sizeOptions RefSpeciesSizeOption[]
+  subspecies  RefSubspecies[]
 
   @@map("ref_species")
+}
+
+model RefSpeciesTrait {
+  id           String @id @default(uuid()) @db.Uuid
+  speciesIndex String
+  traitIndex   String
+  name         String
+  description  String?
+  sourceJson   Json?
+
+  species      RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+
+  @@unique([speciesIndex, traitIndex])
+  @@map("ref_species_traits")
+}
+
+model RefSpeciesSizeOption {
+  id           String @id @default(uuid()) @db.Uuid
+  speciesIndex String
+  size         String
+  sourceJson   Json?
+
+  species      RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+
+  @@unique([speciesIndex, size])
+  @@map("ref_species_size_options")
+}
+
+model RefSubspecies {
+  index       String @id
+  name        String
+  speciesIndex String
+  description String?
+  sourceJson  Json?
+
+  species     RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+
+  @@map("ref_subspecies")
 }
 
 model RefClass {
