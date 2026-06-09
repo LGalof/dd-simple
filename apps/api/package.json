@@ -13,12 +13,12 @@
     "prisma:seed": "node ../../node_modules/tsx/dist/cli.mjs prisma/seed.ts",
     "seed:demo": "node ../../node_modules/tsx/dist/cli.mjs prisma/seed-local-demo.ts"
   },
-
   "dependencies": {
     "@prisma/client": "^6.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.21.1"
+    "express": "^4.21.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

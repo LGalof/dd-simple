@@ -2379,68 +2379,70 @@ function InventoryWorkbench({
       )}
 
       <div className="inventory-layout">
-        <section className="equipment-panel">
-          <div className="inventory-panel-heading">
-            <span>Character</span>
-            <strong>Equipped Gear</strong>
+        <div className="inventory-main-scroll">
+          <section className="equipment-panel">
+            <div className="inventory-panel-heading">
+              <span>Character</span>
+              <strong>Equipped Gear</strong>
+            </div>
+
+            <div className="equipment-slot-grid">
+              {equipmentSlots.map((slot) => {
+                const item = equippedItems.get(slot.id);
+
+                return (
+                  <div
+                    key={slot.id}
+                    className={["equipment-slot", item ? "equipment-slot-filled" : ""].filter(Boolean).join(" ")}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => handleEquipmentDrop(event, slot.id)}
+                  >
+                    <span>{slot.label}</span>
+                    {item ? (
+                      <button
+                        type="button"
+                        className="equipment-slot-item"
+                        draggable
+                        onClick={() => setSelectedItemId(item.id)}
+                        onDragStart={(event) => handleDragStart(event, item.id)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <ItemIcon item={item} />
+                        {item.name}
+                      </button>
+                    ) : (
+                      <>
+                        <SlotIcon slotId={slot.id} />
+                        <em>Drop {slot.accepts.join(" / ")}</em>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="inventory-grid-stack">
+            {containers.map((container) => (
+              <InventoryGrid
+                key={container.id}
+                container={container}
+                items={items.filter((item) => item.location === container.id)}
+                hoverPreview={hoverPreview?.containerId === container.id ? hoverPreview : null}
+                mergeTargetId={mergeTargetId}
+                onDragEnd={handleDragEnd}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onItemDragLeave={handleItemDragLeave}
+                onItemDragOver={handleItemDragOver}
+                onItemDrop={handleItemDrop}
+                onDragStart={handleDragStart}
+                onSelectItem={setSelectedItemId}
+                selectedItemId={selectedItemId}
+              />
+            ))}
           </div>
-
-          <div className="equipment-slot-grid">
-            {equipmentSlots.map((slot) => {
-              const item = equippedItems.get(slot.id);
-
-              return (
-                <div
-                  key={slot.id}
-                  className={["equipment-slot", item ? "equipment-slot-filled" : ""].filter(Boolean).join(" ")}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => handleEquipmentDrop(event, slot.id)}
-                >
-                  <span>{slot.label}</span>
-                  {item ? (
-                    <button
-                      type="button"
-                      className="equipment-slot-item"
-                      draggable
-                      onClick={() => setSelectedItemId(item.id)}
-                      onDragStart={(event) => handleDragStart(event, item.id)}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <ItemIcon item={item} />
-                      {item.name}
-                    </button>
-                  ) : (
-                    <>
-                      <SlotIcon slotId={slot.id} />
-                      <em>Drop {slot.accepts.join(" / ")}</em>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <div className="inventory-grid-stack">
-          {containers.map((container) => (
-            <InventoryGrid
-              key={container.id}
-              container={container}
-              items={items.filter((item) => item.location === container.id)}
-              hoverPreview={hoverPreview?.containerId === container.id ? hoverPreview : null}
-              mergeTargetId={mergeTargetId}
-              onDragEnd={handleDragEnd}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              onItemDragLeave={handleItemDragLeave}
-              onItemDragOver={handleItemDragOver}
-              onItemDrop={handleItemDrop}
-              onDragStart={handleDragStart}
-              onSelectItem={setSelectedItemId}
-              selectedItemId={selectedItemId}
-            />
-          ))}
         </div>
 
         {!hideDetailsPanel && (

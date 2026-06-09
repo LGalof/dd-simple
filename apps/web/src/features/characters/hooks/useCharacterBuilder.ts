@@ -85,6 +85,8 @@ function createBuilderStateFromOptions(
     level: character.level,
     currentHp: character.currentHp,
     tempHp: 0,
+    speciesChoices: {},
+    backgroundChoices: {},
     hitPointSettings: {
       bonusHp: character.maxHp - initialHitPointPreview.totalFixedHp,
       calculationMode: "fixed",
@@ -166,38 +168,37 @@ function useCharacterBuilder(character: Character | undefined) {
 
     async function loadReferenceOptions() {
       try {
-        const [speciesReferences, backgroundReferences, classReferences] = await Promise.all([
+        const [
+          speciesReferences,
+          backgroundReferences,
+          classReferences,
+          featRuleDocuments,
+        ] = await Promise.all([
           fetchSpecies(),
           fetchBackgrounds(),
           fetchClasses(),
+          fetchRuleDocuments("feats").catch((error) => {
+            console.warn("Background feat reference data is unavailable.", error);
+            return [];
+          }),
         ]);
-        const hasNormalizedClassFeatures = classReferences.length > 0 && classReferences.every(
-          (classReference) => (classReference.features ?? []).length > 0,
-        );
-        const [levelRuleDocuments, featureRuleDocuments] = hasNormalizedClassFeatures
-          ? [[], []]
-          : await Promise.all([
-              fetchRuleDocuments("levels").catch((error) => {
-                console.warn("Class level reference data is unavailable.", error);
-                return [];
-              }),
-              fetchRuleDocuments("features").catch((error) => {
-                console.warn("Class feature reference data is unavailable.", error);
-                return [];
-              }),
-            ]);
 
         if (!isCurrentRequest) {
           return;
         }
 
-        const nextSpeciesOptions = mapSpeciesReferences(speciesReferences, speciesOptions);
-        const nextBackgroundOptions = mapBackgroundReferences(backgroundReferences, backgroundOptions);
+        const nextSpeciesOptions = mapSpeciesReferences(
+          speciesReferences,
+          speciesOptions,
+        );
+        const nextBackgroundOptions = mapBackgroundReferences(
+          backgroundReferences,
+          featRuleDocuments,
+          backgroundOptions,
+        );
         const nextClassOptions = mapClassReferences(
           classReferences,
           classOptions,
-          levelRuleDocuments,
-          featureRuleDocuments,
         );
 
         if (
@@ -477,17 +478,39 @@ function useCharacterBuilder(character: Character | undefined) {
     setPendingSelection(null);
   }
 
-  function confirmSelection() {
+  function confirmSelection(nextOptions?: {
+    backgroundChoices?: Record<string, string>;
+    speciesChoices?: Record<string, string>;
+  }) {
     if (!builderState || !activePanel || !pendingSelection) {
       closePanel();
       return;
     }
+
+    const nextSpeciesChoices =
+      activePanel === "species"
+        ? Object.fromEntries(
+            Object.entries(nextOptions?.speciesChoices ?? {}).filter(([key]) =>
+              key.startsWith(`${pendingSelection}:`),
+            ),
+          )
+        : builderState.speciesChoices;
+    const nextBackgroundChoices =
+      activePanel === "background"
+        ? Object.fromEntries(
+            Object.entries(nextOptions?.backgroundChoices ?? {}).filter(([key]) =>
+              key.startsWith(`${pendingSelection}:`),
+            ),
+          )
+        : builderState.backgroundChoices;
 
     setBuilderState({
       ...builderState,
       ...(activePanel === "species" ? { speciesIndex: pendingSelection } : {}),
       ...(activePanel === "background" ? { backgroundIndex: pendingSelection } : {}),
       ...(activePanel === "class" ? { classIndex: pendingSelection } : {}),
+      ...(activePanel === "species" ? { speciesChoices: nextSpeciesChoices } : {}),
+      ...(activePanel === "background" ? { backgroundChoices: nextBackgroundChoices } : {}),
     });
 
     if (activePanel === "class") {
@@ -540,6 +563,8 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedPanelOption,
     selectedSkillIndexes,
     selectedSpecies,
+    speciesChoices: builderState?.speciesChoices ?? {},
+    backgroundChoices: builderState?.backgroundChoices ?? {},
     persistedSkillIndexes,
     setSelection,
     setFeatureChoices,

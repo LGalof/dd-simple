@@ -69,6 +69,22 @@ function AppLayout({
                 >
                   Board
                 </NavLink>
+                <NavLink
+                  to="/rooms/create"
+                  className={({ isActive }) =>
+                    isActive ? "app-nav-link app-nav-link-active" : "app-nav-link"
+                  }
+                >
+                  Create room
+                </NavLink>
+                <NavLink
+                  to="/rooms/join"
+                  className={({ isActive }) =>
+                    isActive ? "app-nav-link app-nav-link-active" : "app-nav-link"
+                  }
+                >
+                  Join room
+                </NavLink>
                 {user && (
                   <button
                     type="button"

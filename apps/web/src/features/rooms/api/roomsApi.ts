@@ -1,0 +1,30 @@
+import { api } from "../../../lib/api";
+
+type CreateRoomResponse = {
+  room: {
+    code: string;
+    createdAt: number;
+    players: Array<{
+      userId: string;
+      characterId: string;
+      characterName: string;
+      joinedAt: number;
+    }>;
+  };
+};
+
+type RoomResponse = CreateRoomResponse;
+
+async function createRoom(characterId: string, token: string) {
+  return api.post<CreateRoomResponse>("/rooms", { characterId }, { token });
+}
+
+async function joinRoom(roomCode: string, characterId: string, token: string) {
+  return api.post<RoomResponse>(`/rooms/${encodeURIComponent(roomCode)}/join`, { characterId }, { token });
+}
+
+async function getRoom(roomCode: string, token: string) {
+  return api.get<RoomResponse>(`/rooms/${encodeURIComponent(roomCode)}`, { token });
+}
+
+export { createRoom, getRoom, joinRoom };

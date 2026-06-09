@@ -21,8 +21,18 @@ type CharacterBuilderState = {
   level: number;
   currentHp: number;
   tempHp: number;
+  speciesChoices: Record<string, string>;
+  backgroundChoices: Record<string, string>;
   abilityAssignments: AbilityAssignment[];
   hitPointSettings: HitPointSettings;
+};
+
+type SpeciesHeritageOption = {
+  breathWeaponTraitIndex?: string;
+  damageType: string;
+  index: string;
+  name: string;
+  resistanceTraitIndex?: string;
 };
 
 type SpeciesOption = {
@@ -34,6 +44,7 @@ type SpeciesOption = {
   creatureType: string;
   size: string;
   languages: string[];
+  heritageOptions?: SpeciesHeritageOption[];
   previewSections: SpeciesPreviewSection[];
 };
 
@@ -128,6 +139,7 @@ export type {
   FeatureChoiceOption,
   FeatureChoiceSelections,
   HitPointSettings,
+  SpeciesHeritageOption,
   SpeciesPreviewSection,
   SpeciesOption,
 };

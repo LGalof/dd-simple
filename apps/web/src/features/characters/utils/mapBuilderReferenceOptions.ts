@@ -4,6 +4,7 @@ import type {
   ReferenceClassFeature,
   ReferenceRuleDocument,
   ReferenceSpecies,
+  ReferenceSubspecies,
 } from "../../../types/reference";
 import type {
   BackgroundOption,
@@ -11,6 +12,7 @@ import type {
   ClassOption,
   FeatureChoiceField,
   SpeciesOption,
+  SpeciesHeritageOption,
 } from "../types/characterBuilder";
 
 type ReferenceItem = {
@@ -59,16 +61,40 @@ type SpeciesSourceJson = {
   subspecies?: ReferenceItem[];
 };
 
+type SubspeciesSourceJson = {
+  damage_type?: {
+    name?: unknown;
+  };
+  index?: unknown;
+  name?: unknown;
+  species?: {
+    index?: unknown;
+  };
+  traits?: Array<{
+    index?: unknown;
+    name?: unknown;
+  }>;
+};
+
 type BackgroundSourceJson = {
   ability_scores?: ReferenceItem[];
   equipment_options?: Array<{
     desc?: unknown;
+    from?: {
+      options?: ChoiceOption[];
+    };
+    choose?: unknown;
   }>;
   feat?: ReferenceItem & {
     note?: unknown;
   };
   proficiencies?: ReferenceItem[];
   proficiency_choices?: Choice[];
+};
+
+type FeatSourceJson = {
+  description?: unknown;
+  repeatable?: unknown;
 };
 
 type ClassSourceJson = {
@@ -119,6 +145,7 @@ function mapSpeciesReferences(
       sourceJson.size_options?.from?.options
         ?.map((option) => stringValue(option.size))
         .filter(isPresent);
+    const heritageOptions = normalizedSpeciesHeritageOptions(reference);
     const size = reference.size ?? stringValue(sourceJson.size) ?? sizeOptions?.join(" or ") ?? "Unknown";
     const sizeDescription = stringValue(sourceJson.size_options?.desc);
     const creatureType = stringValue(sourceJson.type) ?? fallback?.creatureType ?? "Unknown";
@@ -138,7 +165,38 @@ function mapSpeciesReferences(
       creatureType,
       size,
       languages,
+      heritageOptions,
       previewSections: [
+        ...(heritageOptions.length > 0
+          ? [
+              {
+                id: `${reference.index}-heritage-choice`,
+                title: reference.index === "dragonborn" ? "Draconic Ancestry" : "Heritage",
+                subtitle: "1 Choice",
+                details:
+                  reference.index === "dragonborn"
+                    ? [
+                        "Choose the dragon lineage that defines your Breath Weapon and Damage Resistance.",
+                        ...heritageOptions.map(
+                          (option) => `${shortHeritageName(option.name)} -> ${option.damageType}`,
+                        ),
+                      ]
+                    : [
+                        "Choose the heritage that shapes this species-specific feature set.",
+                      ],
+                choiceFields: [
+                  createChoiceField(
+                    "heritage",
+                    reference.index === "dragonborn" ? "Dragon Heritage" : "Heritage",
+                    heritageOptions.map((option) => ({
+                      label: shortHeritageName(option.name),
+                      value: option.index,
+                    })),
+                  ),
+                ],
+              },
+            ]
+          : []),
         {
           id: `${reference.index}-creature-type`,
           title: "Creature Type",
@@ -160,6 +218,25 @@ function mapSpeciesReferences(
           title: "Speed",
           details: [`Your walking speed is ${speed} feet.`],
         },
+        ...(reference.index === "dragonborn"
+          ? [
+              {
+                id: `${reference.index}-breath-weapon`,
+                title: "Breath Weapon",
+                details: [
+                  "When you take the Attack action on your turn, you can replace one of your attacks with your selected Breath Weapon.",
+                  "Its damage type comes from your chosen Draconic Ancestry.",
+                ],
+              },
+              {
+                id: `${reference.index}-damage-resistance`,
+                title: "Damage Resistance",
+                details: [
+                  "You gain resistance to the damage type tied to your chosen Draconic Ancestry.",
+                ],
+              },
+            ]
+          : []),
         ...(traits.length > 0
           ? [
               {
@@ -169,7 +246,7 @@ function mapSpeciesReferences(
               },
             ]
           : []),
-        ...(subspeciesNames.length > 0
+        ...(subspeciesNames.length > 0 && heritageOptions.length === 0
           ? [
               {
                 id: `${reference.index}-heritage`,
@@ -209,13 +286,41 @@ function normalizedSpeciesSizeOptions(reference: ReferenceSpecies) {
   return sizes.length > 0 ? sizes : null;
 }
 
+function normalizedSpeciesHeritageOptions(reference: ReferenceSpecies): SpeciesHeritageOption[] {
+  return (reference.subspecies ?? [])
+    .map((subspecies) => speciesHeritageOption(subspecies))
+    .filter(isPresent);
+}
+
+function speciesHeritageOption(subspecies: ReferenceSubspecies): SpeciesHeritageOption | null {
+  const sourceJson = asRecord(subspecies.sourceJson) as SubspeciesSourceJson;
+  const traitIndexes = (sourceJson.traits ?? [])
+    .map((trait) => stringValue(trait.index))
+    .filter(isPresent);
+
+  if (!subspecies.index) {
+    return null;
+  }
+
+  return {
+    breathWeaponTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("breath-weapon")),
+    damageType: stringValue(sourceJson.damage_type?.name) ?? "Unknown",
+    index: subspecies.index,
+    name: subspecies.name,
+    resistanceTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("damage-resistance")),
+  };
+}
+
 function mapBackgroundReferences(
   references: ReferenceBackground[],
+  featDocuments: ReferenceRuleDocument[] = [],
   fallbackOptions: BackgroundOption[],
 ): BackgroundOption[] {
   if (references.length === 0) {
     return fallbackOptions;
   }
+
+  const featDocumentMap = new Map(featDocuments.map((document) => [document.index, document]));
 
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
@@ -226,9 +331,14 @@ function mapBackgroundReferences(
     const skillProficiencies =
       normalizedProficiencies.skills ??
       fallbackProficiencies.filter((name) => name.startsWith("Skill: ")).map(stripReferencePrefix);
+    const fixedToolProficiencies =
+      normalizedProficiencies.tools ??
+      fallbackProficiencies.filter((name) => name.startsWith("Tool: ")).map(stripReferencePrefix);
+    const proficiencyChoiceFields = (sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
+      createChoiceFieldsFromChoice(choice, `${reference.index}-proficiency-choice-${index}`, "Tool Choice"),
+    );
     const toolProficiencies = [
-      ...(normalizedProficiencies.tools ??
-        fallbackProficiencies.filter((name) => name.startsWith("Tool: ")).map(stripReferencePrefix)),
+      ...fixedToolProficiencies,
       ...(sourceJson.proficiency_choices ?? [])
         .map((choice) => stringValue(choice.desc))
         .filter(isPresent),
@@ -239,16 +349,24 @@ function mapBackgroundReferences(
         .map(referenceName)
         .filter(isPresent)
         .map((name) => `${abilityLabel(name)} Score`);
-    const featName =
-      normalizedBackgroundFeatName(reference) ??
-      (sourceJson.feat
-        ? [referenceName(sourceJson.feat), stringValue(sourceJson.feat.note)]
-            .filter(isPresent)
-            .join(": ")
-        : fallback?.feature ?? "Origin Feature");
+    const normalizedFeat = normalizedBackgroundFeat(reference);
+    const featIndex = normalizedFeat?.index ?? stringValue(sourceJson.feat?.index);
+    const featDocument = featIndex ? featDocumentMap.get(featIndex) : null;
+    const featSourceJson = asRecord(featDocument?.sourceJson) as FeatSourceJson;
+    const featName = normalizedFeat?.name ?? referenceName(sourceJson.feat) ?? fallback?.feature ?? "Origin Feature";
+    const featNote = normalizedFeat?.note ?? stringValue(sourceJson.feat?.note);
+    const featDetails = getFeatDetails(reference.name, featName, featNote, featSourceJson, fallback?.description);
     const equipmentDetails = (sourceJson.equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
+    const equipmentChoiceFields = (sourceJson.equipment_options ?? []).flatMap((choice, index) =>
+      createChoiceFieldsFromChoice(choice, `${reference.index}-equipment-choice-${index}`, "Equipment Choice"),
+    );
+    const featSubtitleParts = ["Granted Feat"];
+
+    if (featNote) {
+      featSubtitleParts.push(featNote);
+    }
 
     return {
       index: reference.index,
@@ -265,8 +383,8 @@ function mapBackgroundReferences(
         {
           id: `${reference.index}-origin-feat`,
           title: featName,
-          subtitle: "Granted Feat",
-          details: [`${reference.name} grants ${featName}.`, ...equipmentDetails],
+          subtitle: featSubtitleParts.join(" - "),
+          details: featDetails,
         },
         {
           id: `${reference.index}-ability-scores`,
@@ -280,6 +398,33 @@ function mapBackgroundReferences(
           ],
           choiceFields: createAbilityScoreChoiceFields(abilityScoreOptions),
         },
+        ...(proficiencyChoiceFields.length > 0
+          ? [
+              {
+                id: `${reference.index}-origin-proficiencies`,
+                title: "Origin Proficiencies",
+                subtitle: formatChoiceCount(proficiencyChoiceFields.length),
+                details: (sourceJson.proficiency_choices ?? [])
+                  .map((choice) => stringValue(choice.desc))
+                  .filter(isPresent),
+                choiceFields: proficiencyChoiceFields,
+              },
+            ]
+          : []),
+        ...(equipmentDetails.length > 0
+          ? [
+              {
+                id: `${reference.index}-starting-equipment`,
+                title: "Starting Equipment",
+                subtitle:
+                  equipmentChoiceFields.length > 0
+                    ? formatChoiceCount(equipmentChoiceFields.length)
+                    : "Background Gear",
+                details: equipmentDetails,
+                choiceFields: equipmentChoiceFields.length > 0 ? equipmentChoiceFields : undefined,
+              },
+            ]
+          : []),
       ],
     };
   });
@@ -325,12 +470,22 @@ function normalizedBackgroundAbilityScoreOptions(reference: ReferenceBackground)
   return options.length > 0 ? options : null;
 }
 
-function normalizedBackgroundFeatName(reference: ReferenceBackground) {
-  const featNames = (reference.featGrants ?? [])
-    .map((featGrant) => featGrant.sourceLabel ?? featGrant.featIndex)
-    .filter(isPresent);
+function normalizedBackgroundFeat(reference: ReferenceBackground) {
+  const featGrant = reference.featGrants?.[0];
 
-  return featNames.length > 0 ? featNames.join(", ") : null;
+  if (!featGrant) {
+    return null;
+  }
+
+  const [name, note] = (featGrant.sourceLabel ?? featGrant.featIndex)
+    .split(": ")
+    .map((part) => part.trim());
+
+  return {
+    index: featGrant.featIndex,
+    name: name.length > 0 ? name : featGrant.featIndex,
+    note: note?.length ? note : null,
+  };
 }
 
 function mapClassReferences(
@@ -841,6 +996,39 @@ function createAbilityScoreChoiceFields(options: string[]): FeatureChoiceField[]
   ];
 }
 
+function getFeatDetails(
+  backgroundName: string,
+  featName: string,
+  featNote: string | null,
+  featSourceJson: FeatSourceJson,
+  fallbackDescription?: string,
+) {
+  const description = stringValue(featSourceJson.description);
+  const repeatable = stringValue(featSourceJson.repeatable);
+  const details = [
+    `${backgroundName} grants ${featNote ? `${featName}: ${featNote}` : featName}.`,
+    ...splitParagraphs(description),
+    ...(repeatable ? [`Repeatable: ${repeatable}`] : []),
+  ].filter(isPresent);
+
+  return details.length > 0
+    ? details
+    : [
+        fallbackDescription ?? `${backgroundName} grants ${featName}.`,
+      ];
+}
+
+function splitParagraphs(value: string | null) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(/\n+/)
+    .map((paragraph) => paragraph.replace(/\*\*/g, "").trim())
+    .filter((paragraph) => paragraph.length > 0);
+}
+
 function inferChoiceOptionKind(options: string[], fallbackLabel: string) {
   const normalizedOptions = options.map((option) => option.toLowerCase());
   const normalizedFallback = fallbackLabel.toLowerCase();
@@ -922,6 +1110,15 @@ function createChoiceField(
       label: typeof option === "string" ? option : option.label,
     })),
   };
+}
+
+function shortHeritageName(value: string) {
+  if (value.startsWith("Draconic Ancestor: ")) {
+    const ancestor = value.replace("Draconic Ancestor: ", "");
+    return `${ancestor} Dragon`;
+  }
+
+  return value;
 }
 
 function groupClassProficiencies(proficiencies: string[]) {
@@ -1020,6 +1217,10 @@ function formatChoose(options: string[], choose: number | null) {
   return options.length > 0 && choose !== null
     ? `Choose ${choose}: ${options.join(", ")}`
     : "Not available";
+}
+
+function formatChoiceCount(count: number) {
+  return `${count} ${count === 1 ? "choice" : "choices"}`;
 }
 
 export {
