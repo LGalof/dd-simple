@@ -170,7 +170,10 @@ function getSavedBackgroundAbilityChoices(
     }
   }
 
-  return backgroundChoices;
+  return {
+    ...backgroundChoices,
+    ...getSavedGenericBackgroundChoices(character, backgroundOption, options.backgroundIndex),
+  };
 }
 
 function isBackgroundAbilityChoice(choice: NonNullable<Character["choices"]>[number]) {
@@ -215,6 +218,42 @@ function getBackgroundAbilityChoiceFieldValue(
   );
 
   return matchingOption?.value ?? null;
+}
+
+function getSavedGenericBackgroundChoices(
+  character: Character,
+  backgroundOption: BackgroundOption,
+  backgroundIndex: string,
+) {
+  const backgroundChoices: Record<string, string> = {};
+
+  for (const choice of character.featureChoices ?? []) {
+    if (choice.sourceType !== "BACKGROUND" || choice.sourceIndex !== backgroundIndex) {
+      continue;
+    }
+
+    for (const section of backgroundOption.previewSections) {
+      for (const field of section.choiceFields ?? []) {
+        if (
+          field.sourceType !== choice.sourceType ||
+          field.sourceIndex !== choice.sourceIndex ||
+          field.choicePath !== choice.choicePath
+        ) {
+          continue;
+        }
+
+        const option = field.options.find((candidate) =>
+          savedFeatureChoiceOptionMatches(candidate, choice),
+        );
+
+        if (option) {
+          backgroundChoices[`${backgroundIndex}:${section.id}:${field.id}`] = option.value;
+        }
+      }
+    }
+  }
+
+  return backgroundChoices;
 }
 
 function canonicalAbilityScoreIndex(value: string | undefined) {
@@ -623,6 +662,13 @@ function getSavedGenericFeatureChoices(
   let savedCount = 0;
 
   for (const choice of character.featureChoices ?? []) {
+    if (
+      typeof choice.level === "number" &&
+      choice.level > character.level
+    ) {
+      continue;
+    }
+
     savedCount += 1;
 
     const fieldMatch = findGenericFeatureChoiceField(classOption, choice);
@@ -747,6 +793,10 @@ function getPersistedSkillIndexes(character: Character) {
         character.proficiencies
           .filter((proficiency) => {
             if (proficiency.sourceType === classChoiceProficiencySourceType) {
+              return false;
+            }
+
+            if (proficiency.sourceType === "background") {
               return false;
             }
 

@@ -101,6 +101,9 @@ function buildCharacterPreview({
     settings: state.hitPointSettings,
   });
   const selectedSkillIndexSet = new Set(selectedSkillIndexes);
+  const backgroundSkillIndexSet = new Set(
+    background.skillProficiencies.map(canonicalSkillIndex).filter(Boolean),
+  );
   const persistedSkillIndexSet = new Set(
     persistedSkillIndexes ??
       character.skills
@@ -124,17 +127,79 @@ function buildCharacterPreview({
     } as Character["class"],
     background: {
       name: background.name,
-      toolProficiencies: background.toolProficiencies,
+      skillProficiencies: background.skillProficiencies,
+      toolProficiencies: [
+        ...background.toolProficiencies,
+        ...getSelectedBackgroundToolProficiencies(state.backgroundChoices, background),
+      ],
     } as Character["background"],
     abilityScores: nextAbilityScores,
     skills: character.skills.map((characterSkill) => ({
       ...characterSkill,
       isProficient:
         persistedSkillIndexSet.has(characterSkill.skillIndex) ||
+        backgroundSkillIndexSet.has(canonicalSkillIndex(characterSkill.skillIndex)) ||
         selectedSkillIndexSet.has(characterSkill.skillIndex),
     })),
+    featureChoices: filterActiveFeatureChoices(
+      character.featureChoices,
+      classOption.index,
+      background.index,
+    ),
     proficiencies: character.proficiencies,
   };
+}
+
+function filterActiveFeatureChoices(
+  featureChoices: Character["featureChoices"],
+  classIndex: string,
+  backgroundIndex: string,
+) {
+  return (featureChoices ?? []).filter((choice) => {
+    if (choice.sourceType === "BACKGROUND") {
+      return choice.sourceIndex === backgroundIndex;
+    }
+
+    if (choice.sourceType === "CLASS") {
+      return choice.classIndex === classIndex || choice.sourceIndex === classIndex;
+    }
+
+    if (choice.sourceType === "FEATURE") {
+      return choice.classIndex === classIndex;
+    }
+
+    return true;
+  });
+}
+
+function getSelectedBackgroundToolProficiencies(
+  backgroundChoices: Record<string, string>,
+  background: BackgroundOption,
+) {
+  const toolNames: string[] = [];
+
+  for (const section of background.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      if (!field.sourceType || field.sourceType !== "BACKGROUND" || isEquipmentChoicePath(field.choicePath)) {
+        continue;
+      }
+
+      const selectedValue = backgroundChoices[`${background.index}:${section.id}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (
+        selectedOption?.selectedOptionUrl?.includes("/proficiencies/") &&
+        isToolLikeProficiency(
+          selectedOption.selectedOptionIndex ?? selectedOption.value,
+          selectedOption.selectedOptionName ?? selectedOption.label,
+        )
+      ) {
+        toolNames.push(stripReferencePrefix(selectedOption.selectedOptionName ?? selectedOption.label));
+      }
+    }
+  }
+
+  return uniqueValues(toolNames);
 }
 
 function getBackgroundAbilityBonuses(
@@ -187,6 +252,61 @@ function getBackgroundChoiceValue(backgroundChoices: Record<string, string>, fie
   )?.[1];
 
   return canonicalAbilityScoreIndex(selectedValue);
+}
+
+function canonicalSkillIndex(value: string | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return stripReferencePrefix(value)
+    .toLowerCase()
+    .replace(/^skill-/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function stripReferencePrefix(value: string) {
+  return value.replace(/^Skill: /, "").replace(/^Tool: /, "").replace(/^Saving Throw: /, "");
+}
+
+function isEquipmentChoicePath(choicePath: string | undefined) {
+  return choicePath?.toLowerCase().includes("equipment") ?? false;
+}
+
+function isToolLikeProficiency(index: string, name: string) {
+  const normalizedIndex = index.toLowerCase();
+  const normalizedName = name.toLowerCase();
+
+  return [
+    "bagpipes",
+    "cards",
+    "chess",
+    "dice",
+    "drum",
+    "dulcimer",
+    "flute",
+    "horn",
+    "lute",
+    "lyre",
+    "pan-flute",
+    "shawm",
+    "viol",
+    "supplies",
+    "tools",
+    "utensils",
+    "kit",
+    "instrument",
+    "vehicle",
+  ].some(
+    (keyword) =>
+      normalizedIndex.includes(keyword) ||
+      normalizedName.includes(keyword.replace(/-/g, " ")),
+  );
+}
+
+function uniqueValues(values: string[]) {
+  return [...new Set(values.filter((value) => value.trim().length > 0))];
 }
 
 function canonicalAbilityScoreIndex(value: string | undefined) {

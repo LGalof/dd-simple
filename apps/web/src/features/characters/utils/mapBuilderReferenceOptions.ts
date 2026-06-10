@@ -435,7 +435,16 @@ function mapBackgroundReferences(
       normalizedProficiencies.tools ??
       fallbackProficiencies.filter((name) => name.startsWith("Tool: ")).map(stripReferencePrefix);
     const proficiencyChoiceFields = (sourceJson.proficiency_choices ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(choice, `${reference.index}-proficiency-choice-${index}`, "Tool Choice"),
+      createChoiceFieldsFromChoice(
+        choice,
+        `${reference.index}-proficiency-choice-${index}`,
+        "Tool Choice",
+        {
+          baseChoicePath: `proficiency_choices[${index}]`,
+          sourceIndex: reference.index,
+          sourceType: "BACKGROUND",
+        },
+      ),
     );
     const toolProficiencies = [
       ...fixedToolProficiencies,
@@ -469,7 +478,16 @@ function mapBackgroundReferences(
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
     const equipmentChoiceFields = (sourceJson.equipment_options ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(choice, `${reference.index}-equipment-choice-${index}`, "Equipment Choice"),
+      createChoiceFieldsFromChoice(
+        choice,
+        `${reference.index}-equipment-choice-${index}`,
+        "Equipment Choice",
+        {
+          baseChoicePath: `equipment_options[${index}]`,
+          sourceIndex: reference.index,
+          sourceType: "BACKGROUND",
+        },
+      ),
     );
     const featSubtitleParts = ["Granted Feat"];
 
@@ -1137,7 +1155,7 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
   if (choice) {
     const choose = numberValue(choice.choose);
     const type = stringValue(choice.type) ?? "option";
-    const rawLabel = choose ? `Choose ${choose} ${type}` : stringValue(choice.desc);
+    const rawLabel = stringValue(choice.desc) ?? (choose ? `Choose ${choose} ${type}` : null);
 
     return rawLabel
       ? {

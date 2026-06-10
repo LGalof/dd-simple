@@ -25,6 +25,7 @@ import type {
 } from "../types/character";
 import type { ReferenceCondition } from "../types/reference";
 import type {
+  BackgroundOption,
   FeatureChoiceSelections,
   ClassOption,
   SpeciesOption,
@@ -187,6 +188,7 @@ function CharacterDashboardPage() {
         character,
         builderState,
         selectedClass,
+        selectedBackground,
         persistedSkillIndexes,
         featureChoices,
         speciesChoices,
@@ -314,6 +316,7 @@ function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   classOption: ClassOption,
+  backgroundOption: BackgroundOption,
   persistedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
   speciesChoices: Record<string, string>,
@@ -341,8 +344,9 @@ function buildCharacterSavePayload(
     featureChoices: buildGenericClassFeatureChoices(
       builderState.classIndex,
       classOption,
+      builderState.level,
       featureChoices,
-    ),
+    ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
 }
@@ -350,11 +354,16 @@ function buildCharacterSavePayload(
 function buildGenericClassFeatureChoices(
   classIndex: string,
   classOption: ClassOption,
+  characterLevel: number,
   featureChoices: FeatureChoiceSelections,
 ): CharacterFeatureChoiceSelection[] {
   const selections: CharacterFeatureChoiceSelection[] = [];
 
   for (const feature of classOption.features) {
+    if (feature.level > characterLevel) {
+      continue;
+    }
+
     for (const field of feature.choiceFields ?? []) {
       if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
         continue;
@@ -379,6 +388,56 @@ function buildGenericClassFeatureChoices(
         subclassIndex: field.subclassIndex ?? null,
         level: field.level ?? feature.level ?? null,
         featureIndex: field.featureIndex ?? feature.id,
+        choicePath: field.choicePath,
+        choiceKey: field.choiceKey ?? field.id,
+        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        selectedOptionType: selectedOption.selectedOptionType ?? "string",
+        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
+        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
+        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
+        selectedRawJson: selectedOption.selectedRawJson ?? {
+          label: selectedOption.label,
+          value: selectedOption.value,
+        },
+        grantsRawJson: null,
+      });
+    }
+  }
+
+  return selections;
+}
+
+function buildGenericBackgroundFeatureChoices(
+  backgroundOption: BackgroundOption,
+  backgroundChoices: Record<string, string>,
+): CharacterFeatureChoiceSelection[] {
+  const selections: CharacterFeatureChoiceSelection[] = [];
+
+  for (const section of backgroundOption.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
+        continue;
+      }
+
+      const selectedValue = backgroundChoices[`${backgroundOption.index}:${section.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        continue;
+      }
+
+      selections.push({
+        sourceType: field.sourceType,
+        sourceIndex: field.sourceIndex,
+        classIndex: null,
+        subclassIndex: null,
+        level: null,
+        featureIndex: null,
         choicePath: field.choicePath,
         choiceKey: field.choiceKey ?? field.id,
         choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,

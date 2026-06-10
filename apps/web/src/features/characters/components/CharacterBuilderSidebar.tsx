@@ -110,18 +110,6 @@ function CharacterBuilderSidebar({
     [abilityScores],
   );
 
-  const lastCompletedFeatureIndex = useMemo(
-    () =>
-      classOption.features.reduce((lastCompletedIndex, feature, featureIndex) => {
-        if (isFeatureComplete(feature, selectedChoices)) {
-          return featureIndex;
-        }
-
-        return lastCompletedIndex;
-      }, -1),
-    [classOption.features, selectedChoices],
-  );
-
   function toggleFeature(featureId: string) {
     setExpandedFeatureId((currentFeatureId) =>
       currentFeatureId === featureId ? null : featureId,
@@ -379,15 +367,11 @@ function CharacterBuilderSidebar({
           </div>
 
           <div className="builder-feature-accordion">
-            {classOption.features.map((feature, featureIndex) => {
+            {classOption.features.map((feature) => {
               const isExpanded = expandedFeatureId === feature.id;
               const isFutureFeature = feature.level > characterLevel;
               const isChoiceComplete = isFeatureComplete(feature, selectedChoices);
-              const isAutoComplete =
-                !feature.choiceFields?.length &&
-                lastCompletedFeatureIndex >= 0 &&
-                featureIndex < lastCompletedFeatureIndex;
-              const isComplete = isChoiceComplete || isAutoComplete;
+              const isComplete = !isFutureFeature && isChoiceComplete;
 
               return (
                 <article
@@ -456,6 +440,7 @@ function CharacterBuilderSidebar({
                                   <span>{field.label}</span>
                                   <select
                                     className="builder-feature-select"
+                                    disabled={isFutureFeature}
                                     value={selectedValue}
                                     onChange={(event) =>
                                       updateChoice(
@@ -466,7 +451,11 @@ function CharacterBuilderSidebar({
                                       )
                                     }
                                   >
-                                    <option value="">Choose {field.label.toLowerCase()}</option>
+                                    <option value="">
+                                      {isFutureFeature
+                                        ? `Unlocks at level ${feature.level}`
+                                        : `Choose ${field.label.toLowerCase()}`}
+                                    </option>
                                     {field.options.map((option) => (
                                       <option
                                         key={option.value}
@@ -728,7 +717,7 @@ function formatFeatureMeta(feature: ClassFeature) {
 
 function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string, string>) {
   if (!feature.choiceFields?.length) {
-    return false;
+    return true;
   }
 
   return feature.choiceFields.every((field) =>
