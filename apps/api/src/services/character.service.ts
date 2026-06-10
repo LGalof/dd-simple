@@ -17,6 +17,21 @@ type ClassProficiencyGrantIndex = {
   proficiencyIndex: string;
 };
 
+type ReferenceIndexOnly = {
+  index: string;
+};
+
+type ClassSkillChoiceWithOptions = {
+  options: Array<{
+    proficiencyIndex: string;
+  }>;
+};
+
+type CharacterProficiencySourceRecord = {
+  proficiencyIndex: string;
+  sourceType: string | null;
+};
+
 type CharacterChoiceInput = {
   choiceType?: string;
   sourceType?: string;
@@ -472,7 +487,9 @@ async function replaceSpeciesLanguageChoicesAndRows(
         index: true,
       },
     });
-    const existingLanguageIndexes = new Set(languages.map((language) => language.index));
+    const existingLanguageIndexes = new Set(
+      languages.map((language: ReferenceIndexOnly) => language.index),
+    );
     const missingLanguageIndexes = languageIndexes.filter(
       (languageIndex) => !existingLanguageIndexes.has(languageIndex),
     );
@@ -561,7 +578,7 @@ async function replaceSpeciesHeritageChoices(
       },
     });
     const existingSubspeciesIndexes = new Set(
-      subspecies.map((subspeciesOption) => subspeciesOption.index),
+      subspecies.map((subspeciesOption: ReferenceIndexOnly) => subspeciesOption.index),
     );
     const missingSubspeciesIndexes = selectedSubspeciesIndexes.filter(
       (subspeciesIndex) => !existingSubspeciesIndexes.has(subspeciesIndex),
@@ -612,8 +629,10 @@ async function findAllowedClassSkillChoiceProficiencyIndexes(
   });
 
   return new Set(
-    choices.flatMap((choice) =>
-      choice.options.map((option) => option.proficiencyIndex),
+    choices.flatMap((choice: ClassSkillChoiceWithOptions) =>
+      choice.options.map((option: ClassSkillChoiceWithOptions["options"][number]) =>
+        option.proficiencyIndex,
+      ),
     ),
   );
 }
@@ -1007,7 +1026,7 @@ async function updateCharacterForUser(
       },
     });
     const preservedExistingSkillProficiencyIndexes = existingProficiencies
-      .filter((proficiency) => {
+      .filter((proficiency: CharacterProficiencySourceRecord) => {
         if (
           proficiency.sourceType === "class" ||
           proficiency.sourceType === CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE
@@ -1017,7 +1036,7 @@ async function updateCharacterForUser(
 
         return isSkillProficiencyIndex(proficiency.proficiencyIndex);
       })
-      .map((proficiency) => proficiency.proficiencyIndex);
+      .map((proficiency: CharacterProficiencySourceRecord) => proficiency.proficiencyIndex);
     const finalSkillIndexes = new Set([
       ...data.skillIndexes,
       ...getSkillIndexesFromProficiencyIndexes(preservedExistingSkillProficiencyIndexes),
