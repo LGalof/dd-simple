@@ -28,6 +28,7 @@ type CharacterMutationRequestBody = {
   hitPointState?: unknown;
   skillIndexes?: unknown;
   choices?: unknown;
+  featureChoices?: unknown;
   abilityScores?: unknown;
 };
 
@@ -37,6 +38,24 @@ type CharacterChoiceRequestBody = {
   sourceIndex?: unknown;
   selectedType?: unknown;
   selectedIndex?: unknown;
+};
+
+type FeatureChoiceSelectionRequestBody = {
+  sourceType?: unknown;
+  sourceIndex?: unknown;
+  classIndex?: unknown;
+  subclassIndex?: unknown;
+  level?: unknown;
+  featureIndex?: unknown;
+  choicePath?: unknown;
+  choiceKey?: unknown;
+  choiceLabel?: unknown;
+  selectedOptionType?: unknown;
+  selectedOptionIndex?: unknown;
+  selectedOptionName?: unknown;
+  selectedOptionUrl?: unknown;
+  selectedRawJson?: unknown;
+  grantsRawJson?: unknown;
 };
 
 type AddConditionRequestBody = {
@@ -67,6 +86,24 @@ type ValidCharacterChoiceRequestBody = {
   selectedIndex: string;
 };
 
+type ValidFeatureChoiceSelectionRequestBody = {
+  sourceType: string;
+  sourceIndex: string;
+  classIndex?: string | null;
+  subclassIndex?: string | null;
+  level?: number | null;
+  featureIndex?: string | null;
+  choicePath: string;
+  choiceKey?: string | null;
+  choiceLabel?: string | null;
+  selectedOptionType: string;
+  selectedOptionIndex?: string | null;
+  selectedOptionName?: string | null;
+  selectedOptionUrl?: string | null;
+  selectedRawJson: unknown;
+  grantsRawJson?: unknown | null;
+};
+
 type ValidCharacterMutationRequestBody = {
   name: string;
   speciesIndex: string;
@@ -78,6 +115,7 @@ type ValidCharacterMutationRequestBody = {
   hitPointState?: ValidHitPointStateRequestBody;
   skillIndexes: string[];
   choices?: ValidCharacterChoiceRequestBody[];
+  featureChoices?: ValidFeatureChoiceSelectionRequestBody[];
   abilityScores: AbilityScoreRequestBody;
 };
 
@@ -159,6 +197,86 @@ function isCharacterChoiceRequestBody(
   );
 }
 
+function isFeatureChoiceSelectionRequestBody(
+  value: unknown,
+): value is ValidFeatureChoiceSelectionRequestBody {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as FeatureChoiceSelectionRequestBody;
+
+  return (
+    isNonEmptyString(candidate.sourceType) &&
+    isNonEmptyString(candidate.sourceIndex) &&
+    isOptionalString(candidate.classIndex) &&
+    isOptionalString(candidate.subclassIndex) &&
+    (candidate.level === undefined ||
+      candidate.level === null ||
+      (typeof candidate.level === "number" &&
+        Number.isInteger(candidate.level) &&
+        candidate.level >= 1 &&
+        candidate.level <= 20)) &&
+    isOptionalString(candidate.featureIndex) &&
+    isNonEmptyString(candidate.choicePath) &&
+    isOptionalString(candidate.choiceKey) &&
+    isOptionalString(candidate.choiceLabel) &&
+    isNonEmptyString(candidate.selectedOptionType) &&
+    isOptionalString(candidate.selectedOptionIndex) &&
+    isOptionalString(candidate.selectedOptionName) &&
+    isOptionalString(candidate.selectedOptionUrl) &&
+    "selectedRawJson" in candidate &&
+    isJsonLikeValue(candidate.selectedRawJson) &&
+    (candidate.grantsRawJson === undefined || isJsonLikeValue(candidate.grantsRawJson))
+  );
+}
+
+function isValidFeatureChoiceSelectionArray(
+  value: unknown,
+): value is ValidFeatureChoiceSelectionRequestBody[] {
+  if (!Array.isArray(value) || !value.every(isFeatureChoiceSelectionRequestBody)) {
+    return false;
+  }
+
+  const logicalChoiceKeys = value.map((choice) =>
+    [
+      String(choice.sourceType).trim(),
+      String(choice.sourceIndex).trim(),
+      String(choice.choicePath).trim(),
+    ].join("\u0000"),
+  );
+
+  return new Set(logicalChoiceKeys).size === logicalChoiceKeys.length;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isOptionalString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function isJsonLikeValue(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return true;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.every(isJsonLikeValue);
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.values(value).every(isJsonLikeValue);
+  }
+
+  return false;
+}
+
 function isHitPointStateRequestBody(value: unknown): value is ValidHitPointStateRequestBody {
   if (!value || typeof value !== "object") {
     return false;
@@ -232,8 +350,41 @@ function isCharacterMutationRequestBody(
     (candidate.choices === undefined ||
       (Array.isArray(candidate.choices) &&
         candidate.choices.every(isCharacterChoiceRequestBody))) &&
+    (candidate.featureChoices === undefined ||
+      isValidFeatureChoiceSelectionArray(candidate.featureChoices)) &&
     isAbilityScoresBody(candidate.abilityScores)
   );
+}
+
+function normalizeFeatureChoiceSelections(
+  featureChoices: ValidFeatureChoiceSelectionRequestBody[] | undefined,
+) {
+  return featureChoices?.map((choice) => ({
+    sourceType: choice.sourceType.trim(),
+    sourceIndex: choice.sourceIndex.trim(),
+    classIndex: normalizeOptionalString(choice.classIndex),
+    subclassIndex: normalizeOptionalString(choice.subclassIndex),
+    level: choice.level ?? null,
+    featureIndex: normalizeOptionalString(choice.featureIndex),
+    choicePath: choice.choicePath.trim(),
+    choiceKey: normalizeOptionalString(choice.choiceKey),
+    choiceLabel: normalizeOptionalString(choice.choiceLabel),
+    selectedOptionType: choice.selectedOptionType.trim(),
+    selectedOptionIndex: normalizeOptionalString(choice.selectedOptionIndex),
+    selectedOptionName: normalizeOptionalString(choice.selectedOptionName),
+    selectedOptionUrl: normalizeOptionalString(choice.selectedOptionUrl),
+    selectedRawJson: choice.selectedRawJson,
+    grantsRawJson: choice.grantsRawJson ?? null,
+  }));
+}
+
+function normalizeOptionalString(value: string | null | undefined) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function isUniqueConstraintError(error: unknown) {
@@ -370,6 +521,7 @@ async function createCharacter(req: Request, res: Response) {
       hitPointState: body.hitPointState,
       skillIndexes: body.skillIndexes,
       choices: body.choices,
+      featureChoices: normalizeFeatureChoiceSelections(body.featureChoices),
       abilityScores: body.abilityScores,
     });
 
@@ -432,6 +584,7 @@ async function updateCharacter(req: Request, res: Response) {
         hitPointState: body.hitPointState,
         skillIndexes: body.skillIndexes,
         choices: body.choices,
+        featureChoices: normalizeFeatureChoiceSelections(body.featureChoices),
         abilityScores: body.abilityScores,
       },
     );

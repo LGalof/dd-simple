@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 
 type ReferenceIndexRecord = {
@@ -40,6 +40,24 @@ type CharacterChoiceInput = {
   selectedIndex: string;
 };
 
+type CharacterFeatureChoiceSelectionInput = {
+  sourceType: string;
+  sourceIndex: string;
+  classIndex?: string | null;
+  subclassIndex?: string | null;
+  level?: number | null;
+  featureIndex?: string | null;
+  choicePath: string;
+  choiceKey?: string | null;
+  choiceLabel?: string | null;
+  selectedOptionType: string;
+  selectedOptionIndex?: string | null;
+  selectedOptionName?: string | null;
+  selectedOptionUrl?: string | null;
+  selectedRawJson: unknown;
+  grantsRawJson?: unknown | null;
+};
+
 type HitPointCalculationMode = "fixed" | "rolled" | "override";
 
 type HitPointStateInput = {
@@ -61,6 +79,7 @@ type CharacterMutationData = {
   hitPointState?: HitPointStateInput;
   skillIndexes: string[];
   choices?: CharacterChoiceInput[];
+  featureChoices?: CharacterFeatureChoiceSelectionInput[];
   abilityScores: {
     str: number;
     dex: number;
@@ -176,6 +195,19 @@ const characterInclude = {
     },
   },
   choices: true,
+  featureChoices: {
+    orderBy: [
+      {
+        sourceType: "asc" as const,
+      },
+      {
+        sourceIndex: "asc" as const,
+      },
+      {
+        choicePath: "asc" as const,
+      },
+    ],
+  },
   languages: {
     orderBy: {
       languageIndex: "asc" as const,
@@ -516,6 +548,64 @@ async function replaceBackgroundAbilityChoices(
       })),
     });
   }
+}
+
+function toRequiredJsonInput(value: unknown) {
+  return value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue;
+}
+
+function toNullableJsonInput(value: unknown | null | undefined) {
+  return value === null || value === undefined
+    ? Prisma.DbNull
+    : value as Prisma.InputJsonValue;
+}
+
+async function upsertSubmittedFeatureChoiceSelections(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  featureChoices: CharacterFeatureChoiceSelectionInput[] | undefined,
+) {
+  if (!featureChoices?.length) {
+    return;
+  }
+
+  await Promise.all(
+    featureChoices.map((choice) => {
+      const data = {
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        classIndex: choice.classIndex ?? null,
+        subclassIndex: choice.subclassIndex ?? null,
+        level: choice.level ?? null,
+        featureIndex: choice.featureIndex ?? null,
+        choicePath: choice.choicePath,
+        choiceKey: choice.choiceKey ?? null,
+        choiceLabel: choice.choiceLabel ?? null,
+        selectedOptionType: choice.selectedOptionType,
+        selectedOptionIndex: choice.selectedOptionIndex ?? null,
+        selectedOptionName: choice.selectedOptionName ?? null,
+        selectedOptionUrl: choice.selectedOptionUrl ?? null,
+        selectedRawJson: toRequiredJsonInput(choice.selectedRawJson),
+        grantsRawJson: toNullableJsonInput(choice.grantsRawJson),
+      };
+
+      return tx.characterFeatureChoiceSelection.upsert({
+        where: {
+          characterId_sourceType_sourceIndex_choicePath: {
+            characterId,
+            sourceType: choice.sourceType,
+            sourceIndex: choice.sourceIndex,
+            choicePath: choice.choicePath,
+          },
+        },
+        update: data,
+        create: {
+          characterId,
+          ...data,
+        },
+      });
+    }),
+  );
 }
 
 function abilityScoreRows(
@@ -954,6 +1044,19 @@ async function findAllCharactersForUser(userId: string) {
         },
       },
       choices: true,
+      featureChoices: {
+        orderBy: [
+          {
+            sourceType: "asc",
+          },
+          {
+            sourceIndex: "asc",
+          },
+          {
+            choicePath: "asc",
+          },
+        ],
+      },
       languages: {
         orderBy: {
           languageIndex: "asc",
@@ -1145,6 +1248,11 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       tx,
       character.id,
       backgroundAbilityChoices,
+    );
+    await upsertSubmittedFeatureChoiceSelections(
+      tx,
+      character.id,
+      data.featureChoices,
     );
 
     return tx.character.findUnique({
@@ -1448,6 +1556,11 @@ async function updateCharacterForUser(
       tx,
       characterId,
       backgroundAbilityChoices,
+    );
+    await upsertSubmittedFeatureChoiceSelections(
+      tx,
+      characterId,
+      data.featureChoices,
     );
 
     await tx.characterProficiency.deleteMany({

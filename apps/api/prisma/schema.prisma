@@ -7,93 +7,93 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id          String      @id @default(uuid()) @db.Uuid
-  email       String      @unique
-  displayName String?
+  id           String  @id @default(uuid()) @db.Uuid
+  email        String  @unique
+  displayName  String?
   passwordHash String?
 
-  characters  Character[]
-  diceRolls   DiceRoll[]  @relation("DiceRollUser")
+  characters Character[]
+  diceRolls  DiceRoll[]  @relation("DiceRollUser")
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("users")
 }
 
 model Character {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
 
-  speciesIndex     String
-  classIndex       String
-  backgroundIndex  String
+  speciesIndex    String
+  classIndex      String
+  backgroundIndex String
 
   name             String
-  level            Int      @default(1)
-  experiencePoints Int      @default(0)
+  level            Int     @default(1)
+  experiencePoints Int     @default(0)
   alignment        String?
 
-  maxHp            Int
-  currentHp        Int
-  armorClass       Int
-  speed            Int
+  maxHp      Int
+  currentHp  Int
+  armorClass Int
+  speed      Int
 
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  species          RefSpecies    @relation(fields: [speciesIndex], references: [index])
-  class            RefClass      @relation(fields: [classIndex], references: [index])
-  background       RefBackground @relation(fields: [backgroundIndex], references: [index])
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  species    RefSpecies    @relation(fields: [speciesIndex], references: [index])
+  class      RefClass      @relation(fields: [classIndex], references: [index])
+  background RefBackground @relation(fields: [backgroundIndex], references: [index])
 
-  abilityScores    CharacterAbilityScore[]
-  skills           CharacterSkill[]
-  proficiencies    CharacterProficiency[]
-  inventory        CharacterInventory[]
-  choices          CharacterChoice[]
-  languages        CharacterLanguage[]
-  conditions       CharacterCondition[]
-  hitPointState    CharacterHitPointState?
-  diceRolls        DiceRoll[]
+  abilityScores  CharacterAbilityScore[]
+  skills         CharacterSkill[]
+  proficiencies  CharacterProficiency[]
+  inventory      CharacterInventory[]
+  choices        CharacterChoice[]
+  featureChoices CharacterFeatureChoiceSelection[]
+  languages      CharacterLanguage[]
+  conditions     CharacterCondition[]
+  hitPointState  CharacterHitPointState?
+  diceRolls      DiceRoll[]
 
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, name])
   @@map("characters")
 }
 
 model RefAbilityScore {
-  index       String   @id
+  index       String  @id
   name        String
   fullName    String
   description String?
   sourceJson  Json?
 
-  skills      RefSkill[]
-  characterScores CharacterAbilityScore[]
-  classPrimaryAbilities RefClassPrimaryAbility[]
+  skills                   RefSkill[]
+  characterScores          CharacterAbilityScore[]
+  classPrimaryAbilities    RefClassPrimaryAbility[]
   backgroundAbilityOptions RefBackgroundAbilityOption[]
 
   @@map("ref_ability_scores")
 }
 
 model RefSkill {
-  index        String @id
+  index        String  @id
   abilityIndex String
   name         String
   description  String?
   sourceJson   Json?
 
-  ability      RefAbilityScore @relation(fields: [abilityIndex], references: [index])
-  characterSkills CharacterSkill[]
+  ability                 RefAbilityScore             @relation(fields: [abilityIndex], references: [index])
+  characterSkills         CharacterSkill[]
   classSkillChoiceOptions RefClassSkillChoiceOption[]
 
   @@map("ref_skills")
 }
 
 model RefSpecies {
-  index       String @id
+  index       String  @id
   name        String
   size        String?
   baseSpeed   Int
@@ -109,14 +109,14 @@ model RefSpecies {
 }
 
 model RefSpeciesTrait {
-  id           String @id @default(uuid()) @db.Uuid
+  id           String  @id @default(uuid()) @db.Uuid
   speciesIndex String
   traitIndex   String
   name         String
   description  String?
   sourceJson   Json?
 
-  species      RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+  species RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
 
   @@unique([speciesIndex, traitIndex])
   @@map("ref_species_traits")
@@ -128,26 +128,26 @@ model RefSpeciesSizeOption {
   size         String
   sourceJson   Json?
 
-  species      RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+  species RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
 
   @@unique([speciesIndex, size])
   @@map("ref_species_size_options")
 }
 
 model RefSubspecies {
-  index       String @id
-  name        String
+  index        String  @id
+  name         String
   speciesIndex String
-  description String?
-  sourceJson  Json?
+  description  String?
+  sourceJson   Json?
 
-  species     RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
+  species RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
 
   @@map("ref_subspecies")
 }
 
 model RefLanguage {
-  index       String @id
+  index       String  @id
   name        String
   description String?
   sourceJson  Json?
@@ -158,7 +158,7 @@ model RefLanguage {
 }
 
 model RefCondition {
-  index       String @id
+  index       String  @id
   name        String
   description String?
   sourceJson  Json?
@@ -174,9 +174,9 @@ model RefClass {
   hitDie     Int
   sourceJson Json?
 
-  characters Character[]
-  levels     RefClassLevel[]
-  features   RefClassFeature[]
+  characters        Character[]
+  levels            RefClassLevel[]
+  features          RefClassFeature[]
   proficiencyGrants RefClassProficiencyGrant[]
   skillChoices      RefClassSkillChoice[]
   primaryAbilities  RefClassPrimaryAbility[]
@@ -190,15 +190,15 @@ model RefClassLevel {
   level      Int
   sourceJson Json?
 
-  class      RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  class RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
 
   @@unique([classIndex, level])
   @@map("ref_class_levels")
 }
 
 model RefClassFeature {
-  id          String @id @default(uuid()) @db.Uuid
-  index       String @unique
+  id          String  @id @default(uuid()) @db.Uuid
+  index       String  @unique
   name        String
   classIndex  String
   level       Int
@@ -206,48 +206,48 @@ model RefClassFeature {
   details     Json?
   sourceJson  Json?
 
-  class       RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  class RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
 
   @@map("ref_class_features")
 }
 
 model RefClassProficiencyGrant {
-  id               String @id @default(uuid()) @db.Uuid
+  id               String  @id @default(uuid()) @db.Uuid
   classIndex       String
   proficiencyIndex String
   grantType        String
   sourceLabel      String?
   sourceJson       Json?
 
-  class            RefClass       @relation(fields: [classIndex], references: [index], onDelete: Cascade)
-  proficiency      RefProficiency @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+  class       RefClass       @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  proficiency RefProficiency @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
 
   @@unique([classIndex, proficiencyIndex, grantType])
   @@map("ref_class_proficiency_grants")
 }
 
 model RefClassSkillChoice {
-  id          String @id @default(uuid()) @db.Uuid
+  id          String  @id @default(uuid()) @db.Uuid
   classIndex  String
   chooseCount Int
   description String?
   sourceJson  Json?
 
-  class       RefClass @relation(fields: [classIndex], references: [index], onDelete: Cascade)
-  options     RefClassSkillChoiceOption[]
+  class   RefClass                    @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  options RefClassSkillChoiceOption[]
 
   @@map("ref_class_skill_choices")
 }
 
 model RefClassSkillChoiceOption {
-  id               String @id @default(uuid()) @db.Uuid
-  choiceId         String @db.Uuid
+  id               String  @id @default(uuid()) @db.Uuid
+  choiceId         String  @db.Uuid
   proficiencyIndex String
   skillIndex       String?
 
-  choice           RefClassSkillChoice @relation(fields: [choiceId], references: [id], onDelete: Cascade)
-  proficiency      RefProficiency      @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
-  skill            RefSkill?           @relation(fields: [skillIndex], references: [index], onDelete: SetNull)
+  choice      RefClassSkillChoice @relation(fields: [choiceId], references: [id], onDelete: Cascade)
+  proficiency RefProficiency      @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+  skill       RefSkill?           @relation(fields: [skillIndex], references: [index], onDelete: SetNull)
 
   @@unique([choiceId, proficiencyIndex])
   @@map("ref_class_skill_choice_options")
@@ -259,15 +259,15 @@ model RefClassPrimaryAbility {
   abilityScoreIndex String
   sourceJson        Json?
 
-  class             RefClass        @relation(fields: [classIndex], references: [index], onDelete: Cascade)
-  abilityScore      RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
+  class        RefClass        @relation(fields: [classIndex], references: [index], onDelete: Cascade)
+  abilityScore RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
 
   @@unique([classIndex, abilityScoreIndex])
   @@map("ref_class_primary_abilities")
 }
 
 model RefAlignment {
-  index        String @id
+  index        String  @id
   name         String
   abbreviation String?
   description  String?
@@ -277,12 +277,12 @@ model RefAlignment {
 }
 
 model RefBackground {
-  index       String @id
+  index       String  @id
   name        String
   description String?
   sourceJson  Json?
 
-  characters  Character[]
+  characters        Character[]
   proficiencyGrants RefBackgroundProficiencyGrant[]
   abilityOptions    RefBackgroundAbilityOption[]
   featGrants        RefBackgroundFeatGrant[]
@@ -291,15 +291,15 @@ model RefBackground {
 }
 
 model RefBackgroundProficiencyGrant {
-  id               String @id @default(uuid()) @db.Uuid
+  id               String  @id @default(uuid()) @db.Uuid
   backgroundIndex  String
   proficiencyIndex String
   grantType        String
   sourceLabel      String?
   sourceJson       Json?
 
-  background       RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
-  proficiency      RefProficiency  @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
+  background  RefBackground  @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  proficiency RefProficiency @relation(fields: [proficiencyIndex], references: [index], onDelete: Cascade)
 
   @@unique([backgroundIndex, proficiencyIndex, grantType])
   @@map("ref_background_proficiency_grants")
@@ -312,21 +312,21 @@ model RefBackgroundAbilityOption {
   bonusValue        Int?
   sourceJson        Json?
 
-  background        RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
-  abilityScore      RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
+  background   RefBackground   @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  abilityScore RefAbilityScore @relation(fields: [abilityScoreIndex], references: [index], onDelete: Cascade)
 
   @@unique([backgroundIndex, abilityScoreIndex])
   @@map("ref_background_ability_options")
 }
 
 model RefBackgroundFeatGrant {
-  id              String @id @default(uuid()) @db.Uuid
+  id              String  @id @default(uuid()) @db.Uuid
   backgroundIndex String
   featIndex       String
   sourceLabel     String?
   sourceJson      Json?
 
-  background      RefBackground @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
+  background RefBackground @relation(fields: [backgroundIndex], references: [index], onDelete: Cascade)
 
   @@unique([backgroundIndex, featIndex])
   @@map("ref_background_feat_grants")
@@ -338,16 +338,16 @@ model RefProficiency {
   type       String
   sourceJson Json?
 
-  characterProficiencies CharacterProficiency[]
-  classProficiencyGrants RefClassProficiencyGrant[]
-  classSkillChoiceOptions RefClassSkillChoiceOption[]
+  characterProficiencies      CharacterProficiency[]
+  classProficiencyGrants      RefClassProficiencyGrant[]
+  classSkillChoiceOptions     RefClassSkillChoiceOption[]
   backgroundProficiencyGrants RefBackgroundProficiencyGrant[]
 
   @@map("ref_proficiencies")
 }
 
 model RefEquipment {
-  index             String  @id
+  index             String   @id
   name              String
   equipmentCategory String?
   itemType          String?
@@ -357,7 +357,7 @@ model RefEquipment {
   description       String?
   sourceJson        Json?
 
-  inventoryItems    CharacterInventory[]
+  inventoryItems CharacterInventory[]
 
   @@map("ref_equipment")
 }
@@ -368,16 +368,16 @@ model CharacterAbilityScore {
   baseScore    Int?
   score        Int
 
-  character    Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  ability      RefAbilityScore @relation(fields: [abilityIndex], references: [index])
+  character Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  ability   RefAbilityScore @relation(fields: [abilityIndex], references: [index])
 
   @@id([characterId, abilityIndex])
   @@map("character_ability_scores")
 }
 
 model CharacterSkill {
-  characterId String @db.Uuid
-  skillIndex  String
+  characterId  String  @db.Uuid
+  skillIndex   String
   isProficient Boolean @default(false)
   customBonus  Int     @default(0)
 
@@ -389,7 +389,7 @@ model CharacterSkill {
 }
 
 model CharacterProficiency {
-  characterId      String @db.Uuid
+  characterId      String  @db.Uuid
   proficiencyIndex String
   sourceType       String?
 
@@ -405,22 +405,22 @@ model CharacterInventory {
   characterId    String @db.Uuid
   equipmentIndex String
 
-  quantity        Int     @default(1)
-  equipped        Boolean @default(false)
-  gridX           Int?
-  gridY           Int?
-  customName      String?
-  notes           String?
+  quantity   Int     @default(1)
+  equipped   Boolean @default(false)
+  gridX      Int?
+  gridY      Int?
+  customName String?
+  notes      String?
 
-  character       Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  equipment       RefEquipment @relation(fields: [equipmentIndex], references: [index])
+  character Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  equipment RefEquipment @relation(fields: [equipmentIndex], references: [index])
 
   @@map("character_inventory")
 }
 
 model CharacterChoice {
-  id            String @id @default(uuid()) @db.Uuid
-  characterId   String @db.Uuid
+  id          String @id @default(uuid()) @db.Uuid
+  characterId String @db.Uuid
 
   choiceType    String
   sourceType    String
@@ -428,19 +428,48 @@ model CharacterChoice {
   selectedType  String
   selectedIndex String
 
-  character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@map("character_choices")
 }
 
+model CharacterFeatureChoiceSelection {
+  id          String @id @default(uuid()) @db.Uuid
+  characterId String @db.Uuid
+
+  sourceType          String
+  sourceIndex         String
+  classIndex          String?
+  subclassIndex       String?
+  level               Int?
+  featureIndex        String?
+  choicePath          String
+  choiceKey           String?
+  choiceLabel         String?
+  selectedOptionType  String
+  selectedOptionIndex String?
+  selectedOptionName  String?
+  selectedOptionUrl   String?
+  selectedRawJson     Json
+  grantsRawJson       Json?
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([characterId, sourceType, sourceIndex, choicePath])
+  @@map("character_feature_choice_selections")
+}
+
 model CharacterLanguage {
-  id            String @id @default(uuid()) @db.Uuid
-  characterId   String @db.Uuid
+  id            String  @id @default(uuid()) @db.Uuid
+  characterId   String  @db.Uuid
   languageIndex String
   sourceType    String
   sourceIndex   String?
 
-  character Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  character Character   @relation(fields: [characterId], references: [id], onDelete: Cascade)
   language  RefLanguage @relation(fields: [languageIndex], references: [index])
 
   @@unique([characterId, languageIndex, sourceType, sourceIndex])
@@ -462,8 +491,8 @@ model CharacterCondition {
 }
 
 model CharacterHitPointState {
-  id              String @id @default(uuid()) @db.Uuid
-  characterId     String @unique @db.Uuid
+  id          String @id @default(uuid()) @db.Uuid
+  characterId String @unique @db.Uuid
 
   calculationMode String @default("fixed")
   bonusHp         Int    @default(0)
@@ -477,29 +506,28 @@ model CharacterHitPointState {
 }
 
 model DiceRoll {
-  id              String   @id @default(uuid()) @db.Uuid
+  id String @id @default(uuid()) @db.Uuid
 
-  characterId     String   @db.Uuid
-  rolledByUserId  String   @db.Uuid
+  characterId    String @db.Uuid
+  rolledByUserId String @db.Uuid
 
-  rollType        String
-  targetType      String?
-  targetIndex     String?
-  formula         String
-  rollMode        String   @default("normal")
-  rollValues      Json
-  modifier        Int     @default(0)
-  total           Int
-  reason          String?
-  visibility      String  @default("private")
-  rolledAt        DateTime @default(now())
+  rollType    String
+  targetType  String?
+  targetIndex String?
+  formula     String
+  rollMode    String   @default("normal")
+  rollValues  Json
+  modifier    Int      @default(0)
+  total       Int
+  reason      String?
+  visibility  String   @default("private")
+  rolledAt    DateTime @default(now())
 
-  character       Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  rolledByUser    User      @relation("DiceRollUser", fields: [rolledByUserId], references: [id], onDelete: Cascade)
+  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  rolledByUser User      @relation("DiceRollUser", fields: [rolledByUserId], references: [id], onDelete: Cascade)
 
   @@map("dice_rolls")
 }
-
 
 model RefRuleDocument {
   category   String
@@ -507,8 +535,8 @@ model RefRuleDocument {
   name       String?
   sourceJson Json
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@id([category, index])
   @@map("ref_rule_documents")

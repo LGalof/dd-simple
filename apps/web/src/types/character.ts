@@ -2,6 +2,7 @@ export type {
   AbilityScore,
   AbilityScores,
   Character,
+  CharacterFeatureChoiceSelection,
   CharacterFeatureSelection,
   CharacterProficiency,
   CharacterSavePayload,
