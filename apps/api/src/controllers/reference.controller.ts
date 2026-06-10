@@ -4,6 +4,7 @@ import {
   findAlignments,
   findBackgrounds,
   findClasses,
+  findConditions,
   findEquipment,
   findProficiencies,
   findRuleDocumentByCategoryAndIndex,
@@ -50,6 +51,20 @@ async function getAlignments(_req: Request, res: Response) {
 
     res.status(500).json({
       error: "Failed to fetch alignments",
+    });
+  }
+}
+
+async function getConditions(_req: Request, res: Response) {
+  try {
+    const conditions = await findConditions();
+
+    res.json(conditions);
+  } catch (error) {
+    console.error("Failed to fetch conditions:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch conditions",
     });
   }
 }
@@ -182,6 +197,7 @@ export {
   getAlignments,
   getBackgrounds,
   getClasses,
+  getConditions,
   getEquipment,
   getProficiencies,
   getRuleDocumentByCategoryAndIndex,

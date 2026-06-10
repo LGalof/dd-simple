@@ -25,6 +25,7 @@ const FILES = {
   levels: "5e-SRD-Levels.json",
   features: "5e-SRD-Features.json",
   backgrounds: "5e-SRD-Backgrounds.json",
+  conditions: "5e-SRD-Conditions.json",
   languages: "5e-SRD-Languages.json",
   proficiencies: "5e-SRD-Proficiencies.json",
   equipment: "5e-SRD-Equipment.json",
@@ -648,6 +649,38 @@ async function seedLanguages() {
         name,
         description: stringOrNull(language.note),
         sourceJson: sourceJson(language),
+      },
+    });
+  }
+}
+
+async function seedConditions() {
+  const conditions = readJsonArray(FILES.conditions);
+
+  console.log(`Seeding ${conditions.length} conditions...`);
+
+  for (const condition of conditions) {
+    const index = stringOrNull(condition.index);
+    const name = stringOrNull(condition.name);
+
+    if (!index || !name) {
+      continue;
+    }
+
+    await prisma.refCondition.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name,
+        description: stringOrNull(condition.description),
+        sourceJson: sourceJson(condition),
+      },
+      create: {
+        index,
+        name,
+        description: stringOrNull(condition.description),
+        sourceJson: sourceJson(condition),
       },
     });
   }
@@ -1752,6 +1785,7 @@ async function main() {
   await seedSpecies();
   await seedSpeciesReferenceData();
   await seedLanguages();
+  await seedConditions();
   await seedClasses();
   await seedClassPrimaryAbilities();
   await seedClassLevels();

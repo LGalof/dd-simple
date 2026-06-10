@@ -167,6 +167,14 @@ function findAlignments() {
   });
 }
 
+function findConditions() {
+  return prisma.refCondition.findMany({
+    orderBy: {
+      name: "asc",
+    },
+  });
+}
+
 function findBackgrounds() {
   return prisma.refBackground.findMany({
     orderBy: {
@@ -246,6 +254,7 @@ export {
   findAlignments,
   findBackgrounds,
   findClasses,
+  findConditions,
   findEquipment,
   findProficiencies,
   findRuleDocumentByCategoryAndIndex,

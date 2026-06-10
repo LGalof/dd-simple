@@ -136,6 +136,14 @@ const characterInclude = {
       language: true,
     },
   },
+  conditions: {
+    orderBy: {
+      appliedAt: "asc" as const,
+    },
+    include: {
+      condition: true,
+    },
+  },
   diceRolls: {
     orderBy: {
       rolledAt: "desc" as const,
@@ -576,6 +584,14 @@ async function findAllCharactersForUser(userId: string) {
         },
         include: {
           language: true,
+        },
+      },
+      conditions: {
+        orderBy: {
+          appliedAt: "asc",
+        },
+        include: {
+          condition: true,
         },
       },
       diceRolls: {
@@ -1042,12 +1058,107 @@ async function findCharacterByIdForUser(userId: string, characterId: string) {
   });
 }
 
+async function addConditionToCharacterForUser(
+  userId: string,
+  characterId: string,
+  conditionIndex: string,
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const [character, condition] = await Promise.all([
+      tx.character.findFirst({
+        where: {
+          id: characterId,
+          userId,
+        },
+        select: {
+          id: true,
+        },
+      }),
+      tx.refCondition.findUnique({
+        where: {
+          index: conditionIndex,
+        },
+        select: {
+          index: true,
+        },
+      }),
+    ]);
+
+    if (!character) {
+      return null;
+    }
+
+    if (!condition) {
+      throw new CharacterReferenceNotFoundError("Condition not found");
+    }
+
+    await tx.characterCondition.upsert({
+      where: {
+        characterId_conditionIndex: {
+          characterId,
+          conditionIndex,
+        },
+      },
+      update: {},
+      create: {
+        characterId,
+        conditionIndex,
+      },
+    });
+
+    return tx.character.findUnique({
+      where: {
+        id: characterId,
+      },
+      include: characterInclude,
+    });
+  });
+}
+
+async function removeConditionFromCharacterForUser(
+  userId: string,
+  characterId: string,
+  conditionIndex: string,
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const character = await tx.character.findFirst({
+      where: {
+        id: characterId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!character) {
+      return null;
+    }
+
+    await tx.characterCondition.deleteMany({
+      where: {
+        characterId,
+        conditionIndex,
+      },
+    });
+
+    return tx.character.findUnique({
+      where: {
+        id: characterId,
+      },
+      include: characterInclude,
+    });
+  });
+}
+
 export {
+  addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
+  removeConditionFromCharacterForUser,
   updateCharacterForUser,
 };
 export type { CharacterMutationData, CreateCharacterData };

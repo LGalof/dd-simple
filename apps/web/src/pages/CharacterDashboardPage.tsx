@@ -11,6 +11,7 @@ import {
   clearSelectedCharacterId,
   getSelectedCharacterId,
 } from "../features/characters/utils/selectedCharacter";
+import { fetchConditions } from "../features/references/api/fetchReferences";
 import {
   InventoryDetailsSidebar,
   useInventorySandboxController,
@@ -21,6 +22,7 @@ import type {
   CharacterFeatureSelection,
   CharacterSavePayload,
 } from "../types/character";
+import type { ReferenceCondition } from "../types/reference";
 import type {
   FeatureChoiceSelections,
   SpeciesOption,
@@ -31,12 +33,16 @@ const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
+  const [conditionOptions, setConditionOptions] = useState<ReferenceCondition[]>([]);
+  const [conditionOptionsError, setConditionOptionsError] = useState<string | null>(null);
   const inventoryController = useInventorySandboxController();
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const {
+    addCondition,
     characters,
     loading,
     error,
+    removeCondition,
     saveCharacter,
     saveError,
     savingCharacterId,
@@ -50,6 +56,33 @@ function CharacterDashboardPage() {
     [characters, selectedCharacterId],
   );
   const character = selectedCharacter ?? characters[0];
+
+  useEffect(() => {
+    let isCurrentRequest = true;
+
+    async function loadConditionOptions() {
+      try {
+        const conditions = await fetchConditions();
+
+        if (isCurrentRequest) {
+          setConditionOptions(conditions);
+          setConditionOptionsError(null);
+        }
+      } catch (err) {
+        if (isCurrentRequest) {
+          setConditionOptionsError(
+            err instanceof Error ? err.message : "Failed to load conditions",
+          );
+        }
+      }
+    }
+
+    void loadConditionOptions();
+
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {
@@ -214,14 +247,22 @@ function CharacterDashboardPage() {
               activeTab={activeWorkspaceTab}
               character={previewCharacter}
               currentHp={builderState.currentHp}
+              conditionOptions={conditionOptions}
+              conditionOptionsError={conditionOptionsError}
               inventoryController={inventoryController}
               normalizedActions={normalizedActionsWithPreview}
               normalizedActionsError={normalizedActionsErrorWithPreview}
               normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
+              onAddCondition={(conditionIndex) =>
+                character ? addCondition(character.id, conditionIndex) : Promise.resolve(null)
+              }
               defenseSummary={defenseSummary}
               tempHp={builderState.tempHp}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
+              onRemoveCondition={(conditionIndex) =>
+                character ? removeCondition(character.id, conditionIndex) : Promise.resolve(null)
+              }
               onSetTempHp={setTempHp}
             />
 

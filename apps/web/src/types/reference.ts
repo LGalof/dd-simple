@@ -27,6 +27,13 @@ type ReferenceAlignment = {
   sourceJson?: unknown;
 };
 
+type ReferenceCondition = {
+  index: string;
+  name: string;
+  description?: string | null;
+  sourceJson?: unknown;
+};
+
 type ReferenceSpeciesTrait = {
   id: string;
   speciesIndex: string;
@@ -204,6 +211,7 @@ export type {
   ReferenceClassProficiencyGrant,
   ReferenceClassSkillChoice,
   ReferenceClassSkillChoiceOption,
+  ReferenceCondition,
   ReferenceEquipment,
   ReferenceRuleDocument,
   ReferenceSkill,

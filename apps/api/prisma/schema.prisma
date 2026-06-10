@@ -52,6 +52,7 @@ model Character {
   inventory        CharacterInventory[]
   choices          CharacterChoice[]
   languages        CharacterLanguage[]
+  conditions       CharacterCondition[]
   diceRolls        DiceRoll[]
 
   createdAt        DateTime @default(now())
@@ -153,6 +154,17 @@ model RefLanguage {
   characterLanguages CharacterLanguage[]
 
   @@map("ref_languages")
+}
+
+model RefCondition {
+  index       String @id
+  name        String
+  description String?
+  sourceJson  Json?
+
+  characterConditions CharacterCondition[]
+
+  @@map("ref_conditions")
 }
 
 model RefClass {
@@ -431,6 +443,20 @@ model CharacterLanguage {
 
   @@unique([characterId, languageIndex, sourceType, sourceIndex])
   @@map("character_languages")
+}
+
+model CharacterCondition {
+  id             String   @id @default(uuid()) @db.Uuid
+  characterId    String   @db.Uuid
+  conditionIndex String
+  notes          String?
+  appliedAt      DateTime @default(now())
+
+  character Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  condition RefCondition @relation(fields: [conditionIndex], references: [index])
+
+  @@unique([characterId, conditionIndex])
+  @@map("character_conditions")
 }
 
 model DiceRoll {

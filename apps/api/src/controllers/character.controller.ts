@@ -1,11 +1,13 @@
 import type { Request, Response } from "express";
 import { getAuthenticatedUser } from "../middleware/auth.js";
 import {
+  addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
+  removeConditionFromCharacterForUser,
   updateCharacterForUser,
 } from "../services/character.service.js";
 import { findCharacterActionsForUser } from "../services/character-actions.service.js";
@@ -33,6 +35,10 @@ type CharacterChoiceRequestBody = {
   sourceIndex?: unknown;
   selectedType?: unknown;
   selectedIndex?: unknown;
+};
+
+type AddConditionRequestBody = {
+  conditionIndex?: unknown;
 };
 
 type ValidCharacterChoiceRequestBody = {
@@ -373,6 +379,97 @@ async function updateCharacter(req: Request, res: Response) {
   }
 }
 
+async function addCharacterCondition(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const body = req.body as AddConditionRequestBody;
+
+    if (typeof body.conditionIndex !== "string" || body.conditionIndex.trim().length === 0) {
+      res.status(400).json({
+        error: "Request body must include conditionIndex",
+      });
+      return;
+    }
+
+    const character = await addConditionToCharacterForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      body.conditionIndex.trim(),
+    );
+
+    if (!character) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(character);
+  } catch (error) {
+    if (error instanceof CharacterReferenceNotFoundError) {
+      res.status(404).json({
+        error: error.message,
+      });
+      return;
+    }
+
+    console.error("Failed to add character condition:", error);
+
+    res.status(500).json({
+      error: "Failed to add character condition",
+    });
+  }
+}
+
+async function removeCharacterCondition(req: Request, res: Response) {
+  try {
+    const { conditionIndex, id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    if (!conditionIndex || Array.isArray(conditionIndex)) {
+      res.status(400).json({
+        error: "Invalid condition index",
+      });
+      return;
+    }
+
+    const character = await removeConditionFromCharacterForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      conditionIndex,
+    );
+
+    if (!character) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(character);
+  } catch (error) {
+    console.error("Failed to remove character condition:", error);
+
+    res.status(500).json({
+      error: "Failed to remove character condition",
+    });
+  }
+}
+
 async function deleteCharacter(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -404,10 +501,12 @@ async function deleteCharacter(req: Request, res: Response) {
 }
 
 export {
+  addCharacterCondition,
   createCharacter,
   deleteCharacter,
   getCharacterActions,
   getCharacterById,
   getCharacters,
+  removeCharacterCondition,
   updateCharacter,
 };
