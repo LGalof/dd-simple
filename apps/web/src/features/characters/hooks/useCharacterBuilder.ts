@@ -16,6 +16,7 @@ import type {
   BuilderSelectionKind,
   CharacterBuilderState,
   ClassOption,
+  FeatureChoiceOption,
   FeatureChoiceSelections,
   HitPointSettings,
   SpeciesOption,
@@ -430,11 +431,19 @@ function clampLevel(value: number) {
   return Math.max(1, Math.min(20, value));
 }
 
-function getSelectedSkillIndexes(featureChoices: FeatureChoiceSelections) {
+function getSelectedSkillIndexes(
+  featureChoices: FeatureChoiceSelections,
+  classOption: ClassOption,
+) {
   return [
     ...new Set(
-      Object.values(featureChoices)
-        .filter((selectedIndex) => selectedIndex.startsWith("skill-"))
+      Object.entries(featureChoices)
+        .filter(
+          ([choiceKey, selectedIndex]) =>
+            selectedIndex.startsWith("skill-") &&
+            isClassSkillChoiceFieldByKey(classOption, choiceKey),
+        )
+        .map(([, selectedIndex]) => selectedIndex)
         .map((selectedIndex) => selectedIndex.replace(/^skill-/, "")),
     ),
   ];
@@ -461,6 +470,16 @@ function getClassSkillChoiceSignature(character: Character | undefined) {
     .map(
       (choice) =>
         `${choice.sourceIndex ?? ""}:${choice.selectedType ?? ""}:${choice.selectedIndex}`,
+    )
+    .sort()
+    .join("|");
+}
+
+function getFeatureChoiceSelectionSignature(character: Character | undefined) {
+  return (character?.featureChoices ?? [])
+    .map(
+      (choice) =>
+        `${choice.sourceType}:${choice.sourceIndex}:${choice.choicePath}:${choice.selectedOptionType}:${choice.selectedOptionIndex ?? ""}:${choice.selectedOptionName ?? ""}:${choice.selectedOptionUrl ?? ""}`,
     )
     .sort()
     .join("|");
@@ -565,16 +584,160 @@ function hasMatchingClassSkillFeatureChoices(
   classOption: ClassOption,
 ) {
   return Object.entries(featureChoices)
-    .filter(([, selectedIndex]) => selectedIndex.startsWith("skill-"))
+    .filter(([choiceKey]) => isClassSkillChoiceFieldByKey(classOption, choiceKey))
     .every(([choiceKey, selectedIndex]) =>
       hasClassSkillChoiceFieldValue(classOption, choiceKey, selectedIndex),
     );
 }
 
-function classSkillFeatureChoiceCount(featureChoices: FeatureChoiceSelections) {
-  return Object.values(featureChoices).filter((selectedIndex) =>
-    selectedIndex.startsWith("skill-"),
+function classSkillFeatureChoiceCount(
+  featureChoices: FeatureChoiceSelections,
+  classOption: ClassOption,
+) {
+  return Object.keys(featureChoices).filter((choiceKey) =>
+    isClassSkillChoiceFieldByKey(classOption, choiceKey),
   ).length;
+}
+
+function isClassSkillChoiceFieldByKey(
+  classOption: ClassOption,
+  choiceKey: string,
+) {
+  const [featureId, fieldId] = choiceKey.split(":");
+  const feature = classOption.features.find((classFeature) => classFeature.id === featureId);
+  const field = feature?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+
+  return field?.choiceGroupId === classSkillChoiceType;
+}
+
+function getSavedGenericFeatureChoices(
+  character: Character,
+  classOption: ClassOption,
+): {
+  featureChoices: FeatureChoiceSelections;
+  hydratedCount: number;
+  savedCount: number;
+} {
+  const featureChoices: FeatureChoiceSelections = {};
+  let hydratedCount = 0;
+  let savedCount = 0;
+
+  for (const choice of character.featureChoices ?? []) {
+    savedCount += 1;
+
+    const fieldMatch = findGenericFeatureChoiceField(classOption, choice);
+
+    if (!fieldMatch) {
+      continue;
+    }
+
+    const option = fieldMatch.field.options.find((candidate) =>
+      savedFeatureChoiceOptionMatches(candidate, choice),
+    );
+
+    if (!option) {
+      continue;
+    }
+
+    featureChoices[`${fieldMatch.featureId}:${fieldMatch.field.id}`] = option.value;
+    hydratedCount += 1;
+  }
+
+  return {
+    featureChoices,
+    hydratedCount,
+    savedCount,
+  };
+}
+
+function findGenericFeatureChoiceField(
+  classOption: ClassOption,
+  choice: NonNullable<Character["featureChoices"]>[number],
+) {
+  for (const feature of classOption.features) {
+    for (const field of feature.choiceFields ?? []) {
+      if (
+        field.sourceType === choice.sourceType &&
+        field.sourceIndex === choice.sourceIndex &&
+        field.choicePath === choice.choicePath
+      ) {
+        return {
+          featureId: feature.id,
+          field,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function savedFeatureChoiceOptionMatches(
+  option: FeatureChoiceOption,
+  choice: NonNullable<Character["featureChoices"]>[number],
+) {
+  if (choice.selectedOptionIndex && option.selectedOptionIndex === choice.selectedOptionIndex) {
+    return true;
+  }
+
+  if (choice.selectedOptionUrl && option.selectedOptionUrl === choice.selectedOptionUrl) {
+    return true;
+  }
+
+  if (choice.selectedOptionName && option.selectedOptionName === choice.selectedOptionName) {
+    return true;
+  }
+
+  if (choice.selectedOptionIndex && option.value === choice.selectedOptionIndex) {
+    return true;
+  }
+
+  return stableJsonString(option.selectedRawJson) === stableJsonString(choice.selectedRawJson);
+}
+
+function hasMatchingGenericFeatureChoices(
+  featureChoices: FeatureChoiceSelections,
+  classOption: ClassOption,
+) {
+  return Object.entries(featureChoices)
+    .filter(([choiceKey]) => Boolean(getGenericFeatureChoiceFieldByKey(classOption, choiceKey)))
+    .every(([choiceKey, selectedIndex]) => {
+      const field = getGenericFeatureChoiceFieldByKey(classOption, choiceKey);
+
+      return Boolean(field?.options.some((option) => option.value === selectedIndex));
+    });
+}
+
+function genericFeatureChoiceCount(
+  featureChoices: FeatureChoiceSelections,
+  classOption: ClassOption,
+) {
+  return Object.keys(featureChoices).filter((choiceKey) =>
+    Boolean(getGenericFeatureChoiceFieldByKey(classOption, choiceKey)),
+  ).length;
+}
+
+function getGenericFeatureChoiceFieldByKey(
+  classOption: ClassOption,
+  choiceKey: string,
+) {
+  const [featureId, fieldId] = choiceKey.split(":");
+  const feature = classOption.features.find((classFeature) => classFeature.id === featureId);
+  const field = feature?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+
+  return field?.sourceType && field.sourceIndex && field.choicePath ? field : null;
+}
+
+function stableJsonString(value: unknown) {
+  if (value === undefined) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
 }
 
 function getPersistedSkillIndexes(character: Character) {
@@ -602,6 +765,7 @@ function getPersistedSkillIndexes(character: Character) {
 function useCharacterBuilder(character: Character | undefined) {
   const previousCharacterIdRef = useRef<string | null>(null);
   const previousClassSkillChoiceSignatureRef = useRef("");
+  const previousFeatureChoiceSignatureRef = useRef("");
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
   const [activePanel, setActivePanel] = useState<BuilderSelectionKind | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
@@ -622,6 +786,7 @@ function useCharacterBuilder(character: Character | undefined) {
       setPersistedSkillIndexes([]);
       previousCharacterIdRef.current = null;
       previousClassSkillChoiceSignatureRef.current = "";
+      previousFeatureChoiceSignatureRef.current = "";
       return;
     }
 
@@ -630,27 +795,43 @@ function useCharacterBuilder(character: Character | undefined) {
       referenceOptions.classOptions,
     );
     const classSkillChoiceSignature = getClassSkillChoiceSignature(character);
-    const hydration = getSavedClassSkillFeatureChoices(character, selectedClassOption);
+    const featureChoiceSignature = getFeatureChoiceSelectionSignature(character);
+    const classSkillHydration = getSavedClassSkillFeatureChoices(character, selectedClassOption);
+    const genericHydration = getSavedGenericFeatureChoices(character, selectedClassOption);
+    const hydratedFeatureChoices = {
+      ...genericHydration.featureChoices,
+      ...classSkillHydration.featureChoices,
+    };
+    const savedCount = classSkillHydration.savedCount + genericHydration.savedCount;
+    const hydratedCount = classSkillHydration.hydratedCount + genericHydration.hydratedCount;
     const canMarkSavedChoicesProcessed =
-      hydration.savedCount === 0 || hydration.hydratedCount === hydration.savedCount;
+      savedCount === 0 || hydratedCount === savedCount;
     const savedChoicesChanged =
       previousCharacterIdRef.current !== character.id ||
-      previousClassSkillChoiceSignatureRef.current !== classSkillChoiceSignature;
+      previousClassSkillChoiceSignatureRef.current !== classSkillChoiceSignature ||
+      previousFeatureChoiceSignatureRef.current !== featureChoiceSignature;
 
     setBuilderState(createBuilderStateFromOptions(character, referenceOptions));
     setFeatureChoices((currentChoices) => {
-      const hasCurrentClassSkillChoices = classSkillFeatureChoiceCount(currentChoices) > 0;
+      const hasCurrentClassSkillChoices =
+        classSkillFeatureChoiceCount(currentChoices, selectedClassOption) > 0;
+      const hasCurrentGenericFeatureChoices =
+        genericFeatureChoiceCount(currentChoices, selectedClassOption) > 0;
       const shouldRetryHydration =
-        hydration.savedCount > 0 &&
-        (!hasCurrentClassSkillChoices ||
-          !hasMatchingClassSkillFeatureChoices(currentChoices, selectedClassOption));
+        savedCount > 0 &&
+        ((!hasCurrentClassSkillChoices &&
+          classSkillHydration.savedCount > 0) ||
+          (!hasCurrentGenericFeatureChoices &&
+            genericHydration.savedCount > 0) ||
+          !hasMatchingClassSkillFeatureChoices(currentChoices, selectedClassOption) ||
+          !hasMatchingGenericFeatureChoices(currentChoices, selectedClassOption));
 
       if (!savedChoicesChanged && !shouldRetryHydration) {
         return currentChoices;
       }
 
-      if (hydration.hydratedCount > 0 || hydration.savedCount === 0) {
-        return hydration.featureChoices;
+      if (hydratedCount > 0 || savedCount === 0) {
+        return hydratedFeatureChoices;
       }
 
       return currentChoices;
@@ -663,8 +844,14 @@ function useCharacterBuilder(character: Character | undefined) {
     previousCharacterIdRef.current = character.id;
     if (canMarkSavedChoicesProcessed) {
       previousClassSkillChoiceSignatureRef.current = classSkillChoiceSignature;
+      previousFeatureChoiceSignatureRef.current = featureChoiceSignature;
     }
-  }, [character?.id, getClassSkillChoiceSignature(character), referenceOptions]);
+  }, [
+    character?.id,
+    getClassSkillChoiceSignature(character),
+    getFeatureChoiceSelectionSignature(character),
+    referenceOptions,
+  ]);
 
   useEffect(() => {
     let isCurrentRequest = true;
@@ -765,8 +952,8 @@ function useCharacterBuilder(character: Character | undefined) {
     });
   }, [builderState, selectedClass.hitDie]);
   const selectedSkillIndexes = useMemo(
-    () => getSelectedSkillIndexes(featureChoices),
-    [featureChoices],
+    () => getSelectedSkillIndexes(featureChoices, selectedClass),
+    [featureChoices, selectedClass],
   );
 
   const previewCharacter = useMemo(() => {

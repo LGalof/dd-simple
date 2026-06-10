@@ -31,6 +31,11 @@ type ChoiceOption = {
 
 type ChoiceOptionData = {
   label: string;
+  selectedOptionIndex?: string | null;
+  selectedOptionName?: string | null;
+  selectedOptionType?: string;
+  selectedOptionUrl?: string | null;
+  selectedRawJson?: unknown;
   value: string;
 };
 
@@ -111,10 +116,16 @@ type ClassSourceJson = {
 };
 
 type FeatureSourceJson = {
+  class?: {
+    index?: unknown;
+  };
   desc?: unknown;
   feature_specific?: unknown;
   level?: unknown;
   name?: unknown;
+  subclass?: {
+    index?: unknown;
+  };
 };
 
 type LevelSourceJson = {
@@ -123,6 +134,18 @@ type LevelSourceJson = {
   };
   features?: ReferenceItem[];
   level?: unknown;
+};
+
+type ChoicePersistenceContext = Pick<
+  FeatureChoiceField,
+  | "classIndex"
+  | "featureIndex"
+  | "level"
+  | "sourceIndex"
+  | "sourceType"
+  | "subclassIndex"
+> & {
+  baseChoicePath?: string;
 };
 
 const fallbackSpeciesLanguageNames: Record<string, string[]> = {
@@ -617,7 +640,10 @@ function mapClassReferences(
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
     const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
-    const normalizedFeatures = createNormalizedClassFeatures(reference.features ?? []);
+    const normalizedFeatures = createNormalizedClassFeatures(
+      reference.features ?? [],
+      reference.index,
+    );
     const features =
       normalizedFeatures.length > 0
         ? [...classChoiceFeature, ...normalizedFeatures]
@@ -752,17 +778,41 @@ function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSo
   const normalizedSkillChoice = normalizedClassSkillChoice(reference);
   const sourceProficiencyChoices = sourceJson.proficiency_choices ?? [];
   const sourceFallbackChoices = normalizedSkillChoice
-    ? sourceProficiencyChoices.filter((choice) => !isSourceSkillChoice(choice))
-    : sourceProficiencyChoices;
+    ? sourceProficiencyChoices
+        .map((choice, index) => ({ choice, index }))
+        .filter(({ choice }) => !isSourceSkillChoice(choice))
+    : sourceProficiencyChoices.map((choice, index) => ({ choice, index }));
   const classChoiceFields = [
     ...(normalizedSkillChoice
       ? createChoiceFieldsFromNormalizedSkillChoice(normalizedSkillChoice)
       : []),
-    ...sourceFallbackChoices.flatMap((choice, index) =>
-          createChoiceFieldsFromChoice(choice, `class-proficiency-${index}`, "Proficiency Choices"),
-        ),
+    ...sourceFallbackChoices.flatMap(({ choice, index }) =>
+      createChoiceFieldsFromChoice(
+        choice,
+        `class-proficiency-${index}`,
+        "Proficiency Choices",
+        {
+          baseChoicePath: `proficiency_choices[${index}]`,
+          classIndex: reference.index,
+          level: 1,
+          sourceIndex: reference.index,
+          sourceType: "CLASS",
+        },
+      ),
+    ),
     ...(sourceJson.starting_equipment_options ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(choice, `class-equipment-${index}`, "Starting Equipment"),
+      createChoiceFieldsFromChoice(
+        choice,
+        `class-equipment-${index}`,
+        "Starting Equipment",
+        {
+          baseChoicePath: `starting_equipment_options[${index}]`,
+          classIndex: reference.index,
+          level: 1,
+          sourceIndex: reference.index,
+          sourceType: "CLASS",
+        },
+      ),
     ),
   ];
 
@@ -807,7 +857,10 @@ function createChoiceFieldsFromNormalizedSkillChoice(
   );
 }
 
-function createNormalizedClassFeatures(features: ReferenceClassFeature[]): ClassFeature[] {
+function createNormalizedClassFeatures(
+  features: ReferenceClassFeature[],
+  classIndex: string,
+): ClassFeature[] {
   return features
     .map((feature) => {
       const featureSourceJson = asRecord(feature.sourceJson) as FeatureSourceJson;
@@ -815,6 +868,15 @@ function createNormalizedClassFeatures(features: ReferenceClassFeature[]): Class
         featureSourceJson.feature_specific,
         `feature-${feature.index ?? feature.id}`,
         "Feature Choice",
+        {
+          baseChoicePath: "feature_specific",
+          classIndex: stringValue(featureSourceJson.class?.index) ?? classIndex,
+          featureIndex: feature.index ?? feature.id,
+          level: feature.level ?? numberValue(featureSourceJson.level),
+          sourceIndex: feature.index ?? feature.id,
+          sourceType: "FEATURE",
+          subclassIndex: stringValue(featureSourceJson.subclass?.index),
+        },
       );
 
       return createFeature({
@@ -873,6 +935,15 @@ function createReferenceBackedClassFeatures(
             featureSourceJson.feature_specific,
             `feature-${featureIndex}`,
             "Feature Choice",
+            {
+              baseChoicePath: "feature_specific",
+              classIndex: stringValue(featureSourceJson.class?.index) ?? reference.index,
+              featureIndex,
+              level: numberValue(featureSourceJson.level) ?? level,
+              sourceIndex: featureIndex,
+              sourceType: "FEATURE",
+              subclassIndex: stringValue(featureSourceJson.subclass?.index),
+            },
           );
 
           return createFeature({
@@ -917,8 +988,10 @@ function createChoiceFieldsFromChoice(
   value: unknown,
   baseId: string,
   fallbackLabel: string,
+  context: ChoicePersistenceContext = {},
 ): FeatureChoiceField[] {
   const groups: Array<{
+    choicePath?: string;
     choose: number;
     id: string;
     label: string;
@@ -926,7 +999,7 @@ function createChoiceFieldsFromChoice(
     optionKind: string;
   }> = [];
 
-  collectChoiceGroups(value, baseId, fallbackLabel, groups);
+  collectChoiceGroups(value, baseId, fallbackLabel, groups, context.baseChoicePath);
 
   return groups.flatMap((group) =>
     Array.from({ length: group.choose }, (_, index) =>
@@ -937,9 +1010,21 @@ function createChoiceFieldsFromChoice(
           : `${capitalize(group.optionKind)} ${index + 1}`,
         group.options,
         {
+          choiceKey: group.choose === 1 ? group.id : `${group.id}-${index + 1}`,
           choiceGroupId: group.id,
           choiceGroupLabel: group.label,
           choiceGroupLimit: group.choose,
+          choiceLabel: group.label,
+          choicePath:
+            group.choose === 1
+              ? group.choicePath
+              : appendChoicePath(group.choicePath, `slot${index + 1}`),
+          classIndex: context.classIndex,
+          featureIndex: context.featureIndex,
+          level: context.level,
+          sourceIndex: context.sourceIndex,
+          sourceType: context.sourceType,
+          subclassIndex: context.subclassIndex,
         },
       ),
     ),
@@ -951,16 +1036,24 @@ function collectChoiceGroups(
   baseId: string,
   fallbackLabel: string,
   groups: Array<{
+    choicePath?: string;
     choose: number;
     id: string;
     label: string;
     options: ChoiceOptionData[];
     optionKind: string;
   }>,
+  choicePath?: string,
 ) {
   if (Array.isArray(value)) {
     value.forEach((entry, index) =>
-      collectChoiceGroups(entry, `${baseId}-${index}`, fallbackLabel, groups),
+      collectChoiceGroups(
+        entry,
+        `${baseId}-${index}`,
+        fallbackLabel,
+        groups,
+        appendChoicePath(choicePath, `[${index}]`),
+      ),
     );
     return;
   }
@@ -976,12 +1069,13 @@ function collectChoiceGroups(
     const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
 
     groups.push({
+      choicePath,
       choose,
       id: baseId,
       label: choiceGroupLabel(choose, optionKind, fallbackLabel),
       options: options.map((option) => ({
+        ...option,
         label: cleanChoiceOptionLabel(option.rawLabel),
-        value: option.value,
       })),
       optionKind,
     });
@@ -992,7 +1086,13 @@ function collectChoiceGroups(
       return;
     }
 
-    collectChoiceGroups(nestedValue, `${baseId}-${key}`, toTitle(key), groups);
+    collectChoiceGroups(
+      nestedValue,
+      `${baseId}-${key}`,
+      toTitle(key),
+      groups,
+      appendChoicePath(choicePath, key),
+    );
   });
 }
 
@@ -1016,6 +1116,8 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
   const unit = stringValue(value.unit);
   const reference = referenceLabel(item) ?? referenceLabel(of);
   const referenceIndex = stringValue(item?.index) ?? stringValue(of?.index);
+  const referenceName = referenceLabel(item) ?? referenceLabel(of);
+  const referenceUrl = stringValue(item?.url) ?? stringValue(of?.url);
 
   if (reference) {
     const rawLabel = count && count > 1 ? `${count} ${reference}` : reference;
@@ -1023,6 +1125,11 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
     return {
       label: cleanChoiceOptionLabel(rawLabel),
       rawLabel,
+      selectedOptionIndex: referenceIndex,
+      selectedOptionName: referenceName ?? rawLabel,
+      selectedOptionType: inferSelectedOptionType(value, referenceIndex),
+      selectedOptionUrl: referenceUrl,
+      selectedRawJson: value,
       value: referenceIndex ?? slugify(rawLabel),
     };
   }
@@ -1036,6 +1143,9 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
       ? {
           label: cleanChoiceOptionLabel(rawLabel),
           rawLabel,
+          selectedOptionName: rawLabel,
+          selectedOptionType: "nested choice",
+          selectedRawJson: value,
           value: slugify(rawLabel),
         }
       : null;
@@ -1053,6 +1163,9 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
     return {
       label: options.map((option) => option.label).join(", "),
       rawLabel,
+      selectedOptionName: rawLabel,
+      selectedOptionType: "multiple",
+      selectedRawJson: value,
       value: options.map((option) => option.value).join("+"),
     };
   }
@@ -1063,11 +1176,44 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
     return {
       label: rawLabel,
       rawLabel,
+      selectedOptionName: rawLabel,
+      selectedOptionType: "object",
+      selectedRawJson: value,
       value: slugify(rawLabel),
     };
   }
 
   return null;
+}
+
+function appendChoicePath(basePath: string | undefined, segment: string) {
+  if (!basePath) {
+    return segment;
+  }
+
+  return segment.startsWith("[") ? `${basePath}${segment}` : `${basePath}.${segment}`;
+}
+
+function inferSelectedOptionType(value: Record<string, unknown>, referenceIndex: string | null) {
+  const optionType = stringValue(value.option_type);
+
+  if (optionType) {
+    return optionType;
+  }
+
+  if (referenceIndex?.startsWith("skill-")) {
+    return "proficiency reference";
+  }
+
+  if (referenceIndex?.startsWith("expertise-")) {
+    return "expertise modifier";
+  }
+
+  if (referenceIndex?.includes("feature") || referenceIndex?.includes("fighting-style")) {
+    return "feature reference";
+  }
+
+  return "reference";
 }
 
 function referenceLabel(value: Record<string, unknown> | null) {
@@ -1191,7 +1337,18 @@ function createChoiceField(
   options: Array<string | ChoiceOptionData>,
   metadata: Pick<
     FeatureChoiceField,
-    "choiceGroupId" | "choiceGroupLabel" | "choiceGroupLimit"
+    | "choiceGroupId"
+    | "choiceGroupLabel"
+    | "choiceGroupLimit"
+    | "choiceKey"
+    | "choiceLabel"
+    | "choicePath"
+    | "classIndex"
+    | "featureIndex"
+    | "level"
+    | "sourceIndex"
+    | "sourceType"
+    | "subclassIndex"
   > = {},
 ): FeatureChoiceField {
   return {
@@ -1201,6 +1358,11 @@ function createChoiceField(
     options: options.map((option) => ({
       value: typeof option === "string" ? slugify(option) : option.value,
       label: typeof option === "string" ? option : option.label,
+      selectedOptionIndex: typeof option === "string" ? undefined : option.selectedOptionIndex,
+      selectedOptionName: typeof option === "string" ? option : option.selectedOptionName,
+      selectedOptionType: typeof option === "string" ? "string" : option.selectedOptionType,
+      selectedOptionUrl: typeof option === "string" ? undefined : option.selectedOptionUrl,
+      selectedRawJson: typeof option === "string" ? option : option.selectedRawJson,
     })),
   };
 }

@@ -19,12 +19,14 @@ import {
 import type {
   AbilityScores,
   Character,
+  CharacterFeatureChoiceSelection,
   CharacterFeatureSelection,
   CharacterSavePayload,
 } from "../types/character";
 import type { ReferenceCondition } from "../types/reference";
 import type {
   FeatureChoiceSelections,
+  ClassOption,
   SpeciesOption,
 } from "../features/characters/types/characterBuilder";
 
@@ -184,6 +186,7 @@ function CharacterDashboardPage() {
       buildCharacterSavePayload(
         character,
         builderState,
+        selectedClass,
         persistedSkillIndexes,
         featureChoices,
         speciesChoices,
@@ -310,6 +313,7 @@ function CharacterDashboardPage() {
 function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+  classOption: ClassOption,
   persistedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
   speciesChoices: Record<string, string>,
@@ -329,21 +333,82 @@ function buildCharacterSavePayload(
     },
     skillIndexes: persistedSkillIndexes,
     choices: [
-      ...buildClassSkillChoices(builderState.classIndex, featureChoices),
+      ...buildClassSkillChoices(builderState.classIndex, classOption, featureChoices),
       ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
       ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
       ...buildBackgroundAbilityChoices(builderState.backgroundIndex, backgroundChoices),
     ],
+    featureChoices: buildGenericClassFeatureChoices(
+      builderState.classIndex,
+      classOption,
+      featureChoices,
+    ),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
 }
 
+function buildGenericClassFeatureChoices(
+  classIndex: string,
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+): CharacterFeatureChoiceSelection[] {
+  const selections: CharacterFeatureChoiceSelection[] = [];
+
+  for (const feature of classOption.features) {
+    for (const field of feature.choiceFields ?? []) {
+      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
+        continue;
+      }
+
+      const selectedValue = featureChoices[`${feature.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        continue;
+      }
+
+      selections.push({
+        sourceType: field.sourceType,
+        sourceIndex: field.sourceIndex,
+        classIndex: field.classIndex ?? classIndex,
+        subclassIndex: field.subclassIndex ?? null,
+        level: field.level ?? feature.level ?? null,
+        featureIndex: field.featureIndex ?? feature.id,
+        choicePath: field.choicePath,
+        choiceKey: field.choiceKey ?? field.id,
+        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        selectedOptionType: selectedOption.selectedOptionType ?? "string",
+        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
+        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
+        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
+        selectedRawJson: selectedOption.selectedRawJson ?? {
+          label: selectedOption.label,
+          value: selectedOption.value,
+        },
+        grantsRawJson: null,
+      });
+    }
+  }
+
+  return selections;
+}
+
 function buildClassSkillChoices(
   classIndex: string,
+  classOption: ClassOption,
   featureChoices: FeatureChoiceSelections,
 ): CharacterFeatureSelection[] {
   return Object.entries(featureChoices)
-    .filter(([, selectedIndex]) => selectedIndex.startsWith("skill-"))
+    .filter(
+      ([choiceKey, selectedIndex]) =>
+        selectedIndex.startsWith("skill-") &&
+        isClassSkillChoiceFieldByKey(classOption, choiceKey),
+    )
     .map(([choiceKey, selectedIndex]) => {
       const [featureId, fieldId] = choiceKey.split(":");
 
@@ -357,6 +422,17 @@ function buildClassSkillChoices(
         selectedIndex,
       };
     });
+}
+
+function isClassSkillChoiceFieldByKey(
+  classOption: ClassOption,
+  choiceKey: string,
+) {
+  const [featureId, fieldId] = choiceKey.split(":");
+  const feature = classOption.features.find((classFeature) => classFeature.id === featureId);
+  const field = feature?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+
+  return field?.choiceGroupId === "class-skill-choice";
 }
 
 function buildSpeciesLanguageChoices(

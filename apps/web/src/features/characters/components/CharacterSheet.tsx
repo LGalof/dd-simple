@@ -309,6 +309,7 @@ function CharacterSheet({
     character.species.name,
     character.level,
   );
+  const savedFeatureChoices = character.featureChoices ?? [];
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string }> = [
     { id: "actions", label: "Actions" },
     { id: "spells", label: "Spells" },
@@ -804,6 +805,33 @@ function CharacterSheet({
                         ))}
                       </div>
                     </Card>
+
+                    {savedFeatureChoices.length > 0 && (
+                      <Card title="Saved Feature Choices">
+                        <div className="list">
+                          {savedFeatureChoices.map((choice) => (
+                            <div
+                              key={`${choice.sourceType}:${choice.sourceIndex}:${choice.choicePath}`}
+                              className="character-feature-entry"
+                            >
+                              <strong>
+                                {choice.choiceLabel ?? choice.choiceKey ?? choice.choicePath}
+                              </strong>
+                              <p>
+                                {choice.selectedOptionName ??
+                                  choice.selectedOptionIndex ??
+                                  choice.selectedOptionType}
+                                {choice.level ? ` - Level ${choice.level}` : ""}
+                              </p>
+                              <p className="muted">
+                                {choice.selectedOptionType}
+                                {" - Saved choice; mechanics not automated yet."}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    )}
 
                     <Card title="Origin">
                       <div className="list">
