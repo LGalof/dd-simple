@@ -9,8 +9,45 @@ type ClassSourceJson = {
   saving_throws?: ReferenceIndexRecord[];
 };
 
+type SpeciesSourceJson = {
+  languages?: ReferenceIndexRecord[];
+};
+
 type ClassProficiencyGrantIndex = {
   proficiencyIndex: string;
+};
+
+type ReferenceIndexOnly = {
+  index: string;
+};
+
+type ClassSkillChoiceWithOptions = {
+  options: Array<{
+    proficiencyIndex: string;
+  }>;
+};
+
+type CharacterProficiencySourceRecord = {
+  proficiencyIndex: string;
+  sourceType: string | null;
+};
+
+type CharacterChoiceInput = {
+  choiceType?: string;
+  sourceType?: string;
+  sourceIndex?: string;
+  selectedType?: string;
+  selectedIndex: string;
+};
+
+type HitPointCalculationMode = "fixed" | "rolled" | "override";
+
+type HitPointStateInput = {
+  calculationMode?: string;
+  bonusHp?: number;
+  overrideMaxHp?: number | null;
+  rolledHitPoints?: unknown;
+  tempHp?: number;
 };
 
 type CharacterMutationData = {
@@ -20,7 +57,10 @@ type CharacterMutationData = {
   backgroundIndex: string;
   alignment: string | null;
   level?: number;
+  currentHp?: number;
+  hitPointState?: HitPointStateInput;
   skillIndexes: string[];
+  choices?: CharacterChoiceInput[];
   abilityScores: {
     str: number;
     dex: number;
@@ -32,6 +72,28 @@ type CharacterMutationData = {
 };
 
 type CreateCharacterData = CharacterMutationData;
+
+const CLASS_CHOICE_SOURCE_TYPE = "class";
+const CLASS_SKILL_CHOICE_TYPE = "class-skill-choice";
+const CLASS_SKILL_CHOICE_SELECTED_TYPE = "skill";
+const CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE = "class-choice";
+const SPECIES_CHOICE_SOURCE_TYPE = "species";
+const SPECIES_LANGUAGE_CHOICE_TYPE = "species-language-choice";
+const SPECIES_LANGUAGE_SELECTED_TYPE = "language";
+const SPECIES_HERITAGE_CHOICE_TYPE = "species-heritage-choice";
+const SPECIES_HERITAGE_SELECTED_TYPE = "subspecies";
+
+const fallbackSpeciesLanguageIndexes: Record<string, string[]> = {
+  dragonborn: ["common", "draconic"],
+  dwarf: ["common", "dwarvish"],
+  elf: ["common", "elvish"],
+  gnome: ["common", "gnomish"],
+  goliath: ["common", "giant"],
+  halfling: ["common", "halfling"],
+  human: ["common"],
+  orc: ["common", "orc"],
+  tiefling: ["common", "infernal"],
+};
 
 class CharacterReferenceNotFoundError extends Error {
   constructor(message: string) {
@@ -93,6 +155,23 @@ const characterInclude = {
     },
   },
   choices: true,
+  languages: {
+    orderBy: {
+      languageIndex: "asc" as const,
+    },
+    include: {
+      language: true,
+    },
+  },
+  conditions: {
+    orderBy: {
+      appliedAt: "asc" as const,
+    },
+    include: {
+      condition: true,
+    },
+  },
+  hitPointState: true,
   diceRolls: {
     orderBy: {
       rolledAt: "desc" as const,
@@ -102,6 +181,121 @@ const characterInclude = {
 
 function getAbilityModifier(score: number) {
   return Math.floor((score - 10) / 2);
+}
+
+function normalizeHitPointMode(value: string | undefined): HitPointCalculationMode {
+  return value === "rolled" || value === "override" ? value : "fixed";
+}
+
+function normalizeInteger(value: number | undefined, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : fallback;
+}
+
+function normalizeHitPointRolls(level: number, hitDie: number, value: unknown) {
+  const rolls = Array.isArray(value) ? value : [];
+
+  return Array.from({ length: level }, (_, index) => {
+    const roll = rolls[index];
+
+    if (typeof roll === "number" && Number.isFinite(roll)) {
+      return Math.max(1, Math.min(hitDie, Math.floor(roll)));
+    }
+
+    return hitDie;
+  });
+}
+
+function calculateMaxHp({
+  bonusHp,
+  calculationMode,
+  constitutionScore,
+  hitDie,
+  level,
+  overrideMaxHp,
+  rolledHitPoints,
+}: {
+  bonusHp: number;
+  calculationMode: HitPointCalculationMode;
+  constitutionScore: number;
+  hitDie: number;
+  level: number;
+  overrideMaxHp: number | null;
+  rolledHitPoints: number[];
+}) {
+  const normalizedLevel = Math.max(1, Math.min(20, Math.floor(level)));
+  const normalizedHitDie = Math.max(1, Math.floor(hitDie));
+  const constitutionBonus = getAbilityModifier(constitutionScore) * normalizedLevel;
+
+  if (calculationMode === "override" && overrideMaxHp !== null) {
+    return Math.max(1, Math.floor(overrideMaxHp));
+  }
+
+  if (calculationMode === "rolled") {
+    return Math.max(
+      1,
+      rolledHitPoints.reduce((total, roll) => total + roll, 0) + constitutionBonus + bonusHp,
+    );
+  }
+
+  const fixedGainPerLevel = Math.floor(normalizedHitDie / 2) + 1;
+  const fixedClassHp = normalizedHitDie + (normalizedLevel - 1) * fixedGainPerLevel;
+
+  return Math.max(1, fixedClassHp + constitutionBonus + bonusHp);
+}
+
+function normalizeHitPointStateInput({
+  constitutionScore,
+  data,
+  fallback,
+  hitDie,
+  level,
+}: {
+  constitutionScore: number;
+  data?: HitPointStateInput;
+  fallback?: {
+    bonusHp: number;
+    calculationMode: string;
+    overrideMaxHp: number | null;
+    rolledHitPoints: unknown;
+    tempHp: number;
+  } | null;
+  hitDie: number;
+  level: number;
+}) {
+  const normalizedLevel = Math.max(1, Math.min(20, Math.floor(level)));
+  const normalizedHitDie = Math.max(1, Math.floor(hitDie));
+  const calculationMode = normalizeHitPointMode(data?.calculationMode ?? fallback?.calculationMode);
+  const bonusHp = normalizeInteger(data?.bonusHp, fallback?.bonusHp ?? 0);
+  const rawOverrideMaxHp =
+    data?.overrideMaxHp === undefined ? fallback?.overrideMaxHp ?? null : data.overrideMaxHp;
+  const overrideMaxHp =
+    rawOverrideMaxHp === null || rawOverrideMaxHp === undefined
+      ? null
+      : Math.max(1, Math.floor(rawOverrideMaxHp));
+  const rolledHitPoints = normalizeHitPointRolls(
+    normalizedLevel,
+    normalizedHitDie,
+    data?.rolledHitPoints ?? fallback?.rolledHitPoints,
+  );
+  const tempHp = Math.max(0, normalizeInteger(data?.tempHp, fallback?.tempHp ?? 0));
+  const maxHp = calculateMaxHp({
+    bonusHp,
+    calculationMode,
+    constitutionScore,
+    hitDie: normalizedHitDie,
+    level: normalizedLevel,
+    overrideMaxHp,
+    rolledHitPoints,
+  });
+
+  return {
+    calculationMode,
+    bonusHp,
+    overrideMaxHp,
+    rolledHitPoints,
+    tempHp,
+    maxHp,
+  };
 }
 
 function abilityScoreRows(data: CharacterMutationData) {
@@ -143,6 +337,310 @@ function getClassSavingThrowProficiencyIndexes(sourceJson: unknown) {
   return (classSourceJson.saving_throws ?? []).map(
     (savingThrow) => `saving-throw-${savingThrow.index}`,
   );
+}
+
+function isSkillProficiencyIndex(index: string) {
+  return index.startsWith("skill-");
+}
+
+function skillIndexFromProficiencyIndex(index: string) {
+  return isSkillProficiencyIndex(index) ? index.replace(/^skill-/, "") : null;
+}
+
+function normalizeClassSkillChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  classIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== CLASS_CHOICE_SOURCE_TYPE ||
+        choice.choiceType !== CLASS_SKILL_CHOICE_TYPE ||
+        choice.selectedType !== CLASS_SKILL_CHOICE_SELECTED_TYPE ||
+        !isSkillProficiencyIndex(choice.selectedIndex)
+      ) {
+        return false;
+      }
+
+      return Boolean(choice.sourceIndex);
+    })
+    .map((choice) => ({
+      choiceType: CLASS_SKILL_CHOICE_TYPE,
+      sourceType: CLASS_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeClassChoiceSourceIndex(choice.sourceIndex, classIndex),
+      selectedType: CLASS_SKILL_CHOICE_SELECTED_TYPE,
+      selectedIndex: choice.selectedIndex,
+    }));
+}
+
+function normalizeClassChoiceSourceIndex(sourceIndex: string | undefined, classIndex: string) {
+  if (!sourceIndex) {
+    return classIndex;
+  }
+
+  const [, ...choiceKeyParts] = sourceIndex.split(":");
+  const choiceKey = choiceKeyParts.join(":");
+
+  return choiceKey ? `${classIndex}:${choiceKey}` : classIndex;
+}
+
+function normalizeSpeciesLanguageChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  speciesIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== SPECIES_CHOICE_SOURCE_TYPE ||
+        choice.choiceType !== SPECIES_LANGUAGE_CHOICE_TYPE ||
+        choice.selectedType !== SPECIES_LANGUAGE_SELECTED_TYPE ||
+        !choice.selectedIndex ||
+        !choice.sourceIndex
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((choice) => ({
+      choiceType: SPECIES_LANGUAGE_CHOICE_TYPE,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeSpeciesChoiceSourceIndex(choice.sourceIndex, speciesIndex),
+      selectedType: SPECIES_LANGUAGE_SELECTED_TYPE,
+      selectedIndex: choice.selectedIndex,
+    }));
+}
+
+function normalizeSpeciesHeritageChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  speciesIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== SPECIES_CHOICE_SOURCE_TYPE ||
+        choice.choiceType !== SPECIES_HERITAGE_CHOICE_TYPE ||
+        choice.selectedType !== SPECIES_HERITAGE_SELECTED_TYPE ||
+        !choice.selectedIndex ||
+        !choice.sourceIndex
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((choice) => ({
+      choiceType: SPECIES_HERITAGE_CHOICE_TYPE,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeSpeciesChoiceSourceIndex(choice.sourceIndex, speciesIndex),
+      selectedType: SPECIES_HERITAGE_SELECTED_TYPE,
+      selectedIndex: choice.selectedIndex,
+    }));
+}
+
+function normalizeSpeciesChoiceSourceIndex(sourceIndex: string | undefined, speciesIndex: string) {
+  if (!sourceIndex) {
+    return speciesIndex;
+  }
+
+  const [, ...choiceKeyParts] = sourceIndex.split(":");
+  const choiceKey = choiceKeyParts.join(":");
+
+  return choiceKey ? `${speciesIndex}:${choiceKey}` : speciesIndex;
+}
+
+function getFixedSpeciesLanguageIndexes(speciesIndex: string, sourceJson: unknown) {
+  if (sourceJson && typeof sourceJson === "object") {
+    const speciesSourceJson = sourceJson as SpeciesSourceJson;
+    const sourceLanguageIndexes = (speciesSourceJson.languages ?? [])
+      .map((language) => language.index)
+      .filter((languageIndex): languageIndex is string => Boolean(languageIndex));
+
+    if (sourceLanguageIndexes.length > 0) {
+      return [...new Set(sourceLanguageIndexes)];
+    }
+  }
+
+  return fallbackSpeciesLanguageIndexes[speciesIndex] ?? [];
+}
+
+async function replaceSpeciesLanguageChoicesAndRows(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  speciesIndex: string,
+  speciesSourceJson: unknown,
+  choices: CharacterChoiceInput[] | undefined,
+) {
+  const speciesLanguageChoices = normalizeSpeciesLanguageChoices(choices, speciesIndex);
+  const fixedLanguageIndexes = getFixedSpeciesLanguageIndexes(speciesIndex, speciesSourceJson);
+  const selectedLanguageIndexes = speciesLanguageChoices.map((choice) => choice.selectedIndex);
+  const languageIndexes = [...new Set([...fixedLanguageIndexes, ...selectedLanguageIndexes])];
+
+  if (languageIndexes.length > 0) {
+    const languages = await tx.refLanguage.findMany({
+      where: {
+        index: {
+          in: languageIndexes,
+        },
+      },
+      select: {
+        index: true,
+      },
+    });
+    const existingLanguageIndexes = new Set(
+      languages.map((language: ReferenceIndexOnly) => language.index),
+    );
+    const missingLanguageIndexes = languageIndexes.filter(
+      (languageIndex) => !existingLanguageIndexes.has(languageIndex),
+    );
+
+    if (missingLanguageIndexes.length > 0) {
+      throw new CharacterReferenceNotFoundError("Language not found");
+    }
+  }
+
+  await tx.characterChoice.deleteMany({
+    where: {
+      characterId,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      choiceType: SPECIES_LANGUAGE_CHOICE_TYPE,
+    },
+  });
+
+  if (speciesLanguageChoices.length > 0) {
+    await tx.characterChoice.createMany({
+      data: speciesLanguageChoices.map((choice) => ({
+        characterId,
+        choiceType: choice.choiceType,
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        selectedType: choice.selectedType,
+        selectedIndex: choice.selectedIndex,
+      })),
+    });
+  }
+
+  await tx.characterLanguage.deleteMany({
+    where: {
+      characterId,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+    },
+  });
+
+  const fixedLanguageIndexSet = new Set(fixedLanguageIndexes);
+  const selectedLanguageRows = speciesLanguageChoices
+    .filter((choice) => !fixedLanguageIndexSet.has(choice.selectedIndex))
+    .map((choice) => ({
+      characterId,
+      languageIndex: choice.selectedIndex,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: choice.sourceIndex,
+    }));
+  const languageRows = [
+    ...fixedLanguageIndexes.map((languageIndex) => ({
+      characterId,
+      languageIndex,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: `${speciesIndex}:fixed:${languageIndex}`,
+    })),
+    ...selectedLanguageRows,
+  ];
+
+  if (languageRows.length > 0) {
+    await tx.characterLanguage.createMany({
+      data: languageRows,
+      skipDuplicates: true,
+    });
+  }
+}
+
+async function replaceSpeciesHeritageChoices(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  speciesIndex: string,
+  choices: CharacterChoiceInput[] | undefined,
+) {
+  const speciesHeritageChoices = normalizeSpeciesHeritageChoices(choices, speciesIndex);
+  const selectedSubspeciesIndexes = [
+    ...new Set(speciesHeritageChoices.map((choice) => choice.selectedIndex)),
+  ];
+
+  if (selectedSubspeciesIndexes.length > 0) {
+    const subspecies = await tx.refSubspecies.findMany({
+      where: {
+        index: {
+          in: selectedSubspeciesIndexes,
+        },
+        speciesIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+    const existingSubspeciesIndexes = new Set(
+      subspecies.map((subspeciesOption: ReferenceIndexOnly) => subspeciesOption.index),
+    );
+    const missingSubspeciesIndexes = selectedSubspeciesIndexes.filter(
+      (subspeciesIndex) => !existingSubspeciesIndexes.has(subspeciesIndex),
+    );
+
+    if (missingSubspeciesIndexes.length > 0) {
+      throw new CharacterReferenceNotFoundError("Species heritage not found");
+    }
+  }
+
+  await tx.characterChoice.deleteMany({
+    where: {
+      characterId,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      choiceType: SPECIES_HERITAGE_CHOICE_TYPE,
+    },
+  });
+
+  if (speciesHeritageChoices.length > 0) {
+    await tx.characterChoice.createMany({
+      data: speciesHeritageChoices.map((choice) => ({
+        characterId,
+        choiceType: choice.choiceType,
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        selectedType: choice.selectedType,
+        selectedIndex: choice.selectedIndex,
+      })),
+    });
+  }
+}
+
+async function findAllowedClassSkillChoiceProficiencyIndexes(
+  tx: Prisma.TransactionClient,
+  classIndex: string,
+) {
+  const choices = await tx.refClassSkillChoice.findMany({
+    where: {
+      classIndex,
+    },
+    include: {
+      options: {
+        select: {
+          proficiencyIndex: true,
+        },
+      },
+    },
+  });
+
+  return new Set(
+    choices.flatMap((choice: ClassSkillChoiceWithOptions) =>
+      choice.options.map((option: ClassSkillChoiceWithOptions["options"][number]) =>
+        option.proficiencyIndex,
+      ),
+    ),
+  );
+}
+
+function getSkillIndexesFromProficiencyIndexes(proficiencyIndexes: string[]) {
+  return proficiencyIndexes
+    .map(skillIndexFromProficiencyIndex)
+    .filter((skillIndex): skillIndex is string => Boolean(skillIndex));
 }
 
 async function getClassProficiencyGrantIndexes(
@@ -226,6 +724,24 @@ async function findAllCharactersForUser(userId: string) {
           equipment: true,
         },
       },
+      choices: true,
+      languages: {
+        orderBy: {
+          languageIndex: "asc",
+        },
+        include: {
+          language: true,
+        },
+      },
+      conditions: {
+        orderBy: {
+          appliedAt: "asc",
+        },
+        include: {
+          condition: true,
+        },
+      },
+      hitPointState: true,
       diceRolls: {
         orderBy: {
           rolledAt: "desc",
@@ -238,7 +754,6 @@ async function findAllCharactersForUser(userId: string) {
 
 async function createCharacterForUser(userId: string, data: CreateCharacterData) {
   const selectedSkillIndexes = new Set(data.skillIndexes);
-  const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -304,22 +819,41 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         },
       },
     });
-    const maxHp = Math.max(1, characterClass.hitDie + conModifier);
+    const level = data.level ?? 1;
+    const hitPointState = normalizeHitPointStateInput({
+      constitutionScore: data.abilityScores.con,
+      data: data.hitPointState,
+      hitDie: characterClass.hitDie,
+      level,
+    });
+    const currentHp =
+      data.currentHp === undefined
+        ? hitPointState.maxHp
+        : Math.max(0, Math.min(hitPointState.maxHp, Math.floor(data.currentHp)));
 
-    return tx.character.create({
+    const character = await tx.character.create({
       data: {
         userId,
         name: data.name,
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
         backgroundIndex: data.backgroundIndex,
-        level: data.level ?? 1,
+        level,
         experiencePoints: 0,
         alignment: data.alignment,
-        maxHp,
-        currentHp: maxHp,
+        maxHp: hitPointState.maxHp,
+        currentHp,
         armorClass: 10 + dexModifier,
         speed: species.baseSpeed,
+        hitPointState: {
+          create: {
+            calculationMode: hitPointState.calculationMode,
+            bonusHp: hitPointState.bonusHp,
+            overrideMaxHp: hitPointState.overrideMaxHp,
+            rolledHitPoints: hitPointState.rolledHitPoints,
+            tempHp: hitPointState.tempHp,
+          },
+        },
         abilityScores: {
           create: abilityScoreRows(data),
         },
@@ -345,6 +879,26 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
           ],
         },
       },
+    });
+
+    await replaceSpeciesLanguageChoicesAndRows(
+      tx,
+      character.id,
+      species.index,
+      species.sourceJson,
+      data.choices,
+    );
+    await replaceSpeciesHeritageChoices(
+      tx,
+      character.id,
+      species.index,
+      data.choices,
+    );
+
+    return tx.character.findUnique({
+      where: {
+        id: character.id,
+      },
       include: characterInclude,
     });
   });
@@ -355,8 +909,6 @@ async function updateCharacterForUser(
   characterId: string,
   data: CharacterMutationData,
 ) {
-  const selectedSkillIndexes = new Set(data.skillIndexes);
-  const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -365,13 +917,23 @@ async function updateCharacterForUser(
         id: characterId,
         userId,
       },
+      include: {
+        hitPointState: true,
+      },
     });
 
     if (!existingCharacter) {
       return null;
     }
 
-    const [species, characterClass, background, skills, selectedProficiencies] =
+    const [
+      species,
+      characterClass,
+      background,
+      skills,
+      selectedProficiencies,
+      existingProficiencies,
+    ] =
       await Promise.all([
         tx.refSpecies.findUnique({
           where: {
@@ -394,6 +956,15 @@ async function updateCharacterForUser(
             index: {
               in: data.skillIndexes.map((skillIndex) => `skill-${skillIndex}`),
             },
+          },
+        }),
+        tx.characterProficiency.findMany({
+          where: {
+            characterId,
+          },
+          select: {
+            proficiencyIndex: true,
+            sourceType: true,
           },
         }),
       ]);
@@ -421,6 +992,27 @@ async function updateCharacterForUser(
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const classSkillChoices = normalizeClassSkillChoices(data.choices, characterClass.index);
+    const allowedClassSkillChoiceProficiencyIndexes =
+      await findAllowedClassSkillChoiceProficiencyIndexes(tx, characterClass.index);
+    const invalidClassSkillChoices = classSkillChoices.filter(
+      (choice) => !allowedClassSkillChoiceProficiencyIndexes.has(choice.selectedIndex),
+    );
+
+    if (invalidClassSkillChoices.length > 0) {
+      throw new CharacterReferenceNotFoundError("Class skill choice not found");
+    }
+
+    const classSkillChoiceProficiencyIndexes = [
+      ...new Set(classSkillChoices.map((choice) => choice.selectedIndex)),
+    ];
+    const classSkillChoiceProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: classSkillChoiceProficiencyIndexes,
+        },
+      },
+    });
     const classProficiencyGrantIndexes = await getClassProficiencyGrantIndexes(
       tx,
       characterClass.index,
@@ -433,11 +1025,37 @@ async function updateCharacterForUser(
         },
       },
     });
-    const maxHp = Math.max(1, characterClass.hitDie + conModifier);
-    const currentHp =
-      existingCharacter.currentHp === existingCharacter.maxHp
-        ? maxHp
-        : Math.min(existingCharacter.currentHp, maxHp);
+    const preservedExistingSkillProficiencyIndexes = existingProficiencies
+      .filter((proficiency: CharacterProficiencySourceRecord) => {
+        if (
+          proficiency.sourceType === "class" ||
+          proficiency.sourceType === CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE
+        ) {
+          return false;
+        }
+
+        return isSkillProficiencyIndex(proficiency.proficiencyIndex);
+      })
+      .map((proficiency: CharacterProficiencySourceRecord) => proficiency.proficiencyIndex);
+    const finalSkillIndexes = new Set([
+      ...data.skillIndexes,
+      ...getSkillIndexesFromProficiencyIndexes(preservedExistingSkillProficiencyIndexes),
+      ...getSkillIndexesFromProficiencyIndexes(classProficiencyGrantIndexes),
+      ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
+    ]);
+    const level = data.level ?? existingCharacter.level;
+    const hitPointState = normalizeHitPointStateInput({
+      constitutionScore: data.abilityScores.con,
+      data: data.hitPointState,
+      fallback: existingCharacter.hitPointState,
+      hitDie: characterClass.hitDie,
+      level,
+    });
+    const requestedCurrentHp = data.currentHp ?? existingCharacter.currentHp;
+    const currentHp = Math.max(
+      0,
+      Math.min(hitPointState.maxHp, Math.floor(requestedCurrentHp)),
+    );
 
     await tx.character.update({
       where: {
@@ -448,12 +1066,33 @@ async function updateCharacterForUser(
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
         backgroundIndex: data.backgroundIndex,
-        level: data.level ?? existingCharacter.level,
+        level,
         alignment: data.alignment,
-        maxHp,
+        maxHp: hitPointState.maxHp,
         currentHp,
         armorClass: 10 + dexModifier,
         speed: species.baseSpeed,
+      },
+    });
+
+    await tx.characterHitPointState.upsert({
+      where: {
+        characterId,
+      },
+      update: {
+        calculationMode: hitPointState.calculationMode,
+        bonusHp: hitPointState.bonusHp,
+        overrideMaxHp: hitPointState.overrideMaxHp,
+        rolledHitPoints: hitPointState.rolledHitPoints,
+        tempHp: hitPointState.tempHp,
+      },
+      create: {
+        characterId,
+        calculationMode: hitPointState.calculationMode,
+        bonusHp: hitPointState.bonusHp,
+        overrideMaxHp: hitPointState.overrideMaxHp,
+        rolledHitPoints: hitPointState.rolledHitPoints,
+        tempHp: hitPointState.tempHp,
       },
     });
 
@@ -488,32 +1127,64 @@ async function updateCharacterForUser(
             },
           },
           update: {
-            isProficient: selectedSkillIndexes.has(skill.index),
+            isProficient: finalSkillIndexes.has(skill.index),
           },
           create: {
             characterId,
             skillIndex: skill.index,
-            isProficient: selectedSkillIndexes.has(skill.index),
+            isProficient: finalSkillIndexes.has(skill.index),
             customBonus: 0,
           },
         }),
       ),
     );
 
-    await tx.characterProficiency.deleteMany({
+    await tx.characterChoice.deleteMany({
       where: {
         characterId,
-        sourceType: "manual",
-        proficiencyIndex: {
-          startsWith: "skill-",
-        },
+        sourceType: CLASS_CHOICE_SOURCE_TYPE,
+        choiceType: CLASS_SKILL_CHOICE_TYPE,
       },
     });
+
+    if (classSkillChoices.length > 0) {
+      await tx.characterChoice.createMany({
+        data: classSkillChoices.map((choice) => ({
+          characterId,
+          choiceType: choice.choiceType,
+          sourceType: choice.sourceType,
+          sourceIndex: choice.sourceIndex,
+          selectedType: choice.selectedType,
+          selectedIndex: choice.selectedIndex,
+        })),
+      });
+    }
+
+    await replaceSpeciesLanguageChoicesAndRows(
+      tx,
+      characterId,
+      species.index,
+      species.sourceJson,
+      data.choices,
+    );
+    await replaceSpeciesHeritageChoices(
+      tx,
+      characterId,
+      species.index,
+      data.choices,
+    );
 
     await tx.characterProficiency.deleteMany({
       where: {
         characterId,
-        sourceType: "class",
+        OR: [
+          {
+            sourceType: "class",
+          },
+          {
+            sourceType: CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE,
+          },
+        ],
       },
     });
 
@@ -524,6 +1195,19 @@ async function updateCharacterForUser(
           proficiencyIndex: proficiency.index,
           sourceType: "manual",
         })),
+        skipDuplicates: true,
+      });
+    }
+
+    if (classSkillChoiceProficiencies.length > 0) {
+      await tx.characterProficiency.createMany({
+        data: classSkillChoiceProficiencies.map(
+          (proficiency: ReferenceIndexRecord) => ({
+            characterId,
+            proficiencyIndex: proficiency.index,
+            sourceType: CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE,
+          }),
+        ),
         skipDuplicates: true,
       });
     }
@@ -571,12 +1255,107 @@ async function findCharacterByIdForUser(userId: string, characterId: string) {
   });
 }
 
+async function addConditionToCharacterForUser(
+  userId: string,
+  characterId: string,
+  conditionIndex: string,
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const [character, condition] = await Promise.all([
+      tx.character.findFirst({
+        where: {
+          id: characterId,
+          userId,
+        },
+        select: {
+          id: true,
+        },
+      }),
+      tx.refCondition.findUnique({
+        where: {
+          index: conditionIndex,
+        },
+        select: {
+          index: true,
+        },
+      }),
+    ]);
+
+    if (!character) {
+      return null;
+    }
+
+    if (!condition) {
+      throw new CharacterReferenceNotFoundError("Condition not found");
+    }
+
+    await tx.characterCondition.upsert({
+      where: {
+        characterId_conditionIndex: {
+          characterId,
+          conditionIndex,
+        },
+      },
+      update: {},
+      create: {
+        characterId,
+        conditionIndex,
+      },
+    });
+
+    return tx.character.findUnique({
+      where: {
+        id: characterId,
+      },
+      include: characterInclude,
+    });
+  });
+}
+
+async function removeConditionFromCharacterForUser(
+  userId: string,
+  characterId: string,
+  conditionIndex: string,
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const character = await tx.character.findFirst({
+      where: {
+        id: characterId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!character) {
+      return null;
+    }
+
+    await tx.characterCondition.deleteMany({
+      where: {
+        characterId,
+        conditionIndex,
+      },
+    });
+
+    return tx.character.findUnique({
+      where: {
+        id: characterId,
+      },
+      include: characterInclude,
+    });
+  });
+}
+
 export {
+  addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
+  removeConditionFromCharacterForUser,
   updateCharacterForUser,
 };
 export type { CharacterMutationData, CreateCharacterData };

@@ -70,7 +70,7 @@ async function patch<T>(path: string, body: unknown, options: RequestOptions = {
   return (await response.json()) as T;
 }
 
-async function deleteRequest(path: string, options: RequestOptions = {}) {
+async function deleteRequest<T = void>(path: string, options: RequestOptions = {}) {
   const response = await fetchApi(path, {
     method: "DELETE",
     headers: authHeaders(options.token),
@@ -79,6 +79,12 @@ async function deleteRequest(path: string, options: RequestOptions = {}) {
   if (!response.ok) {
     throw new Error(await parseError(response));
   }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
 }
 
 async function fetchApi(path: string, init: RequestInit) {

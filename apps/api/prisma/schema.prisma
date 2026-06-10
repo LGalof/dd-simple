@@ -51,6 +51,9 @@ model Character {
   proficiencies    CharacterProficiency[]
   inventory        CharacterInventory[]
   choices          CharacterChoice[]
+  languages        CharacterLanguage[]
+  conditions       CharacterCondition[]
+  hitPointState    CharacterHitPointState?
   diceRolls        DiceRoll[]
 
   createdAt        DateTime @default(now())
@@ -141,6 +144,28 @@ model RefSubspecies {
   species     RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
 
   @@map("ref_subspecies")
+}
+
+model RefLanguage {
+  index       String @id
+  name        String
+  description String?
+  sourceJson  Json?
+
+  characterLanguages CharacterLanguage[]
+
+  @@map("ref_languages")
+}
+
+model RefCondition {
+  index       String @id
+  name        String
+  description String?
+  sourceJson  Json?
+
+  characterConditions CharacterCondition[]
+
+  @@map("ref_conditions")
 }
 
 model RefClass {
@@ -405,6 +430,49 @@ model CharacterChoice {
   character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@map("character_choices")
+}
+
+model CharacterLanguage {
+  id            String @id @default(uuid()) @db.Uuid
+  characterId   String @db.Uuid
+  languageIndex String
+  sourceType    String
+  sourceIndex   String?
+
+  character Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  language  RefLanguage @relation(fields: [languageIndex], references: [index])
+
+  @@unique([characterId, languageIndex, sourceType, sourceIndex])
+  @@map("character_languages")
+}
+
+model CharacterCondition {
+  id             String   @id @default(uuid()) @db.Uuid
+  characterId    String   @db.Uuid
+  conditionIndex String
+  notes          String?
+  appliedAt      DateTime @default(now())
+
+  character Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  condition RefCondition @relation(fields: [conditionIndex], references: [index])
+
+  @@unique([characterId, conditionIndex])
+  @@map("character_conditions")
+}
+
+model CharacterHitPointState {
+  id              String @id @default(uuid()) @db.Uuid
+  characterId     String @unique @db.Uuid
+
+  calculationMode String @default("fixed")
+  bonusHp         Int    @default(0)
+  overrideMaxHp   Int?
+  rolledHitPoints Json?
+  tempHp          Int    @default(0)
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("character_hit_point_states")
 }
 
 model DiceRoll {

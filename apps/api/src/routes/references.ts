@@ -4,6 +4,7 @@ import {
   getAlignments,
   getBackgrounds,
   getClasses,
+  getConditions,
   getEquipment,
   getProficiencies,
   getRuleDocumentByCategoryAndIndex,
@@ -20,6 +21,7 @@ referencesRouter.get("/references/skills", getSkills);
 referencesRouter.get("/references/species", getSpecies);
 referencesRouter.get("/references/classes", getClasses);
 referencesRouter.get("/references/backgrounds", getBackgrounds);
+referencesRouter.get("/references/conditions", getConditions);
 referencesRouter.get("/references/proficiencies", getProficiencies);
 referencesRouter.get("/references/equipment", getEquipment);
 

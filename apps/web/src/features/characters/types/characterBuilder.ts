@@ -9,7 +9,7 @@ type AbilityAssignment = {
 
 type HitPointSettings = {
   bonusHp: number;
-  calculationMode: "fixed" | "rolled";
+  calculationMode: "fixed" | "rolled" | "override";
   overrideMaxHp: number | null;
   rolledHitPoints: number[];
 };

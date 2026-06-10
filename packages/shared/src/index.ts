@@ -39,6 +39,42 @@ export type CharacterProficiency = {
   };
 };
 
+export type CharacterLanguage = {
+  id: string;
+  languageIndex: string;
+  sourceType: string;
+  sourceIndex: string | null;
+  language: {
+    index: string;
+    name: string;
+    description?: string | null;
+  };
+};
+
+export type CharacterCondition = {
+  id: string;
+  conditionIndex: string;
+  notes: string | null;
+  appliedAt: string;
+  condition: {
+    index: string;
+    name: string;
+    description?: string | null;
+  };
+};
+
+export type HitPointCalculationMode = "fixed" | "rolled" | "override";
+
+export type CharacterHitPointState = {
+  id?: string;
+  characterId?: string;
+  calculationMode: HitPointCalculationMode;
+  bonusHp: number;
+  overrideMaxHp: number | null;
+  rolledHitPoints: number[];
+  tempHp: number;
+};
+
 export type InventoryItem = {
   id: string;
   quantity: number;
@@ -99,8 +135,9 @@ export type ClassDefinition = {
 };
 
 export type CharacterFeatureSelection = {
+  id?: string;
   characterId?: string;
-  featureId: string;
+  featureId?: string;
   fieldId?: string;
   choiceType?: string;
   sourceType?: string;
@@ -143,6 +180,10 @@ export type Character = {
   abilityScores: AbilityScore[];
   skills: CharacterSkill[];
   proficiencies?: CharacterProficiency[];
+  languages?: CharacterLanguage[];
+  conditions?: CharacterCondition[];
+  hitPointState?: CharacterHitPointState | null;
+  choices?: CharacterFeatureSelection[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];
 };
@@ -154,6 +195,9 @@ export type CharacterSavePayload = {
   backgroundIndex: string;
   alignment: string | null;
   level?: number;
+  currentHp?: number;
+  hitPointState?: CharacterHitPointState;
   skillIndexes: string[];
+  choices?: CharacterFeatureSelection[];
   abilityScores: AbilityScores;
 };

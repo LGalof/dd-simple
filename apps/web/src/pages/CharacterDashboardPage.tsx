@@ -11,24 +11,38 @@ import {
   clearSelectedCharacterId,
   getSelectedCharacterId,
 } from "../features/characters/utils/selectedCharacter";
+import { fetchConditions } from "../features/references/api/fetchReferences";
 import {
   InventoryDetailsSidebar,
   useInventorySandboxController,
 } from "./InventorySandboxPage";
-import type { AbilityScores, Character, CharacterSavePayload } from "../types/character";
-import type { SpeciesOption } from "../features/characters/types/characterBuilder";
+import type {
+  AbilityScores,
+  Character,
+  CharacterFeatureSelection,
+  CharacterSavePayload,
+} from "../types/character";
+import type { ReferenceCondition } from "../types/reference";
+import type {
+  FeatureChoiceSelections,
+  SpeciesOption,
+} from "../features/characters/types/characterBuilder";
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
 function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
+  const [conditionOptions, setConditionOptions] = useState<ReferenceCondition[]>([]);
+  const [conditionOptionsError, setConditionOptionsError] = useState<string | null>(null);
   const inventoryController = useInventorySandboxController();
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const {
+    addCondition,
     characters,
     loading,
     error,
+    removeCondition,
     saveCharacter,
     saveError,
     savingCharacterId,
@@ -42,6 +56,33 @@ function CharacterDashboardPage() {
     [characters, selectedCharacterId],
   );
   const character = selectedCharacter ?? characters[0];
+
+  useEffect(() => {
+    let isCurrentRequest = true;
+
+    async function loadConditionOptions() {
+      try {
+        const conditions = await fetchConditions();
+
+        if (isCurrentRequest) {
+          setConditionOptions(conditions);
+          setConditionOptionsError(null);
+        }
+      } catch (err) {
+        if (isCurrentRequest) {
+          setConditionOptionsError(
+            err instanceof Error ? err.message : "Failed to load conditions",
+          );
+        }
+      }
+    }
+
+    void loadConditionOptions();
+
+    return () => {
+      isCurrentRequest = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {
@@ -70,7 +111,6 @@ function CharacterDashboardPage() {
     selectedBackground,
     selectedClass,
     selectedPanelOption,
-    selectedSkillIndexes,
     selectedSpecies,
     speciesChoices,
     persistedSkillIndexes,
@@ -130,7 +170,8 @@ function CharacterDashboardPage() {
         character,
         builderState,
         persistedSkillIndexes,
-        selectedSkillIndexes,
+        featureChoices,
+        speciesChoices,
       ),
     );
 
@@ -206,14 +247,22 @@ function CharacterDashboardPage() {
               activeTab={activeWorkspaceTab}
               character={previewCharacter}
               currentHp={builderState.currentHp}
+              conditionOptions={conditionOptions}
+              conditionOptionsError={conditionOptionsError}
               inventoryController={inventoryController}
               normalizedActions={normalizedActionsWithPreview}
               normalizedActionsError={normalizedActionsErrorWithPreview}
               normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
+              onAddCondition={(conditionIndex) =>
+                character ? addCondition(character.id, conditionIndex) : Promise.resolve(null)
+              }
               defenseSummary={defenseSummary}
               tempHp={builderState.tempHp}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
+              onRemoveCondition={(conditionIndex) =>
+                character ? removeCondition(character.id, conditionIndex) : Promise.resolve(null)
+              }
               onSetTempHp={setTempHp}
             />
 
@@ -246,7 +295,8 @@ function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   persistedSkillIndexes: string[],
-  selectedSkillIndexes: string[],
+  featureChoices: FeatureChoiceSelections,
+  speciesChoices: Record<string, string>,
 ): CharacterSavePayload {
   return {
     name: character.name,
@@ -255,9 +305,98 @@ function buildCharacterSavePayload(
     backgroundIndex: builderState.backgroundIndex,
     alignment: character.alignment,
     level: builderState.level,
-    skillIndexes: [...new Set([...persistedSkillIndexes, ...selectedSkillIndexes])],
+    currentHp: builderState.currentHp,
+    hitPointState: {
+      ...builderState.hitPointSettings,
+      tempHp: builderState.tempHp,
+    },
+    skillIndexes: persistedSkillIndexes,
+    choices: [
+      ...buildClassSkillChoices(builderState.classIndex, featureChoices),
+      ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
+      ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
+    ],
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
+}
+
+function buildClassSkillChoices(
+  classIndex: string,
+  featureChoices: FeatureChoiceSelections,
+): CharacterFeatureSelection[] {
+  return Object.entries(featureChoices)
+    .filter(([, selectedIndex]) => selectedIndex.startsWith("skill-"))
+    .map(([choiceKey, selectedIndex]) => {
+      const [featureId, fieldId] = choiceKey.split(":");
+
+      return {
+        choiceType: "class-skill-choice",
+        featureId,
+        fieldId,
+        sourceType: "class",
+        sourceIndex: `${classIndex}:${featureId}:${fieldId}`,
+        selectedType: "skill",
+        selectedIndex,
+      };
+    });
+}
+
+function buildSpeciesLanguageChoices(
+  speciesIndex: string,
+  speciesChoices: Record<string, string>,
+): CharacterFeatureSelection[] {
+  return Object.entries(speciesChoices)
+    .filter(([choiceKey, selectedIndex]) => {
+      const [choiceSpeciesIndex, , fieldId] = choiceKey.split(":");
+
+      return (
+        choiceSpeciesIndex === speciesIndex &&
+        fieldId === "language" &&
+        selectedIndex.trim().length > 0
+      );
+    })
+    .map(([choiceKey, selectedIndex]) => {
+      const [, featureId, fieldId] = choiceKey.split(":");
+
+      return {
+        choiceType: "species-language-choice",
+        featureId,
+        fieldId,
+        sourceType: "species",
+        sourceIndex: `${speciesIndex}:${featureId}:${fieldId}`,
+        selectedType: "language",
+        selectedIndex,
+      };
+    });
+}
+
+function buildSpeciesHeritageChoices(
+  speciesIndex: string,
+  speciesChoices: Record<string, string>,
+): CharacterFeatureSelection[] {
+  return Object.entries(speciesChoices)
+    .filter(([choiceKey, selectedIndex]) => {
+      const [choiceSpeciesIndex, , fieldId] = choiceKey.split(":");
+
+      return (
+        choiceSpeciesIndex === speciesIndex &&
+        fieldId === "heritage" &&
+        selectedIndex.trim().length > 0
+      );
+    })
+    .map(([choiceKey, selectedIndex]) => {
+      const [, featureId, fieldId] = choiceKey.split(":");
+
+      return {
+        choiceType: "species-heritage-choice",
+        featureId,
+        fieldId,
+        sourceType: "species",
+        sourceIndex: `${speciesIndex}:${featureId}:${fieldId}`,
+        selectedType: "subspecies",
+        selectedIndex,
+      };
+    });
 }
 
 function buildAbilityScorePayload(

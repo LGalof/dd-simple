@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import type { Character } from "../../../types/character";
+import { addCharacterCondition } from "../api/addCharacterCondition";
 import { deleteCharacter } from "../api/deleteCharacter";
 import { fetchCharacters } from "../api/fetchCharacters";
+import { removeCharacterCondition } from "../api/removeCharacterCondition";
 import { updateCharacter } from "../api/updateCharacter";
 import { clearSelectedCharacterId } from "../utils/selectedCharacter";
 import type { CharacterSavePayload } from "../../../types/character";
@@ -85,12 +87,68 @@ function useCharacters() {
     }
   }
 
+  async function addCondition(characterId: string, conditionIndex: string) {
+    if (!token) {
+      setSaveError("You must be signed in to add a condition.");
+      return null;
+    }
+
+    setSaveError(null);
+    setSavingCharacterId(characterId);
+
+    try {
+      const updatedCharacter = await addCharacterCondition(characterId, conditionIndex, token);
+
+      replaceCharacter(updatedCharacter);
+
+      return updatedCharacter;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to add condition");
+      return null;
+    } finally {
+      setSavingCharacterId(null);
+    }
+  }
+
+  async function removeCondition(characterId: string, conditionIndex: string) {
+    if (!token) {
+      setSaveError("You must be signed in to remove a condition.");
+      return null;
+    }
+
+    setSaveError(null);
+    setSavingCharacterId(characterId);
+
+    try {
+      const updatedCharacter = await removeCharacterCondition(characterId, conditionIndex, token);
+
+      replaceCharacter(updatedCharacter);
+
+      return updatedCharacter;
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Failed to remove condition");
+      return null;
+    } finally {
+      setSavingCharacterId(null);
+    }
+  }
+
+  function replaceCharacter(updatedCharacter: Character) {
+    setCharacters((currentCharacters) =>
+      currentCharacters.map((character) =>
+        character.id === updatedCharacter.id ? updatedCharacter : character,
+      ),
+    );
+  }
+
   return {
+    addCondition,
     characters,
     deletingCharacterId,
     loading,
     error,
     removeCharacter,
+    removeCondition,
     saveCharacter,
     saveError,
     savingCharacterId,

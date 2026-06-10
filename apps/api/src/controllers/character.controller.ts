@@ -1,11 +1,13 @@
 import type { Request, Response } from "express";
 import { getAuthenticatedUser } from "../middleware/auth.js";
 import {
+  addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
   createCharacterForUser,
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
+  removeConditionFromCharacterForUser,
   updateCharacterForUser,
 } from "../services/character.service.js";
 import { findCharacterActionsForUser } from "../services/character-actions.service.js";
@@ -22,8 +24,47 @@ type CharacterMutationRequestBody = {
   backgroundIndex?: unknown;
   alignment?: unknown;
   level?: unknown;
+  currentHp?: unknown;
+  hitPointState?: unknown;
   skillIndexes?: unknown;
+  choices?: unknown;
   abilityScores?: unknown;
+};
+
+type CharacterChoiceRequestBody = {
+  choiceType?: unknown;
+  sourceType?: unknown;
+  sourceIndex?: unknown;
+  selectedType?: unknown;
+  selectedIndex?: unknown;
+};
+
+type AddConditionRequestBody = {
+  conditionIndex?: unknown;
+};
+
+type HitPointStateRequestBody = {
+  calculationMode?: unknown;
+  bonusHp?: unknown;
+  overrideMaxHp?: unknown;
+  rolledHitPoints?: unknown;
+  tempHp?: unknown;
+};
+
+type ValidHitPointStateRequestBody = {
+  calculationMode: "fixed" | "rolled" | "override";
+  bonusHp: number;
+  overrideMaxHp: number | null;
+  rolledHitPoints: number[];
+  tempHp: number;
+};
+
+type ValidCharacterChoiceRequestBody = {
+  choiceType: string;
+  sourceType: string;
+  sourceIndex: string;
+  selectedType: string;
+  selectedIndex: string;
 };
 
 type ValidCharacterMutationRequestBody = {
@@ -33,7 +74,10 @@ type ValidCharacterMutationRequestBody = {
   backgroundIndex: string;
   alignment?: string | null;
   level?: number;
+  currentHp?: number;
+  hitPointState?: ValidHitPointStateRequestBody;
   skillIndexes: string[];
+  choices?: ValidCharacterChoiceRequestBody[];
   abilityScores: AbilityScoreRequestBody;
 };
 
@@ -54,6 +98,78 @@ function isAbilityScoresBody(value: unknown): value is AbilityScoreRequestBody {
       score <= 20
     );
   });
+}
+
+function isCharacterChoiceRequestBody(
+  value: unknown,
+): value is ValidCharacterChoiceRequestBody {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as CharacterChoiceRequestBody;
+
+  const isClassSkillChoice =
+    candidate.choiceType === "class-skill-choice" &&
+    candidate.sourceType === "class" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "skill" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.startsWith("skill-");
+  const isSpeciesLanguageChoice =
+    candidate.choiceType === "species-language-choice" &&
+    candidate.sourceType === "species" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "language" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.trim().length > 0;
+  const isSpeciesHeritageChoice =
+    candidate.choiceType === "species-heritage-choice" &&
+    candidate.sourceType === "species" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "subspecies" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.trim().length > 0;
+
+  return isClassSkillChoice || isSpeciesLanguageChoice || isSpeciesHeritageChoice;
+}
+
+function isHitPointStateRequestBody(value: unknown): value is ValidHitPointStateRequestBody {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as HitPointStateRequestBody;
+  const hasValidMode =
+    candidate.calculationMode === "fixed" ||
+    candidate.calculationMode === "rolled" ||
+    candidate.calculationMode === "override";
+  const hasValidBonusHp =
+    typeof candidate.bonusHp === "number" &&
+    Number.isInteger(candidate.bonusHp) &&
+    candidate.bonusHp >= -999 &&
+    candidate.bonusHp <= 999;
+  const hasValidOverride =
+    candidate.overrideMaxHp === null ||
+    (typeof candidate.overrideMaxHp === "number" &&
+      Number.isInteger(candidate.overrideMaxHp) &&
+      candidate.overrideMaxHp >= 1 &&
+      candidate.overrideMaxHp <= 999);
+  const hasValidRolls =
+    Array.isArray(candidate.rolledHitPoints) &&
+    candidate.rolledHitPoints.every(
+      (roll) => typeof roll === "number" && Number.isInteger(roll) && roll >= 1 && roll <= 100,
+    );
+  const hasValidTempHp =
+    typeof candidate.tempHp === "number" &&
+    Number.isInteger(candidate.tempHp) &&
+    candidate.tempHp >= 0 &&
+    candidate.tempHp <= 999;
+
+  return hasValidMode && hasValidBonusHp && hasValidOverride && hasValidRolls && hasValidTempHp;
 }
 
 function isCharacterMutationRequestBody(
@@ -82,8 +198,18 @@ function isCharacterMutationRequestBody(
         Number.isInteger(candidate.level) &&
         candidate.level >= 1 &&
         candidate.level <= 20)) &&
+    (candidate.currentHp === undefined ||
+      (typeof candidate.currentHp === "number" &&
+        Number.isInteger(candidate.currentHp) &&
+        candidate.currentHp >= 0 &&
+        candidate.currentHp <= 999)) &&
+    (candidate.hitPointState === undefined ||
+      isHitPointStateRequestBody(candidate.hitPointState)) &&
     Array.isArray(candidate.skillIndexes) &&
     candidate.skillIndexes.every((skillIndex) => typeof skillIndex === "string") &&
+    (candidate.choices === undefined ||
+      (Array.isArray(candidate.choices) &&
+        candidate.choices.every(isCharacterChoiceRequestBody))) &&
     isAbilityScoresBody(candidate.abilityScores)
   );
 }
@@ -218,7 +344,10 @@ async function createCharacter(req: Request, res: Response) {
       backgroundIndex: body.backgroundIndex.trim(),
       alignment: body.alignment?.trim() || null,
       level: body.level,
+      currentHp: body.currentHp,
+      hitPointState: body.hitPointState,
       skillIndexes: body.skillIndexes,
+      choices: body.choices,
       abilityScores: body.abilityScores,
     });
 
@@ -277,7 +406,10 @@ async function updateCharacter(req: Request, res: Response) {
         backgroundIndex: body.backgroundIndex.trim(),
         alignment: body.alignment?.trim() || null,
         level: body.level,
+        currentHp: body.currentHp,
+        hitPointState: body.hitPointState,
         skillIndexes: body.skillIndexes,
+        choices: body.choices,
         abilityScores: body.abilityScores,
       },
     );
@@ -313,6 +445,97 @@ async function updateCharacter(req: Request, res: Response) {
   }
 }
 
+async function addCharacterCondition(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const body = req.body as AddConditionRequestBody;
+
+    if (typeof body.conditionIndex !== "string" || body.conditionIndex.trim().length === 0) {
+      res.status(400).json({
+        error: "Request body must include conditionIndex",
+      });
+      return;
+    }
+
+    const character = await addConditionToCharacterForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      body.conditionIndex.trim(),
+    );
+
+    if (!character) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(character);
+  } catch (error) {
+    if (error instanceof CharacterReferenceNotFoundError) {
+      res.status(404).json({
+        error: error.message,
+      });
+      return;
+    }
+
+    console.error("Failed to add character condition:", error);
+
+    res.status(500).json({
+      error: "Failed to add character condition",
+    });
+  }
+}
+
+async function removeCharacterCondition(req: Request, res: Response) {
+  try {
+    const { conditionIndex, id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    if (!conditionIndex || Array.isArray(conditionIndex)) {
+      res.status(400).json({
+        error: "Invalid condition index",
+      });
+      return;
+    }
+
+    const character = await removeConditionFromCharacterForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      conditionIndex,
+    );
+
+    if (!character) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(character);
+  } catch (error) {
+    console.error("Failed to remove character condition:", error);
+
+    res.status(500).json({
+      error: "Failed to remove character condition",
+    });
+  }
+}
+
 async function deleteCharacter(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -344,10 +567,12 @@ async function deleteCharacter(req: Request, res: Response) {
 }
 
 export {
+  addCharacterCondition,
   createCharacter,
   deleteCharacter,
   getCharacterActions,
   getCharacterById,
   getCharacters,
+  removeCharacterCondition,
   updateCharacter,
 };
