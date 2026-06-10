@@ -5,6 +5,7 @@ import type {
   ReferenceAlignment,
   ReferenceBackground,
   ReferenceClass,
+  ReferenceCondition,
   ReferenceEquipment,
   ReferenceRuleDocument,
   ReferenceSkill,
@@ -33,6 +34,10 @@ async function fetchClasses(options: FetchReferenceOptions = {}) {
 
 async function fetchBackgrounds(options: FetchReferenceOptions = {}) {
   return api.get<ReferenceBackground[]>("/references/backgrounds", options);
+}
+
+async function fetchConditions(options: FetchReferenceOptions = {}) {
+  return api.get<ReferenceCondition[]>("/references/conditions", options);
 }
 
 async function fetchEquipment(options: FetchReferenceOptions = {}) {
@@ -78,6 +83,7 @@ export {
   fetchBackgrounds,
   fetchCharacterCreatorReferences,
   fetchClasses,
+  fetchConditions,
   fetchEquipment,
   fetchRuleDocuments,
   fetchSkills,
