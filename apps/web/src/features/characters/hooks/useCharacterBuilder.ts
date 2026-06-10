@@ -40,6 +40,11 @@ const classChoiceSourceType = "class";
 const classSkillChoiceType = "class-skill-choice";
 const classSkillChoiceSelectedType = "skill";
 const classChoiceProficiencySourceType = "class-choice";
+const speciesChoiceSourceType = "species";
+const speciesLanguageChoiceType = "species-language-choice";
+const speciesLanguageSelectedType = "language";
+const speciesHeritageChoiceType = "species-heritage-choice";
+const speciesHeritageSelectedType = "subspecies";
 
 function createInitialBuilderState(character: Character): CharacterBuilderState {
   return createBuilderStateFromOptions(character, {
@@ -89,7 +94,12 @@ function createBuilderStateFromOptions(
     level: character.level,
     currentHp: character.currentHp,
     tempHp: 0,
-    speciesChoices: {},
+    speciesChoices: getSavedSpeciesChoices(character, {
+      speciesIndex:
+        options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
+        options.speciesOptions[0].index,
+      speciesOptions: options.speciesOptions,
+    }),
     backgroundChoices: {},
     hitPointSettings: {
       bonusHp: character.maxHp - initialHitPointPreview.totalFixedHp,
@@ -113,6 +123,179 @@ function createBuilderStateFromOptions(
         dice: [],
       })),
   };
+}
+
+function getSavedSpeciesChoices(
+  character: Character,
+  options: {
+    speciesIndex: string;
+    speciesOptions: SpeciesOption[];
+  },
+) {
+  const speciesOption =
+    options.speciesOptions.find((species) => species.index === options.speciesIndex) ??
+    options.speciesOptions[0];
+  const speciesChoices: Record<string, string> = {};
+
+  for (const choice of character.choices ?? []) {
+    if (
+      choice.sourceType !== speciesChoiceSourceType ||
+      !choice.sourceIndex ||
+      !choice.selectedIndex
+    ) {
+      continue;
+    }
+
+    const [, sectionId, fieldId] = choice.sourceIndex.split(":");
+
+    if (!sectionId || !fieldId) {
+      continue;
+    }
+
+    const choiceKey = `${options.speciesIndex}:${sectionId}:${fieldId}`;
+
+    if (isSpeciesLanguageChoice(choice)) {
+      if (hasSpeciesLanguageChoiceFieldValue(speciesOption, choiceKey, choice.selectedIndex)) {
+        speciesChoices[choiceKey] = choice.selectedIndex;
+        continue;
+      }
+
+      const remappedChoiceKey = findAvailableSpeciesLanguageChoiceKey(
+        speciesOption,
+        speciesChoices,
+        choice.selectedIndex,
+      );
+
+      if (remappedChoiceKey) {
+        speciesChoices[remappedChoiceKey] = choice.selectedIndex;
+      }
+
+      continue;
+    }
+
+    if (!isSpeciesHeritageChoice(choice)) {
+      continue;
+    }
+
+    if (hasSpeciesHeritageChoiceFieldValue(speciesOption, choiceKey, choice.selectedIndex)) {
+      speciesChoices[choiceKey] = choice.selectedIndex;
+      continue;
+    }
+
+    const remappedChoiceKey = findAvailableSpeciesHeritageChoiceKey(
+      speciesOption,
+      speciesChoices,
+      choice.selectedIndex,
+    );
+
+    if (remappedChoiceKey) {
+      speciesChoices[remappedChoiceKey] = choice.selectedIndex;
+    }
+  }
+
+  return speciesChoices;
+}
+
+function isSpeciesLanguageChoice(choice: NonNullable<Character["choices"]>[number]) {
+  return (
+    choice.choiceType === speciesLanguageChoiceType &&
+    choice.selectedType === speciesLanguageSelectedType
+  );
+}
+
+function isSpeciesHeritageChoice(choice: NonNullable<Character["choices"]>[number]) {
+  return (
+    choice.choiceType === speciesHeritageChoiceType &&
+    choice.selectedType === speciesHeritageSelectedType
+  );
+}
+
+function hasSpeciesLanguageChoiceFieldValue(
+  speciesOption: SpeciesOption,
+  choiceKey: string,
+  selectedIndex: string,
+) {
+  const [speciesIndex, sectionId, fieldId] = choiceKey.split(":");
+
+  if (speciesIndex !== speciesOption.index) {
+    return false;
+  }
+
+  const section = speciesOption.previewSections.find(
+    (previewSection) => previewSection.id === sectionId,
+  );
+  const field = section?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+
+  return Boolean(
+    field?.id === "language" &&
+      field.options.some((option) => option.value === selectedIndex),
+  );
+}
+
+function findAvailableSpeciesLanguageChoiceKey(
+  speciesOption: SpeciesOption,
+  currentChoices: Record<string, string>,
+  selectedIndex: string,
+) {
+  for (const section of speciesOption.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      const choiceKey = `${speciesOption.index}:${section.id}:${field.id}`;
+
+      if (
+        field.id === "language" &&
+        !currentChoices[choiceKey] &&
+        field.options.some((option) => option.value === selectedIndex)
+      ) {
+        return choiceKey;
+      }
+    }
+  }
+
+  return null;
+}
+
+function hasSpeciesHeritageChoiceFieldValue(
+  speciesOption: SpeciesOption,
+  choiceKey: string,
+  selectedIndex: string,
+) {
+  const [speciesIndex, sectionId, fieldId] = choiceKey.split(":");
+
+  if (speciesIndex !== speciesOption.index) {
+    return false;
+  }
+
+  const section = speciesOption.previewSections.find(
+    (previewSection) => previewSection.id === sectionId,
+  );
+  const field = section?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+
+  return Boolean(
+    field?.id === "heritage" &&
+      field.options.some((option) => option.value === selectedIndex),
+  );
+}
+
+function findAvailableSpeciesHeritageChoiceKey(
+  speciesOption: SpeciesOption,
+  currentChoices: Record<string, string>,
+  selectedIndex: string,
+) {
+  for (const section of speciesOption.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      const choiceKey = `${speciesOption.index}:${section.id}:${field.id}`;
+
+      if (
+        field.id === "heritage" &&
+        !currentChoices[choiceKey] &&
+        field.options.some((option) => option.value === selectedIndex)
+      ) {
+        return choiceKey;
+      }
+    }
+  }
+
+  return null;
 }
 
 function clampLevel(value: number) {

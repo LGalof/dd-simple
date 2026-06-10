@@ -25,6 +25,7 @@ const FILES = {
   levels: "5e-SRD-Levels.json",
   features: "5e-SRD-Features.json",
   backgrounds: "5e-SRD-Backgrounds.json",
+  languages: "5e-SRD-Languages.json",
   proficiencies: "5e-SRD-Proficiencies.json",
   equipment: "5e-SRD-Equipment.json",
 };
@@ -615,6 +616,38 @@ async function seedSpeciesReferenceData() {
         speciesIndex,
         description: toDescription(subspecies.description, subspecies.desc),
         sourceJson: sourceJson(subspecies),
+      },
+    });
+  }
+}
+
+async function seedLanguages() {
+  const languages = readJsonArray(FILES.languages);
+
+  console.log(`Seeding ${languages.length} languages...`);
+
+  for (const language of languages) {
+    const index = stringOrNull(language.index);
+    const name = stringOrNull(language.name);
+
+    if (!index || !name) {
+      continue;
+    }
+
+    await prisma.refLanguage.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name,
+        description: stringOrNull(language.note),
+        sourceJson: sourceJson(language),
+      },
+      create: {
+        index,
+        name,
+        description: stringOrNull(language.note),
+        sourceJson: sourceJson(language),
       },
     });
   }
@@ -1718,6 +1751,7 @@ async function main() {
   await seedSkills();
   await seedSpecies();
   await seedSpeciesReferenceData();
+  await seedLanguages();
   await seedClasses();
   await seedClassPrimaryAbilities();
   await seedClassLevels();

@@ -138,6 +138,7 @@ function CharacterDashboardPage() {
         builderState,
         persistedSkillIndexes,
         featureChoices,
+        speciesChoices,
       ),
     );
 
@@ -254,6 +255,7 @@ function buildCharacterSavePayload(
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   persistedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
+  speciesChoices: Record<string, string>,
 ): CharacterSavePayload {
   return {
     name: character.name,
@@ -263,7 +265,11 @@ function buildCharacterSavePayload(
     alignment: character.alignment,
     level: builderState.level,
     skillIndexes: persistedSkillIndexes,
-    choices: buildClassSkillChoices(builderState.classIndex, featureChoices),
+    choices: [
+      ...buildClassSkillChoices(builderState.classIndex, featureChoices),
+      ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
+      ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
+    ],
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
 }
@@ -284,6 +290,64 @@ function buildClassSkillChoices(
         sourceType: "class",
         sourceIndex: `${classIndex}:${featureId}:${fieldId}`,
         selectedType: "skill",
+        selectedIndex,
+      };
+    });
+}
+
+function buildSpeciesLanguageChoices(
+  speciesIndex: string,
+  speciesChoices: Record<string, string>,
+): CharacterFeatureSelection[] {
+  return Object.entries(speciesChoices)
+    .filter(([choiceKey, selectedIndex]) => {
+      const [choiceSpeciesIndex, , fieldId] = choiceKey.split(":");
+
+      return (
+        choiceSpeciesIndex === speciesIndex &&
+        fieldId === "language" &&
+        selectedIndex.trim().length > 0
+      );
+    })
+    .map(([choiceKey, selectedIndex]) => {
+      const [, featureId, fieldId] = choiceKey.split(":");
+
+      return {
+        choiceType: "species-language-choice",
+        featureId,
+        fieldId,
+        sourceType: "species",
+        sourceIndex: `${speciesIndex}:${featureId}:${fieldId}`,
+        selectedType: "language",
+        selectedIndex,
+      };
+    });
+}
+
+function buildSpeciesHeritageChoices(
+  speciesIndex: string,
+  speciesChoices: Record<string, string>,
+): CharacterFeatureSelection[] {
+  return Object.entries(speciesChoices)
+    .filter(([choiceKey, selectedIndex]) => {
+      const [choiceSpeciesIndex, , fieldId] = choiceKey.split(":");
+
+      return (
+        choiceSpeciesIndex === speciesIndex &&
+        fieldId === "heritage" &&
+        selectedIndex.trim().length > 0
+      );
+    })
+    .map(([choiceKey, selectedIndex]) => {
+      const [, featureId, fieldId] = choiceKey.split(":");
+
+      return {
+        choiceType: "species-heritage-choice",
+        featureId,
+        fieldId,
+        sourceType: "species",
+        sourceIndex: `${speciesIndex}:${featureId}:${fieldId}`,
+        selectedType: "subspecies",
         selectedIndex,
       };
     });

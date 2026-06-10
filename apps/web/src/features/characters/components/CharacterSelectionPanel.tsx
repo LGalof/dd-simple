@@ -63,10 +63,10 @@ function CharacterSelectionPanel({
       return;
     }
 
-    if (activePanel === "species" && selectedOption && "previewSections" in selectedOption) {
+    if (activePanel === "species" && selectedOption && isSpeciesOption(selectedOption)) {
       setExpandedPreviewFeatureIds([]);
       setExpandedBackgroundSectionIds([]);
-      setExpandedSpeciesSectionIds([]);
+      setExpandedSpeciesSectionIds(getInitialExpandedSpeciesSectionIds(selectedOption));
       setBackgroundPreviewChoices({});
       setSpeciesPreviewChoices(speciesSelectionValues);
       return;
@@ -581,6 +581,20 @@ function getVisibleBackgroundChoiceFields(
   }
 
   return fields.filter((field) => field.id !== "score-c");
+}
+
+function getInitialExpandedSpeciesSectionIds(speciesOption: SpeciesOption) {
+  const choiceSection = speciesOption.previewSections.find(
+    (section) => (section.choiceFields?.length ?? 0) > 0,
+  );
+
+  if (choiceSection?.id) {
+    return [choiceSection.id];
+  }
+
+  const firstSectionId = speciesOption.previewSections[0]?.id;
+
+  return firstSectionId ? [firstSectionId] : [];
 }
 
 function isBackgroundOption(

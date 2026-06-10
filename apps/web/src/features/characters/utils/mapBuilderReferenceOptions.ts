@@ -45,6 +45,8 @@ type Choice = {
 
 type SpeciesSourceJson = {
   index?: unknown;
+  languages?: ReferenceItem[];
+  language_options?: Choice;
   name?: unknown;
   type?: unknown;
   size?: unknown;
@@ -123,6 +125,18 @@ type LevelSourceJson = {
   level?: unknown;
 };
 
+const fallbackSpeciesLanguageNames: Record<string, string[]> = {
+  dragonborn: ["Common", "Draconic"],
+  dwarf: ["Common", "Dwarvish"],
+  elf: ["Common", "Elvish"],
+  gnome: ["Common", "Gnomish"],
+  goliath: ["Common", "Giant"],
+  halfling: ["Common", "Halfling"],
+  human: ["Common"],
+  orc: ["Common", "Orc"],
+  tiefling: ["Common", "Infernal"],
+};
+
 function mapSpeciesReferences(
   references: ReferenceSpecies[],
   fallbackOptions: SpeciesOption[],
@@ -151,7 +165,21 @@ function mapSpeciesReferences(
     const creatureType = stringValue(sourceJson.type) ?? fallback?.creatureType ?? "Unknown";
     const speed = reference.baseSpeed ?? numberValue(sourceJson.speed) ?? fallback?.speed ?? 30;
     const traits = traitNames.length > 0 ? traitNames : fallback?.traits ?? [];
-    const languages = fallback?.languages ?? ["Common"];
+    const fixedLanguages = normalizedLanguageNames(sourceJson.languages);
+    const fallbackLanguages = getFallbackSpeciesLanguageNames(reference.index, fallback);
+    const languages = fixedLanguages.length > 0 ? fixedLanguages : fallbackLanguages;
+    const languageChoiceFields = createLanguageChoiceFields(sourceJson, fallback);
+    const fallbackLanguageDetails = fallback?.previewSections.find(
+      (section) => section.id === `${reference.index}-languages`,
+    )?.details;
+    const languageDetails =
+      fixedLanguages.length > 0
+        ? [`You can speak, read, and write ${formatLanguageList(fixedLanguages)}.`]
+        : fallbackLanguageDetails && languageChoiceFields.length > 0
+          ? fallbackLanguageDetails
+        : fallbackLanguages.length > 0
+          ? [`You can speak, read, and write ${formatLanguageList(fallbackLanguages)}.`]
+        : fallbackLanguageDetails ?? [`Languages are not normalized for ${reference.name}; using builder fallback values.`];
 
     return {
       index: reference.index,
@@ -205,8 +233,9 @@ function mapSpeciesReferences(
         {
           id: `${reference.index}-languages`,
           title: "Languages",
-          subtitle: "Origin",
-          details: [`Languages are not normalized for ${reference.name}; using builder fallback values.`],
+          subtitle: languageChoiceFields.length > 0 ? "1 Choice - Origin" : "Origin",
+          details: languageDetails,
+          choiceFields: languageChoiceFields,
         },
         {
           id: `${reference.index}-size`,
@@ -259,6 +288,54 @@ function mapSpeciesReferences(
       ],
     };
   });
+}
+
+function normalizedLanguageNames(languages: ReferenceItem[] | undefined) {
+  return (languages ?? []).map(referenceName).filter(isPresent);
+}
+
+function getFallbackSpeciesLanguageNames(
+  speciesIndex: string,
+  fallback: SpeciesOption | undefined,
+) {
+  return fallbackSpeciesLanguageNames[speciesIndex] ?? fallback?.languages ?? [];
+}
+
+function createLanguageChoiceFields(
+  sourceJson: SpeciesSourceJson,
+  fallback: SpeciesOption | undefined,
+): FeatureChoiceField[] {
+  const sourceOptions =
+    sourceJson.language_options?.from?.options
+      ?.reduce<ChoiceOptionData[]>((options, option) => {
+        const optionData = choiceOptionData(option);
+
+        return optionData ? [...options, optionData] : options;
+      }, []) ?? [];
+
+  if (sourceOptions.length > 0) {
+    return [
+      createChoiceField("language", "Bonus Language", sourceOptions),
+    ];
+  }
+
+  return (
+    fallback?.previewSections
+      .find((section) => section.id === `${fallback.index}-languages`)
+      ?.choiceFields ?? []
+  );
+}
+
+function formatLanguageList(values: string[]) {
+  if (values.length <= 1) {
+    return values[0] ?? "";
+  }
+
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
 }
 
 function normalizedSpeciesTraits(reference: ReferenceSpecies) {

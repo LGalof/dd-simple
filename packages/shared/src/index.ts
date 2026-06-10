@@ -39,6 +39,18 @@ export type CharacterProficiency = {
   };
 };
 
+export type CharacterLanguage = {
+  id: string;
+  languageIndex: string;
+  sourceType: string;
+  sourceIndex: string | null;
+  language: {
+    index: string;
+    name: string;
+    description?: string | null;
+  };
+};
+
 export type InventoryItem = {
   id: string;
   quantity: number;
@@ -144,6 +156,7 @@ export type Character = {
   abilityScores: AbilityScore[];
   skills: CharacterSkill[];
   proficiencies?: CharacterProficiency[];
+  languages?: CharacterLanguage[];
   choices?: CharacterFeatureSelection[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];

@@ -9,6 +9,10 @@ type ClassSourceJson = {
   saving_throws?: ReferenceIndexRecord[];
 };
 
+type SpeciesSourceJson = {
+  languages?: ReferenceIndexRecord[];
+};
+
 type ClassProficiencyGrantIndex = {
   proficiencyIndex: string;
 };
@@ -46,6 +50,23 @@ const CLASS_CHOICE_SOURCE_TYPE = "class";
 const CLASS_SKILL_CHOICE_TYPE = "class-skill-choice";
 const CLASS_SKILL_CHOICE_SELECTED_TYPE = "skill";
 const CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE = "class-choice";
+const SPECIES_CHOICE_SOURCE_TYPE = "species";
+const SPECIES_LANGUAGE_CHOICE_TYPE = "species-language-choice";
+const SPECIES_LANGUAGE_SELECTED_TYPE = "language";
+const SPECIES_HERITAGE_CHOICE_TYPE = "species-heritage-choice";
+const SPECIES_HERITAGE_SELECTED_TYPE = "subspecies";
+
+const fallbackSpeciesLanguageIndexes: Record<string, string[]> = {
+  dragonborn: ["common", "draconic"],
+  dwarf: ["common", "dwarvish"],
+  elf: ["common", "elvish"],
+  gnome: ["common", "gnomish"],
+  goliath: ["common", "giant"],
+  halfling: ["common", "halfling"],
+  human: ["common"],
+  orc: ["common", "orc"],
+  tiefling: ["common", "infernal"],
+};
 
 class CharacterReferenceNotFoundError extends Error {
   constructor(message: string) {
@@ -107,6 +128,14 @@ const characterInclude = {
     },
   },
   choices: true,
+  languages: {
+    orderBy: {
+      languageIndex: "asc" as const,
+    },
+    include: {
+      language: true,
+    },
+  },
   diceRolls: {
     orderBy: {
       rolledAt: "desc" as const,
@@ -202,6 +231,231 @@ function normalizeClassChoiceSourceIndex(sourceIndex: string | undefined, classI
   const choiceKey = choiceKeyParts.join(":");
 
   return choiceKey ? `${classIndex}:${choiceKey}` : classIndex;
+}
+
+function normalizeSpeciesLanguageChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  speciesIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== SPECIES_CHOICE_SOURCE_TYPE ||
+        choice.choiceType !== SPECIES_LANGUAGE_CHOICE_TYPE ||
+        choice.selectedType !== SPECIES_LANGUAGE_SELECTED_TYPE ||
+        !choice.selectedIndex ||
+        !choice.sourceIndex
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((choice) => ({
+      choiceType: SPECIES_LANGUAGE_CHOICE_TYPE,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeSpeciesChoiceSourceIndex(choice.sourceIndex, speciesIndex),
+      selectedType: SPECIES_LANGUAGE_SELECTED_TYPE,
+      selectedIndex: choice.selectedIndex,
+    }));
+}
+
+function normalizeSpeciesHeritageChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  speciesIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== SPECIES_CHOICE_SOURCE_TYPE ||
+        choice.choiceType !== SPECIES_HERITAGE_CHOICE_TYPE ||
+        choice.selectedType !== SPECIES_HERITAGE_SELECTED_TYPE ||
+        !choice.selectedIndex ||
+        !choice.sourceIndex
+      ) {
+        return false;
+      }
+
+      return true;
+    })
+    .map((choice) => ({
+      choiceType: SPECIES_HERITAGE_CHOICE_TYPE,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeSpeciesChoiceSourceIndex(choice.sourceIndex, speciesIndex),
+      selectedType: SPECIES_HERITAGE_SELECTED_TYPE,
+      selectedIndex: choice.selectedIndex,
+    }));
+}
+
+function normalizeSpeciesChoiceSourceIndex(sourceIndex: string | undefined, speciesIndex: string) {
+  if (!sourceIndex) {
+    return speciesIndex;
+  }
+
+  const [, ...choiceKeyParts] = sourceIndex.split(":");
+  const choiceKey = choiceKeyParts.join(":");
+
+  return choiceKey ? `${speciesIndex}:${choiceKey}` : speciesIndex;
+}
+
+function getFixedSpeciesLanguageIndexes(speciesIndex: string, sourceJson: unknown) {
+  if (sourceJson && typeof sourceJson === "object") {
+    const speciesSourceJson = sourceJson as SpeciesSourceJson;
+    const sourceLanguageIndexes = (speciesSourceJson.languages ?? [])
+      .map((language) => language.index)
+      .filter((languageIndex): languageIndex is string => Boolean(languageIndex));
+
+    if (sourceLanguageIndexes.length > 0) {
+      return [...new Set(sourceLanguageIndexes)];
+    }
+  }
+
+  return fallbackSpeciesLanguageIndexes[speciesIndex] ?? [];
+}
+
+async function replaceSpeciesLanguageChoicesAndRows(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  speciesIndex: string,
+  speciesSourceJson: unknown,
+  choices: CharacterChoiceInput[] | undefined,
+) {
+  const speciesLanguageChoices = normalizeSpeciesLanguageChoices(choices, speciesIndex);
+  const fixedLanguageIndexes = getFixedSpeciesLanguageIndexes(speciesIndex, speciesSourceJson);
+  const selectedLanguageIndexes = speciesLanguageChoices.map((choice) => choice.selectedIndex);
+  const languageIndexes = [...new Set([...fixedLanguageIndexes, ...selectedLanguageIndexes])];
+
+  if (languageIndexes.length > 0) {
+    const languages = await tx.refLanguage.findMany({
+      where: {
+        index: {
+          in: languageIndexes,
+        },
+      },
+      select: {
+        index: true,
+      },
+    });
+    const existingLanguageIndexes = new Set(languages.map((language) => language.index));
+    const missingLanguageIndexes = languageIndexes.filter(
+      (languageIndex) => !existingLanguageIndexes.has(languageIndex),
+    );
+
+    if (missingLanguageIndexes.length > 0) {
+      throw new CharacterReferenceNotFoundError("Language not found");
+    }
+  }
+
+  await tx.characterChoice.deleteMany({
+    where: {
+      characterId,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      choiceType: SPECIES_LANGUAGE_CHOICE_TYPE,
+    },
+  });
+
+  if (speciesLanguageChoices.length > 0) {
+    await tx.characterChoice.createMany({
+      data: speciesLanguageChoices.map((choice) => ({
+        characterId,
+        choiceType: choice.choiceType,
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        selectedType: choice.selectedType,
+        selectedIndex: choice.selectedIndex,
+      })),
+    });
+  }
+
+  await tx.characterLanguage.deleteMany({
+    where: {
+      characterId,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+    },
+  });
+
+  const fixedLanguageIndexSet = new Set(fixedLanguageIndexes);
+  const selectedLanguageRows = speciesLanguageChoices
+    .filter((choice) => !fixedLanguageIndexSet.has(choice.selectedIndex))
+    .map((choice) => ({
+      characterId,
+      languageIndex: choice.selectedIndex,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: choice.sourceIndex,
+    }));
+  const languageRows = [
+    ...fixedLanguageIndexes.map((languageIndex) => ({
+      characterId,
+      languageIndex,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      sourceIndex: `${speciesIndex}:fixed:${languageIndex}`,
+    })),
+    ...selectedLanguageRows,
+  ];
+
+  if (languageRows.length > 0) {
+    await tx.characterLanguage.createMany({
+      data: languageRows,
+      skipDuplicates: true,
+    });
+  }
+}
+
+async function replaceSpeciesHeritageChoices(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  speciesIndex: string,
+  choices: CharacterChoiceInput[] | undefined,
+) {
+  const speciesHeritageChoices = normalizeSpeciesHeritageChoices(choices, speciesIndex);
+  const selectedSubspeciesIndexes = [
+    ...new Set(speciesHeritageChoices.map((choice) => choice.selectedIndex)),
+  ];
+
+  if (selectedSubspeciesIndexes.length > 0) {
+    const subspecies = await tx.refSubspecies.findMany({
+      where: {
+        index: {
+          in: selectedSubspeciesIndexes,
+        },
+        speciesIndex,
+      },
+      select: {
+        index: true,
+      },
+    });
+    const existingSubspeciesIndexes = new Set(
+      subspecies.map((subspeciesOption) => subspeciesOption.index),
+    );
+    const missingSubspeciesIndexes = selectedSubspeciesIndexes.filter(
+      (subspeciesIndex) => !existingSubspeciesIndexes.has(subspeciesIndex),
+    );
+
+    if (missingSubspeciesIndexes.length > 0) {
+      throw new CharacterReferenceNotFoundError("Species heritage not found");
+    }
+  }
+
+  await tx.characterChoice.deleteMany({
+    where: {
+      characterId,
+      sourceType: SPECIES_CHOICE_SOURCE_TYPE,
+      choiceType: SPECIES_HERITAGE_CHOICE_TYPE,
+    },
+  });
+
+  if (speciesHeritageChoices.length > 0) {
+    await tx.characterChoice.createMany({
+      data: speciesHeritageChoices.map((choice) => ({
+        characterId,
+        choiceType: choice.choiceType,
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        selectedType: choice.selectedType,
+        selectedIndex: choice.selectedIndex,
+      })),
+    });
+  }
 }
 
 async function findAllowedClassSkillChoiceProficiencyIndexes(
@@ -316,6 +570,14 @@ async function findAllCharactersForUser(userId: string) {
         },
       },
       choices: true,
+      languages: {
+        orderBy: {
+          languageIndex: "asc",
+        },
+        include: {
+          language: true,
+        },
+      },
       diceRolls: {
         orderBy: {
           rolledAt: "desc",
@@ -396,7 +658,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
     });
     const maxHp = Math.max(1, characterClass.hitDie + conModifier);
 
-    return tx.character.create({
+    const character = await tx.character.create({
       data: {
         userId,
         name: data.name,
@@ -434,6 +696,26 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
             ),
           ],
         },
+      },
+    });
+
+    await replaceSpeciesLanguageChoicesAndRows(
+      tx,
+      character.id,
+      species.index,
+      species.sourceJson,
+      data.choices,
+    );
+    await replaceSpeciesHeritageChoices(
+      tx,
+      character.id,
+      species.index,
+      data.choices,
+    );
+
+    return tx.character.findUnique({
+      where: {
+        id: character.id,
       },
       include: characterInclude,
     });
@@ -664,6 +946,20 @@ async function updateCharacterForUser(
         })),
       });
     }
+
+    await replaceSpeciesLanguageChoicesAndRows(
+      tx,
+      characterId,
+      species.index,
+      species.sourceJson,
+      data.choices,
+    );
+    await replaceSpeciesHeritageChoices(
+      tx,
+      characterId,
+      species.index,
+      data.choices,
+    );
 
     await tx.characterProficiency.deleteMany({
       where: {

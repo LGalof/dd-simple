@@ -1081,7 +1081,11 @@ function getTrainingProfile(character: Character) {
         ? backgroundTools
         : mappedBackgroundTools),
   ]);
-  const languages = withUnavailableFallback(getLanguages(speciesSourceJson));
+  const languages = withUnavailableFallback(
+    trainingCharacter.languages?.length
+      ? trainingCharacter.languages.map((language) => language.language.name)
+      : getLanguages(speciesSourceJson),
+  );
 
   return {
     armor,

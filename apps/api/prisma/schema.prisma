@@ -51,6 +51,7 @@ model Character {
   proficiencies    CharacterProficiency[]
   inventory        CharacterInventory[]
   choices          CharacterChoice[]
+  languages        CharacterLanguage[]
   diceRolls        DiceRoll[]
 
   createdAt        DateTime @default(now())
@@ -141,6 +142,17 @@ model RefSubspecies {
   species     RefSpecies @relation(fields: [speciesIndex], references: [index], onDelete: Cascade)
 
   @@map("ref_subspecies")
+}
+
+model RefLanguage {
+  index       String @id
+  name        String
+  description String?
+  sourceJson  Json?
+
+  characterLanguages CharacterLanguage[]
+
+  @@map("ref_languages")
 }
 
 model RefClass {
@@ -405,6 +417,20 @@ model CharacterChoice {
   character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@map("character_choices")
+}
+
+model CharacterLanguage {
+  id            String @id @default(uuid()) @db.Uuid
+  characterId   String @db.Uuid
+  languageIndex String
+  sourceType    String
+  sourceIndex   String?
+
+  character Character    @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  language  RefLanguage @relation(fields: [languageIndex], references: [index])
+
+  @@unique([characterId, languageIndex, sourceType, sourceIndex])
+  @@map("character_languages")
 }
 
 model DiceRoll {

@@ -83,15 +83,32 @@ function isCharacterChoiceRequestBody(
 
   const candidate = value as CharacterChoiceRequestBody;
 
-  return (
+  const isClassSkillChoice =
     candidate.choiceType === "class-skill-choice" &&
     candidate.sourceType === "class" &&
     typeof candidate.sourceIndex === "string" &&
     candidate.sourceIndex.trim().length > 0 &&
     candidate.selectedType === "skill" &&
     typeof candidate.selectedIndex === "string" &&
-    candidate.selectedIndex.startsWith("skill-")
-  );
+    candidate.selectedIndex.startsWith("skill-");
+  const isSpeciesLanguageChoice =
+    candidate.choiceType === "species-language-choice" &&
+    candidate.sourceType === "species" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "language" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.trim().length > 0;
+  const isSpeciesHeritageChoice =
+    candidate.choiceType === "species-heritage-choice" &&
+    candidate.sourceType === "species" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "subspecies" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.trim().length > 0;
+
+  return isClassSkillChoice || isSpeciesLanguageChoice || isSpeciesHeritageChoice;
 }
 
 function isCharacterMutationRequestBody(
