@@ -65,20 +65,7 @@ function createBuilderStateFromOptions(
   const initialClass =
     options.classOptions.find((classOption) => classOption.name === character.class.name) ??
     options.classOptions[0];
-  const constitutionScore =
-    character.abilityScores.find((abilityScore) => abilityScore.abilityIndex === "con")?.score ??
-    10;
-  const initialHitPointPreview = calculateHitPointPreview({
-    constitutionScore,
-    hitDie: initialClass.hitDie,
-    level: character.level,
-    settings: {
-      bonusHp: 0,
-      calculationMode: "fixed",
-      overrideMaxHp: null,
-      rolledHitPoints: synchronizeHitPointRolls(character.level, initialClass.hitDie, []),
-    },
-  });
+  const hitPointSettings = getSavedHitPointSettings(character, initialClass.hitDie);
 
   return {
     speciesIndex:
@@ -93,7 +80,7 @@ function createBuilderStateFromOptions(
       options.classOptions[0].index,
     level: character.level,
     currentHp: character.currentHp,
-    tempHp: 0,
+    tempHp: character.hitPointState?.tempHp ?? 0,
     speciesChoices: getSavedSpeciesChoices(character, {
       speciesIndex:
         options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
@@ -101,16 +88,7 @@ function createBuilderStateFromOptions(
       speciesOptions: options.speciesOptions,
     }),
     backgroundChoices: {},
-    hitPointSettings: {
-      bonusHp: character.maxHp - initialHitPointPreview.totalFixedHp,
-      calculationMode: "fixed",
-      overrideMaxHp: null,
-      rolledHitPoints: synchronizeHitPointRolls(
-        character.level,
-        initialClass.hitDie,
-        [],
-      ),
-    },
+    hitPointSettings,
     abilityAssignments: [...character.abilityScores]
       .sort(
         (left, right) =>
@@ -122,6 +100,30 @@ function createBuilderStateFromOptions(
         score: abilityScore.score,
         dice: [],
       })),
+  };
+}
+
+function getSavedHitPointSettings(character: Character, hitDie: number): HitPointSettings {
+  const savedState = character.hitPointState;
+
+  if (!savedState) {
+    return {
+      bonusHp: 0,
+      calculationMode: "fixed",
+      overrideMaxHp: null,
+      rolledHitPoints: synchronizeHitPointRolls(character.level, hitDie, []),
+    };
+  }
+
+  return {
+    bonusHp: savedState.bonusHp,
+    calculationMode: savedState.calculationMode,
+    overrideMaxHp: savedState.overrideMaxHp,
+    rolledHitPoints: synchronizeHitPointRolls(
+      character.level,
+      hitDie,
+      savedState.rolledHitPoints,
+    ),
   };
 }
 

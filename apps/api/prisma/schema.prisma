@@ -53,6 +53,7 @@ model Character {
   choices          CharacterChoice[]
   languages        CharacterLanguage[]
   conditions       CharacterCondition[]
+  hitPointState    CharacterHitPointState?
   diceRolls        DiceRoll[]
 
   createdAt        DateTime @default(now())
@@ -457,6 +458,21 @@ model CharacterCondition {
 
   @@unique([characterId, conditionIndex])
   @@map("character_conditions")
+}
+
+model CharacterHitPointState {
+  id              String @id @default(uuid()) @db.Uuid
+  characterId     String @unique @db.Uuid
+
+  calculationMode String @default("fixed")
+  bonusHp         Int    @default(0)
+  overrideMaxHp   Int?
+  rolledHitPoints Json?
+  tempHp          Int    @default(0)
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("character_hit_point_states")
 }
 
 model DiceRoll {

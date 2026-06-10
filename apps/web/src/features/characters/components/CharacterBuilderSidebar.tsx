@@ -58,7 +58,7 @@ function CharacterBuilderSidebar({
   const [isHitPointPanelOpen, setIsHitPointPanelOpen] = useState(false);
   const [draftLevel, setDraftLevel] = useState(1);
   const [draftBonusHp, setDraftBonusHp] = useState("0");
-  const [draftCalculationMode, setDraftCalculationMode] = useState<"fixed" | "rolled">("fixed");
+  const [draftCalculationMode, setDraftCalculationMode] = useState<"fixed" | "rolled" | "override">("fixed");
   const [draftOverrideMaxHp, setDraftOverrideMaxHp] = useState("");
   const [draftRolledHitPoints, setDraftRolledHitPoints] = useState<number[]>([]);
 
@@ -73,7 +73,7 @@ function CharacterBuilderSidebar({
 
     setDraftLevel(characterLevel);
     setDraftBonusHp(String(hitPointPreview.bonusHp));
-    setDraftCalculationMode(hitPointSettings.calculationMode);
+    setDraftCalculationMode(hitPointSettings.calculationMode === "override" ? "fixed" : hitPointSettings.calculationMode);
     setDraftOverrideMaxHp(
       hitPointPreview.overrideMaxHp === null ? "" : String(hitPointPreview.overrideMaxHp),
     );
@@ -163,7 +163,7 @@ function CharacterBuilderSidebar({
 
     setDraftLevel(characterLevel);
     setDraftBonusHp(String(hitPointPreview.bonusHp));
-    setDraftCalculationMode(hitPointSettings.calculationMode);
+    setDraftCalculationMode(hitPointSettings.calculationMode === "override" ? "fixed" : hitPointSettings.calculationMode);
     setDraftOverrideMaxHp(
       hitPointPreview.overrideMaxHp === null ? "" : String(hitPointPreview.overrideMaxHp),
     );
@@ -181,13 +181,15 @@ function CharacterBuilderSidebar({
     const nextBonusHp = Number.parseInt(draftBonusHp, 10);
     const nextOverrideMaxHp = Number.parseInt(draftOverrideMaxHp, 10);
 
+    const overrideMaxHp =
+      draftOverrideMaxHp.trim().length === 0 || !Number.isFinite(nextOverrideMaxHp)
+        ? null
+        : Math.max(1, nextOverrideMaxHp);
+
     onApplyHitPointSettings(draftLevel, {
       bonusHp: Number.isFinite(nextBonusHp) ? nextBonusHp : 0,
-      calculationMode: draftCalculationMode,
-      overrideMaxHp:
-        draftOverrideMaxHp.trim().length === 0 || !Number.isFinite(nextOverrideMaxHp)
-          ? null
-          : Math.max(1, nextOverrideMaxHp),
+      calculationMode: overrideMaxHp === null ? draftCalculationMode : "override",
+      overrideMaxHp,
       rolledHitPoints: synchronizeHitPointRolls(
         draftLevel,
         hitPointPreview?.hitDie ?? classOption.hitDie,
@@ -798,12 +800,16 @@ function buildDraftHitPointPreview({
   constitutionScore: number;
   hitDie: number;
   level: number;
-  mode: "fixed" | "rolled";
+  mode: "fixed" | "rolled" | "override";
   overrideMaxHp: string;
   rolledHitPoints: number[];
 }) {
   const parsedBonusHp = Number.parseInt(bonusHp, 10);
   const parsedOverrideMaxHp = Number.parseInt(overrideMaxHp, 10);
+  const normalizedOverrideMaxHp =
+    overrideMaxHp.trim().length === 0 || !Number.isFinite(parsedOverrideMaxHp)
+      ? null
+      : Math.max(1, parsedOverrideMaxHp);
 
   return buildHitPointPreviewLikeModel({
     constitutionScore,
@@ -811,11 +817,8 @@ function buildDraftHitPointPreview({
     level,
     settings: {
       bonusHp: Number.isFinite(parsedBonusHp) ? parsedBonusHp : 0,
-      calculationMode: mode,
-      overrideMaxHp:
-        overrideMaxHp.trim().length === 0 || !Number.isFinite(parsedOverrideMaxHp)
-          ? null
-          : Math.max(1, parsedOverrideMaxHp),
+      calculationMode: normalizedOverrideMaxHp === null ? mode : "override",
+      overrideMaxHp: normalizedOverrideMaxHp,
       rolledHitPoints,
     },
   });
@@ -856,7 +859,11 @@ function buildHitPointPreviewLikeModel({
     normalizedHitDie * normalizedLevel + constitutionBonus + bonusHp,
   );
   const maxHp =
-    settings.overrideMaxHp ?? (settings.calculationMode === "rolled" ? totalRolledHp : totalFixedHp);
+    settings.calculationMode === "override" && settings.overrideMaxHp !== null
+      ? settings.overrideMaxHp
+      : settings.calculationMode === "rolled"
+        ? totalRolledHp
+        : totalFixedHp;
 
   return {
     averageHp,

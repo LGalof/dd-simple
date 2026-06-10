@@ -21,7 +21,7 @@ type BuildCharacterPreviewOptions = {
 type HitPointPreview = {
   averageHp: number;
   bonusHp: number;
-  calculationMode: "fixed" | "rolled";
+  calculationMode: "fixed" | "rolled" | "override";
   constitutionBonus: number;
   fixedClassHp: number;
   hitDie: number;
@@ -145,7 +145,7 @@ function calculateHitPointPreview({
     settings.overrideMaxHp === null ? null : Math.max(1, settings.overrideMaxHp);
   const calculationMode = settings.calculationMode;
   const baseMaxHp = calculationMode === "rolled" ? totalRolledHp : totalFixedHp;
-  const maxHp = overrideMaxHp ?? baseMaxHp;
+  const maxHp = calculationMode === "override" && overrideMaxHp !== null ? overrideMaxHp : baseMaxHp;
 
   return {
     averageHp,

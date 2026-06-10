@@ -25,6 +25,16 @@ type CharacterChoiceInput = {
   selectedIndex: string;
 };
 
+type HitPointCalculationMode = "fixed" | "rolled" | "override";
+
+type HitPointStateInput = {
+  calculationMode?: string;
+  bonusHp?: number;
+  overrideMaxHp?: number | null;
+  rolledHitPoints?: unknown;
+  tempHp?: number;
+};
+
 type CharacterMutationData = {
   name: string;
   speciesIndex: string;
@@ -32,6 +42,8 @@ type CharacterMutationData = {
   backgroundIndex: string;
   alignment: string | null;
   level?: number;
+  currentHp?: number;
+  hitPointState?: HitPointStateInput;
   skillIndexes: string[];
   choices?: CharacterChoiceInput[];
   abilityScores: {
@@ -144,6 +156,7 @@ const characterInclude = {
       condition: true,
     },
   },
+  hitPointState: true,
   diceRolls: {
     orderBy: {
       rolledAt: "desc" as const,
@@ -153,6 +166,121 @@ const characterInclude = {
 
 function getAbilityModifier(score: number) {
   return Math.floor((score - 10) / 2);
+}
+
+function normalizeHitPointMode(value: string | undefined): HitPointCalculationMode {
+  return value === "rolled" || value === "override" ? value : "fixed";
+}
+
+function normalizeInteger(value: number | undefined, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : fallback;
+}
+
+function normalizeHitPointRolls(level: number, hitDie: number, value: unknown) {
+  const rolls = Array.isArray(value) ? value : [];
+
+  return Array.from({ length: level }, (_, index) => {
+    const roll = rolls[index];
+
+    if (typeof roll === "number" && Number.isFinite(roll)) {
+      return Math.max(1, Math.min(hitDie, Math.floor(roll)));
+    }
+
+    return hitDie;
+  });
+}
+
+function calculateMaxHp({
+  bonusHp,
+  calculationMode,
+  constitutionScore,
+  hitDie,
+  level,
+  overrideMaxHp,
+  rolledHitPoints,
+}: {
+  bonusHp: number;
+  calculationMode: HitPointCalculationMode;
+  constitutionScore: number;
+  hitDie: number;
+  level: number;
+  overrideMaxHp: number | null;
+  rolledHitPoints: number[];
+}) {
+  const normalizedLevel = Math.max(1, Math.min(20, Math.floor(level)));
+  const normalizedHitDie = Math.max(1, Math.floor(hitDie));
+  const constitutionBonus = getAbilityModifier(constitutionScore) * normalizedLevel;
+
+  if (calculationMode === "override" && overrideMaxHp !== null) {
+    return Math.max(1, Math.floor(overrideMaxHp));
+  }
+
+  if (calculationMode === "rolled") {
+    return Math.max(
+      1,
+      rolledHitPoints.reduce((total, roll) => total + roll, 0) + constitutionBonus + bonusHp,
+    );
+  }
+
+  const fixedGainPerLevel = Math.floor(normalizedHitDie / 2) + 1;
+  const fixedClassHp = normalizedHitDie + (normalizedLevel - 1) * fixedGainPerLevel;
+
+  return Math.max(1, fixedClassHp + constitutionBonus + bonusHp);
+}
+
+function normalizeHitPointStateInput({
+  constitutionScore,
+  data,
+  fallback,
+  hitDie,
+  level,
+}: {
+  constitutionScore: number;
+  data?: HitPointStateInput;
+  fallback?: {
+    bonusHp: number;
+    calculationMode: string;
+    overrideMaxHp: number | null;
+    rolledHitPoints: unknown;
+    tempHp: number;
+  } | null;
+  hitDie: number;
+  level: number;
+}) {
+  const normalizedLevel = Math.max(1, Math.min(20, Math.floor(level)));
+  const normalizedHitDie = Math.max(1, Math.floor(hitDie));
+  const calculationMode = normalizeHitPointMode(data?.calculationMode ?? fallback?.calculationMode);
+  const bonusHp = normalizeInteger(data?.bonusHp, fallback?.bonusHp ?? 0);
+  const rawOverrideMaxHp =
+    data?.overrideMaxHp === undefined ? fallback?.overrideMaxHp ?? null : data.overrideMaxHp;
+  const overrideMaxHp =
+    rawOverrideMaxHp === null || rawOverrideMaxHp === undefined
+      ? null
+      : Math.max(1, Math.floor(rawOverrideMaxHp));
+  const rolledHitPoints = normalizeHitPointRolls(
+    normalizedLevel,
+    normalizedHitDie,
+    data?.rolledHitPoints ?? fallback?.rolledHitPoints,
+  );
+  const tempHp = Math.max(0, normalizeInteger(data?.tempHp, fallback?.tempHp ?? 0));
+  const maxHp = calculateMaxHp({
+    bonusHp,
+    calculationMode,
+    constitutionScore,
+    hitDie: normalizedHitDie,
+    level: normalizedLevel,
+    overrideMaxHp,
+    rolledHitPoints,
+  });
+
+  return {
+    calculationMode,
+    bonusHp,
+    overrideMaxHp,
+    rolledHitPoints,
+    tempHp,
+    maxHp,
+  };
 }
 
 function abilityScoreRows(data: CharacterMutationData) {
@@ -594,6 +722,7 @@ async function findAllCharactersForUser(userId: string) {
           condition: true,
         },
       },
+      hitPointState: true,
       diceRolls: {
         orderBy: {
           rolledAt: "desc",
@@ -606,7 +735,6 @@ async function findAllCharactersForUser(userId: string) {
 
 async function createCharacterForUser(userId: string, data: CreateCharacterData) {
   const selectedSkillIndexes = new Set(data.skillIndexes);
-  const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -672,7 +800,17 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         },
       },
     });
-    const maxHp = Math.max(1, characterClass.hitDie + conModifier);
+    const level = data.level ?? 1;
+    const hitPointState = normalizeHitPointStateInput({
+      constitutionScore: data.abilityScores.con,
+      data: data.hitPointState,
+      hitDie: characterClass.hitDie,
+      level,
+    });
+    const currentHp =
+      data.currentHp === undefined
+        ? hitPointState.maxHp
+        : Math.max(0, Math.min(hitPointState.maxHp, Math.floor(data.currentHp)));
 
     const character = await tx.character.create({
       data: {
@@ -681,13 +819,22 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
         backgroundIndex: data.backgroundIndex,
-        level: data.level ?? 1,
+        level,
         experiencePoints: 0,
         alignment: data.alignment,
-        maxHp,
-        currentHp: maxHp,
+        maxHp: hitPointState.maxHp,
+        currentHp,
         armorClass: 10 + dexModifier,
         speed: species.baseSpeed,
+        hitPointState: {
+          create: {
+            calculationMode: hitPointState.calculationMode,
+            bonusHp: hitPointState.bonusHp,
+            overrideMaxHp: hitPointState.overrideMaxHp,
+            rolledHitPoints: hitPointState.rolledHitPoints,
+            tempHp: hitPointState.tempHp,
+          },
+        },
         abilityScores: {
           create: abilityScoreRows(data),
         },
@@ -743,7 +890,6 @@ async function updateCharacterForUser(
   characterId: string,
   data: CharacterMutationData,
 ) {
-  const conModifier = getAbilityModifier(data.abilityScores.con);
   const dexModifier = getAbilityModifier(data.abilityScores.dex);
 
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -751,6 +897,9 @@ async function updateCharacterForUser(
       where: {
         id: characterId,
         userId,
+      },
+      include: {
+        hitPointState: true,
       },
     });
 
@@ -875,11 +1024,19 @@ async function updateCharacterForUser(
       ...getSkillIndexesFromProficiencyIndexes(classProficiencyGrantIndexes),
       ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
     ]);
-    const maxHp = Math.max(1, characterClass.hitDie + conModifier);
-    const currentHp =
-      existingCharacter.currentHp === existingCharacter.maxHp
-        ? maxHp
-        : Math.min(existingCharacter.currentHp, maxHp);
+    const level = data.level ?? existingCharacter.level;
+    const hitPointState = normalizeHitPointStateInput({
+      constitutionScore: data.abilityScores.con,
+      data: data.hitPointState,
+      fallback: existingCharacter.hitPointState,
+      hitDie: characterClass.hitDie,
+      level,
+    });
+    const requestedCurrentHp = data.currentHp ?? existingCharacter.currentHp;
+    const currentHp = Math.max(
+      0,
+      Math.min(hitPointState.maxHp, Math.floor(requestedCurrentHp)),
+    );
 
     await tx.character.update({
       where: {
@@ -890,12 +1047,33 @@ async function updateCharacterForUser(
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
         backgroundIndex: data.backgroundIndex,
-        level: data.level ?? existingCharacter.level,
+        level,
         alignment: data.alignment,
-        maxHp,
+        maxHp: hitPointState.maxHp,
         currentHp,
         armorClass: 10 + dexModifier,
         speed: species.baseSpeed,
+      },
+    });
+
+    await tx.characterHitPointState.upsert({
+      where: {
+        characterId,
+      },
+      update: {
+        calculationMode: hitPointState.calculationMode,
+        bonusHp: hitPointState.bonusHp,
+        overrideMaxHp: hitPointState.overrideMaxHp,
+        rolledHitPoints: hitPointState.rolledHitPoints,
+        tempHp: hitPointState.tempHp,
+      },
+      create: {
+        characterId,
+        calculationMode: hitPointState.calculationMode,
+        bonusHp: hitPointState.bonusHp,
+        overrideMaxHp: hitPointState.overrideMaxHp,
+        rolledHitPoints: hitPointState.rolledHitPoints,
+        tempHp: hitPointState.tempHp,
       },
     });
 

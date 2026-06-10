@@ -305,6 +305,11 @@ function buildCharacterSavePayload(
     backgroundIndex: builderState.backgroundIndex,
     alignment: character.alignment,
     level: builderState.level,
+    currentHp: builderState.currentHp,
+    hitPointState: {
+      ...builderState.hitPointSettings,
+      tempHp: builderState.tempHp,
+    },
     skillIndexes: persistedSkillIndexes,
     choices: [
       ...buildClassSkillChoices(builderState.classIndex, featureChoices),
