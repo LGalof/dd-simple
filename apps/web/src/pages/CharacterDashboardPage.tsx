@@ -29,6 +29,21 @@ import type {
 } from "../features/characters/types/characterBuilder";
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
+const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
+const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
+  str: "str",
+  strength: "str",
+  dex: "dex",
+  dexterity: "dex",
+  con: "con",
+  constitution: "con",
+  int: "int",
+  intelligence: "int",
+  wis: "wis",
+  wisdom: "wis",
+  cha: "cha",
+  charisma: "cha",
+};
 
 function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
@@ -172,6 +187,7 @@ function CharacterDashboardPage() {
         persistedSkillIndexes,
         featureChoices,
         speciesChoices,
+        backgroundChoices,
       ),
     );
 
@@ -297,6 +313,7 @@ function buildCharacterSavePayload(
   persistedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
   speciesChoices: Record<string, string>,
+  backgroundChoices: Record<string, string>,
 ): CharacterSavePayload {
   return {
     name: character.name,
@@ -315,6 +332,7 @@ function buildCharacterSavePayload(
       ...buildClassSkillChoices(builderState.classIndex, featureChoices),
       ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
       ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
+      ...buildBackgroundAbilityChoices(builderState.backgroundIndex, backgroundChoices),
     ],
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
@@ -399,6 +417,41 @@ function buildSpeciesHeritageChoices(
     });
 }
 
+function buildBackgroundAbilityChoices(
+  backgroundIndex: string,
+  backgroundChoices: Record<string, string>,
+): CharacterFeatureSelection[] {
+  return Object.entries(backgroundChoices)
+    .filter(([choiceKey, selectedIndex]) => {
+      const [choiceBackgroundIndex, featureId, fieldId] = choiceKey.split(":");
+      const planKey = `${choiceBackgroundIndex}:${featureId}:score-plan`;
+      const selectedPlan = backgroundChoices[planKey];
+
+      return (
+        choiceBackgroundIndex === backgroundIndex &&
+        fieldId.startsWith("score-") &&
+        (fieldId === "score-plan" || selectedPlan !== backgroundAbilityPlanThreeScores) &&
+        selectedIndex.trim().length > 0
+      );
+    })
+    .map(([choiceKey, selectedIndex]) => {
+      const [, featureId, fieldId] = choiceKey.split(":");
+      const isPlanChoice = fieldId === "score-plan";
+      const normalizedSelectedIndex =
+        isPlanChoice ? selectedIndex : canonicalAbilityScoreIndex(selectedIndex) ?? selectedIndex;
+
+      return {
+        choiceType: isPlanChoice ? "background-ability-plan" : "background-ability-score-choice",
+        featureId,
+        fieldId,
+        sourceType: "background",
+        sourceIndex: `${backgroundIndex}:${featureId}:${fieldId}`,
+        selectedType: isPlanChoice ? "ability-plan" : "ability-score",
+        selectedIndex: normalizedSelectedIndex,
+      };
+    });
+}
+
 function buildAbilityScorePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
@@ -422,6 +475,19 @@ function buildAbilityScorePayload(
 
 function isAbilityScoreIndex(value: string): value is keyof AbilityScores {
   return abilityScoreIndexes.some((abilityIndex) => abilityIndex === value);
+}
+
+function canonicalAbilityScoreIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^ability-/, "")
+    .replace(/-score$/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
 }
 
 function getSelectedSpeciesHeritage(

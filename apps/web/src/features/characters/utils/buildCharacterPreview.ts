@@ -8,6 +8,23 @@ import type {
 } from "../types/characterBuilder";
 import { abilityModifier } from "./characterFormat";
 
+const backgroundAbilityPlanTwoScores = "increase-two-scores-2-1";
+const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
+const abilityScoreIndexAliases: Record<string, string> = {
+  str: "str",
+  strength: "str",
+  dex: "dex",
+  dexterity: "dex",
+  con: "con",
+  constitution: "con",
+  int: "int",
+  intelligence: "int",
+  wis: "wis",
+  wisdom: "wis",
+  cha: "cha",
+  charisma: "cha",
+};
+
 type BuildCharacterPreviewOptions = {
   background: BackgroundOption;
   character: Character;
@@ -54,10 +71,22 @@ function buildCharacterPreview({
     state.abilityAssignments.map((assignment) => [assignment.abilityIndex, assignment.score]),
   );
 
-  const nextAbilityScores = character.abilityScores.map((abilityScore) => ({
-    ...abilityScore,
-    score: assignedScores[abilityScore.abilityIndex] ?? abilityScore.score,
-  }));
+  const backgroundAbilityBonuses = getBackgroundAbilityBonuses(
+    state.backgroundChoices,
+    background,
+  );
+  const nextAbilityScores = character.abilityScores.map((abilityScore) => {
+    const baseScore =
+      assignedScores[abilityScore.abilityIndex] ??
+      abilityScore.baseScore ??
+      abilityScore.score;
+
+    return {
+      ...abilityScore,
+      baseScore,
+      score: baseScore + (backgroundAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
+    };
+  });
 
   const dexterityScore =
     nextAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "dex")?.score ?? 10;
@@ -106,6 +135,71 @@ function buildCharacterPreview({
     })),
     proficiencies: character.proficiencies,
   };
+}
+
+function getBackgroundAbilityBonuses(
+  backgroundChoices: Record<string, string>,
+  background: BackgroundOption,
+) {
+  const bonuses = new Map<string, number>();
+  const selectedPlan =
+    Object.entries(backgroundChoices).find(([choiceKey]) => choiceKey.endsWith(":score-plan"))
+      ?.[1] ?? backgroundAbilityPlanTwoScores;
+
+  if (selectedPlan === backgroundAbilityPlanThreeScores) {
+    for (const abilityIndex of getSupportedBackgroundAbilityIndexes(background)) {
+      const canonicalAbilityIndex = canonicalAbilityScoreIndex(abilityIndex);
+
+      if (canonicalAbilityIndex && !bonuses.has(canonicalAbilityIndex)) {
+        bonuses.set(canonicalAbilityIndex, 1);
+      }
+    }
+
+    return bonuses;
+  }
+
+  const primaryAbility = getBackgroundChoiceValue(backgroundChoices, "score-a");
+  const secondaryAbility = getBackgroundChoiceValue(backgroundChoices, "score-b");
+
+  if (primaryAbility) {
+    bonuses.set(primaryAbility, 2);
+  }
+
+  if (secondaryAbility && !bonuses.has(secondaryAbility)) {
+    bonuses.set(secondaryAbility, 1);
+  }
+
+  return bonuses;
+}
+
+function getSupportedBackgroundAbilityIndexes(background: BackgroundOption) {
+  const abilityScoreSection = background.previewSections.find((section) =>
+    section.id.endsWith("ability-scores"),
+  );
+  const scoreField = abilityScoreSection?.choiceFields?.find((field) => field.id === "score-a");
+
+  return scoreField?.options.map((option) => option.value) ?? [];
+}
+
+function getBackgroundChoiceValue(backgroundChoices: Record<string, string>, fieldId: string) {
+  const selectedValue = Object.entries(backgroundChoices).find(([choiceKey]) =>
+    choiceKey.endsWith(`:${fieldId}`),
+  )?.[1];
+
+  return canonicalAbilityScoreIndex(selectedValue);
+}
+
+function canonicalAbilityScoreIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^ability-/, "")
+    .replace(/-score$/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
 }
 
 function calculateHitPointPreview({

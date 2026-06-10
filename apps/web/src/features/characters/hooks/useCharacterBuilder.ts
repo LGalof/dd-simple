@@ -45,6 +45,25 @@ const speciesLanguageChoiceType = "species-language-choice";
 const speciesLanguageSelectedType = "language";
 const speciesHeritageChoiceType = "species-heritage-choice";
 const speciesHeritageSelectedType = "subspecies";
+const backgroundChoiceSourceType = "background";
+const backgroundAbilityPlanChoiceType = "background-ability-plan";
+const backgroundAbilityScoreChoiceType = "background-ability-score-choice";
+const backgroundAbilityPlanSelectedType = "ability-plan";
+const backgroundAbilityScoreSelectedType = "ability-score";
+const abilityScoreIndexAliases: Record<string, string> = {
+  str: "str",
+  strength: "str",
+  dex: "dex",
+  dexterity: "dex",
+  con: "con",
+  constitution: "con",
+  int: "int",
+  intelligence: "int",
+  wis: "wis",
+  wisdom: "wis",
+  cha: "cha",
+  charisma: "cha",
+};
 
 function createInitialBuilderState(character: Character): CharacterBuilderState {
   return createBuilderStateFromOptions(character, {
@@ -87,7 +106,12 @@ function createBuilderStateFromOptions(
         options.speciesOptions[0].index,
       speciesOptions: options.speciesOptions,
     }),
-    backgroundChoices: {},
+    backgroundChoices: getSavedBackgroundAbilityChoices(character, {
+      backgroundIndex:
+        options.backgroundOptions.find((background) => background.name === character.background.name)
+          ?.index ?? options.backgroundOptions[0].index,
+      backgroundOptions: options.backgroundOptions,
+    }),
     hitPointSettings,
     abilityAssignments: [...character.abilityScores]
       .sort(
@@ -97,10 +121,112 @@ function createBuilderStateFromOptions(
       .map((abilityScore, index) => ({
         id: `slot-${index + 1}`,
         abilityIndex: abilityScore.abilityIndex,
-        score: abilityScore.score,
+        score: abilityScore.baseScore ?? abilityScore.score,
         dice: [],
       })),
   };
+}
+
+function getSavedBackgroundAbilityChoices(
+  character: Character,
+  options: {
+    backgroundIndex: string;
+    backgroundOptions: BackgroundOption[];
+  },
+) {
+  const backgroundOption =
+    options.backgroundOptions.find((background) => background.index === options.backgroundIndex) ??
+    options.backgroundOptions[0];
+  const backgroundChoices: Record<string, string> = {};
+
+  for (const choice of character.choices ?? []) {
+    if (
+      choice.sourceType !== backgroundChoiceSourceType ||
+      !choice.sourceIndex ||
+      !choice.selectedIndex
+    ) {
+      continue;
+    }
+
+    const [, sectionId, fieldId] = choice.sourceIndex.split(":");
+
+    if (!sectionId || !fieldId) {
+      continue;
+    }
+
+    const choiceKey = `${options.backgroundIndex}:${sectionId}:${fieldId}`;
+
+    if (isBackgroundAbilityChoice(choice)) {
+      const fieldValue = getBackgroundAbilityChoiceFieldValue(
+        backgroundOption,
+        choiceKey,
+        choice.selectedIndex,
+      );
+
+      if (fieldValue) {
+        backgroundChoices[choiceKey] = fieldValue;
+      }
+    }
+  }
+
+  return backgroundChoices;
+}
+
+function isBackgroundAbilityChoice(choice: NonNullable<Character["choices"]>[number]) {
+  return (
+    (choice.choiceType === backgroundAbilityPlanChoiceType &&
+      choice.selectedType === backgroundAbilityPlanSelectedType) ||
+    (choice.choiceType === backgroundAbilityScoreChoiceType &&
+      choice.selectedType === backgroundAbilityScoreSelectedType)
+  );
+}
+
+function getBackgroundAbilityChoiceFieldValue(
+  backgroundOption: BackgroundOption,
+  choiceKey: string,
+  selectedIndex: string,
+) {
+  const [backgroundIndex, sectionId, fieldId] = choiceKey.split(":");
+
+  if (backgroundIndex !== backgroundOption.index) {
+    return null;
+  }
+
+  const section = backgroundOption.previewSections.find(
+    (previewSection) => previewSection.id === sectionId,
+  );
+  const field = section?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+  const syntheticThirdScoreField =
+    fieldId === "score-c"
+      ? section?.choiceFields?.find((choiceField) => choiceField.id === "score-a")
+      : undefined;
+  const matchingField = field ?? syntheticThirdScoreField;
+
+  if (!matchingField) {
+    return null;
+  }
+
+  const matchingOption = matchingField.options.find(
+    (option) =>
+      option.value === selectedIndex ||
+      (fieldId.startsWith("score-") &&
+        canonicalAbilityScoreIndex(option.value) === canonicalAbilityScoreIndex(selectedIndex)),
+  );
+
+  return matchingOption?.value ?? null;
+}
+
+function canonicalAbilityScoreIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^ability-/, "")
+    .replace(/-score$/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
 }
 
 function getSavedHitPointSettings(character: Character, hitDie: number): HitPointSettings {

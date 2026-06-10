@@ -365,6 +365,7 @@ model RefEquipment {
 model CharacterAbilityScore {
   characterId  String @db.Uuid
   abilityIndex String
+  baseScore    Int?
   score        Int
 
   character    Character       @relation(fields: [characterId], references: [id], onDelete: Cascade)

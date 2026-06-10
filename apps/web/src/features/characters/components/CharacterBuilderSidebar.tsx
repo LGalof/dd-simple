@@ -103,6 +103,7 @@ function CharacterBuilderSidebar({
           {
             label: abilityScore.ability.name,
             fullLabel: abilityScore.ability.fullName ?? abilityScore.ability.name,
+            score: abilityScore.score,
           },
         ]),
       ),
@@ -320,7 +321,9 @@ function CharacterBuilderSidebar({
           <div className="builder-ability-list">
             {abilityAssignments.map((assignment) => (
               <div key={assignment.id} className="builder-ability-card">
-                <strong className="builder-ability-card-score">{assignment.score}</strong>
+                <strong className="builder-ability-card-score">
+                  {abilityOptionMap[assignment.abilityIndex]?.score ?? assignment.score}
+                </strong>
 
                 <div className="builder-ability-dice-row">
                   {(assignment.dice.length > 0 ? assignment.dice : [assignment.score]).map(

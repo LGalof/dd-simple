@@ -423,9 +423,18 @@ function mapBackgroundReferences(
     const abilityScoreOptions =
       normalizedBackgroundAbilityScoreOptions(reference) ??
       (sourceJson.ability_scores ?? [])
-        .map(referenceName)
-        .filter(isPresent)
-        .map((name) => `${abilityLabel(name)} Score`);
+        .map((abilityScore) => {
+          const index = stringValue(abilityScore.index);
+          const name = referenceName(abilityScore);
+
+          return index && name
+            ? {
+                label: `${abilityLabel(name)} Score`,
+                value: index,
+              }
+            : null;
+        })
+        .filter(isPresent);
     const normalizedFeat = normalizedBackgroundFeat(reference);
     const featIndex = normalizedFeat?.index ?? stringValue(sourceJson.feat?.index);
     const featDocument = featIndex ? featDocumentMap.get(featIndex) : null;
@@ -469,7 +478,7 @@ function mapBackgroundReferences(
           subtitle: `${abilityScoreOptions.length} Choices`,
           details: [
             abilityScoreOptions.length > 0
-              ? `${reference.name} supports ${abilityScoreOptions.join(", ")}.`
+              ? `${reference.name} supports ${abilityScoreOptions.map((option) => option.label).join(", ")}.`
               : "Ability score options are not available for this background.",
             "Increase one score by 2 and another by 1, or increase all three by 1.",
           ],
@@ -536,13 +545,20 @@ function backgroundGrantLabelsByType(
 
 function normalizedBackgroundAbilityScoreOptions(reference: ReferenceBackground) {
   const options = (reference.abilityOptions ?? [])
-    .map((abilityOption) =>
-      abilityOption.abilityScore?.fullName ??
-      abilityOption.abilityScore?.name ??
-      abilityOption.abilityScoreIndex,
-    )
-    .filter(isPresent)
-    .map((name) => `${abilityLabel(name)} Score`);
+    .map((abilityOption) => {
+      const label =
+        abilityOption.abilityScore?.fullName ??
+        abilityOption.abilityScore?.name ??
+        abilityOption.abilityScoreIndex;
+
+      return label
+        ? {
+            label: `${abilityLabel(label)} Score`,
+            value: abilityOption.abilityScoreIndex,
+          }
+        : null;
+    })
+    .filter(isPresent);
 
   return options.length > 0 ? options : null;
 }
@@ -1058,7 +1074,7 @@ function referenceLabel(value: Record<string, unknown> | null) {
   return stringValue(value?.name);
 }
 
-function createAbilityScoreChoiceFields(options: string[]): FeatureChoiceField[] {
+function createAbilityScoreChoiceFields(options: ChoiceOptionData[]): FeatureChoiceField[] {
   if (options.length === 0) {
     return [];
   }

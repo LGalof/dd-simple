@@ -15,6 +15,7 @@ export type AbilityDefinition = {
 
 export type AbilityScore = {
   abilityIndex: AbilityScoreKey | string;
+  baseScore?: number | null;
   score: number;
   ability: AbilityDefinition;
 };

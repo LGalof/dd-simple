@@ -133,8 +133,30 @@ function isCharacterChoiceRequestBody(
     candidate.selectedType === "subspecies" &&
     typeof candidate.selectedIndex === "string" &&
     candidate.selectedIndex.trim().length > 0;
+  const isBackgroundAbilityPlanChoice =
+    candidate.choiceType === "background-ability-plan" &&
+    candidate.sourceType === "background" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "ability-plan" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.trim().length > 0;
+  const isBackgroundAbilityScoreChoice =
+    candidate.choiceType === "background-ability-score-choice" &&
+    candidate.sourceType === "background" &&
+    typeof candidate.sourceIndex === "string" &&
+    candidate.sourceIndex.trim().length > 0 &&
+    candidate.selectedType === "ability-score" &&
+    typeof candidate.selectedIndex === "string" &&
+    candidate.selectedIndex.trim().length > 0;
 
-  return isClassSkillChoice || isSpeciesLanguageChoice || isSpeciesHeritageChoice;
+  return (
+    isClassSkillChoice ||
+    isSpeciesLanguageChoice ||
+    isSpeciesHeritageChoice ||
+    isBackgroundAbilityPlanChoice ||
+    isBackgroundAbilityScoreChoice
+  );
 }
 
 function isHitPointStateRequestBody(value: unknown): value is ValidHitPointStateRequestBody {

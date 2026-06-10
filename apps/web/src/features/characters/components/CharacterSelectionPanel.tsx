@@ -6,6 +6,22 @@ import type {
   SpeciesOption,
 } from "../types/characterBuilder";
 
+const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
+const abilityScoreIndexAliases: Record<string, string> = {
+  str: "str",
+  strength: "str",
+  dex: "dex",
+  dexterity: "dex",
+  con: "con",
+  constitution: "con",
+  int: "int",
+  intelligence: "int",
+  wis: "wis",
+  wisdom: "wis",
+  cha: "cha",
+  charisma: "cha",
+};
+
 type CharacterSelectionPanelProps = {
   activePanel: BuilderSelectionKind | null;
   backgroundSelectionValues: Record<string, string>;
@@ -256,11 +272,25 @@ function CharacterSelectionPanel({
                                         }
                                       >
                                         <option value="">{field.label}</option>
-                                        {field.options.map((option) => (
-                                          <option key={option.value} value={option.value}>
-                                            {option.label}
-                                          </option>
-                                        ))}
+                                        {field.options.map((option) => {
+                                          const disabled = isDuplicateBackgroundAbilityOption(
+                                            backgroundPreviewOption.index,
+                                            section.id,
+                                            field.id,
+                                            option.value,
+                                            backgroundPreviewChoices,
+                                          );
+
+                                          return (
+                                            <option
+                                              key={option.value}
+                                              value={option.value}
+                                              disabled={disabled}
+                                            >
+                                              {option.label}
+                                            </option>
+                                          );
+                                        })}
                                       </select>
                                     </label>
                                   );
@@ -548,39 +578,52 @@ function getVisibleBackgroundChoiceFields(
   const planKey = `${backgroundIndex}:${sectionId}:score-plan`;
   const selectedPlan = selectedChoices[planKey];
 
-  if (selectedPlan === "increase-all-three-by-1") {
+  if (selectedPlan === backgroundAbilityPlanThreeScores) {
     const planField = fields.find((field) => field.id === "score-plan");
-    const scoreFields = fields.filter((field) => field.id.startsWith("score-") && field.id !== "score-plan");
-    const hasThirdField = scoreFields.some((field) => field.id === "score-c");
 
-    if (hasThirdField) {
-      return fields;
-    }
-
-    const primaryField = fields.find((field) => field.id === "score-a");
-    const secondaryField = fields.find((field) => field.id === "score-b");
-
-    if (!primaryField || !secondaryField) {
-      return fields;
-    }
-
-    if (!planField) {
-      return fields;
-    }
-
-    return [
-      planField,
-      primaryField,
-      secondaryField,
-      {
-        ...secondaryField,
-        id: "score-c",
-        label: "Third Increase",
-      },
-    ];
+    return planField ? [planField] : fields;
   }
 
   return fields.filter((field) => field.id !== "score-c");
+}
+
+function isDuplicateBackgroundAbilityOption(
+  backgroundIndex: string,
+  sectionId: string,
+  fieldId: string,
+  optionValue: string,
+  selectedChoices: Record<string, string>,
+) {
+  if (fieldId !== "score-a" && fieldId !== "score-b") {
+    return false;
+  }
+
+  const planKey = `${backgroundIndex}:${sectionId}:score-plan`;
+
+  if (selectedChoices[planKey] === backgroundAbilityPlanThreeScores) {
+    return false;
+  }
+
+  const siblingFieldId = fieldId === "score-a" ? "score-b" : "score-a";
+  const siblingValue = selectedChoices[`${backgroundIndex}:${sectionId}:${siblingFieldId}`];
+
+  return Boolean(
+    siblingValue &&
+      canonicalAbilityScoreIndex(siblingValue) === canonicalAbilityScoreIndex(optionValue),
+  );
+}
+
+function canonicalAbilityScoreIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^ability-/, "")
+    .replace(/-score$/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
 }
 
 function getInitialExpandedSpeciesSectionIds(speciesOption: SpeciesOption) {
