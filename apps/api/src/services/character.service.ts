@@ -608,6 +608,51 @@ async function upsertSubmittedFeatureChoiceSelections(
   );
 }
 
+async function deleteStaleFeatureChoiceSelections(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  data: Pick<CharacterMutationData, "backgroundIndex" | "classIndex" | "speciesIndex">,
+) {
+  await tx.characterFeatureChoiceSelection.deleteMany({
+    where: {
+      characterId,
+      OR: [
+        {
+          sourceType: "CLASS",
+          sourceIndex: {
+            not: data.classIndex,
+          },
+        },
+        {
+          sourceType: "FEATURE",
+          OR: [
+            {
+              classIndex: {
+                not: data.classIndex,
+              },
+            },
+            {
+              classIndex: null,
+            },
+          ],
+        },
+        {
+          sourceType: "BACKGROUND",
+          sourceIndex: {
+            not: data.backgroundIndex,
+          },
+        },
+        {
+          sourceType: "SPECIES",
+          sourceIndex: {
+            not: data.speciesIndex,
+          },
+        },
+      ],
+    },
+  });
+}
+
 function abilityScoreRows(
   data: CharacterMutationData,
   bonuses: Map<string, number> = new Map(),
@@ -1249,6 +1294,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       character.id,
       backgroundAbilityChoices,
     );
+    await deleteStaleFeatureChoiceSelections(tx, character.id, data);
     await upsertSubmittedFeatureChoiceSelections(
       tx,
       character.id,
@@ -1557,6 +1603,7 @@ async function updateCharacterForUser(
       characterId,
       backgroundAbilityChoices,
     );
+    await deleteStaleFeatureChoiceSelections(tx, characterId, data);
     await upsertSubmittedFeatureChoiceSelections(
       tx,
       characterId,
