@@ -159,7 +159,7 @@ function CharacterDashboardPage() {
   const defenseSummary = useMemo(() => {
     const selectedHeritage = getSelectedSpeciesHeritage(selectedSpecies, speciesChoices);
 
-    return selectedHeritage
+    return selectedSpecies.index === "dragonborn" && selectedHeritage?.damageType
       ? [
           {
             label: "Damage Resistance",
@@ -168,6 +168,10 @@ function CharacterDashboardPage() {
         ]
       : [];
   }, [selectedSpecies, speciesChoices]);
+  const selectedHeritage = useMemo(
+    () => getSelectedSpeciesHeritage(selectedSpecies, speciesChoices),
+    [selectedSpecies, speciesChoices],
+  );
   const {
     actions: normalizedActionsWithPreview,
     error: normalizedActionsErrorWithPreview,
@@ -279,6 +283,7 @@ function CharacterDashboardPage() {
                 character ? addCondition(character.id, conditionIndex) : Promise.resolve(null)
               }
               defenseSummary={defenseSummary}
+              selectedHeritage={selectedHeritage}
               tempHp={builderState.tempHp}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onRemoveCondition={(conditionIndex) =>

@@ -913,12 +913,17 @@ function useCharacterBuilder(character: Character | undefined) {
           backgroundReferences,
           classReferences,
           featRuleDocuments,
+          traitRuleDocuments,
         ] = await Promise.all([
           fetchSpecies(),
           fetchBackgrounds(),
           fetchClasses(),
           fetchRuleDocuments("feats").catch((error) => {
             console.warn("Background feat reference data is unavailable.", error);
+            return [];
+          }),
+          fetchRuleDocuments("traits").catch((error) => {
+            console.warn("Species trait reference data is unavailable.", error);
             return [];
           }),
         ]);
@@ -930,6 +935,7 @@ function useCharacterBuilder(character: Character | undefined) {
         const nextSpeciesOptions = mapSpeciesReferences(
           speciesReferences,
           speciesOptions,
+          traitRuleDocuments,
         );
         const nextBackgroundOptions = mapBackgroundReferences(
           backgroundReferences,

@@ -163,10 +163,13 @@ const fallbackSpeciesLanguageNames: Record<string, string[]> = {
 function mapSpeciesReferences(
   references: ReferenceSpecies[],
   fallbackOptions: SpeciesOption[],
+  traitDocuments: ReferenceRuleDocument[] = [],
 ): SpeciesOption[] {
   if (references.length === 0) {
     return fallbackOptions;
   }
+
+  const traitDocumentMap = new Map(traitDocuments.map((document) => [document.index, document]));
 
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
@@ -182,7 +185,7 @@ function mapSpeciesReferences(
       sourceJson.size_options?.from?.options
         ?.map((option) => stringValue(option.size))
         .filter(isPresent);
-    const heritageOptions = normalizedSpeciesHeritageOptions(reference);
+    const heritageOptions = normalizedSpeciesHeritageOptions(reference, traitDocumentMap);
     const size = reference.size ?? stringValue(sourceJson.size) ?? sizeOptions?.join(" or ") ?? "Unknown";
     const sizeDescription = stringValue(sourceJson.size_options?.desc);
     const creatureType = stringValue(sourceJson.type) ?? fallback?.creatureType ?? "Unknown";
@@ -386,17 +389,41 @@ function normalizedSpeciesSizeOptions(reference: ReferenceSpecies) {
   return sizes.length > 0 ? sizes : null;
 }
 
-function normalizedSpeciesHeritageOptions(reference: ReferenceSpecies): SpeciesHeritageOption[] {
+function normalizedSpeciesHeritageOptions(
+  reference: ReferenceSpecies,
+  traitDocumentMap: Map<string, ReferenceRuleDocument>,
+): SpeciesHeritageOption[] {
   return (reference.subspecies ?? [])
-    .map((subspecies) => speciesHeritageOption(subspecies))
+    .map((subspecies) => speciesHeritageOption(subspecies, traitDocumentMap))
     .filter(isPresent);
 }
 
-function speciesHeritageOption(subspecies: ReferenceSubspecies): SpeciesHeritageOption | null {
+function speciesHeritageOption(
+  subspecies: ReferenceSubspecies,
+  traitDocumentMap: Map<string, ReferenceRuleDocument>,
+): SpeciesHeritageOption | null {
   const sourceJson = asRecord(subspecies.sourceJson) as SubspeciesSourceJson;
-  const traitIndexes = (sourceJson.traits ?? [])
-    .map((trait) => stringValue(trait.index))
+  const traits = (sourceJson.traits ?? [])
+    .map((trait) => {
+      const index = stringValue(trait.index);
+      const name = stringValue(trait.name);
+
+      if (!index || !name) {
+        return null;
+      }
+
+      const traitDocument = traitDocumentMap.get(index);
+      const traitSourceJson = asRecord(traitDocument?.sourceJson);
+
+      return {
+        description:
+          stringValue(traitSourceJson.description) ?? null,
+        index,
+        name: traitDocument?.name ?? name,
+      };
+    })
     .filter(isPresent);
+  const traitIndexes = traits.map((trait) => trait.index);
 
   if (!subspecies.index) {
     return null;
@@ -408,6 +435,7 @@ function speciesHeritageOption(subspecies: ReferenceSubspecies): SpeciesHeritage
     index: subspecies.index,
     name: subspecies.name,
     resistanceTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("damage-resistance")),
+    traits,
   };
 }
 

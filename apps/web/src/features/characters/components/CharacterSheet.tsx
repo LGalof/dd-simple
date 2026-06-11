@@ -10,6 +10,7 @@ import type {
 } from "../../../types/characterAction";
 import type { Character } from "../../../types/character";
 import type { ReferenceCondition } from "../../../types/reference";
+import type { SpeciesHeritageOption } from "../types/characterBuilder";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
@@ -25,6 +26,7 @@ type CharacterSheetProps = {
   normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onAddCondition: (conditionIndex: string) => Promise<unknown>;
+  selectedHeritage?: SpeciesHeritageOption | null;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
   onRemoveCondition: (conditionIndex: string) => Promise<unknown>;
@@ -158,6 +160,7 @@ function CharacterSheet({
   normalizedActionsLoading,
   onActiveTabChange,
   onAddCondition,
+  selectedHeritage,
   tempHp,
   onApplyCurrentHpAdjustment,
   onRemoveCondition,
@@ -337,6 +340,7 @@ function CharacterSheet({
     character.level,
   );
   const savedFeatureChoices = character.featureChoices ?? [];
+  const heritageSenseDetails = getHeritageSenseDetails(selectedHeritage);
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string }> = [
     { id: "actions", label: "Actions" },
     { id: "spells", label: "Spells" },
@@ -578,7 +582,9 @@ function CharacterSheet({
                 ))}
               </div>
 
-              <p className="character-reference-note">{training.senses}</p>
+              <p className="character-reference-note">
+                {[training.senses, ...heritageSenseDetails].join(" - ")}
+              </p>
             </section>
 
           <section className="character-reference-card character-reference-card-training">
@@ -835,6 +841,29 @@ function CharacterSheet({
                         ))}
                       </div>
                     </Card>
+
+                    {selectedHeritage ? (
+                      <Card title="Selected Heritage">
+                        <div className="list">
+                          <div className="character-feature-entry">
+                            <strong>{selectedHeritage.name}</strong>
+                            {selectedHeritage.traits?.length ? (
+                              selectedHeritage.traits.map((trait) => (
+                                <p key={trait.index}>
+                                  <span>{trait.name}</span>
+                                  {trait.description ? ` - ${trait.description}` : ""}
+                                </p>
+                              ))
+                            ) : selectedHeritage.damageType &&
+                              selectedHeritage.damageType !== "Unknown" ? (
+                              <p>{selectedHeritage.damageType} ancestry traits are selected.</p>
+                            ) : (
+                              <p className="muted">No heritage trait details are available.</p>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ) : null}
 
                     {savedFeatureChoices.length > 0 && (
                       <Card title="Saved Feature Choices">
@@ -1211,6 +1240,14 @@ function getSavingThrowProficiencies(className: string): AbilityIndex[] {
 
 function getSkillTotal(skills: SkillWithTotal[], name: string) {
   return skills.find((skill) => skill.name === name)?.total ?? 0;
+}
+
+function getHeritageSenseDetails(heritage: SpeciesHeritageOption | null | undefined) {
+  return (heritage?.traits ?? [])
+    .filter((trait) =>
+      `${trait.name} ${trait.description ?? ""}`.toLowerCase().includes("darkvision"),
+    )
+    .map((trait) => trait.description ?? trait.name);
 }
 
 function getActionSubtitle(action: CharacterActionEntry) {
