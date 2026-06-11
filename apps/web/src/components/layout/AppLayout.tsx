@@ -6,7 +6,7 @@ type AppLayoutProps = {
   children: ReactNode;
   hero?: ReactNode;
   navigation?: ReactNode;
-  variant?: "default" | "wide-left";
+  variant?: "default" | "wide-left" | "fullscreen";
 };
 
 function AppLayout({
@@ -17,9 +17,17 @@ function AppLayout({
 }: AppLayoutProps) {
   const { logout, user } = useAuth();
   const layoutClassName =
-    variant === "wide-left" ? "app-layout app-layout-wide-left" : "app-layout";
+    variant === "fullscreen"
+      ? "app-layout app-layout-fullscreen"
+      : variant === "wide-left"
+        ? "app-layout app-layout-wide-left"
+        : "app-layout";
   const shellClassName =
-    variant === "wide-left" ? "app-shell app-shell-wide-left" : "app-shell";
+    variant === "fullscreen"
+      ? "app-shell app-shell-fullscreen"
+      : variant === "wide-left"
+        ? "app-shell app-shell-wide-left"
+        : "app-shell";
 
   return (
     <main className={shellClassName}>

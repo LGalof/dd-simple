@@ -20,55 +20,70 @@ import {
   Waves,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { CSSProperties, DragEvent } from "react";
+import type { DragEvent } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
-
-type BoardTerrain = "normal" | "difficult" | "wall" | "water" | "forest";
-type BoardMode = BoardTerrain | "move";
-type TokenTeam = "players" | "enemies" | "neutral";
-
-type BoardToken = {
-  id: string;
-  name: string;
-  team: TokenTeam;
-  color: string;
-  x: number;
-  y: number;
-  size: number;
-  speed: number;
-  hp: number;
-  maxHp: number;
-  initiative: number;
-};
-
-type SavedBoardState = {
-  tokens: BoardToken[];
-  terrain: Record<string, BoardTerrain>;
-  selectedTokenId: string;
-  initiativeOrder: string[];
-  activeInitiativeIndex: number;
-};
-
-type SavedBoardEntry = {
-  id: string;
-  name: string;
-  updatedAt: string;
-  state: SavedBoardState;
-};
-
-const boardColumns = 18;
-const boardRows = 12;
-const cellDistance = 5;
-const boardStorageKey = "dd-simple.tactical-board-state";
-const savedBoardsStorageKey = "dd-simple.saved-tactical-boards";
-
-const terrainLabels: Record<BoardTerrain, string> = {
-  normal: "Normal",
-  difficult: "Difficult",
-  wall: "Wall",
-  water: "Water",
-  forest: "Forest",
-};
+import { TacticalBoardGrid } from "../features/tactical-board/components/TacticalBoardGrid";
+import {
+  aoeShapeLabels,
+  boardColumns,
+  boardRows,
+  boardStorageKey,
+  cellDistance,
+  conditionOptions,
+  defaultLayers,
+  defaultSettings,
+  defaultTurnState,
+  initialTerrain,
+  initialTokens,
+  layerLabels,
+  pinTypeLabels,
+  savedBoardsStorageKey,
+  spellTemplates,
+  terrainLabels,
+  tokenPresets,
+} from "../features/tactical-board/data/boardConstants";
+import type {
+  AoeShape,
+  BoardMode,
+  BoardSettings,
+  BoardTerrain,
+  BoardToken,
+  LayerKey,
+  LayerState,
+  MapPin,
+  PinType,
+  PlacedTemplate,
+  SavedBoardEntry,
+  SavedBoardState,
+  SpellTemplate,
+  TokenCondition,
+  TokenTeam,
+  TurnState,
+} from "../features/tactical-board/types/board";
+import {
+  canPlaceToken,
+  findTokenSpace,
+  getBrushCells,
+  getCellsInRadius,
+  getCellKey,
+  getLineCells,
+  getLineOfSightStatus,
+  getMovementCostFeet,
+  getOccupiedCells,
+  getSpellAffectedCells,
+  getSquareDistance,
+  getTokenCenter,
+  getWaypointCells,
+} from "../features/tactical-board/utils/boardGeometry";
+import {
+  decodeBoardState,
+  encodeBoardState,
+  formatSavedBoardDate,
+  loadSavedBoardEntries,
+  loadSavedBoardState,
+  normalizePins,
+  parseBoardState,
+} from "../features/tactical-board/utils/boardStorage";
 
 const terrainIcons = {
   normal: Sparkles,
@@ -78,77 +93,6 @@ const terrainIcons = {
   forest: Trees,
 };
 
-const initialTokens: BoardToken[] = [
-  {
-    id: "kael",
-    name: "Kael",
-    team: "players",
-    color: "#60a5fa",
-    x: 2,
-    y: 5,
-    size: 1,
-    speed: 30,
-    hp: 24,
-    maxHp: 24,
-    initiative: 16,
-  },
-  {
-    id: "mira",
-    name: "Mira",
-    team: "players",
-    color: "#a78bfa",
-    x: 4,
-    y: 6,
-    size: 1,
-    speed: 30,
-    hp: 18,
-    maxHp: 18,
-    initiative: 13,
-  },
-  {
-    id: "goblin-1",
-    name: "Goblin",
-    team: "enemies",
-    color: "#f97316",
-    x: 12,
-    y: 4,
-    size: 1,
-    speed: 30,
-    hp: 7,
-    maxHp: 7,
-    initiative: 14,
-  },
-  {
-    id: "ogre",
-    name: "Ogre",
-    team: "enemies",
-    color: "#ef4444",
-    x: 14,
-    y: 7,
-    size: 2,
-    speed: 40,
-    hp: 59,
-    maxHp: 59,
-    initiative: 8,
-  },
-];
-
-const initialTerrain: Record<string, BoardTerrain> = {
-  "8:4": "wall",
-  "8:5": "wall",
-  "8:6": "wall",
-  "9:6": "wall",
-  "5:2": "forest",
-  "6:2": "forest",
-  "6:3": "forest",
-  "11:8": "water",
-  "12:8": "water",
-  "11:9": "water",
-  "12:9": "water",
-  "3:8": "difficult",
-  "4:8": "difficult",
-};
-
 function TacticalBoardPage() {
   const savedBoardState = useMemo(() => loadSavedBoardState(), []);
   const initialSavedBoards = useMemo(() => loadSavedBoardEntries(), []);
@@ -156,6 +100,14 @@ function TacticalBoardPage() {
   const [terrain, setTerrain] = useState<Record<string, BoardTerrain>>(
     savedBoardState?.terrain ?? initialTerrain,
   );
+  const [fog, setFog] = useState<Record<string, boolean>>(savedBoardState?.fog ?? {});
+  const [pins, setPins] = useState<Record<string, MapPin>>(normalizePins(savedBoardState?.pins ?? {}));
+  const [placedTemplates, setPlacedTemplates] = useState<PlacedTemplate[]>(savedBoardState?.templates ?? []);
+  const [layers, setLayers] = useState<LayerState>({ ...defaultLayers, ...(savedBoardState?.layers ?? {}) });
+  const [boardSettings, setBoardSettings] = useState<BoardSettings>({
+    ...defaultSettings,
+    ...(savedBoardState?.settings ?? {}),
+  });
   const [selectedTokenId, setSelectedTokenId] = useState(
     savedBoardState?.selectedTokenId ?? initialTokens[0].id,
   );
@@ -173,6 +125,23 @@ function TacticalBoardPage() {
   const [newTokenName, setNewTokenName] = useState("New Hero");
   const [newTokenTeam, setNewTokenTeam] = useState<TokenTeam>("players");
   const [shareCode, setShareCode] = useState("");
+  const [spellName, setSpellName] = useState("Fireball");
+  const [spellDamage, setSpellDamage] = useState("8d6 fire");
+  const [spellRangeFeet, setSpellRangeFeet] = useState(60);
+  const [aoeShape, setAoeShape] = useState<AoeShape>("burst");
+  const [aoeSizeFeet, setAoeSizeFeet] = useState(15);
+  const [targetCell, setTargetCell] = useState<{ x: number; y: number } | null>(null);
+  const [hoverTargetCell, setHoverTargetCell] = useState<{ x: number; y: number } | null>(null);
+  const [rulerStart, setRulerStart] = useState<{ x: number; y: number } | null>(null);
+  const [rulerEnd, setRulerEnd] = useState<{ x: number; y: number } | null>(null);
+  const [hoverRulerCell, setHoverRulerCell] = useState<{ x: number; y: number } | null>(null);
+  const [brushSize, setBrushSize] = useState(1);
+  const [pinLabel, setPinLabel] = useState("Note");
+  const [pinType, setPinType] = useState<PinType>("note");
+  const [pinHidden, setPinHidden] = useState(false);
+  const [showDmNotes, setShowDmNotes] = useState(true);
+  const [waypoints, setWaypoints] = useState<Array<{ x: number; y: number }>>([]);
+  const [combatLog, setCombatLog] = useState<string[]>(["Prototype board ready."]);
   const [savedBoards, setSavedBoards] = useState(initialSavedBoards);
   const [boardName, setBoardName] = useState(initialSavedBoards[0]?.name ?? "Forest Road");
   const [selectedSavedBoardId, setSelectedSavedBoardId] = useState(initialSavedBoards[0]?.id ?? "");
@@ -190,7 +159,71 @@ function TacticalBoardPage() {
   const activeToken = tokens.find((token) => token.id === activeTokenId) ?? null;
   const selectedSavedBoard =
     savedBoards.find((board) => board.id === selectedSavedBoardId) ?? null;
-  const selectedReach = selectedToken ? Math.floor(selectedToken.speed / cellDistance) : 0;
+  const feetPerSquare = Math.max(1, boardSettings.feetPerSquare || cellDistance);
+  const selectedReach = selectedToken ? Math.floor(selectedToken.speed / feetPerSquare) : 0;
+  const spellRangeCells = Math.max(1, Math.floor(spellRangeFeet / feetPerSquare));
+  const aoeSizeCells = Math.max(0, Math.floor(aoeSizeFeet / feetPerSquare));
+  const spellOrigin = selectedToken ? getTokenCenter(selectedToken) : null;
+  const spellPreviewTarget = hoverTargetCell ?? targetCell;
+  const spellAffectedCells = useMemo(
+    () =>
+      spellOrigin && spellPreviewTarget
+        ? getSpellAffectedCells(spellOrigin, spellPreviewTarget, aoeShape, aoeSizeCells)
+        : [],
+    [aoeShape, aoeSizeCells, spellOrigin, spellPreviewTarget],
+  );
+  const affectedTokens = useMemo(
+    () =>
+      tokens.filter(
+        (token) =>
+          token.id !== selectedTokenId &&
+          getOccupiedCells(token).some((occupiedCell) =>
+            spellAffectedCells.some(
+              (affectedCell) => affectedCell.x === occupiedCell.x && affectedCell.y === occupiedCell.y,
+            ),
+          ),
+      ),
+    [selectedTokenId, spellAffectedCells, tokens],
+  );
+  const spellLineCells = spellOrigin && spellPreviewTarget ? getLineCells(spellOrigin, spellPreviewTarget) : [];
+  const spellCoverStatus = spellLineCells.length > 0 ? getLineOfSightStatus(spellLineCells, terrain) : "No target";
+  const rulerPreviewEnd = hoverRulerCell ?? rulerEnd;
+  const rulerCells = rulerStart && rulerPreviewEnd ? getLineCells(rulerStart, rulerPreviewEnd) : [];
+  const rulerDistanceFeet =
+    rulerStart && rulerPreviewEnd
+      ? getSquareDistance(rulerStart.x, rulerStart.y, rulerPreviewEnd.x, rulerPreviewEnd.y) * feetPerSquare
+      : 0;
+  const movementPathCells =
+    selectedToken && hoverCell ? getLineCells({ x: selectedToken.x, y: selectedToken.y }, hoverCell) : [];
+  const movementCostFeet = getMovementCostFeet(
+    movementPathCells,
+    terrain,
+    feetPerSquare,
+    boardSettings.diagonalRule,
+  );
+  const waypointCells = selectedToken ? getWaypointCells(getTokenCenter(selectedToken), waypoints) : [];
+  const waypointCostFeet = getMovementCostFeet(
+    waypointCells,
+    terrain,
+    feetPerSquare,
+    boardSettings.diagonalRule,
+  );
+  const selectedVisionCells =
+    selectedToken && layers.vision
+      ? getCellsInRadius(getTokenCenter(selectedToken), Math.max(0, Math.floor((selectedToken.visionFeet ?? 60) / feetPerSquare)))
+      : [];
+  const placedTemplateCells = useMemo(
+    () =>
+      placedTemplates.flatMap((template) =>
+        getSpellAffectedCells(
+          { x: template.x, y: template.y },
+          { x: template.x, y: template.y },
+          template.shape === "cone" || template.shape === "line" ? "burst" : template.shape,
+          Math.max(0, Math.floor(template.sizeFeet / feetPerSquare)),
+        ).map((cell) => ({ ...cell, templateId: template.id })),
+      ),
+    [feetPerSquare, placedTemplates],
+  );
   const selectedOccupiedCells = useMemo(
     () => (selectedToken ? getOccupiedCells(selectedToken) : []),
     [selectedToken],
@@ -200,13 +233,18 @@ function TacticalBoardPage() {
     const state: SavedBoardState = {
       tokens,
       terrain,
+      fog,
+      pins,
+      templates: placedTemplates,
+      layers,
+      settings: boardSettings,
       selectedTokenId,
       initiativeOrder: validInitiativeOrder,
       activeInitiativeIndex,
     };
 
     localStorage.setItem(boardStorageKey, JSON.stringify(state));
-  }, [activeInitiativeIndex, selectedTokenId, terrain, tokens, validInitiativeOrder]);
+  }, [activeInitiativeIndex, boardSettings, fog, layers, pins, placedTemplates, selectedTokenId, terrain, tokens, validInitiativeOrder]);
 
   useEffect(() => {
     localStorage.setItem(savedBoardsStorageKey, JSON.stringify(savedBoards));
@@ -226,6 +264,11 @@ function TacticalBoardPage() {
 
       setTokens(nextState.tokens);
       setTerrain(nextState.terrain);
+      setFog(nextState.fog ?? {});
+      setPins(normalizePins(nextState.pins ?? {}));
+      setPlacedTemplates(nextState.templates ?? []);
+      setLayers({ ...defaultLayers, ...(nextState.layers ?? {}) });
+      setBoardSettings({ ...defaultSettings, ...(nextState.settings ?? {}) });
       setSelectedTokenId(nextState.selectedTokenId);
       setInitiativeOrder(nextState.initiativeOrder);
       setActiveInitiativeIndex(nextState.activeInitiativeIndex);
@@ -241,6 +284,10 @@ function TacticalBoardPage() {
     setTokens((currentTokens) =>
       currentTokens.map((token) => (token.id === nextToken.id ? nextToken : token)),
     );
+  }
+
+  function addCombatLog(entry: string) {
+    setCombatLog((currentLog) => [entry, ...currentLog].slice(0, 8));
   }
 
   function handleTokenDragStart(event: DragEvent<HTMLElement>, tokenId: string) {
@@ -306,29 +353,290 @@ function TacticalBoardPage() {
       return;
     }
 
-    updateToken(nextToken);
+    const moveCost = getMovementCostFeet(
+      getLineCells({ x: draggedToken.x, y: draggedToken.y }, cell),
+      terrain,
+      feetPerSquare,
+      boardSettings.diagonalRule,
+    );
+
+    updateToken({
+      ...nextToken,
+      turn: {
+        ...defaultTurnState,
+        ...(draggedToken.turn ?? {}),
+        movementUsed: (draggedToken.turn?.movementUsed ?? 0) + moveCost,
+      },
+    });
     setHoverCell(null);
+    addCombatLog(`${draggedToken.name} moved ${moveCost} ft.`);
     setMessage(`${draggedToken.name} moved to ${cell.x + 1}, ${cell.y + 1}.`);
   }
 
   function handleCellClick(x: number, y: number) {
+    if (mode === "waypoint") {
+      if (!selectedToken) {
+        setMessage("Select a token before plotting a path.");
+        return;
+      }
+
+      setWaypoints((currentWaypoints) => [...currentWaypoints, { x, y }]);
+      setMessage(`Waypoint added at ${x + 1}, ${y + 1}.`);
+      return;
+    }
+
+    if (mode === "ruler") {
+      if (!rulerStart) {
+        setRulerStart({ x, y });
+        setRulerEnd(null);
+        setMessage(`Ruler started at ${x + 1}, ${y + 1}.`);
+        return;
+      }
+
+      setRulerEnd({ x, y });
+      addCombatLog(`Measured ${getSquareDistance(rulerStart.x, rulerStart.y, x, y) * feetPerSquare} ft.`);
+      setMessage(`Measured ${getSquareDistance(rulerStart.x, rulerStart.y, x, y) * feetPerSquare} ft.`);
+      return;
+    }
+
+    if (mode === "fog") {
+      toggleFogBrush(x, y);
+      return;
+    }
+
+    if (mode === "pin") {
+      togglePin(x, y);
+      return;
+    }
+
+    if (mode === "target") {
+      if (!spellOrigin) {
+        setMessage("Select a caster token before previewing a spell.");
+        return;
+      }
+
+      const target = { x, y };
+      const distance = getSquareDistance(spellOrigin.x, spellOrigin.y, x, y);
+
+      setTargetCell(target);
+      addCombatLog(`${spellName} targeted ${x + 1}, ${y + 1}; ${affectedTokens.length} token${affectedTokens.length === 1 ? "" : "s"} in AOE.`);
+      setMessage(
+        distance <= spellRangeCells
+          ? `Target locked at ${x + 1}, ${y + 1}. ${distance * feetPerSquare} ft away.`
+          : `Target is ${distance * feetPerSquare} ft away, beyond spell range.`,
+      );
+      return;
+    }
+
     if (mode === "move") {
       return;
     }
 
-    const key = getCellKey(x, y);
+    const cells = getBrushCells(x, y, brushSize);
 
     setTerrain((currentTerrain) => {
+      const nextTerrain = { ...currentTerrain };
+
+      cells.forEach((cell) => {
+        const key = getCellKey(cell.x, cell.y);
+
       if (mode === "normal") {
-        const { [key]: _removed, ...remainingTerrain } = currentTerrain;
-        return remainingTerrain;
+          delete nextTerrain[key];
+          return;
       }
 
-      return {
-        ...currentTerrain,
-        [key]: mode,
-      };
+        nextTerrain[key] = mode;
+      });
+
+      return nextTerrain;
     });
+  }
+
+  function toggleFogBrush(x: number, y: number) {
+    const cells = getBrushCells(x, y, brushSize);
+
+    setFog((currentFog) => {
+      const nextFog = { ...currentFog };
+      const shouldReveal = cells.some((cell) => currentFog[getCellKey(cell.x, cell.y)]);
+
+      cells.forEach((cell) => {
+        const key = getCellKey(cell.x, cell.y);
+
+        if (shouldReveal) {
+          delete nextFog[key];
+          return;
+        }
+
+        nextFog[key] = true;
+      });
+
+      return nextFog;
+    });
+    setMessage("Fog of war updated.");
+  }
+
+  function togglePin(x: number, y: number) {
+    const key = getCellKey(x, y);
+
+    setPins((currentPins) => {
+      const nextPins = { ...currentPins };
+
+      if (nextPins[key]) {
+        delete nextPins[key];
+        setMessage(`Pin removed from ${x + 1}, ${y + 1}.`);
+        return nextPins;
+      }
+
+      nextPins[key] = {
+        label: pinLabel.trim() || pinTypeLabels[pinType],
+        type: pinType,
+        hidden: pinHidden,
+        open: false,
+      };
+      setMessage(`Pin added at ${x + 1}, ${y + 1}.`);
+      return nextPins;
+    });
+  }
+
+  function interactWithPin(key: string) {
+    const pin = pins[key];
+
+    if (!pin) {
+      return;
+    }
+
+    if (pin.type === "door" || pin.type === "lever") {
+      setPins((currentPins) => ({
+        ...currentPins,
+        [key]: {
+          ...pin,
+          open: !pin.open,
+        },
+      }));
+      setMessage(`${pin.label} ${pin.open ? "closed" : "opened"}.`);
+      return;
+    }
+
+    if (pin.type === "trap") {
+      setPins((currentPins) => ({
+        ...currentPins,
+        [key]: {
+          ...pin,
+          hidden: false,
+        },
+      }));
+      setMessage(`${pin.label} revealed.`);
+      return;
+    }
+
+    setMessage(`${pin.label}${pin.hidden ? " (DM note)" : ""}.`);
+  }
+
+  function applySpellTemplate(template: SpellTemplate) {
+    setSpellName(template.name);
+    setSpellDamage(template.damage);
+    setSpellRangeFeet(template.rangeFeet);
+    setAoeSizeFeet(template.aoeFeet);
+    setAoeShape(template.shape);
+    setMode("target");
+    setMessage(`${template.name} template loaded. Hover a square to preview the effect.`);
+  }
+
+  function placePersistentTemplate() {
+    const target = spellPreviewTarget ?? targetCell;
+
+    if (!target) {
+      setMessage("Choose a target square before placing a template.");
+      return;
+    }
+
+    const template: PlacedTemplate = {
+      id: `template-${Date.now()}`,
+      name: spellName.trim() || "Area Effect",
+      damage: spellDamage.trim(),
+      x: target.x,
+      y: target.y,
+      shape: aoeShape,
+      sizeFeet: aoeShape === "single" ? 0 : aoeSizeFeet,
+      color: "#f59e0b",
+    };
+
+    setPlacedTemplates((currentTemplates) => [...currentTemplates, template]);
+    addCombatLog(`${template.name} template placed.`);
+    setMessage(`${template.name} placed on the map.`);
+  }
+
+  function clearPlacedTemplates() {
+    setPlacedTemplates([]);
+    setMessage("Persistent spell templates cleared.");
+  }
+
+  function toggleLayer(layer: LayerKey) {
+    setLayers((currentLayers) => ({ ...currentLayers, [layer]: !currentLayers[layer] }));
+  }
+
+  function applyWaypointMove() {
+    if (!selectedToken || waypoints.length === 0) {
+      setMessage("Select a token and add waypoints first.");
+      return;
+    }
+
+    const destination = waypoints[waypoints.length - 1];
+    const nextToken = { ...selectedToken, x: destination.x, y: destination.y };
+
+    if (!canPlaceToken(nextToken, tokens, terrain)) {
+      setMessage(`${selectedToken.name} cannot finish that waypoint path.`);
+      return;
+    }
+
+    updateToken({
+      ...nextToken,
+      turn: {
+        ...defaultTurnState,
+        ...(selectedToken.turn ?? {}),
+        movementUsed: (selectedToken.turn?.movementUsed ?? 0) + waypointCostFeet,
+      },
+    });
+    addCombatLog(`${selectedToken.name} followed waypoint path for ${waypointCostFeet} ft.`);
+    setWaypoints([]);
+    setMessage(`${selectedToken.name} moved by waypoint path.`);
+  }
+
+  function quickCombatAction(action: string) {
+    if (!selectedToken) {
+      setMessage("Select a token first.");
+      return;
+    }
+
+    addCombatLog(`${selectedToken.name}: ${action}.`);
+    setMessage(`${selectedToken.name}: ${action}.`);
+  }
+
+  function addPresetToken(preset: typeof tokenPresets[number]) {
+    const token: BoardToken = {
+      id: `token-${Date.now()}`,
+      ...preset,
+      x: 0,
+      y: 0,
+      notes: "",
+      conditions: [],
+      turn: defaultTurnState,
+      visionFeet: 60,
+    };
+    const position = findTokenSpace(token, tokens, terrain);
+
+    if (!position) {
+      setMessage("No space for that preset token.");
+      return;
+    }
+
+    const nextToken = { ...token, ...position };
+
+    setTokens((currentTokens) => [...currentTokens, nextToken]);
+    setInitiativeOrder((currentOrder) => [...currentOrder, nextToken.id]);
+    setSelectedTokenId(nextToken.id);
+    addCombatLog(`${nextToken.name} spawned from preset.`);
+    setMessage(`${nextToken.name} spawned.`);
   }
 
   function addToken() {
@@ -352,6 +660,10 @@ function TacticalBoardPage() {
       hp: 10,
       maxHp: 10,
       initiative: 10,
+      ac: 12,
+      notes: "",
+      conditions: [],
+      turn: defaultTurnState,
     };
     const position = findTokenSpace(token, tokens, terrain);
 
@@ -401,6 +713,11 @@ function TacticalBoardPage() {
     return {
       tokens,
       terrain,
+      fog,
+      pins,
+      templates: placedTemplates,
+      layers,
+      settings: boardSettings,
       selectedTokenId,
       initiativeOrder: validInitiativeOrder,
       activeInitiativeIndex,
@@ -410,6 +727,11 @@ function TacticalBoardPage() {
   function applyBoardState(state: SavedBoardState, nextMessage: string) {
     setTokens(state.tokens);
     setTerrain(state.terrain);
+    setFog(state.fog ?? {});
+    setPins(normalizePins(state.pins ?? {}));
+    setPlacedTemplates(state.templates ?? []);
+    setLayers({ ...defaultLayers, ...(state.layers ?? {}) });
+    setBoardSettings({ ...defaultSettings, ...(state.settings ?? {}) });
     setSelectedTokenId(state.selectedTokenId);
     setInitiativeOrder(state.initiativeOrder);
     setActiveInitiativeIndex(state.activeInitiativeIndex);
@@ -474,12 +796,20 @@ function TacticalBoardPage() {
   function startBlankBoard() {
     setTokens([]);
     setTerrain({});
+    setFog({});
+    setPins({});
+    setPlacedTemplates([]);
+    setWaypoints([]);
     setSelectedTokenId("");
     setInitiativeOrder([]);
     setActiveInitiativeIndex(0);
     setSelectedSavedBoardId("");
     setBoardName("New Encounter Board");
     setHoverCell(null);
+    setHoverTargetCell(null);
+    setTargetCell(null);
+    setRulerStart(null);
+    setRulerEnd(null);
     setMessage("Blank board ready for DM prep.");
   }
 
@@ -496,6 +826,10 @@ function TacticalBoardPage() {
 
     setActiveInitiativeIndex(nextIndex);
     setSelectedTokenId(nextTokenId);
+    if (nextToken) {
+      updateToken({ ...nextToken, turn: defaultTurnState });
+    }
+    addCombatLog(nextToken ? `${nextToken.name}'s turn started.` : "Turn advanced.");
     setMessage(nextToken ? `${nextToken.name}'s turn.` : "Turn advanced.");
   }
 
@@ -518,11 +852,58 @@ function TacticalBoardPage() {
   function resetBoardState() {
     setTokens(initialTokens);
     setTerrain(initialTerrain);
+    setFog({});
+    setPins({});
+    setPlacedTemplates([]);
+    setWaypoints([]);
+    setLayers(defaultLayers);
+    setBoardSettings(defaultSettings);
     setSelectedTokenId(initialTokens[0].id);
     setInitiativeOrder(initialTokens.map((token) => token.id));
     setActiveInitiativeIndex(0);
     setShareCode("");
+    setHoverTargetCell(null);
+    setTargetCell(null);
+    setRulerStart(null);
+    setRulerEnd(null);
+    setCombatLog(["Prototype board ready."]);
     setMessage("Board reset to the prototype encounter.");
+  }
+
+  function adjustSelectedHp(amount: number) {
+    if (!selectedToken) {
+      return;
+    }
+
+    const nextHp = Math.max(0, Math.min(selectedToken.maxHp, selectedToken.hp + amount));
+    updateToken({ ...selectedToken, hp: nextHp });
+    addCombatLog(`${selectedToken.name} ${amount < 0 ? "took" : "recovered"} ${Math.abs(amount)} HP.`);
+  }
+
+  function toggleCondition(condition: TokenCondition) {
+    if (!selectedToken) {
+      return;
+    }
+
+    const currentConditions = selectedToken.conditions ?? [];
+    const hasCondition = currentConditions.includes(condition);
+    const nextConditions = hasCondition
+      ? currentConditions.filter((currentCondition) => currentCondition !== condition)
+      : [...currentConditions, condition];
+
+    updateToken({ ...selectedToken, conditions: nextConditions });
+    addCombatLog(`${selectedToken.name} ${hasCondition ? "lost" : "gained"} ${condition}.`);
+  }
+
+  function updateTokenTurn(token: BoardToken, partialTurn: Partial<TurnState>) {
+    updateToken({
+      ...token,
+      turn: {
+        ...defaultTurnState,
+        ...(token.turn ?? {}),
+        ...partialTurn,
+      },
+    });
   }
 
   function getBoardCellFromEvent(event: DragEvent<HTMLDivElement>) {
@@ -541,7 +922,7 @@ function TacticalBoardPage() {
   }
 
   return (
-    <AppLayout variant="wide-left">
+    <AppLayout variant="fullscreen">
       <section className="battle-board-workbench">
         <header className="battle-board-header">
           <div>
@@ -567,6 +948,46 @@ function TacticalBoardPage() {
                 <Footprints size={17} />
                 Move
               </button>
+              <button
+                type="button"
+                className={mode === "target" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                onClick={() => setMode("target")}
+              >
+                <Swords size={17} />
+                Target
+              </button>
+              <button
+                type="button"
+                className={mode === "ruler" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                onClick={() => setMode("ruler")}
+              >
+                <Footprints size={17} />
+                Ruler
+              </button>
+              <button
+                type="button"
+                className={mode === "fog" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                onClick={() => setMode("fog")}
+              >
+                <Shield size={17} />
+                Fog
+              </button>
+              <button
+                type="button"
+                className={mode === "pin" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                onClick={() => setMode("pin")}
+              >
+                <Sparkles size={17} />
+                Pin
+              </button>
+              <button
+                type="button"
+                className={mode === "waypoint" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                onClick={() => setMode("waypoint")}
+              >
+                <Footprints size={17} />
+                Path
+              </button>
               {(Object.keys(terrainLabels) as BoardTerrain[]).map((terrainKey) => {
                 const TerrainIcon = terrainIcons[terrainKey];
 
@@ -588,239 +1009,544 @@ function TacticalBoardPage() {
               })}
             </div>
 
-            <div className="battle-panel-heading">
-              <span>Create</span>
-              <strong>Add Token</strong>
+            <div className="battle-layer-grid">
+              {(Object.keys(layerLabels) as LayerKey[]).map((layer) => (
+                <button
+                  key={layer}
+                  type="button"
+                  className={layers[layer] ? "battle-layer-active" : ""}
+                  onClick={() => toggleLayer(layer)}
+                >
+                  {layerLabels[layer]}
+                </button>
+              ))}
+            </div>
+            <label className="battle-check-field">
+              <input
+                checked={showDmNotes}
+                type="checkbox"
+                onChange={(event) => setShowDmNotes(event.target.checked)}
+              />
+              Show DM notes
+            </label>
+
+            <div className="battle-tool-strip">
+              <label className="battle-field">
+                <span>Brush</span>
+                <select value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))}>
+                  <option value={1}>1 x 1</option>
+                  <option value={2}>2 x 2</option>
+                  <option value={3}>3 x 3</option>
+                </select>
+              </label>
+              <label className="battle-field">
+                <span>Pin Text</span>
+                <input value={pinLabel} onChange={(event) => setPinLabel(event.target.value)} />
+              </label>
             </div>
 
-            <label className="battle-field">
-              <span>Name</span>
-              <input value={newTokenName} onChange={(event) => setNewTokenName(event.target.value)} />
-            </label>
-            <label className="battle-field">
-              <span>Team</span>
-              <select
-                value={newTokenTeam}
-                onChange={(event) => setNewTokenTeam(event.target.value as TokenTeam)}
+            <div className="battle-tool-strip">
+              <label className="battle-field">
+                <span>Pin Type</span>
+                <select value={pinType} onChange={(event) => setPinType(event.target.value as PinType)}>
+                  {(Object.keys(pinTypeLabels) as PinType[]).map((type) => (
+                    <option key={type} value={type}>
+                      {pinTypeLabels[type]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="battle-check-field">
+                <input
+                  checked={pinHidden}
+                  type="checkbox"
+                  onChange={(event) => setPinHidden(event.target.checked)}
+                />
+                DM only
+              </label>
+            </div>
+
+            <div className="battle-ruler-summary">
+              <span>Ruler</span>
+              <strong>{rulerDistanceFeet > 0 ? `${rulerDistanceFeet} ft` : "Pick two squares"}</strong>
+              <button
+                type="button"
+                onClick={() => {
+                  setRulerStart(null);
+                  setRulerEnd(null);
+                  setHoverRulerCell(null);
+                  setMessage("Ruler cleared.");
+                }}
               >
-                <option value="players">Players</option>
-                <option value="enemies">Enemies</option>
-                <option value="neutral">Neutral</option>
-              </select>
-            </label>
-            <button type="button" className="battle-primary-button" onClick={addToken}>
-              <Plus size={17} />
-              Add Token
+                Clear
+              </button>
+            </div>
+
+            <div className="battle-ruler-summary">
+              <span>Move Cost</span>
+              <strong>{movementCostFeet > 0 ? `${movementCostFeet} ft` : "Drag a token"}</strong>
+              <button type="button" onClick={() => setMessage("Green path shows estimated movement cost.")}>
+                Info
+              </button>
+            </div>
+
+            <div className="battle-ruler-summary">
+              <span>Path Cost</span>
+              <strong>{waypointCostFeet > 0 ? `${waypointCostFeet} ft` : "Click path"}</strong>
+              <button type="button" onClick={applyWaypointMove}>
+                Move
+              </button>
+            </div>
+            <button
+              type="button"
+              className="battle-primary-button battle-primary-button-muted"
+              onClick={() => {
+                setWaypoints([]);
+                setMessage("Waypoint path cleared.");
+              }}
+            >
+              <RotateCcw size={17} />
+              Clear Path
             </button>
 
             <div className="battle-panel-heading">
-              <span>DM Prep</span>
-              <strong>Saved Maps</strong>
+              <span>Measure</span>
+              <strong>Spell Range</strong>
             </div>
 
-            <div className="battle-saved-board-meta">
-              <span>{savedBoards.length} saved</span>
+            <div className="battle-spell-summary">
+              <span>{selectedToken ? `Origin: ${selectedToken.name}` : "Select a token"}</span>
               <strong>
-                {selectedSavedBoard
-                  ? `Updated ${formatSavedBoardDate(selectedSavedBoard.updatedAt)}`
-                  : "No map selected"}
+                {spellPreviewTarget && spellOrigin
+                  ? `${getSquareDistance(
+                      spellOrigin.x,
+                      spellOrigin.y,
+                      spellPreviewTarget.x,
+                      spellPreviewTarget.y,
+                    ) * feetPerSquare} ft`
+                  : `${spellRangeFeet} ft range`}
               </strong>
+              <em>
+                {spellName} · {spellDamage} · {aoeShapeLabels[aoeShape]}
+                {aoeShape === "single" ? "" : ` ${aoeSizeFeet} ft`}
+              </em>
+              <small>{spellCoverStatus}</small>
+            </div>
+
+            <div className="battle-affected-list">
+              <span>AOE Targets</span>
+              {affectedTokens.length > 0 ? (
+                affectedTokens.map((token) => (
+                  <button
+                    key={token.id}
+                    type="button"
+                    onClick={() => setSelectedTokenId(token.id)}
+                  >
+                    <strong>{token.name}</strong>
+                    <em>
+                      AC {token.ac ?? 10} · HP {token.hp}/{token.maxHp}
+                    </em>
+                  </button>
+                ))
+              ) : (
+                <p>No tokens in the current effect.</p>
+              )}
+            </div>
+
+            <div className="battle-spell-presets">
+              {spellTemplates.map((template) => (
+                <button
+                  key={template.name}
+                  type="button"
+                  onClick={() => applySpellTemplate(template)}
+                >
+                  {template.name}
+                </button>
+              ))}
             </div>
 
             <label className="battle-field">
-              <span>Map Name</span>
+              <span>Spell</span>
+              <input value={spellName} onChange={(event) => setSpellName(event.target.value)} />
+            </label>
+
+            <label className="battle-field">
+              <span>Damage / Effect</span>
               <input
-                value={boardName}
-                onChange={(event) => setBoardName(event.target.value)}
-                placeholder="Cave entrance, city square..."
+                value={spellDamage}
+                onChange={(event) => setSpellDamage(event.target.value)}
               />
             </label>
+
+            <div className="battle-field-row">
+              <label className="battle-field">
+                <span>Range ft</span>
+                <input
+                  min={5}
+                  step={5}
+                  type="number"
+                  value={spellRangeFeet}
+                  onChange={(event) => setSpellRangeFeet(Math.max(5, Number(event.target.value)))}
+                />
+              </label>
+              <label className="battle-field">
+                <span>AOE ft</span>
+                <input
+                  min={0}
+                  step={5}
+                  type="number"
+                  value={aoeSizeFeet}
+                  onChange={(event) => setAoeSizeFeet(Math.max(0, Number(event.target.value)))}
+                />
+              </label>
+            </div>
+
             <label className="battle-field">
-              <span>Prepared Maps</span>
-              <select
-                value={selectedSavedBoardId}
-                onChange={(event) => {
-                  const nextBoardId = event.target.value;
-                  const nextBoard = savedBoards.find((board) => board.id === nextBoardId);
-
-                  setSelectedSavedBoardId(nextBoardId);
-
-                  if (nextBoard) {
-                    setBoardName(nextBoard.name);
-                  }
-                }}
-              >
-                <option value="">Choose a saved map</option>
-                {savedBoards.map((board) => (
-                  <option key={board.id} value={board.id}>
-                    {board.name}
+              <span>Shape</span>
+              <select value={aoeShape} onChange={(event) => setAoeShape(event.target.value as AoeShape)}>
+                {(Object.keys(aoeShapeLabels) as AoeShape[]).map((shape) => (
+                  <option key={shape} value={shape}>
+                    {aoeShapeLabels[shape]}
                   </option>
                 ))}
               </select>
             </label>
-            <div className="battle-field-row">
-              <button type="button" className="battle-primary-button" onClick={() => saveNamedBoard()}>
-                <Save size={17} />
-                Save
-              </button>
-              <button type="button" className="battle-primary-button" onClick={() => loadNamedBoard()}>
-                <Upload size={17} />
-                Load
-              </button>
-            </div>
+
             <div className="battle-field-row">
               <button
                 type="button"
                 className="battle-primary-button battle-primary-button-muted"
-                onClick={() => saveNamedBoard({ asNew: true })}
+                onClick={() => {
+                  setMode("target");
+                  setMessage("Hover or click a square to preview range and AOE.");
+                }}
               >
-                <Copy size={17} />
-                Save As
+                <Sparkles size={17} />
+                Preview
               </button>
               <button
                 type="button"
                 className="battle-primary-button battle-primary-button-muted"
-                onClick={startBlankBoard}
+                onClick={() => {
+                  setTargetCell(null);
+                  setHoverTargetCell(null);
+                  setMessage("Spell preview cleared.");
+                }}
               >
-                <FilePlus size={17} />
-                Blank
+                <RotateCcw size={17} />
+                Clear
               </button>
             </div>
-            <button type="button" className="battle-danger-button" onClick={deleteNamedBoard}>
-              <Trash2 size={17} />
-              Delete Saved Map
-            </button>
-
-            <div className="battle-panel-heading">
-              <span>Share</span>
-              <strong>Share Board</strong>
-            </div>
-
-            <label className="battle-field">
-              <span>Save Code</span>
-              <textarea
-                value={shareCode}
-                onChange={(event) => setShareCode(event.target.value)}
-                placeholder="Export or paste a board code..."
-              />
-            </label>
             <div className="battle-field-row">
-              <button type="button" className="battle-primary-button" onClick={exportBoardState}>
-                <Download size={17} />
-                Export
+              <button type="button" className="battle-primary-button" onClick={placePersistentTemplate}>
+                <Plus size={17} />
+                Place
               </button>
-              <button type="button" className="battle-primary-button" onClick={importBoardState}>
-                <Upload size={17} />
-                Import
+              <button type="button" className="battle-danger-button" onClick={clearPlacedTemplates}>
+                <Trash2 size={17} />
+                Clear Areas
               </button>
             </div>
-            <button type="button" className="battle-danger-button" onClick={resetBoardState}>
-              <RotateCcw size={17} />
-              Reset Board
-            </button>
+
+            <details className="battle-compact-section">
+              <summary>
+                <span>Create</span>
+                <strong>Add Token</strong>
+              </summary>
+
+              <label className="battle-field">
+                <span>Name</span>
+                <input value={newTokenName} onChange={(event) => setNewTokenName(event.target.value)} />
+              </label>
+              <label className="battle-field">
+                <span>Team</span>
+                <select
+                  value={newTokenTeam}
+                  onChange={(event) => setNewTokenTeam(event.target.value as TokenTeam)}
+                >
+                  <option value="players">Players</option>
+                  <option value="enemies">Enemies</option>
+                  <option value="neutral">Neutral</option>
+                </select>
+              </label>
+              <button type="button" className="battle-primary-button" onClick={addToken}>
+                <Plus size={17} />
+                Add Token
+              </button>
+
+              <div className="battle-preset-grid">
+                {tokenPresets.map((preset) => (
+                  <button key={preset.name} type="button" onClick={() => addPresetToken(preset)}>
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
+            </details>
+
+            <details className="battle-compact-section">
+              <summary>
+                <span>Map</span>
+                <strong>Background / Scale</strong>
+              </summary>
+
+              <label className="battle-field">
+                <span>Image URL</span>
+                <input
+                  value={boardSettings.backgroundUrl}
+                  onChange={(event) =>
+                    setBoardSettings((currentSettings) => ({
+                      ...currentSettings,
+                      backgroundUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="Paste battlemap image URL..."
+                />
+              </label>
+              <div className="battle-field-row">
+                <label className="battle-field">
+                  <span>Ft / Square</span>
+                  <input
+                    min={1}
+                    step={1}
+                    type="number"
+                    value={feetPerSquare}
+                    onChange={(event) =>
+                      setBoardSettings((currentSettings) => ({
+                        ...currentSettings,
+                        feetPerSquare: Math.max(1, Number(event.target.value)),
+                      }))
+                    }
+                  />
+                </label>
+                <label className="battle-field">
+                  <span>Diagonal</span>
+                  <select
+                    value={boardSettings.diagonalRule}
+                    onChange={(event) =>
+                      setBoardSettings((currentSettings) => ({
+                        ...currentSettings,
+                        diagonalRule: event.target.value as BoardSettings["diagonalRule"],
+                      }))
+                    }
+                  >
+                    <option value="standard">5 ft</option>
+                    <option value="five-ten">5/10 ft</option>
+                  </select>
+                </label>
+              </div>
+            </details>
+
+            <details className="battle-compact-section">
+              <summary>
+                <span>DM Prep</span>
+                <strong>Saved Maps</strong>
+              </summary>
+
+              <div className="battle-saved-board-meta">
+                <span>{savedBoards.length} saved</span>
+                <strong>
+                  {selectedSavedBoard
+                    ? `Updated ${formatSavedBoardDate(selectedSavedBoard.updatedAt)}`
+                    : "No map selected"}
+                </strong>
+              </div>
+
+              <label className="battle-field">
+                <span>Map Name</span>
+                <input
+                  value={boardName}
+                  onChange={(event) => setBoardName(event.target.value)}
+                  placeholder="Cave entrance, city square..."
+                />
+              </label>
+              <label className="battle-field">
+                <span>Prepared Maps</span>
+                <select
+                  value={selectedSavedBoardId}
+                  onChange={(event) => {
+                    const nextBoardId = event.target.value;
+                    const nextBoard = savedBoards.find((board) => board.id === nextBoardId);
+
+                    setSelectedSavedBoardId(nextBoardId);
+
+                    if (nextBoard) {
+                      setBoardName(nextBoard.name);
+                    }
+                  }}
+                >
+                  <option value="">Choose a saved map</option>
+                  {savedBoards.map((board) => (
+                    <option key={board.id} value={board.id}>
+                      {board.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="battle-field-row">
+                <button type="button" className="battle-primary-button" onClick={() => saveNamedBoard()}>
+                  <Save size={17} />
+                  Save
+                </button>
+                <button type="button" className="battle-primary-button" onClick={() => loadNamedBoard()}>
+                  <Upload size={17} />
+                  Load
+                </button>
+              </div>
+              <div className="battle-field-row">
+                <button
+                  type="button"
+                  className="battle-primary-button battle-primary-button-muted"
+                  onClick={() => saveNamedBoard({ asNew: true })}
+                >
+                  <Copy size={17} />
+                  Save As
+                </button>
+                <button
+                  type="button"
+                  className="battle-primary-button battle-primary-button-muted"
+                  onClick={startBlankBoard}
+                >
+                  <FilePlus size={17} />
+                  Blank
+                </button>
+              </div>
+              <button type="button" className="battle-danger-button" onClick={deleteNamedBoard}>
+                <Trash2 size={17} />
+                Delete Saved Map
+              </button>
+            </details>
+
+            <details className="battle-compact-section">
+              <summary>
+                <span>Share</span>
+                <strong>Export / Import</strong>
+              </summary>
+
+              <label className="battle-field">
+                <span>Save Code</span>
+                <textarea
+                  value={shareCode}
+                  onChange={(event) => setShareCode(event.target.value)}
+                  placeholder="Export or paste a board code..."
+                />
+              </label>
+              <div className="battle-field-row">
+                <button type="button" className="battle-primary-button" onClick={exportBoardState}>
+                  <Download size={17} />
+                  Export
+                </button>
+                <button type="button" className="battle-primary-button" onClick={importBoardState}>
+                  <Upload size={17} />
+                  Import
+                </button>
+              </div>
+              <button type="button" className="battle-danger-button" onClick={resetBoardState}>
+                <RotateCcw size={17} />
+                Reset Board
+              </button>
+            </details>
           </aside>
 
-          <div
-            className="battle-board"
-            style={
-              {
-                "--board-columns": boardColumns,
-                "--board-rows": boardRows,
-              } as CSSProperties
-            }
-            onDragLeave={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                setHoverCell(null);
-              }
-            }}
-            onDragOver={handleBoardDragOver}
-            onDrop={handleBoardDrop}
-          >
-            {Array.from({ length: boardColumns * boardRows }).map((_, index) => {
-              const x = index % boardColumns;
-              const y = Math.floor(index / boardColumns);
-              const terrainType = terrain[getCellKey(x, y)] ?? "normal";
-              const isInReach =
-                selectedToken &&
-                mode === "move" &&
-                getGridDistance(selectedToken.x, selectedToken.y, x, y) <= selectedReach;
-              const isOccupiedBySelected = selectedOccupiedCells.some(
-                (cell) => cell.x === x && cell.y === y,
-              );
-
-              return (
-                <button
-                  key={getCellKey(x, y)}
-                  type="button"
-                  className={[
-                    "battle-cell",
-                    `battle-cell-${terrainType}`,
-                    isInReach ? "battle-cell-reachable" : "",
-                    isOccupiedBySelected ? "battle-cell-selected-occupied" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => handleCellClick(x, y)}
-                />
-              );
-            })}
-
-            {hoverCell && (
-              <div
-                className={[
-                  "battle-drop-preview",
-                  hoverCell.valid ? "battle-drop-preview-valid" : "battle-drop-preview-invalid",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={
-                  {
-                    "--preview-x": hoverCell.x,
-                    "--preview-y": hoverCell.y,
-                    "--preview-size": dragTokenId
-                      ? tokens.find((token) => token.id === dragTokenId)?.size ?? 1
-                      : 1,
-                  } as CSSProperties
-                }
-              />
-            )}
-
-            {tokens.map((token) => (
-              <button
-                key={token.id}
-                type="button"
-                draggable
-                className={[
-                  "battle-token",
-                  `battle-token-${token.team}`,
-                  selectedTokenId === token.id ? "battle-token-selected" : "",
-                  activeTokenId === token.id ? "battle-token-active-turn" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={
-                  {
-                    "--token-color": token.color,
-                    "--token-x": token.x,
-                    "--token-y": token.y,
-                    "--token-size": token.size,
-                  } as CSSProperties
-                }
-                onClick={() => setSelectedTokenId(token.id)}
-                onDragEnd={handleTokenDragEnd}
-                onDragStart={(event) => handleTokenDragStart(event, token.id)}
-              >
-                {token.team === "enemies" ? <Skull size={18} /> : <Shield size={18} />}
-                <span>{token.name}</span>
-              </button>
-            ))}
-          </div>
+          <TacticalBoardGrid
+            activeTokenId={activeTokenId}
+            boardSettings={boardSettings}
+            dragTokenId={dragTokenId}
+            fog={fog}
+            handleBoardDragOver={handleBoardDragOver}
+            handleBoardDrop={handleBoardDrop}
+            handleCellClick={handleCellClick}
+            handleTokenDragEnd={handleTokenDragEnd}
+            handleTokenDragStart={handleTokenDragStart}
+            hoverCell={hoverCell}
+            interactWithPin={interactWithPin}
+            layers={layers}
+            mode={mode}
+            movementPathCells={movementPathCells}
+            pins={pins}
+            placedTemplateCells={placedTemplateCells}
+            rulerCells={rulerCells}
+            rulerStart={rulerStart}
+            selectedOccupiedCells={selectedOccupiedCells}
+            selectedReach={selectedReach}
+            selectedToken={selectedToken}
+            selectedTokenId={selectedTokenId}
+            selectedVisionCells={selectedVisionCells}
+            setHoverCell={setHoverCell}
+            setHoverRulerCell={setHoverRulerCell}
+            setHoverTargetCell={setHoverTargetCell}
+            setSelectedTokenId={setSelectedTokenId}
+            showDmNotes={showDmNotes}
+            spellAffectedCells={spellAffectedCells}
+            spellCoverStatus={spellCoverStatus}
+            spellLineCells={spellLineCells}
+            spellOrigin={spellOrigin}
+            spellPreviewTarget={spellPreviewTarget}
+            spellRangeCells={spellRangeCells}
+            terrain={terrain}
+            tokens={tokens}
+            waypointCells={waypointCells}
+          />
 
           <aside className="battle-board-panel">
             <div className="battle-panel-heading">
               <span>Initiative</span>
               <strong>{activeToken ? `${activeToken.name}'s Turn` : "No Turn"}</strong>
             </div>
+
+            {activeToken && (
+              <div className="battle-turn-card">
+                <div className="battle-turn-token" style={{ background: activeToken.color }}>
+                  {activeToken.team === "enemies" ? <Skull size={24} /> : <Shield size={24} />}
+                </div>
+                <div>
+                  <span>Now Acting</span>
+                  <strong>{activeToken.name}</strong>
+                  <em>
+                    Init {activeToken.initiative} · HP {activeToken.hp}/{activeToken.maxHp}
+                  </em>
+                </div>
+              </div>
+            )}
+
+            {activeToken && (
+              <div className="battle-turn-resources">
+                {(["actionUsed", "bonusActionUsed", "reactionUsed"] as const).map((key) => {
+                  const labels = {
+                    actionUsed: "Action",
+                    bonusActionUsed: "Bonus",
+                    reactionUsed: "Reaction",
+                  };
+                  const used = Boolean(activeToken.turn?.[key]);
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={used ? "battle-resource-used" : ""}
+                      onClick={() => {
+                        setSelectedTokenId(activeToken.id);
+                        updateTokenTurn(activeToken, { [key]: !used });
+                      }}
+                    >
+                      {labels[key]}
+                    </button>
+                  );
+                })}
+                <label>
+                  <span>Move Used</span>
+                  <input
+                    min={0}
+                    step={5}
+                    type="number"
+                    value={activeToken.turn?.movementUsed ?? 0}
+                    onChange={(event) => {
+                      setSelectedTokenId(activeToken.id);
+                      updateTokenTurn(activeToken, { movementUsed: Math.max(0, Number(event.target.value)) });
+                    }}
+                  />
+                </label>
+              </div>
+            )}
 
             <div className="battle-initiative-actions">
               <button
@@ -876,6 +1602,19 @@ function TacticalBoardPage() {
               })}
             </div>
 
+            <details className="battle-compact-section">
+              <summary>
+                <span>History</span>
+                <strong>Combat Log</strong>
+              </summary>
+
+              <div className="battle-combat-log">
+                {combatLog.map((entry, index) => (
+                  <p key={`${entry}-${index}`}>{entry}</p>
+                ))}
+              </div>
+            </details>
+
             <div className="battle-panel-heading">
               <span>Selected</span>
               <strong>{selectedToken?.name ?? "No token"}</strong>
@@ -893,18 +1632,14 @@ function TacticalBoardPage() {
                   </div>
                 </div>
 
-                <label className="battle-field">
-                  <span>Name</span>
-                  <input
-                    value={selectedToken.name}
-                    onChange={(event) =>
-                      updateToken({
-                        ...selectedToken,
-                        name: event.target.value,
-                      })
-                    }
-                  />
-                </label>
+                <div className="battle-condition-row">
+                  {(selectedToken.conditions ?? []).length > 0 ? (
+                    selectedToken.conditions?.map((condition) => <span key={condition}>{condition}</span>)
+                  ) : (
+                    <em>No conditions</em>
+                  )}
+                </div>
+
                 <div className="battle-field-row">
                   <label className="battle-field">
                     <span>HP</span>
@@ -935,78 +1670,170 @@ function TacticalBoardPage() {
                     />
                   </label>
                 </div>
-                <div className="battle-field-row">
+                <div className="battle-field-row battle-hp-actions">
+                  <button type="button" onClick={() => adjustSelectedHp(-1)}>-1</button>
+                  <button type="button" onClick={() => adjustSelectedHp(-5)}>-5</button>
+                  <button type="button" onClick={() => adjustSelectedHp(5)}>+5</button>
+                  <button type="button" onClick={() => adjustSelectedHp(10)}>+10</button>
+                </div>
+
+                <div className="battle-condition-grid">
+                  {conditionOptions.map((condition) => {
+                    const active = selectedToken.conditions?.includes(condition);
+
+                    return (
+                      <button
+                        key={condition}
+                        type="button"
+                        className={active ? "battle-condition-active" : ""}
+                        onClick={() => toggleCondition(condition)}
+                      >
+                        {condition}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="battle-quick-actions">
+                  <button type="button" onClick={() => quickCombatAction("Attack roll")}>Attack</button>
+                  <button type="button" onClick={() => quickCombatAction("Saving throw")}>Save</button>
+                  <button type="button" onClick={() => quickCombatAction("Concentration check")}>Conc.</button>
+                  <button type="button" onClick={() => quickCombatAction("Death save")}>Death</button>
+                </div>
+
+                <details className="battle-compact-section">
+                  <summary>
+                    <span>Details</span>
+                    <strong>Edit Token</strong>
+                  </summary>
+
                   <label className="battle-field">
-                    <span>Speed</span>
+                    <span>Name</span>
                     <input
-                      min={5}
-                      step={5}
-                      type="number"
-                      value={selectedToken.speed}
+                      value={selectedToken.name}
                       onChange={(event) =>
                         updateToken({
                           ...selectedToken,
-                          speed: Math.max(5, Number(event.target.value)),
+                          name: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <div className="battle-field-row battle-field-row-three">
+                    <label className="battle-field">
+                      <span>AC</span>
+                      <input
+                        min={1}
+                        type="number"
+                        value={selectedToken.ac ?? 10}
+                        onChange={(event) =>
+                          updateToken({
+                            ...selectedToken,
+                            ac: Math.max(1, Number(event.target.value)),
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="battle-field">
+                      <span>Speed</span>
+                      <input
+                        min={5}
+                        step={5}
+                        type="number"
+                        value={selectedToken.speed}
+                        onChange={(event) =>
+                          updateToken({
+                            ...selectedToken,
+                            speed: Math.max(5, Number(event.target.value)),
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="battle-field">
+                      <span>Size</span>
+                      <select
+                        value={selectedToken.size}
+                        onChange={(event) =>
+                          updateToken({
+                            ...selectedToken,
+                            size: Number(event.target.value),
+                          })
+                        }
+                      >
+                        <option value={1}>1 x 1</option>
+                        <option value={2}>2 x 2</option>
+                        <option value={3}>3 x 3</option>
+                      </select>
+                    </label>
+                  </div>
+                  <label className="battle-field">
+                    <span>Initiative</span>
+                    <input
+                      type="number"
+                      value={selectedToken.initiative}
+                      onChange={(event) =>
+                        updateToken({
+                          ...selectedToken,
+                          initiative: Number(event.target.value),
                         })
                       }
                     />
                   </label>
                   <label className="battle-field">
-                    <span>Size</span>
-                    <select
-                      value={selectedToken.size}
+                    <span>Vision ft</span>
+                    <input
+                      min={0}
+                      step={5}
+                      type="number"
+                      value={selectedToken.visionFeet ?? 60}
                       onChange={(event) =>
                         updateToken({
                           ...selectedToken,
-                          size: Number(event.target.value),
+                          visionFeet: Math.max(0, Number(event.target.value)),
                         })
                       }
-                    >
-                      <option value={1}>1 x 1</option>
-                      <option value={2}>2 x 2</option>
-                      <option value={3}>3 x 3</option>
-                    </select>
+                    />
                   </label>
-                </div>
-                <label className="battle-field">
-                  <span>Initiative</span>
-                  <input
-                    type="number"
-                    value={selectedToken.initiative}
-                    onChange={(event) =>
-                      updateToken({
-                        ...selectedToken,
-                        initiative: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-                <div className="battle-stat-grid">
-                  <div>
-                    <span>Position</span>
-                    <strong>
-                      {selectedToken.x + 1}, {selectedToken.y + 1}
-                    </strong>
+                  <label className="battle-field">
+                    <span>Notes</span>
+                    <textarea
+                      value={selectedToken.notes ?? ""}
+                      onChange={(event) =>
+                        updateToken({
+                          ...selectedToken,
+                          notes: event.target.value,
+                        })
+                      }
+                      placeholder="Concentration, cover, readied action..."
+                    />
+                  </label>
+                  <div className="battle-stat-grid">
+                    <div>
+                      <span>Position</span>
+                      <strong>
+                        {selectedToken.x + 1}, {selectedToken.y + 1}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Move</span>
+                      <strong>{selectedReach} cells</strong>
+                    </div>
+                    <div>
+                      <span>Distance</span>
+                      <strong>{feetPerSquare} ft</strong>
+                    </div>
+                    <div>
+                      <span>Board</span>
+                      <strong>
+                        {boardColumns} x {boardRows}
+                      </strong>
+                    </div>
                   </div>
-                  <div>
-                    <span>Move</span>
-                    <strong>{selectedReach} cells</strong>
-                  </div>
-                  <div>
-                    <span>Distance</span>
-                    <strong>{cellDistance} ft</strong>
-                  </div>
-                  <div>
-                    <span>Board</span>
-                    <strong>
-                      {boardColumns} x {boardRows}
-                    </strong>
-                  </div>
-                </div>
-                <button type="button" className="battle-danger-button" onClick={removeSelectedToken}>
-                  <Trash2 size={17} />
-                  Remove Token
-                </button>
+                  <button type="button" className="battle-danger-button" onClick={removeSelectedToken}>
+                    <Trash2 size={17} />
+                    Remove Token
+                  </button>
+                </details>
               </>
             )}
           </aside>
@@ -1014,216 +1841,6 @@ function TacticalBoardPage() {
       </section>
     </AppLayout>
   );
-}
-
-function getCellKey(x: number, y: number) {
-  return `${x}:${y}`;
-}
-
-function getOccupiedCells(token: BoardToken) {
-  const cells: Array<{ x: number; y: number }> = [];
-
-  for (let y = token.y; y < token.y + token.size; y += 1) {
-    for (let x = token.x; x < token.x + token.size; x += 1) {
-      cells.push({ x, y });
-    }
-  }
-
-  return cells;
-}
-
-function getGridDistance(fromX: number, fromY: number, toX: number, toY: number) {
-  return Math.abs(fromX - toX) + Math.abs(fromY - toY);
-}
-
-function canPlaceToken(
-  candidate: BoardToken,
-  tokens: BoardToken[],
-  terrain: Record<string, BoardTerrain>,
-) {
-  if (
-    candidate.x < 0 ||
-    candidate.y < 0 ||
-    candidate.x + candidate.size > boardColumns ||
-    candidate.y + candidate.size > boardRows
-  ) {
-    return false;
-  }
-
-  const candidateCells = getOccupiedCells(candidate);
-  const hitsBlockedTerrain = candidateCells.some(
-    (cell) => terrain[getCellKey(cell.x, cell.y)] === "wall",
-  );
-
-  if (hitsBlockedTerrain) {
-    return false;
-  }
-
-  return tokens
-    .filter((token) => token.id !== candidate.id)
-    .every((token) => !tokensOverlap(candidate, token));
-}
-
-function tokensOverlap(leftToken: BoardToken, rightToken: BoardToken) {
-  return (
-    leftToken.x < rightToken.x + rightToken.size &&
-    leftToken.x + leftToken.size > rightToken.x &&
-    leftToken.y < rightToken.y + rightToken.size &&
-    leftToken.y + leftToken.size > rightToken.y
-  );
-}
-
-function findTokenSpace(
-  token: BoardToken,
-  tokens: BoardToken[],
-  terrain: Record<string, BoardTerrain>,
-) {
-  for (let y = 0; y <= boardRows - token.size; y += 1) {
-    for (let x = 0; x <= boardColumns - token.size; x += 1) {
-      const candidate = { ...token, x, y };
-
-      if (canPlaceToken(candidate, tokens, terrain)) {
-        return { x, y };
-      }
-    }
-  }
-
-  return null;
-}
-
-function loadSavedBoardState(): SavedBoardState | null {
-  try {
-    const rawState = localStorage.getItem(boardStorageKey);
-
-    if (!rawState) {
-      return null;
-    }
-
-    return parseBoardState(rawState);
-  } catch {
-    return null;
-  }
-}
-
-function parseBoardState(rawState: string): SavedBoardState | null {
-  try {
-    const parsedState = JSON.parse(rawState) as SavedBoardState;
-
-    return normalizeBoardState(parsedState);
-  } catch {
-    return null;
-  }
-}
-
-function normalizeBoardState(state: SavedBoardState): SavedBoardState | null {
-  if (!Array.isArray(state.tokens) || typeof state.terrain !== "object" || !state.terrain) {
-    return null;
-  }
-
-  const tokens = state.tokens.map((token) => ({
-    ...token,
-    initiative: Number.isFinite(token.initiative) ? token.initiative : 10,
-    maxHp: Math.max(1, token.maxHp || 1),
-    hp: Math.max(0, token.hp || 0),
-    size: Math.max(1, Math.min(3, token.size || 1)),
-    speed: Math.max(5, token.speed || 30),
-  }));
-  const tokenIds = new Set(tokens.map((token) => token.id));
-  const savedInitiativeOrder = Array.isArray(state.initiativeOrder) ? state.initiativeOrder : [];
-  const initiativeOrder = [
-    ...savedInitiativeOrder.filter((tokenId) => tokenIds.has(tokenId)),
-    ...tokens.filter((token) => !savedInitiativeOrder.includes(token.id)).map((token) => token.id),
-  ];
-
-  return {
-    tokens,
-    terrain: state.terrain,
-    selectedTokenId: tokenIds.has(state.selectedTokenId) ? state.selectedTokenId : tokens[0]?.id ?? "",
-    initiativeOrder,
-    activeInitiativeIndex:
-      initiativeOrder.length > 0
-        ? Math.max(0, Math.min(initiativeOrder.length - 1, state.activeInitiativeIndex || 0))
-        : 0,
-  };
-}
-
-function encodeBoardState(state: SavedBoardState) {
-  const json = JSON.stringify(state);
-  const bytes = new TextEncoder().encode(json);
-  let binary = "";
-
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function decodeBoardState(code: string): SavedBoardState | null {
-  try {
-    const normalizedCode = code.trim().replace(/-/g, "+").replace(/_/g, "/");
-    const paddedCode = normalizedCode.padEnd(
-      normalizedCode.length + ((4 - (normalizedCode.length % 4)) % 4),
-      "=",
-    );
-    const binary = atob(paddedCode);
-    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    const json = new TextDecoder().decode(bytes);
-    const parsedState = JSON.parse(json) as SavedBoardState;
-
-    return normalizeBoardState(parsedState);
-  } catch {
-    return null;
-  }
-}
-
-function formatSavedBoardDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "unknown";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function loadSavedBoardEntries(): SavedBoardEntry[] {
-  try {
-    const rawEntries = localStorage.getItem(savedBoardsStorageKey);
-
-    if (!rawEntries) {
-      return [];
-    }
-
-    const parsedEntries = JSON.parse(rawEntries) as SavedBoardEntry[];
-
-    if (!Array.isArray(parsedEntries)) {
-      return [];
-    }
-
-    return parsedEntries
-      .map((entry) => {
-        const state = normalizeBoardState(entry.state);
-
-        if (!state || !entry.id || !entry.name) {
-          return null;
-        }
-
-        return {
-          id: entry.id,
-          name: entry.name,
-          updatedAt: entry.updatedAt || new Date(0).toISOString(),
-          state,
-        };
-      })
-      .filter((entry): entry is SavedBoardEntry => Boolean(entry))
-      .sort((leftEntry, rightEntry) => rightEntry.updatedAt.localeCompare(leftEntry.updatedAt));
-  } catch {
-    return [];
-  }
 }
 
 export { TacticalBoardPage };
