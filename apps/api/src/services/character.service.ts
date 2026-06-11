@@ -61,6 +61,7 @@ type CharacterMutationData = {
   hitPointState?: HitPointStateInput;
   skillIndexes: string[];
   choices?: CharacterChoiceInput[];
+  featureChoices?: Record<string, string>;
   abilityScores: {
     str: number;
     dex: number;
@@ -664,6 +665,28 @@ async function getClassProficiencyGrantIndexes(
   return getClassSavingThrowProficiencyIndexes(sourceJson);
 }
 
+function classFeatureChoiceRows(
+  featureChoices: Record<string, string> | undefined,
+) {
+  return Object.entries(featureChoices ?? {})
+    .filter(([, selectedIndex]) => typeof selectedIndex === "string" && selectedIndex.length > 0)
+    .map(([choiceKey, selectedIndex]) => {
+      const separatorIndex = choiceKey.indexOf(":");
+      const sourceIndex =
+        separatorIndex >= 0 ? choiceKey.slice(0, separatorIndex) : choiceKey;
+      const choiceType =
+        separatorIndex >= 0 ? choiceKey.slice(separatorIndex + 1) : "selection";
+
+      return {
+        choiceType,
+        sourceType: "class-feature",
+        sourceIndex,
+        selectedType: "reference",
+        selectedIndex,
+      };
+    });
+}
+
 async function findAllCharactersForUser(userId: string) {
   return prisma.character.findMany({
     where: {
@@ -877,6 +900,9 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
               }),
             ),
           ],
+        },
+        choices: {
+          create: classFeatureChoiceRows(data.featureChoices),
         },
       },
     });
@@ -1222,6 +1248,28 @@ async function updateCharacterForUser(
           }),
         ),
         skipDuplicates: true,
+      });
+    }
+
+    await tx.characterChoice.deleteMany({
+      where: {
+        characterId,
+        sourceType: "class-feature",
+      },
+    });
+
+    const featureChoiceRows = classFeatureChoiceRows(data.featureChoices);
+
+    if (featureChoiceRows.length > 0) {
+      await tx.characterChoice.createMany({
+        data: featureChoiceRows.map((choice) => ({
+          characterId,
+          choiceType: choice.choiceType,
+          sourceType: choice.sourceType,
+          sourceIndex: choice.sourceIndex,
+          selectedType: choice.selectedType,
+          selectedIndex: choice.selectedIndex,
+        })),
       });
     }
 

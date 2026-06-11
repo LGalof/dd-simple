@@ -11,6 +11,7 @@ import {
   updateCharacterForUser,
 } from "../services/character.service.js";
 import { findCharacterActionsForUser } from "../services/character-actions.service.js";
+import { findCharacterDefensesForUser } from "../services/character-defenses.service.js";
 
 const ABILITY_SCORE_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -28,6 +29,7 @@ type CharacterMutationRequestBody = {
   hitPointState?: unknown;
   skillIndexes?: unknown;
   choices?: unknown;
+  featureChoices?: unknown;
   abilityScores?: unknown;
 };
 
@@ -78,8 +80,23 @@ type ValidCharacterMutationRequestBody = {
   hitPointState?: ValidHitPointStateRequestBody;
   skillIndexes: string[];
   choices?: ValidCharacterChoiceRequestBody[];
+  featureChoices?: Record<string, string>;
   abilityScores: AbilityScoreRequestBody;
 };
+
+function isFeatureChoicesBody(value: unknown): value is Record<string, string> {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return Object.entries(value).every(
+    ([key, entryValue]) => typeof key === "string" && typeof entryValue === "string",
+  );
+}
 
 function isAbilityScoresBody(value: unknown): value is AbilityScoreRequestBody {
   if (!value || typeof value !== "object") {
@@ -210,6 +227,7 @@ function isCharacterMutationRequestBody(
     (candidate.choices === undefined ||
       (Array.isArray(candidate.choices) &&
         candidate.choices.every(isCharacterChoiceRequestBody))) &&
+    isFeatureChoicesBody(candidate.featureChoices) &&
     isAbilityScoresBody(candidate.abilityScores)
   );
 }
@@ -325,6 +343,61 @@ async function getCharacterActions(req: Request, res: Response) {
   }
 }
 
+async function getCharacterDefenses(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const classIndex =
+      typeof req.query.classIndex === "string" && req.query.classIndex.trim().length > 0
+        ? req.query.classIndex.trim()
+        : undefined;
+    const speciesIndex =
+      typeof req.query.speciesIndex === "string" && req.query.speciesIndex.trim().length > 0
+        ? req.query.speciesIndex.trim()
+        : undefined;
+    const subspeciesIndex =
+      typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
+        ? req.query.subspeciesIndex.trim()
+        : undefined;
+    const level =
+      typeof req.query.level === "string" &&
+      Number.isInteger(Number(req.query.level)) &&
+      Number(req.query.level) >= 1 &&
+      Number(req.query.level) <= 20
+        ? Number(req.query.level)
+        : undefined;
+
+    const defenses = await findCharacterDefensesForUser(getAuthenticatedUser(req).id, id, {
+      classIndex,
+      level,
+      subspeciesIndex,
+      speciesIndex,
+    });
+
+    if (!defenses) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json(defenses);
+  } catch (error) {
+    console.error("Failed to fetch character defenses:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch character defenses",
+    });
+  }
+}
+
 async function createCharacter(req: Request, res: Response) {
   try {
     const body = req.body;
@@ -348,6 +421,7 @@ async function createCharacter(req: Request, res: Response) {
       hitPointState: body.hitPointState,
       skillIndexes: body.skillIndexes,
       choices: body.choices,
+      featureChoices: body.featureChoices,
       abilityScores: body.abilityScores,
     });
 
@@ -410,6 +484,7 @@ async function updateCharacter(req: Request, res: Response) {
         hitPointState: body.hitPointState,
         skillIndexes: body.skillIndexes,
         choices: body.choices,
+        featureChoices: body.featureChoices,
         abilityScores: body.abilityScores,
       },
     );
@@ -571,6 +646,7 @@ export {
   createCharacter,
   deleteCharacter,
   getCharacterActions,
+  getCharacterDefenses,
   getCharacterById,
   getCharacters,
   removeCharacterCondition,

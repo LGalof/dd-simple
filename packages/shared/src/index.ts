@@ -135,11 +135,11 @@ export type ClassDefinition = {
 };
 
 export type CharacterFeatureSelection = {
-  id?: string;
+  choiceType?: string;
   characterId?: string;
   featureId?: string;
   fieldId?: string;
-  choiceType?: string;
+  id?: string;
   sourceType?: string;
   sourceIndex?: string;
   selectedType?: string;
@@ -179,11 +179,11 @@ export type Character = {
   background: Pick<BackgroundDefinition, "name">;
   abilityScores: AbilityScore[];
   skills: CharacterSkill[];
+  choices?: CharacterFeatureSelection[];
   proficiencies?: CharacterProficiency[];
   languages?: CharacterLanguage[];
   conditions?: CharacterCondition[];
   hitPointState?: CharacterHitPointState | null;
-  choices?: CharacterFeatureSelection[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];
 };
@@ -200,4 +200,5 @@ export type CharacterSavePayload = {
   skillIndexes: string[];
   choices?: CharacterFeatureSelection[];
   abilityScores: AbilityScores;
+  featureChoices?: Record<string, string>;
 };

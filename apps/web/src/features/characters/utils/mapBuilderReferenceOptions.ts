@@ -10,6 +10,7 @@ import type {
   BackgroundOption,
   ClassFeature,
   ClassOption,
+  ClassSubclassOption,
   FeatureChoiceField,
   SpeciesOption,
   SpeciesHeritageOption,
@@ -108,6 +109,7 @@ type ClassSourceJson = {
   proficiency_choices?: Choice[];
   saving_throws?: ReferenceItem[];
   starting_equipment_options?: Choice[];
+  subclasses?: ReferenceItem[];
 };
 
 type FeatureSourceJson = {
@@ -137,8 +139,25 @@ const fallbackSpeciesLanguageNames: Record<string, string[]> = {
   tiefling: ["Common", "Infernal"],
 };
 
+type SubclassSourceJson = {
+  class?: {
+    index?: unknown;
+  };
+  description?: unknown;
+  desc?: unknown;
+  features?: Array<{
+    description?: unknown;
+    level?: unknown;
+    name?: unknown;
+  }>;
+  index?: unknown;
+  name?: unknown;
+  summary?: unknown;
+};
+
 function mapSpeciesReferences(
   references: ReferenceSpecies[],
+  subspeciesDocuments: ReferenceRuleDocument[] = [],
   fallbackOptions: SpeciesOption[],
 ): SpeciesOption[] {
   if (references.length === 0) {
@@ -159,7 +178,7 @@ function mapSpeciesReferences(
       sourceJson.size_options?.from?.options
         ?.map((option) => stringValue(option.size))
         .filter(isPresent);
-    const heritageOptions = normalizedSpeciesHeritageOptions(reference);
+    const heritageOptions = normalizedSpeciesHeritageOptions(reference, subspeciesDocuments);
     const size = reference.size ?? stringValue(sourceJson.size) ?? sizeOptions?.join(" or ") ?? "Unknown";
     const sizeDescription = stringValue(sourceJson.size_options?.desc);
     const creatureType = stringValue(sourceJson.type) ?? fallback?.creatureType ?? "Unknown";
@@ -363,10 +382,19 @@ function normalizedSpeciesSizeOptions(reference: ReferenceSpecies) {
   return sizes.length > 0 ? sizes : null;
 }
 
-function normalizedSpeciesHeritageOptions(reference: ReferenceSpecies): SpeciesHeritageOption[] {
-  return (reference.subspecies ?? [])
+function normalizedSpeciesHeritageOptions(
+  reference: ReferenceSpecies,
+  subspeciesDocuments: ReferenceRuleDocument[] = [],
+): SpeciesHeritageOption[] {
+  const directHeritageOptions = (reference.subspecies ?? [])
     .map((subspecies) => speciesHeritageOption(subspecies))
     .filter(isPresent);
+
+  if (directHeritageOptions.length > 0) {
+    return directHeritageOptions;
+  }
+
+  return getSpeciesHeritageOptions(reference.index, subspeciesDocuments);
 }
 
 function speciesHeritageOption(subspecies: ReferenceSubspecies): SpeciesHeritageOption | null {
@@ -570,6 +598,7 @@ function mapClassReferences(
   fallbackOptions: ClassOption[],
   levelDocuments: ReferenceRuleDocument[] = [],
   featureDocuments: ReferenceRuleDocument[] = [],
+  subclassDocuments: ReferenceRuleDocument[] = [],
 ): ClassOption[] {
   if (references.length === 0) {
     return fallbackOptions;
@@ -602,6 +631,7 @@ function mapClassReferences(
       .filter(isPresent);
     const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
     const normalizedFeatures = createNormalizedClassFeatures(reference.features ?? []);
+    const subclasses = getClassSubclasses(reference.index, sourceJson, subclassDocuments);
     const features =
       normalizedFeatures.length > 0
         ? [...classChoiceFeature, ...normalizedFeatures]
@@ -641,6 +671,7 @@ function mapClassReferences(
       },
       proficiencies: groupedProficiencies,
       startingEquipment,
+      subclasses,
       features,
     };
   });
@@ -895,6 +926,73 @@ function createFeature(feature: ClassFeature): ClassFeature {
     details: feature.details?.length ? feature.details : undefined,
     choiceFields: feature.choiceFields?.length ? feature.choiceFields : undefined,
   };
+}
+
+function getClassSubclasses(
+  classIndex: string,
+  sourceJson: ClassSourceJson,
+  subclassDocuments: ReferenceRuleDocument[],
+): ClassSubclassOption[] {
+  const subclassDocumentMap = new Map(subclassDocuments.map((document) => [document.index, document]));
+  const sourceSubclasses = Array.isArray(sourceJson.subclasses) ? sourceJson.subclasses : [];
+
+  return sourceSubclasses
+    .map((subclassReference) => {
+      const subclassIndex = stringValue(subclassReference.index);
+
+      if (!subclassIndex) {
+        return null;
+      }
+
+      const subclassDocument = subclassDocumentMap.get(subclassIndex);
+      const subclassSourceJson = asRecord(subclassDocument?.sourceJson) as SubclassSourceJson;
+
+      if (stringValue(subclassSourceJson.class?.index) !== classIndex) {
+        return {
+          index: subclassIndex,
+          name: referenceName(subclassReference) ?? subclassDocument?.name ?? subclassIndex,
+          description: undefined,
+          summary: undefined,
+          features: [],
+        };
+      }
+
+      const features = Array.isArray(subclassSourceJson.features)
+        ? subclassSourceJson.features
+            .map((feature) => {
+              const name = stringValue(feature.name);
+              const description = stringValue(feature.description);
+              const level = numberValue(feature.level);
+
+              if (!name || !description || level === null) {
+                return null;
+              }
+
+              return {
+                name,
+                description: trimDescription(description),
+                level,
+              };
+            })
+            .filter(isPresent)
+        : [];
+
+      return {
+        index: subclassIndex,
+        name:
+          stringValue(subclassSourceJson.name) ??
+          referenceName(subclassReference) ??
+          subclassDocument?.name ??
+          subclassIndex,
+        description:
+          stringValue(subclassSourceJson.description) ??
+          stringValue(subclassSourceJson.desc) ??
+          undefined,
+        summary: stringValue(subclassSourceJson.summary) ?? undefined,
+        features,
+      };
+    })
+    .filter(isPresent);
 }
 
 function createChoiceFieldsFromChoice(
@@ -1187,6 +1285,29 @@ function createChoiceField(
       label: typeof option === "string" ? option : option.label,
     })),
   };
+}
+
+function getSpeciesHeritageOptions(
+  speciesIndex: string,
+  subspeciesDocuments: ReferenceRuleDocument[],
+): SpeciesHeritageOption[] {
+  return subspeciesDocuments
+    .map((document) => asRecord(document.sourceJson) as SubspeciesSourceJson)
+    .filter((sourceJson) => sourceJson.species?.index === speciesIndex)
+    .map((sourceJson) => {
+      const traitIndexes = (sourceJson.traits ?? [])
+        .map((trait) => stringValue(trait.index))
+        .filter(isPresent);
+
+      return {
+        breathWeaponTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("breath-weapon")),
+        damageType: stringValue(sourceJson.damage_type?.name) ?? "Unknown",
+        index: stringValue(sourceJson.index) ?? "",
+        name: stringValue(sourceJson.name) ?? "Unknown Heritage",
+        resistanceTraitIndex: traitIndexes.find((traitIndex) => traitIndex.includes("damage-resistance")),
+      };
+    })
+    .filter((option) => option.index.length > 0);
 }
 
 function shortHeritageName(value: string) {

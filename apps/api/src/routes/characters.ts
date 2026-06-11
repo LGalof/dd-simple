@@ -4,6 +4,7 @@ import {
   createCharacter,
   deleteCharacter,
   getCharacterActions,
+  getCharacterDefenses,
   getCharacterById,
   getCharacters,
   removeCharacterCondition,
@@ -27,6 +28,7 @@ charactersRouter.delete(
   "/characters/:id/conditions/:conditionIndex",
   removeCharacterCondition,
 );
+charactersRouter.get("/characters/:id/defenses", getCharacterDefenses);
 
 charactersRouter.get("/characters/:id", getCharacterById);
 

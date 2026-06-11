@@ -7,6 +7,7 @@ import type {
   BuilderSelectionKind,
   ClassFeature,
   ClassOption,
+  ClassSubclassOption,
   FeatureChoiceSelections,
   HitPointSettings,
   SpeciesOption,
@@ -64,7 +65,7 @@ function CharacterBuilderSidebar({
 
   useEffect(() => {
     setExpandedFeatureId(classOption.features[0]?.id ?? null);
-  }, [classOption.index]);
+  }, [classOption.features, classOption.index]);
 
   useEffect(() => {
     if (!hitPointPreview || !hitPointSettings || isHitPointPanelOpen) {
@@ -87,14 +88,6 @@ function CharacterBuilderSidebar({
     hitPointPreview,
   ]);
 
-  const featureCountLabel = useMemo(() => {
-    const availableNow = classOption.features.filter(
-      (feature) => feature.level <= characterLevel,
-    ).length;
-
-    return `${availableNow} unlocked - levels 1-20`;
-  }, [characterLevel, classOption.features]);
-
   const abilityOptionMap = useMemo(
     () =>
       Object.fromEntries(
@@ -109,16 +102,37 @@ function CharacterBuilderSidebar({
     [abilityScores],
   );
 
+  const selectedSubclassIndex = useMemo(
+    () => getSelectedSubclassIndex(classOption, selectedChoices),
+    [classOption, selectedChoices],
+  );
+
+  const visibleFeatures = useMemo(
+    () =>
+      classOption.features.flatMap((feature) =>
+        getVisibleClassFeatures(feature, classOption.subclasses ?? [], selectedSubclassIndex),
+      ).sort(compareVisibleFeatures),
+    [classOption.features, classOption.subclasses, selectedSubclassIndex],
+  );
+
+  const featureCountLabel = useMemo(() => {
+    const availableNow = visibleFeatures.filter(
+      (feature) => feature.level <= characterLevel,
+    ).length;
+
+    return `${availableNow} unlocked - levels 1-20`;
+  }, [characterLevel, visibleFeatures]);
+
   const lastCompletedFeatureIndex = useMemo(
     () =>
-      classOption.features.reduce((lastCompletedIndex, feature, featureIndex) => {
+      visibleFeatures.reduce((lastCompletedIndex, feature, featureIndex) => {
         if (isFeatureComplete(feature, selectedChoices)) {
           return featureIndex;
         }
 
         return lastCompletedIndex;
       }, -1),
-    [classOption.features, selectedChoices],
+    [selectedChoices, visibleFeatures],
   );
 
   function toggleFeature(featureId: string) {
@@ -376,7 +390,7 @@ function CharacterBuilderSidebar({
           </div>
 
           <div className="builder-feature-accordion">
-            {classOption.features.map((feature, featureIndex) => {
+            {visibleFeatures.map((feature, featureIndex) => {
               const isExpanded = expandedFeatureId === feature.id;
               const isFutureFeature = feature.level > characterLevel;
               const isChoiceComplete = isFeatureComplete(feature, selectedChoices);
@@ -764,6 +778,117 @@ function isChoiceOptionSelectedElsewhere(
   groupSelectedValues: string[],
 ) {
   return optionValue !== selectedValue && groupSelectedValues.includes(optionValue);
+}
+
+function getSelectedSubclassIndex(
+  classOption: ClassOption,
+  selectedChoices: FeatureChoiceSelections,
+) {
+  const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  for (const feature of classOption.features) {
+    if (!feature.id.includes("subclass") || !feature.choiceFields?.length) {
+      continue;
+    }
+
+    for (const field of feature.choiceFields) {
+      const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
+
+      if (selectedValue && subclassIndexes.has(selectedValue)) {
+        return selectedValue;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getVisibleClassFeatures(
+  feature: ClassFeature,
+  subclasses: ClassSubclassOption[],
+  selectedSubclassIndex: string | null,
+) : ClassFeature[] {
+  if (!selectedSubclassIndex || !feature.id.includes("subclass-feature")) {
+    return [feature];
+  }
+
+  const selectedSubclass = subclasses.find((subclass) => subclass.index === selectedSubclassIndex);
+
+  if (!selectedSubclass) {
+    return [feature];
+  }
+
+  const subclassFeaturesAtLevel = selectedSubclass.features.filter(
+    (subclassFeature) => subclassFeature.level === feature.level,
+  );
+
+  if (subclassFeaturesAtLevel.length > 0) {
+    return subclassFeaturesAtLevel.map((subclassFeature) => ({
+      id: `${feature.id}:${slugifyFeatureName(subclassFeature.name)}`,
+      level: feature.level,
+      title: subclassFeature.name,
+      summary: subclassFeature.description,
+    }));
+  }
+
+  const filteredDescriptions = [feature.summary, ...(feature.details ?? [])]
+    .map((description) => stripSubclassPrefix(description, selectedSubclass.name))
+    .filter((description): description is string => description !== null);
+
+  if (filteredDescriptions.length === 0) {
+    return [feature];
+  }
+
+  return [
+    {
+      ...feature,
+      title: `${selectedSubclass.name} Feature`,
+      summary: filteredDescriptions[0],
+      details: filteredDescriptions.slice(1),
+    },
+  ];
+}
+
+function stripSubclassPrefix(value: string, subclassName: string) {
+  const normalizedValue = value.trim();
+  const subclassPrefix = `${subclassName}:`;
+
+  if (normalizedValue.startsWith(subclassPrefix)) {
+    return normalizedValue.slice(subclassPrefix.length).trim();
+  }
+
+  return normalizedValue.includes(":") ? null : normalizedValue;
+}
+
+function slugifyFeatureName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function compareVisibleFeatures(left: ClassFeature, right: ClassFeature) {
+  if (left.level !== right.level) {
+    return left.level - right.level;
+  }
+
+  const leftPriority = visibleFeaturePriority(left);
+  const rightPriority = visibleFeaturePriority(right);
+
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+
+  return left.title.localeCompare(right.title);
+}
+
+function visibleFeaturePriority(feature: ClassFeature) {
+  if (feature.choiceFields?.length && feature.id.includes("subclass")) {
+    return 0;
+  }
+
+  if (feature.id.includes("subclass-feature")) {
+    return 1;
+  }
+
+  return 2;
 }
 
 function formatOrdinal(value: number) {

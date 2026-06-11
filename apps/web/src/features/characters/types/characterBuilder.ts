@@ -66,6 +66,20 @@ type FeatureChoiceOption = {
 
 type FeatureChoiceSelections = Record<string, string>;
 
+type ClassSubclassFeature = {
+  description: string;
+  level: number;
+  name: string;
+};
+
+type ClassSubclassOption = {
+  description?: string;
+  features: ClassSubclassFeature[];
+  index: string;
+  name: string;
+  summary?: string;
+};
+
 type FeatureChoiceField = {
   choiceGroupId?: string;
   choiceGroupLabel?: string;
@@ -123,6 +137,7 @@ type ClassOption = {
     tools: string[];
   };
   startingEquipment: string[];
+  subclasses?: ClassSubclassOption[];
   features: ClassFeature[];
 };
 
@@ -135,6 +150,8 @@ export type {
   ClassOverviewRow,
   ClassFeature,
   ClassOption,
+  ClassSubclassFeature,
+  ClassSubclassOption,
   FeatureChoiceField,
   FeatureChoiceOption,
   FeatureChoiceSelections,

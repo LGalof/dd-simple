@@ -4,6 +4,27 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  BARBARIAN_CLASS_REFERENCE,
+  createClassRuleDocument,
+  createFeatureRuleDocuments,
+  createLevelRuleDocuments,
+  createSubclassRuleDocuments,
+} from "./reference-overrides/barbarian2024.js";
+import {
+  BARD_CLASS_REFERENCE,
+  createBardClassRuleDocument,
+  createBardFeatureRuleDocuments,
+  createBardLevelRuleDocuments,
+  createBardSubclassRuleDocuments,
+} from "./reference-overrides/bard2024.js";
+import {
+  CLERIC_CLASS_REFERENCE,
+  createClericClassRuleDocument,
+  createClericFeatureRuleDocuments,
+  createClericLevelRuleDocuments,
+  createClericSubclassRuleDocuments,
+} from "./reference-overrides/cleric2024.js";
 
 const prisma = new PrismaClient();
 
@@ -1248,6 +1269,153 @@ async function seedEquipment() {
   }
 }
 
+async function seedCurated2024BarbarianReferences() {
+  console.log("Applying curated 2024 Barbarian reference overrides...");
+
+  await prisma.refClass.upsert({
+    where: {
+      index: "barbarian",
+    },
+    update: {
+      name: "Barbarian",
+      hitDie: intOrDefault(BARBARIAN_CLASS_REFERENCE.hit_die, 12),
+      sourceJson: sourceJson(BARBARIAN_CLASS_REFERENCE),
+    },
+    create: {
+      index: "barbarian",
+      name: "Barbarian",
+      hitDie: intOrDefault(BARBARIAN_CLASS_REFERENCE.hit_die, 12),
+      sourceJson: sourceJson(BARBARIAN_CLASS_REFERENCE),
+    },
+  });
+
+  const curatedRuleDocuments = [
+    createClassRuleDocument(),
+    ...createLevelRuleDocuments(),
+    ...createFeatureRuleDocuments(),
+    ...createSubclassRuleDocuments(),
+  ];
+
+  for (const document of curatedRuleDocuments) {
+    await prisma.refRuleDocument.upsert({
+      where: {
+        category_index: {
+          category: document.category,
+          index: document.index,
+        },
+      },
+      update: {
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+      create: {
+        category: document.category,
+        index: document.index,
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+    });
+  }
+}
+
+async function seedCurated2024BardReferences() {
+  console.log("Applying curated 2024 Bard reference overrides...");
+
+  await prisma.refClass.upsert({
+    where: {
+      index: "bard",
+    },
+    update: {
+      name: "Bard",
+      hitDie: intOrDefault(BARD_CLASS_REFERENCE.hit_die, 8),
+      sourceJson: sourceJson(BARD_CLASS_REFERENCE),
+    },
+    create: {
+      index: "bard",
+      name: "Bard",
+      hitDie: intOrDefault(BARD_CLASS_REFERENCE.hit_die, 8),
+      sourceJson: sourceJson(BARD_CLASS_REFERENCE),
+    },
+  });
+
+  const curatedRuleDocuments = [
+    createBardClassRuleDocument(),
+    ...createBardLevelRuleDocuments(),
+    ...createBardFeatureRuleDocuments(),
+    ...createBardSubclassRuleDocuments(),
+  ];
+
+  for (const document of curatedRuleDocuments) {
+    await prisma.refRuleDocument.upsert({
+      where: {
+        category_index: {
+          category: document.category,
+          index: document.index,
+        },
+      },
+      update: {
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+      create: {
+        category: document.category,
+        index: document.index,
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+    });
+  }
+}
+
+async function seedCurated2024ClericReferences() {
+  console.log("Applying curated 2024 Cleric reference overrides...");
+
+  await prisma.refClass.upsert({
+    where: {
+      index: "cleric",
+    },
+    update: {
+      name: "Cleric",
+      hitDie: intOrDefault(CLERIC_CLASS_REFERENCE.hit_die, 8),
+      sourceJson: sourceJson(CLERIC_CLASS_REFERENCE),
+    },
+    create: {
+      index: "cleric",
+      name: "Cleric",
+      hitDie: intOrDefault(CLERIC_CLASS_REFERENCE.hit_die, 8),
+      sourceJson: sourceJson(CLERIC_CLASS_REFERENCE),
+    },
+  });
+
+  const curatedRuleDocuments = [
+    createClericClassRuleDocument(),
+    ...createClericLevelRuleDocuments(),
+    ...createClericFeatureRuleDocuments(),
+    ...createClericSubclassRuleDocuments(),
+  ];
+
+  for (const document of curatedRuleDocuments) {
+    await prisma.refRuleDocument.upsert({
+      where: {
+        category_index: {
+          category: document.category,
+          index: document.index,
+        },
+      },
+      update: {
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+      create: {
+        category: document.category,
+        index: document.index,
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+    });
+  }
+}
+
 async function ensureMinimumDemoReferences() {
   console.log("Ensuring minimum demo references...");
 
@@ -1795,6 +1963,9 @@ async function main() {
   await seedBackgroundReferenceData();
   await seedClassProficiencyData();
   await seedEquipment();
+  await seedCurated2024BarbarianReferences();
+  await seedCurated2024BardReferences();
+  await seedCurated2024ClericReferences();
 
   await ensureMinimumDemoReferences();
   await seedDemoCharacter();

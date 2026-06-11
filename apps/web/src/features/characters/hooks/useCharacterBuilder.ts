@@ -473,6 +473,24 @@ function getPersistedSkillIndexes(character: Character) {
     .map((characterSkill) => characterSkill.skillIndex);
 }
 
+function getPersistedFeatureChoices(character: Character) {
+  return Object.fromEntries(
+    (character.choices ?? [])
+      .filter(
+        (choice) =>
+          choice.sourceType === "class-feature" &&
+          typeof choice.sourceIndex === "string" &&
+          choice.sourceIndex.length > 0 &&
+          typeof choice.selectedIndex === "string" &&
+          choice.selectedIndex.length > 0,
+      )
+      .map((choice) => [
+        `${choice.sourceIndex}:${choice.choiceType ?? "selection"}`,
+        choice.selectedIndex,
+      ]),
+  );
+}
+
 function useCharacterBuilder(character: Character | undefined) {
   const previousCharacterIdRef = useRef<string | null>(null);
   const previousClassSkillChoiceSignatureRef = useRef("");
@@ -505,6 +523,7 @@ function useCharacterBuilder(character: Character | undefined) {
     );
     const classSkillChoiceSignature = getClassSkillChoiceSignature(character);
     const hydration = getSavedClassSkillFeatureChoices(character, selectedClassOption);
+    const persistedFeatureChoices = getPersistedFeatureChoices(character);
     const canMarkSavedChoicesProcessed =
       hydration.savedCount === 0 || hydration.hydratedCount === hydration.savedCount;
     const savedChoicesChanged =
@@ -524,7 +543,17 @@ function useCharacterBuilder(character: Character | undefined) {
       }
 
       if (hydration.hydratedCount > 0 || hydration.savedCount === 0) {
-        return hydration.featureChoices;
+        return {
+          ...persistedFeatureChoices,
+          ...hydration.featureChoices,
+        };
+      }
+
+      if (Object.keys(persistedFeatureChoices).length > 0) {
+        return {
+          ...currentChoices,
+          ...persistedFeatureChoices,
+        };
       }
 
       return currentChoices;
@@ -549,11 +578,31 @@ function useCharacterBuilder(character: Character | undefined) {
           speciesReferences,
           backgroundReferences,
           classReferences,
+          levelRuleDocuments,
+          featureRuleDocuments,
+          subclassRuleDocuments,
+          subspeciesRuleDocuments,
           featRuleDocuments,
         ] = await Promise.all([
           fetchSpecies(),
           fetchBackgrounds(),
           fetchClasses(),
+          fetchRuleDocuments("levels").catch((error) => {
+            console.warn("Class level reference data is unavailable.", error);
+            return [];
+          }),
+          fetchRuleDocuments("features").catch((error) => {
+            console.warn("Class feature reference data is unavailable.", error);
+            return [];
+          }),
+          fetchRuleDocuments("subclasses").catch((error) => {
+            console.warn("Subclass reference data is unavailable.", error);
+            return [];
+          }),
+          fetchRuleDocuments("subspecies").catch((error) => {
+            console.warn("Species heritage reference data is unavailable.", error);
+            return [];
+          }),
           fetchRuleDocuments("feats").catch((error) => {
             console.warn("Background feat reference data is unavailable.", error);
             return [];
@@ -566,6 +615,7 @@ function useCharacterBuilder(character: Character | undefined) {
 
         const nextSpeciesOptions = mapSpeciesReferences(
           speciesReferences,
+          subspeciesRuleDocuments,
           speciesOptions,
         );
         const nextBackgroundOptions = mapBackgroundReferences(
@@ -576,6 +626,9 @@ function useCharacterBuilder(character: Character | undefined) {
         const nextClassOptions = mapClassReferences(
           classReferences,
           classOptions,
+          levelRuleDocuments,
+          featureRuleDocuments,
+          subclassRuleDocuments,
         );
 
         if (

@@ -9,14 +9,12 @@ import type {
   CharacterActionEntry,
 } from "../../../types/characterAction";
 import type { Character } from "../../../types/character";
-import type { ReferenceCondition } from "../../../types/reference";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
   activeTab: WorkspaceTab;
   character: Character;
-  conditionOptions: ReferenceCondition[];
-  conditionOptionsError: string | null;
+  conditionSummary: Array<{ label: string; value: string }>;
   currentHp: number;
   defenseSummary: Array<{ label: string; value: string }>;
   inventoryController: InventorySandboxController;
@@ -24,10 +22,9 @@ type CharacterSheetProps = {
   normalizedActionsError: string | null;
   normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
-  onAddCondition: (conditionIndex: string) => Promise<unknown>;
+  onOpenConditions: () => void;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
-  onRemoveCondition: (conditionIndex: string) => Promise<unknown>;
   onSetTempHp: (amount: number) => void;
 };
 
@@ -134,8 +131,7 @@ const unavailableTrainingValue = "Not available from current reference data";
 function CharacterSheet({
   activeTab,
   character,
-  conditionOptions,
-  conditionOptionsError,
+  conditionSummary,
   currentHp,
   defenseSummary,
   inventoryController,
@@ -143,20 +139,15 @@ function CharacterSheet({
   normalizedActionsError,
   normalizedActionsLoading,
   onActiveTabChange,
-  onAddCondition,
+  onOpenConditions,
   tempHp,
   onApplyCurrentHpAdjustment,
-  onRemoveCondition,
   onSetTempHp,
 }: CharacterSheetProps) {
-  const [isConditionModalOpen, setIsConditionModalOpen] = useState(false);
   const [isCurrentHpModalOpen, setIsCurrentHpModalOpen] = useState(false);
   const [isTempHpModalOpen, setIsTempHpModalOpen] = useState(false);
   const [activeActionFilter, setActiveActionFilter] = useState<ActionFilter>("all");
-  const [conditionActionError, setConditionActionError] = useState<string | null>(null);
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
-  const [isConditionActionPending, setIsConditionActionPending] = useState(false);
-  const [selectedConditionIndex, setSelectedConditionIndex] = useState("");
   const [tempHpInput, setTempHpInput] = useState("");
   const equippedItems = character.inventory.filter((item) => item.equipped);
   const liveEquippedInventoryItems = useMemo(
@@ -318,56 +309,6 @@ function CharacterSheet({
     { id: "notes", label: "Notes" },
     { id: "extras", label: "Extras" },
   ];
-  const activeConditions = character.conditions ?? [];
-  const activeConditionIndexes = new Set(
-    activeConditions.map((condition) => condition.conditionIndex),
-  );
-  const availableConditionOptions = conditionOptions.filter(
-    (condition) => !activeConditionIndexes.has(condition.index),
-  );
-
-  function openConditionModal() {
-    setConditionActionError(null);
-    setSelectedConditionIndex(availableConditionOptions[0]?.index ?? "");
-    setIsConditionModalOpen(true);
-  }
-
-  function closeConditionModal() {
-    setIsConditionModalOpen(false);
-    setConditionActionError(null);
-    setSelectedConditionIndex("");
-  }
-
-  async function applyConditionAdd() {
-    if (!selectedConditionIndex) {
-      return;
-    }
-
-    setIsConditionActionPending(true);
-    setConditionActionError(null);
-
-    try {
-      await onAddCondition(selectedConditionIndex);
-      closeConditionModal();
-    } catch (err) {
-      setConditionActionError(err instanceof Error ? err.message : "Failed to add condition");
-    } finally {
-      setIsConditionActionPending(false);
-    }
-  }
-
-  async function applyConditionRemove(conditionIndex: string) {
-    setIsConditionActionPending(true);
-    setConditionActionError(null);
-
-    try {
-      await onRemoveCondition(conditionIndex);
-    } catch (err) {
-      setConditionActionError(err instanceof Error ? err.message : "Failed to remove condition");
-    } finally {
-      setIsConditionActionPending(false);
-    }
-  }
 
   function openCurrentHpModal() {
     setHitPointAmountInput("");
@@ -424,7 +365,7 @@ function CharacterSheet({
           <button
             type="button"
             className="character-hit-points-action"
-            onClick={openConditionModal}
+            onClick={onOpenConditions}
           >
             Add Condition
           </button>
@@ -612,29 +553,20 @@ function CharacterSheet({
               </div>
             </div>
 
-            <div className="character-status-panel">
+            <button
+              type="button"
+              className="character-status-panel character-status-panel-interactive"
+              onClick={onOpenConditions}
+            >
               <h3>Conditions</h3>
-              <div className="character-status-list">
-                {activeConditions.length > 0 ? (
-                  activeConditions.map((activeCondition) => (
-                    <div key={activeCondition.id} className="character-status-row">
-                      <span>{activeCondition.condition.name}</span>
-                      <button
-                        type="button"
-                        className="character-hit-points-action character-hit-points-action-muted"
-                        disabled={isConditionActionPending}
-                        onClick={() => void applyConditionRemove(activeCondition.conditionIndex)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <p className="muted">No active conditions</p>
-                )}
-              </div>
-              {conditionActionError ? <p className="error-message">{conditionActionError}</p> : null}
-            </div>
+              {conditionSummary.length > 0 ? (
+                <p className="character-status-summary">
+                  {conditionSummary.map(formatConditionSummaryEntry).join(", ")}
+                </p>
+              ) : (
+                <p className="muted">No active conditions</p>
+              )}
+            </button>
           </div>
         </div>
 
@@ -907,77 +839,6 @@ function CharacterSheet({
           </section>
         </section>
       </section>
-
-      {isConditionModalOpen ? (
-        <div className="character-hp-modal-backdrop" onClick={closeConditionModal}>
-          <section
-            className="character-hp-modal"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
-            <header className="character-hp-modal-header">
-              <h3>Add Condition</h3>
-              <button
-                type="button"
-                className="character-hp-modal-close"
-                onClick={closeConditionModal}
-                aria-label="Close condition dialog"
-              >
-                ×
-              </button>
-            </header>
-
-            <div className="character-hp-modal-body">
-              {conditionOptionsError ? (
-                <p className="error-message">{conditionOptionsError}</p>
-              ) : availableConditionOptions.length > 0 ? (
-                <label className="character-hp-modal-field">
-                  <span>Condition</span>
-                  <select
-                    className="character-hp-modal-input"
-                    value={selectedConditionIndex}
-                    onChange={(event) => setSelectedConditionIndex(event.target.value)}
-                  >
-                    {availableConditionOptions.map((condition) => (
-                      <option key={condition.index} value={condition.index}>
-                        {condition.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <p className="muted">No available conditions to add.</p>
-              )}
-
-              {conditionActionError ? <p className="error-message">{conditionActionError}</p> : null}
-            </div>
-
-            <footer className="character-hp-modal-actions">
-              <button
-                type="button"
-                className="character-hp-modal-button character-hp-modal-button-secondary"
-                onClick={closeConditionModal}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="character-hp-modal-button"
-                disabled={
-                  isConditionActionPending ||
-                  Boolean(conditionOptionsError) ||
-                  !selectedConditionIndex
-                }
-                onClick={() => void applyConditionAdd()}
-              >
-                Add
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
-
       {isCurrentHpModalOpen ? (
         <div className="character-hp-modal-backdrop" onClick={closeCurrentHpModal}>
           <section
@@ -994,7 +855,6 @@ function CharacterSheet({
                 onClick={closeCurrentHpModal}
                 aria-label="Close current HP dialog"
               >
-                ×
               </button>
             </header>
 
@@ -1055,7 +915,6 @@ function CharacterSheet({
                 onClick={closeTempHpModal}
                 aria-label="Close temporary HP dialog"
               >
-                ×
               </button>
             </header>
 
@@ -1161,7 +1020,7 @@ function getActionSubtitle(action: CharacterActionEntry) {
   const activationLabel = formatActivationLabel(action.activationType);
   const levelLabel = action.level ? `Level ${action.level}` : null;
 
-  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" • ");
+  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" â€˘ ");
 }
 
 function getReadableActionSubtitle(action: CharacterActionEntry) {
@@ -1170,6 +1029,10 @@ function getReadableActionSubtitle(action: CharacterActionEntry) {
   const levelLabel = action.level ? `Level ${action.level}` : null;
 
   return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
+}
+
+function formatConditionSummaryEntry(entry: { label: string; value: string }) {
+  return entry.label === "Exhaustion" ? `${entry.label} ${entry.value}` : entry.label;
 }
 
 function formatActivationLabel(activationType: ActionActivationType) {
