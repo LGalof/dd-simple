@@ -33,6 +33,11 @@ type SpeciesHeritageOption = {
   index: string;
   name: string;
   resistanceTraitIndex?: string;
+  traits?: Array<{
+    description?: string | null;
+    index: string;
+    name: string;
+  }>;
 };
 
 type SpeciesOption = {
