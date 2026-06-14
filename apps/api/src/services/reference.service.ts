@@ -249,8 +249,12 @@ async function findClasses() {
     }),
   ]);
 
-  const levelDocuments = ruleDocuments.filter((document) => document.category === "levels");
-  const featureDocuments = ruleDocuments.filter((document) => document.category === "features");
+  const levelDocuments = ruleDocuments.filter(
+    (document: RuleDocumentRow) => document.category === "levels",
+  );
+  const featureDocuments = ruleDocuments.filter(
+    (document: RuleDocumentRow) => document.category === "features",
+  );
 
   return classes.map((characterClass: RefClassWithDetails) => ({
     ...characterClass,
