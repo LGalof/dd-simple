@@ -1,3 +1,9 @@
+import {
+  COMMON_ABILITY_SCORE_OPTIONS,
+  COMMON_EPIC_BOON_OPTIONS,
+  CORE_FEAT_OPTIONS,
+} from "./curatedClassHelpers.js";
+
 const BARD_SKILL_OPTIONS = [
   ["skill-acrobatics", "Skill: Acrobatics"],
   ["skill-animal-handling", "Skill: Animal Handling"],
@@ -32,37 +38,11 @@ const BARD_INSTRUMENT_OPTIONS = [
   ["viol", "Viol"],
 ] as const;
 
-const BARD_ABILITY_SCORE_OPTIONS = [
-  ["str", "Strength"],
-  ["dex", "Dexterity"],
-  ["con", "Constitution"],
-  ["int", "Intelligence"],
-  ["wis", "Wisdom"],
-  ["cha", "Charisma"],
-] as const;
+const BARD_ABILITY_SCORE_OPTIONS = COMMON_ABILITY_SCORE_OPTIONS;
 
-const BARD_FEAT_OPTIONS = [
-  ["ability-score-improvement", "Ability Score Improvement"],
-  ["alert", "Alert"],
-  ["magic-initiate", "Magic Initiate"],
-  ["savage-attacker", "Savage Attacker"],
-  ["skilled", "Skilled"],
-  ["grappler", "Grappler"],
-  ["archery", "Archery"],
-  ["defense", "Defense"],
-  ["great-weapon-fighting", "Great Weapon Fighting"],
-  ["two-weapon-fighting", "Two-Weapon Fighting"],
-] as const;
+const BARD_FEAT_OPTIONS = CORE_FEAT_OPTIONS;
 
-const BARD_EPIC_BOON_OPTIONS = [
-  ["boon-of-combat-prowess", "Boon of Combat Prowess"],
-  ["boon-of-dimensional-travel", "Boon of Dimensional Travel"],
-  ["boon-of-fate", "Boon of Fate"],
-  ["boon-of-irresistible-offense", "Boon of Irresistible Offense"],
-  ["boon-of-spell-recall", "Boon of Spell Recall"],
-  ["boon-of-the-night-spirit", "Boon of the Night Spirit"],
-  ["boon-of-truesight", "Boon of Truesight"],
-] as const;
+const BARD_EPIC_BOON_OPTIONS = COMMON_EPIC_BOON_OPTIONS;
 
 function toReferenceOptions(
   entries: readonly (readonly [string, string])[],
@@ -76,6 +56,67 @@ function toReferenceOptions(
       url: `/api/2024/${category}/${index}`,
     },
   }));
+}
+
+function createAbilityScoreImprovementSpecific() {
+  return {
+    type: "ability score improvement",
+    mode: {
+      id: "asi-mode",
+      label: "Choose 1 option",
+      field_label: "Ability Score Improvement",
+      choose: 1,
+      from: {
+        option_set_type: "options_array",
+        options: [
+          {
+            option_type: "reference",
+            item: {
+              index: "ability-score-improvement",
+              name: "Ability Score Improvement",
+              url: "/api/2024/feats/ability-score-improvement",
+            },
+          },
+          {
+            option_type: "reference",
+            item: {
+              index: "feat",
+              name: "Feat",
+              url: "/api/2024/feats",
+            },
+          },
+        ],
+      },
+    },
+    ability_scores: {
+      id: "asi-score",
+      label: "Choose 2 ability scores",
+      field_label: "Ability Score",
+      choose: 2,
+      visible_when: {
+        field: "asi-mode",
+        values: ["ability-score-improvement"],
+      },
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
+      },
+    },
+    feat: {
+      id: "asi-feat",
+      label: "Choose 1 feat",
+      field_label: "Feat",
+      choose: 1,
+      visible_when: {
+        field: "asi-mode",
+        values: ["feat"],
+      },
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(BARD_FEAT_OPTIONS, "feats"),
+      },
+    },
+  };
 }
 
 const BARD_CLASS_REFERENCE = {
@@ -358,42 +399,7 @@ const BARD_FEATURE_REFERENCES = [
     desc: [
       "Increase one ability by 2, increase two abilities by 1, or choose a feat.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_FEAT_OPTIONS, "feats"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "font-of-inspiration",
@@ -430,42 +436,7 @@ const BARD_FEATURE_REFERENCES = [
     desc: [
       "Increase one ability by 2, increase two abilities by 1, or choose a feat.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_FEAT_OPTIONS, "feats"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "bard-expertise-2",
@@ -499,42 +470,7 @@ const BARD_FEATURE_REFERENCES = [
     desc: [
       "Increase one ability by 2, increase two abilities by 1, or choose a feat.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_FEAT_OPTIONS, "feats"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "bard-subclass-feature-14",
@@ -555,42 +491,7 @@ const BARD_FEATURE_REFERENCES = [
     desc: [
       "Increase one ability by 2, increase two abilities by 1, or choose a feat.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_FEAT_OPTIONS, "feats"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...toReferenceOptions(BARD_ABILITY_SCORE_OPTIONS, "ability-scores"),
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "superior-inspiration",

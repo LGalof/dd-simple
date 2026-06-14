@@ -75,86 +75,199 @@ type RefClassFeatureRow = {
 };
 
 type RefClassWithDetails = {
+  index: string;
+  name: string;
   primaryAbilities: Parameters<typeof primaryAbilityLabel>[0];
   features: RefClassFeatureRow[];
   levels: unknown[];
+  sourceJson?: unknown;
 };
 
+type RuleDocumentRow = {
+  category: string;
+  index: string;
+  name?: string | null;
+  sourceJson?: unknown;
+};
+
+function ruleDocumentDescriptions(sourceJson: Record<string, unknown>) {
+  const desc = sourceJson.desc;
+
+  if (Array.isArray(desc)) {
+    return desc.filter((entry): entry is string => typeof entry === "string");
+  }
+
+  if (typeof sourceJson.description === "string" && sourceJson.description.trim().length > 0) {
+    return [sourceJson.description];
+  }
+
+  return [];
+}
+
+function buildCuratedClassFeatures(
+  classIndex: string,
+  levelDocuments: RuleDocumentRow[],
+  featureDocuments: RuleDocumentRow[],
+) {
+  const curatedLevels = levelDocuments
+    .map((document) => ({
+      document,
+      sourceJson: (document.sourceJson ?? {}) as Record<string, unknown>,
+    }))
+    .filter(({ sourceJson }) => {
+      const classRecord = sourceJson.class;
+
+      return Boolean(
+        classRecord &&
+          typeof classRecord === "object" &&
+          (classRecord as Record<string, unknown>).index === classIndex,
+      );
+    })
+    .sort((left, right) => {
+      const leftLevel = typeof left.sourceJson.level === "number" ? left.sourceJson.level : 0;
+      const rightLevel = typeof right.sourceJson.level === "number" ? right.sourceJson.level : 0;
+
+      return leftLevel - rightLevel || left.document.index.localeCompare(right.document.index);
+    });
+
+  if (curatedLevels.length === 0) {
+    return null;
+  }
+
+  const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+
+  return curatedLevels.flatMap(({ sourceJson }) => {
+    const defaultLevel = typeof sourceJson.level === "number" ? sourceJson.level : 1;
+    const features = Array.isArray(sourceJson.features)
+      ? sourceJson.features.filter(
+          (feature): feature is Record<string, unknown> =>
+            Boolean(feature && typeof feature === "object"),
+        )
+      : [];
+
+    return features.map((featureReference) => {
+      const featureIndex =
+        typeof featureReference.index === "string" ? featureReference.index : "unknown-feature";
+      const featureDocument = featureDocumentMap.get(featureIndex);
+      const featureSourceJson = (featureDocument?.sourceJson ?? {}) as Record<string, unknown>;
+      const descriptions = ruleDocumentDescriptions(featureSourceJson);
+
+      return {
+        id: featureIndex,
+        index: featureIndex,
+        level:
+          typeof featureSourceJson.level === "number" ? featureSourceJson.level : defaultLevel,
+        title:
+          (typeof featureSourceJson.name === "string" && featureSourceJson.name) ||
+          featureDocument?.name ||
+          (typeof featureReference.name === "string" && featureReference.name) ||
+          featureIndex,
+        name:
+          (typeof featureSourceJson.name === "string" && featureSourceJson.name) ||
+          featureDocument?.name ||
+          (typeof featureReference.name === "string" && featureReference.name) ||
+          featureIndex,
+        summary: descriptions[0] ?? "No description available from reference data.",
+        description: descriptions[0] ?? null,
+        details: descriptions.slice(1),
+        sourceJson: featureDocument?.sourceJson ?? featureReference,
+      };
+    });
+  });
+}
+
 async function findClasses() {
-  const classes: RefClassWithDetails[] = await prisma.refClass.findMany({
-    orderBy: {
-      name: "asc",
-    },
-    include: {
-      levels: {
-        orderBy: {
-          level: "asc",
-        },
+  const [classes, ruleDocuments] = await Promise.all([
+    prisma.refClass.findMany({
+      orderBy: {
+        name: "asc",
       },
-      features: {
-        orderBy: [
-          {
+      include: {
+        levels: {
+          orderBy: {
             level: "asc",
           },
-          {
-            name: "asc",
-          },
-        ],
-      },
-      proficiencyGrants: {
-        orderBy: [
-          {
-            grantType: "asc",
-          },
-          {
-            proficiencyIndex: "asc",
-          },
-        ],
-        include: {
-          proficiency: true,
         },
-      },
-      skillChoices: {
-        orderBy: {
-          chooseCount: "asc",
+        features: {
+          orderBy: [
+            {
+              level: "asc",
+            },
+            {
+              name: "asc",
+            },
+          ],
         },
-        include: {
-          options: {
-            orderBy: {
+        proficiencyGrants: {
+          orderBy: [
+            {
+              grantType: "asc",
+            },
+            {
               proficiencyIndex: "asc",
             },
-            include: {
-              proficiency: true,
-              skill: true,
+          ],
+          include: {
+            proficiency: true,
+          },
+        },
+        skillChoices: {
+          orderBy: {
+            chooseCount: "asc",
+          },
+          include: {
+            options: {
+              orderBy: {
+                proficiencyIndex: "asc",
+              },
+              include: {
+                proficiency: true,
+                skill: true,
+              },
             },
           },
         },
-      },
-      primaryAbilities: {
-        orderBy: {
-          abilityScoreIndex: "asc",
+        primaryAbilities: {
+          orderBy: {
+            abilityScoreIndex: "asc",
+          },
+          include: {
+            abilityScore: true,
+          },
         },
-        include: {
-          abilityScore: true,
+      },
+    }),
+    prisma.refRuleDocument.findMany({
+      where: {
+        category: {
+          in: ["levels", "features"],
         },
       },
-    },
-  });
+      orderBy: {
+        index: "asc",
+      },
+    }),
+  ]);
+
+  const levelDocuments = ruleDocuments.filter((document) => document.category === "levels");
+  const featureDocuments = ruleDocuments.filter((document) => document.category === "features");
 
   return classes.map((characterClass: RefClassWithDetails) => ({
     ...characterClass,
     primaryAbility: primaryAbilityLabel(characterClass.primaryAbilities),
-    features: characterClass.features.map((feature: RefClassFeatureRow) => ({
-      id: feature.index,
-      index: feature.index,
-      level: feature.level,
-      title: feature.name,
-      name: feature.name,
-      summary: feature.description ?? "No description available from reference data.",
-      description: feature.description,
-      details: stringArrayFromJson(feature.details),
-      sourceJson: feature.sourceJson,
-    })),
+    features:
+      buildCuratedClassFeatures(characterClass.index, levelDocuments, featureDocuments) ??
+      characterClass.features.map((feature: RefClassFeatureRow) => ({
+        id: feature.index,
+        index: feature.index,
+        level: feature.level,
+        title: feature.name,
+        name: feature.name,
+        summary: feature.description ?? "No description available from reference data.",
+        description: feature.description,
+        details: stringArrayFromJson(feature.details),
+        sourceJson: feature.sourceJson,
+      })),
     levels: characterClass.levels,
   }));
 }

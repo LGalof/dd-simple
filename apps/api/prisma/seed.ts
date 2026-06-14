@@ -25,6 +25,18 @@ import {
   createClericLevelRuleDocuments,
   createClericSubclassRuleDocuments,
 } from "./reference-overrides/cleric2024.js";
+import {
+  createClassRuleDocument as createCuratedClassRuleDocument,
+  createFeatureRuleDocuments as createCuratedFeatureRuleDocuments,
+  createLevelRuleDocuments as createCuratedLevelRuleDocuments,
+  createSubclassRuleDocuments as createCuratedSubclassRuleDocuments,
+  mergeClassReference,
+} from "./reference-overrides/curatedClassHelpers.js";
+import { CURATED_2024_FEAT_REFERENCES } from "./reference-overrides/feats2024.js";
+import {
+  REMAINING_CURATED_2024_CLASS_OVERRIDES,
+  type CuratedClassOverride,
+} from "./reference-overrides/remainingClasses2024.js";
 
 const prisma = new PrismaClient();
 
@@ -351,6 +363,31 @@ async function seedGenericRuleDocuments() {
     }
 
     console.log(`  ${category}: ${items.length} records`);
+  }
+}
+
+async function seedCurated2024FeatReferences() {
+  console.log("Applying curated 2024 feat reference overrides...");
+
+  for (const feat of CURATED_2024_FEAT_REFERENCES) {
+    await prisma.refRuleDocument.upsert({
+      where: {
+        category_index: {
+          category: "feats",
+          index: feat.index,
+        },
+      },
+      update: {
+        name: feat.name,
+        sourceJson: sourceJson(feat as unknown as AnyRecord),
+      },
+      create: {
+        category: "feats",
+        index: feat.index,
+        name: feat.name,
+        sourceJson: sourceJson(feat as unknown as AnyRecord),
+      },
+    });
   }
 }
 
@@ -1416,6 +1453,81 @@ async function seedCurated2024ClericReferences() {
   }
 }
 
+function baseClassReferenceByIndex(index: string) {
+  const classes = readJsonArray(FILES.classes);
+  return classes.find((entry) => stringOrNull(entry.index) === index) ?? null;
+}
+
+async function seedCurated2024ClassOverride(override: CuratedClassOverride) {
+  console.log(`Applying curated 2024 ${override.className} reference overrides...`);
+
+  const baseClassReference = baseClassReferenceByIndex(override.classIndex);
+
+  if (!baseClassReference) {
+    throw new Error(`Missing base class reference for ${override.classIndex}`);
+  }
+
+  const mergedClassReference = mergeClassReference(baseClassReference, override.subclasses);
+
+  await prisma.refClass.upsert({
+    where: {
+      index: override.classIndex,
+    },
+    update: {
+      name: override.className,
+      hitDie: intOrDefault(mergedClassReference.hit_die, 8),
+      sourceJson: sourceJson(mergedClassReference),
+    },
+    create: {
+      index: override.classIndex,
+      name: override.className,
+      hitDie: intOrDefault(mergedClassReference.hit_die, 8),
+      sourceJson: sourceJson(mergedClassReference),
+    },
+  });
+
+  const curatedRuleDocuments = [
+    createCuratedClassRuleDocument(mergedClassReference),
+    ...createCuratedLevelRuleDocuments(
+      override.classIndex,
+      override.className,
+      override.levelReferences,
+      override.featureReferences,
+    ),
+    ...createCuratedFeatureRuleDocuments(
+      override.classIndex,
+      override.className,
+      override.featureReferences,
+    ),
+    ...createCuratedSubclassRuleDocuments(
+      override.classIndex,
+      override.className,
+      override.subclassReferences,
+    ),
+  ];
+
+  for (const document of curatedRuleDocuments) {
+    await prisma.refRuleDocument.upsert({
+      where: {
+        category_index: {
+          category: document.category,
+          index: document.index,
+        },
+      },
+      update: {
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+      create: {
+        category: document.category,
+        index: document.index,
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson as AnyRecord),
+      },
+    });
+  }
+}
+
 async function ensureMinimumDemoReferences() {
   console.log("Ensuring minimum demo references...");
 
@@ -1946,6 +2058,7 @@ async function main() {
   assertSeedDataDirExists();
 
   await seedGenericRuleDocuments();
+  await seedCurated2024FeatReferences();
 
   await seedAbilityScores();
   await seedAlignments();
@@ -1966,6 +2079,9 @@ async function main() {
   await seedCurated2024BarbarianReferences();
   await seedCurated2024BardReferences();
   await seedCurated2024ClericReferences();
+  for (const override of REMAINING_CURATED_2024_CLASS_OVERRIDES) {
+    await seedCurated2024ClassOverride(override);
+  }
 
   await ensureMinimumDemoReferences();
   await seedDemoCharacter();

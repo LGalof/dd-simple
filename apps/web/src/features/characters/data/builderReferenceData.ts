@@ -19,8 +19,35 @@ function toOptions(values: string[]): FeatureChoiceOption[] {
   }));
 }
 
-function createChoiceField(id: string, label: string, values: string[]): FeatureChoiceField {
+const coreFeatNames = [
+  "Alert",
+  "Archery",
+  "Defense",
+  "Grappler",
+  "Great Weapon Fighting",
+  "Magic Initiate",
+  "Savage Attacker",
+  "Skilled",
+  "Two Weapon Fighting",
+];
+
+function createChoiceField(
+  id: string,
+  label: string,
+  values: string[],
+  metadata: Partial<
+    Pick<
+      FeatureChoiceField,
+      | "choiceGroupId"
+      | "choiceGroupLabel"
+      | "choiceGroupLimit"
+      | "dependsOnFieldId"
+      | "dependsOnValues"
+    >
+  > = {},
+): FeatureChoiceField {
   return {
+    ...metadata,
     id,
     label,
     options: toOptions(values),
@@ -79,30 +106,57 @@ function createAbilityScoreImprovement(level: number): ClassFeature {
     id: `ability-score-improvement-${level}`,
     level,
     title: "Ability Score Improvement",
-    summary: "Increase one ability by 2, increase two abilities by 1, or choose a feat.",
+    summary: "Choose either Ability Score Improvement or a feat, similar to the D&D Beyond flow.",
     details: [
       "Use this step to shape the next breakpoint in your build.",
       "In later iterations this will update your live sheet and derived modifiers automatically.",
     ],
     choiceFields: [
-      createChoiceField("increase-a", "Increase 1", [
+      createChoiceField(
+        "asi-mode",
+        "Ability Score Improvement",
+        ["Ability Score Improvement", "Feat"],
+        {
+          choiceGroupId: "asi-mode",
+          choiceGroupLabel: "Choose 1 option",
+          choiceGroupLimit: 1,
+        },
+      ),
+      createChoiceField("asi-score-1", "Ability Score 1", [
         "Strength",
         "Dexterity",
         "Constitution",
         "Intelligence",
         "Wisdom",
         "Charisma",
-        "Feat Instead",
-      ]),
-      createChoiceField("increase-b", "Increase 2", [
+      ], {
+        choiceGroupId: "asi-score",
+        choiceGroupLabel: "Choose 2 ability scores",
+        choiceGroupLimit: 2,
+        dependsOnFieldId: "asi-mode",
+        dependsOnValues: ["ability-score-improvement"],
+      }),
+      createChoiceField("asi-score-2", "Ability Score 2", [
         "Strength",
         "Dexterity",
         "Constitution",
         "Intelligence",
         "Wisdom",
         "Charisma",
-        "No Second Increase",
-      ]),
+      ], {
+        choiceGroupId: "asi-score",
+        choiceGroupLabel: "Choose 2 ability scores",
+        choiceGroupLimit: 2,
+        dependsOnFieldId: "asi-mode",
+        dependsOnValues: ["ability-score-improvement"],
+      }),
+      createChoiceField("asi-feat", "Feat", coreFeatNames, {
+        choiceGroupId: "asi-feat",
+        choiceGroupLabel: "Choose 1 feat",
+        choiceGroupLimit: 1,
+        dependsOnFieldId: "asi-mode",
+        dependsOnValues: ["feat"],
+      }),
     ],
   });
 }

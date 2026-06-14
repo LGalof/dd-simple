@@ -149,7 +149,12 @@ function CharacterBuilderSidebar({
   ) {
     onFeatureChoicesChange((currentChoices) => {
       const field = choiceFields.find((choiceField) => choiceField.id === fieldId);
-      const groupFields = field ? getChoiceGroupFields(choiceFields, field) : [];
+      const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
+        featureId,
+        choiceFields,
+        currentChoices,
+      );
+      const groupFields = field ? getChoiceGroupFields(visibleChoiceFields, field) : [];
       const isDuplicateSelection = Boolean(
         value &&
           groupFields.some(
@@ -163,10 +168,16 @@ function CharacterBuilderSidebar({
         return currentChoices;
       }
 
-      return {
+      const nextChoices = {
         ...currentChoices,
         [`${featureId}:${fieldId}`]: value,
       };
+
+      if (!value) {
+        delete nextChoices[`${featureId}:${fieldId}`];
+      }
+
+      return pruneHiddenFeatureChoices(featureId, choiceFields, nextChoices);
     });
   }
 
@@ -418,7 +429,7 @@ function CharacterBuilderSidebar({
                   >
                     <div className="builder-feature-trigger-copy">
                       <strong>{feature.title}</strong>
-                      <span>{formatFeatureMeta(feature)}</span>
+                      <span>{formatFeatureMeta(feature, selectedChoices)}</span>
                     </div>
                     <span
                       aria-hidden="true"
@@ -442,12 +453,25 @@ function CharacterBuilderSidebar({
                         </p>
                       ))}
 
-                      {feature.choiceFields?.length ? (
+                      {getVisibleChoiceFieldsForSelection(
+                        feature.id,
+                        feature.choiceFields,
+                        selectedChoices,
+                      ).length ? (
                         <div className="builder-feature-choice-list">
-                          {feature.choiceFields.map((field) => {
+                          {getVisibleChoiceFieldsForSelection(
+                            feature.id,
+                            feature.choiceFields,
+                            selectedChoices,
+                          ).map((field) => {
                             const choiceKey = `${feature.id}:${field.id}`;
                             const selectedValue = selectedChoices[choiceKey] ?? "";
-                            const groupFields = getChoiceGroupFields(feature.choiceFields, field);
+                            const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
+                              feature.id,
+                              feature.choiceFields,
+                              selectedChoices,
+                            );
+                            const groupFields = getChoiceGroupFields(visibleChoiceFields, field);
                             const groupSelectedValues = getChoiceGroupSelectedValues(
                               feature.id,
                               groupFields,
@@ -724,8 +748,12 @@ function BuilderSelectionButton({ label, onClick, value }: BuilderSelectionButto
   );
 }
 
-function formatFeatureMeta(feature: ClassFeature) {
-  const choiceCount = feature.choiceFields?.length ?? 0;
+function formatFeatureMeta(feature: ClassFeature, selectedChoices: Record<string, string>) {
+  const choiceCount = getVisibleChoiceFieldsForSelection(
+    feature.id,
+    feature.choiceFields,
+    selectedChoices,
+  ).length;
   const parts: string[] = [];
 
   if (choiceCount > 0) {
@@ -738,13 +766,67 @@ function formatFeatureMeta(feature: ClassFeature) {
 }
 
 function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string, string>) {
-  if (!feature.choiceFields?.length) {
+  const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
+    feature.id,
+    feature.choiceFields,
+    selectedChoices,
+  );
+
+  if (!visibleChoiceFields.length) {
     return false;
   }
 
-  return feature.choiceFields.every((field) =>
+  return visibleChoiceFields.every((field) =>
     Boolean(selectedChoices[`${feature.id}:${field.id}`]),
   );
+}
+
+function isChoiceFieldVisible(
+  featureId: string,
+  field: NonNullable<ClassFeature["choiceFields"]>[number],
+  selectedChoices: Record<string, string>,
+) {
+  if (!field.dependsOnFieldId || !field.dependsOnValues?.length) {
+    return true;
+  }
+
+  const dependencyValue = selectedChoices[`${featureId}:${field.dependsOnFieldId}`];
+
+  return Boolean(dependencyValue && field.dependsOnValues.includes(dependencyValue));
+}
+
+function getVisibleChoiceFieldsForSelection(
+  featureId: string,
+  choiceFields: ClassFeature["choiceFields"],
+  selectedChoices: Record<string, string>,
+) {
+  return (choiceFields ?? []).filter((field) =>
+    isChoiceFieldVisible(featureId, field, selectedChoices),
+  );
+}
+
+function pruneHiddenFeatureChoices(
+  featureId: string,
+  choiceFields: ClassFeature["choiceFields"],
+  selectedChoices: Record<string, string>,
+) {
+  const nextChoices = { ...selectedChoices };
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (const field of choiceFields ?? []) {
+      const choiceKey = `${featureId}:${field.id}`;
+
+      if (!isChoiceFieldVisible(featureId, field, nextChoices) && choiceKey in nextChoices) {
+        delete nextChoices[choiceKey];
+        changed = true;
+      }
+    }
+  }
+
+  return nextChoices;
 }
 
 function getChoiceGroupFields(

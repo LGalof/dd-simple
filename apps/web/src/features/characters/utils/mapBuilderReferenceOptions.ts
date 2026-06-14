@@ -1002,6 +1002,9 @@ function createChoiceFieldsFromChoice(
 ): FeatureChoiceField[] {
   const groups: Array<{
     choose: number;
+    dependsOnFieldId?: string;
+    dependsOnValues?: string[];
+    fieldLabel?: string;
     id: string;
     label: string;
     options: ChoiceOptionData[];
@@ -1015,13 +1018,15 @@ function createChoiceFieldsFromChoice(
       createChoiceField(
         group.choose === 1 ? group.id : `${group.id}-${index + 1}`,
         group.choose === 1
-          ? singleChoiceFieldLabel(group.optionKind)
-          : `${capitalize(group.optionKind)} ${index + 1}`,
+          ? (group.fieldLabel ?? singleChoiceFieldLabel(group.optionKind))
+          : `${group.fieldLabel ?? capitalize(group.optionKind)} ${index + 1}`,
         group.options,
         {
           choiceGroupId: group.id,
           choiceGroupLabel: group.label,
           choiceGroupLimit: group.choose,
+          dependsOnFieldId: group.dependsOnFieldId,
+          dependsOnValues: group.dependsOnValues,
         },
       ),
     ),
@@ -1034,6 +1039,9 @@ function collectChoiceGroups(
   fallbackLabel: string,
   groups: Array<{
     choose: number;
+    dependsOnFieldId?: string;
+    dependsOnValues?: string[];
+    fieldLabel?: string;
     id: string;
     label: string;
     options: ChoiceOptionData[];
@@ -1056,11 +1064,23 @@ function collectChoiceGroups(
 
   if (choose && options.length > 0) {
     const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
+    const visibleWhen = isRecord(value.visible_when) ? value.visible_when : null;
+    const dependsOnFieldId = stringValue(visibleWhen?.field) ?? undefined;
+    const dependsOnValues = Array.isArray(visibleWhen?.values)
+      ? visibleWhen.values.map((entry) => stringValue(entry)).filter(isPresent)
+      : undefined;
+    const fieldLabel = stringValue(value.field_label) ?? undefined;
+    const choiceId = stringValue(value.id) ?? baseId;
+    const groupLabel =
+      stringValue(value.label) ?? choiceGroupLabel(choose, optionKind, fallbackLabel);
 
     groups.push({
       choose,
-      id: baseId,
-      label: choiceGroupLabel(choose, optionKind, fallbackLabel),
+      dependsOnFieldId,
+      dependsOnValues: dependsOnValues?.length ? dependsOnValues : undefined,
+      fieldLabel,
+      id: choiceId,
+      label: groupLabel,
       options: options.map((option) => ({
         label: cleanChoiceOptionLabel(option.rawLabel),
         value: option.value,
@@ -1273,7 +1293,11 @@ function createChoiceField(
   options: Array<string | ChoiceOptionData>,
   metadata: Pick<
     FeatureChoiceField,
-    "choiceGroupId" | "choiceGroupLabel" | "choiceGroupLimit"
+    | "choiceGroupId"
+    | "choiceGroupLabel"
+    | "choiceGroupLimit"
+    | "dependsOnFieldId"
+    | "dependsOnValues"
   > = {},
 ): FeatureChoiceField {
   return {

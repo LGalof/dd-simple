@@ -84,6 +84,8 @@ type FeatureChoiceField = {
   choiceGroupId?: string;
   choiceGroupLabel?: string;
   choiceGroupLimit?: number;
+  dependsOnFieldId?: string;
+  dependsOnValues?: string[];
   id: string;
   label: string;
   options: FeatureChoiceOption[];

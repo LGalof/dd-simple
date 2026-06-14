@@ -1,3 +1,10 @@
+import {
+  COMMON_ABILITY_SCORE_OPTIONS,
+  COMMON_EPIC_BOON_OPTIONS,
+  CORE_FEAT_OPTIONS,
+  toReferenceOptions,
+} from "./curatedClassHelpers.js";
+
 const BARBARIAN_CLASS_REFERENCE = {
   index: "barbarian",
   name: "Barbarian",
@@ -292,166 +299,75 @@ const BARBARIAN_WEAPON_MASTERY_OPTIONS = [
   },
 ];
 
-const BARBARIAN_ABILITY_SCORE_OPTIONS = [
-  {
-    option_type: "reference",
-    item: {
-      index: "str",
-      name: "Strength",
-      url: "/api/2024/ability-scores/str",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "dex",
-      name: "Dexterity",
-      url: "/api/2024/ability-scores/dex",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "con",
-      name: "Constitution",
-      url: "/api/2024/ability-scores/con",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "int",
-      name: "Intelligence",
-      url: "/api/2024/ability-scores/int",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "wis",
-      name: "Wisdom",
-      url: "/api/2024/ability-scores/wis",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "cha",
-      name: "Charisma",
-      url: "/api/2024/ability-scores/cha",
-    },
-  },
-];
+const BARBARIAN_ABILITY_SCORE_OPTIONS = toReferenceOptions(
+  COMMON_ABILITY_SCORE_OPTIONS,
+  "ability-scores",
+);
 
-const BARBARIAN_ASI_AND_FEAT_OPTIONS = [
-  {
-    option_type: "reference",
-    item: {
-      index: "ability-score-improvement",
-      name: "Ability Score Improvement",
-      url: "/api/2024/feats/ability-score-improvement",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "alert",
-      name: "Alert",
-      url: "/api/2024/feats/alert",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "grappler",
-      name: "Grappler",
-      url: "/api/2024/feats/grappler",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "magic-initiate",
-      name: "Magic Initiate",
-      url: "/api/2024/feats/magic-initiate",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "savage-attacker",
-      name: "Savage Attacker",
-      url: "/api/2024/feats/savage-attacker",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "skilled",
-      name: "Skilled",
-      url: "/api/2024/feats/skilled",
-    },
-  },
-];
+const BARBARIAN_ASI_AND_FEAT_OPTIONS = toReferenceOptions(CORE_FEAT_OPTIONS, "feats");
 
-const BARBARIAN_EPIC_BOON_OPTIONS = [
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-combat-prowess",
-      name: "Boon of Combat Prowess",
-      url: "/api/2024/feats/boon-of-combat-prowess",
+const BARBARIAN_EPIC_BOON_OPTIONS = toReferenceOptions(COMMON_EPIC_BOON_OPTIONS, "feats");
+
+function createAbilityScoreImprovementSpecific() {
+  return {
+    type: "ability score improvement",
+    mode: {
+      id: "asi-mode",
+      label: "Choose 1 option",
+      field_label: "Ability Score Improvement",
+      choose: 1,
+      from: {
+        option_set_type: "options_array",
+        options: [
+          {
+            option_type: "reference",
+            item: {
+              index: "ability-score-improvement",
+              name: "Ability Score Improvement",
+              url: "/api/2024/feats/ability-score-improvement",
+            },
+          },
+          {
+            option_type: "reference",
+            item: {
+              index: "feat",
+              name: "Feat",
+              url: "/api/2024/feats",
+            },
+          },
+        ],
+      },
     },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-dimensional-travel",
-      name: "Boon of Dimensional Travel",
-      url: "/api/2024/feats/boon-of-dimensional-travel",
+    ability_scores: {
+      id: "asi-score",
+      label: "Choose 2 ability scores",
+      field_label: "Ability Score",
+      choose: 2,
+      visible_when: {
+        field: "asi-mode",
+        values: ["ability-score-improvement"],
+      },
+      from: {
+        option_set_type: "options_array",
+        options: BARBARIAN_ABILITY_SCORE_OPTIONS,
+      },
     },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-fate",
-      name: "Boon of Fate",
-      url: "/api/2024/feats/boon-of-fate",
+    feat: {
+      id: "asi-feat",
+      label: "Choose 1 feat",
+      field_label: "Feat",
+      choose: 1,
+      visible_when: {
+        field: "asi-mode",
+        values: ["feat"],
+      },
+      from: {
+        option_set_type: "options_array",
+        options: BARBARIAN_ASI_AND_FEAT_OPTIONS,
+      },
     },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-irresistible-offense",
-      name: "Boon of Irresistible Offense",
-      url: "/api/2024/feats/boon-of-irresistible-offense",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-spell-recall",
-      name: "Boon of Spell Recall",
-      url: "/api/2024/feats/boon-of-spell-recall",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-the-night-spirit",
-      name: "Boon of the Night Spirit",
-      url: "/api/2024/feats/boon-of-the-night-spirit",
-    },
-  },
-  {
-    option_type: "reference",
-    item: {
-      index: "boon-of-truesight",
-      name: "Boon of Truesight",
-      url: "/api/2024/feats/boon-of-truesight",
-    },
-  },
-];
+  };
+}
 
 const BARBARIAN_LEVEL_REFERENCES = [
   {
@@ -740,42 +656,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     desc: [
       "You improve your abilities at this level. Use the character builder's ability score plan or feat rules to reflect your choice.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ASI_AND_FEAT_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ABILITY_SCORE_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...BARBARIAN_ABILITY_SCORE_OPTIONS,
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "barbarian-extra-attack",
@@ -828,42 +709,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     desc: [
       "You improve your abilities again at this level.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ASI_AND_FEAT_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ABILITY_SCORE_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...BARBARIAN_ABILITY_SCORE_OPTIONS,
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "barbarian-brutal-strike",
@@ -900,42 +746,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     desc: [
       "You improve your abilities again at this level.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ASI_AND_FEAT_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ABILITY_SCORE_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...BARBARIAN_ABILITY_SCORE_OPTIONS,
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "barbarian-improved-brutal-strike-1",
@@ -972,42 +783,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     desc: [
       "You improve your abilities again at this level.",
     ],
-    feature_specific: [
-      {
-        choose: 1,
-        type: "feat or ability improvement",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ASI_AND_FEAT_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: BARBARIAN_ABILITY_SCORE_OPTIONS,
-        },
-      },
-      {
-        choose: 1,
-        type: "ability score",
-        from: {
-          option_set_type: "options_array",
-          options: [
-            ...BARBARIAN_ABILITY_SCORE_OPTIONS,
-            {
-              option_type: "reference",
-              item: {
-                index: "no-second-increase",
-                name: "No Second Increase",
-                url: "/api/2024/feats/ability-score-improvement",
-              },
-            },
-          ],
-        },
-      },
-    ],
+    feature_specific: createAbilityScoreImprovementSpecific(),
   },
   {
     index: "barbarian-improved-brutal-strike-2",
