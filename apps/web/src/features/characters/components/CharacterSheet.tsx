@@ -9,6 +9,7 @@ import type {
   CharacterActionEntry,
 } from "../../../types/characterAction";
 import type { Character } from "../../../types/character";
+import type { SpeciesHeritageOption } from "../types/characterBuilder";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
@@ -23,6 +24,7 @@ type CharacterSheetProps = {
   normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onOpenConditions: () => void;
+  selectedHeritage?: SpeciesHeritageOption | null;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
   onSetTempHp: (amount: number) => void;
@@ -40,8 +42,10 @@ type WorkspaceTab =
 
 type SkillWithTotal = {
   ability: string;
+  hasExpertise: boolean;
   isProficient: boolean;
   name: string;
+  proficiencyMultiplier: number;
   total: number;
 };
 
@@ -60,7 +64,19 @@ type ActionDisplayRow = {
 };
 
 type ReferenceItem = {
+  index?: unknown;
   name?: unknown;
+  url?: unknown;
+};
+
+type FeatureChoiceEffectSummary = {
+  armorNames: string[];
+  expertiseSkillIndexes: Set<string>;
+  expertiseToolNames: string[];
+  languageNames: string[];
+  skillProficiencyIndexes: Set<string>;
+  toolNames: string[];
+  weaponNames: string[];
 };
 
 type ProficiencySourceJson = {
@@ -140,6 +156,7 @@ function CharacterSheet({
   normalizedActionsLoading,
   onActiveTabChange,
   onOpenConditions,
+  selectedHeritage,
   tempHp,
   onApplyCurrentHpAdjustment,
   onSetTempHp,
@@ -188,23 +205,36 @@ function CharacterSheet({
           : character.level <= 16
             ? 5
             : 6;
+  const featureChoiceEffects = useMemo(
+    () => getFeatureChoiceEffects(character),
+    [character.featureChoices, character.level],
+  );
   const skillTotals = useMemo(
     () =>
       character.skills
         .map((characterSkill) => {
           const abilityScore = abilityScoreMap.get(characterSkill.skill.ability.index);
           const baseModifier = abilityScore ? abilityModifier(abilityScore.score) : 0;
-          const proficiencyModifier = characterSkill.isProficient ? proficiencyBonus : 0;
+          const skillIndex = canonicalSkillIndex(characterSkill.skillIndex);
+          const isProficient =
+            characterSkill.isProficient ||
+            featureChoiceEffects.skillProficiencyIndexes.has(skillIndex);
+          const hasExpertise =
+            isProficient && featureChoiceEffects.expertiseSkillIndexes.has(skillIndex);
+          const proficiencyMultiplier = hasExpertise ? 2 : isProficient ? 1 : 0;
+          const proficiencyModifier = proficiencyBonus * proficiencyMultiplier;
 
           return {
             ability: characterSkill.skill.ability.index.toUpperCase(),
-            isProficient: characterSkill.isProficient,
+            hasExpertise,
+            isProficient,
             name: characterSkill.skill.name,
+            proficiencyMultiplier,
             total: baseModifier + proficiencyModifier + characterSkill.customBonus,
           };
         })
         .sort(compareSkills),
-    [abilityScoreMap, character.skills, proficiencyBonus],
+    [abilityScoreMap, character.skills, featureChoiceEffects, proficiencyBonus],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
   const saveProficiencies = getSavingThrowProficiencies(character.class.name);
@@ -222,7 +252,7 @@ function CharacterSheet({
     { label: "Passive Investigation", value: 10 + getSkillTotal(skillTotals, "Investigation") },
     { label: "Passive Insight", value: 10 + getSkillTotal(skillTotals, "Insight") },
   ];
-  const training = getTrainingProfile(character);
+  const training = getTrainingProfile(character, featureChoiceEffects);
   const weaponActions = getWeaponActions(
     liveEquippedInventoryItems,
     equippedItems,
@@ -300,6 +330,8 @@ function CharacterSheet({
     character.species.name,
     character.level,
   );
+  const savedFeatureChoices = character.featureChoices ?? [];
+  const heritageSenseDetails = getHeritageSenseDetails(selectedHeritage);
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string }> = [
     { id: "actions", label: "Actions" },
     { id: "spells", label: "Spells" },
@@ -491,7 +523,9 @@ function CharacterSheet({
                 ))}
               </div>
 
-              <p className="character-reference-note">{training.senses}</p>
+              <p className="character-reference-note">
+                {[training.senses, ...heritageSenseDetails].join(" - ")}
+              </p>
             </section>
 
           <section className="character-reference-card character-reference-card-training">
@@ -527,7 +561,10 @@ function CharacterSheet({
                     }
                   />
                   <em>{skill.ability}</em>
-                  <span className="character-skill-name">{skill.name}</span>
+                  <span className="character-skill-name">
+                    {skill.name}
+                    {skill.hasExpertise ? " (Expertise)" : ""}
+                  </span>
                   <strong className="character-skill-bonus-pill">{formatModifier(skill.total)}</strong>
                 </div>
               ))}
@@ -736,6 +773,55 @@ function CharacterSheet({
                         ))}
                       </div>
                     </Card>
+
+                    {selectedHeritage ? (
+                      <Card title="Selected Heritage">
+                        <div className="list">
+                          <div className="character-feature-entry">
+                            <strong>{selectedHeritage.name}</strong>
+                            {selectedHeritage.traits?.length ? (
+                              selectedHeritage.traits.map((trait) => (
+                                <p key={trait.index}>
+                                  <span>{trait.name}</span>
+                                  {trait.description ? ` - ${trait.description}` : ""}
+                                </p>
+                              ))
+                            ) : selectedHeritage.damageType &&
+                              selectedHeritage.damageType !== "Unknown" ? (
+                              <p>{selectedHeritage.damageType} ancestry traits are selected.</p>
+                            ) : (
+                              <p className="muted">No heritage trait details are available.</p>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ) : null}
+
+                    {savedFeatureChoices.length > 0 && (
+                      <Card title="Saved Feature Choices">
+                        <div className="list">
+                          {savedFeatureChoices.map((choice) => (
+                            <div
+                              key={`${choice.sourceType}:${choice.sourceIndex}:${choice.choicePath}`}
+                              className="character-feature-entry"
+                            >
+                              <strong>
+                                {choice.choiceLabel ?? choice.choiceKey ?? choice.choicePath}
+                              </strong>
+                              <p>
+                                {choice.selectedOptionName ??
+                                  choice.selectedOptionIndex ??
+                                  choice.selectedOptionType}
+                                {choice.level ? ` - Level ${choice.level}` : ""}
+                              </p>
+                              <p className="muted">
+                                {getSavedFeatureChoiceStatus(choice, featureChoiceEffects, character)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    )}
 
                     <Card title="Origin">
                       <div className="list">
@@ -1015,6 +1101,14 @@ function getSkillTotal(skills: SkillWithTotal[], name: string) {
   return skills.find((skill) => skill.name === name)?.total ?? 0;
 }
 
+function getHeritageSenseDetails(heritage: SpeciesHeritageOption | null | undefined) {
+  return (heritage?.traits ?? [])
+    .filter((trait) =>
+      `${trait.name} ${trait.description ?? ""}`.toLowerCase().includes("darkvision"),
+    )
+    .map((trait) => trait.description ?? trait.name);
+}
+
 function getActionSubtitle(action: CharacterActionEntry) {
   const sourceLabel = action.sourceType === "class_feature" ? "Class Feature" : "Species Trait";
   const activationLabel = formatActivationLabel(action.activationType);
@@ -1063,7 +1157,10 @@ function compareSkills(left: SkillWithTotal, right: SkillWithTotal) {
   return left.name.localeCompare(right.name);
 }
 
-function getTrainingProfile(character: Character) {
+function getTrainingProfile(
+  character: Character,
+  featureChoiceEffects: FeatureChoiceEffectSummary,
+) {
   const trainingCharacter = character as TrainingReferenceCharacter;
   const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
   const backgroundSourceJson = getProficiencySourceJson(trainingCharacter.background.sourceJson);
@@ -1071,15 +1168,24 @@ function getTrainingProfile(character: Character) {
   const groupedClassProficiencies = groupClassProficiencies(
     getReferenceNames(classSourceJson.proficiencies),
   );
+  const persistedTraining = getPersistedTrainingProficiencies(character);
   const armor = withUnavailableFallback(
-    groupedClassProficiencies.armor.length > 0
-      ? groupedClassProficiencies.armor
-      : trainingCharacter.class.proficiencies?.armor ?? [],
+    mergeTrainingValues(
+      groupedClassProficiencies.armor.length > 0
+        ? groupedClassProficiencies.armor
+        : trainingCharacter.class.proficiencies?.armor ?? [],
+      persistedTraining.armor,
+      featureChoiceEffects.armorNames,
+    ),
   );
   const weapons = withUnavailableFallback(
-    groupedClassProficiencies.weapons.length > 0
-      ? groupedClassProficiencies.weapons
-      : trainingCharacter.class.proficiencies?.weapons ?? [],
+    mergeTrainingValues(
+      groupedClassProficiencies.weapons.length > 0
+        ? groupedClassProficiencies.weapons
+        : trainingCharacter.class.proficiencies?.weapons ?? [],
+      persistedTraining.weapons,
+      featureChoiceEffects.weaponNames,
+    ),
   );
   const classTools =
     groupedClassProficiencies.tools.length > 0
@@ -1089,19 +1195,30 @@ function getTrainingProfile(character: Character) {
   const normalizedBackgroundTools = getNormalizedBackgroundToolProficiencies(
     trainingCharacter.background,
   );
-  const mappedBackgroundTools = trainingCharacter.background.toolProficiencies ?? [];
-  const tools = withUnavailableFallback([
-    ...classTools,
-    ...(normalizedBackgroundTools.length > 0
-      ? normalizedBackgroundTools
-      : backgroundTools.length > 0
-        ? backgroundTools
-        : mappedBackgroundTools),
-  ]);
+  const mappedBackgroundTools = filterConcreteToolProficiencies(
+    trainingCharacter.background.toolProficiencies ?? [],
+  );
+  const concreteBackgroundTools = filterConcreteToolProficiencies(backgroundTools);
+  const tools = withUnavailableFallback(
+    mergeTrainingValues(
+      classTools,
+      normalizedBackgroundTools.length > 0
+        ? normalizedBackgroundTools
+        : concreteBackgroundTools.length > 0
+          ? concreteBackgroundTools
+          : mappedBackgroundTools,
+      persistedTraining.tools,
+      featureChoiceEffects.toolNames,
+      featureChoiceEffects.expertiseToolNames.map((toolName) => `${toolName} (Expertise)`),
+    ),
+  );
   const languages = withUnavailableFallback(
-    trainingCharacter.languages?.length
-      ? trainingCharacter.languages.map((language) => language.language.name)
-      : getLanguages(speciesSourceJson),
+    mergeTrainingValues(
+      trainingCharacter.languages?.length
+        ? trainingCharacter.languages.map((language) => language.language.name)
+        : getLanguages(speciesSourceJson),
+      featureChoiceEffects.languageNames,
+    ),
   );
 
   return {
@@ -1111,6 +1228,372 @@ function getTrainingProfile(character: Character) {
     tools,
     weapons,
   };
+}
+
+function getFeatureChoiceEffects(character: Character): FeatureChoiceEffectSummary {
+  const effects: FeatureChoiceEffectSummary = {
+    armorNames: [],
+    expertiseSkillIndexes: new Set(),
+    expertiseToolNames: [],
+    languageNames: [],
+    skillProficiencyIndexes: new Set(),
+    toolNames: [],
+    weaponNames: [],
+  };
+
+  for (const choice of character.featureChoices ?? []) {
+    if (isInactiveFeatureChoice(choice, character.level) || isEquipmentChoice(choice)) {
+      continue;
+    }
+
+    const reference = getSelectedChoiceReference(choice);
+
+    if (!reference) {
+      continue;
+    }
+
+    const category = classifyChoiceReference(reference);
+
+    if (!category) {
+      continue;
+    }
+
+    if (isExpertiseFeatureChoice(choice)) {
+      if (category === "skill") {
+        const skillIndex = canonicalSkillIndex(reference.index ?? reference.name);
+
+        if (skillIndex) {
+          effects.expertiseSkillIndexes.add(skillIndex);
+        }
+      } else if (category === "tool") {
+        effects.expertiseToolNames.push(stripReferencePrefix(reference.name));
+      }
+
+      continue;
+    }
+
+    switch (category) {
+      case "armor":
+        effects.armorNames.push(stripReferencePrefix(reference.name));
+        break;
+      case "language":
+        effects.languageNames.push(stripReferencePrefix(reference.name));
+        break;
+      case "skill": {
+        const skillIndex = canonicalSkillIndex(reference.index ?? reference.name);
+
+        if (skillIndex) {
+          effects.skillProficiencyIndexes.add(skillIndex);
+        }
+        break;
+      }
+      case "tool":
+        effects.toolNames.push(stripReferencePrefix(reference.name));
+        break;
+      case "weapon":
+        effects.weaponNames.push(stripReferencePrefix(reference.name));
+        break;
+    }
+  }
+
+  return {
+    ...effects,
+    armorNames: uniqueTrainingValues(effects.armorNames),
+    expertiseToolNames: uniqueTrainingValues(effects.expertiseToolNames),
+    languageNames: uniqueTrainingValues(effects.languageNames),
+    toolNames: uniqueTrainingValues(effects.toolNames),
+    weaponNames: uniqueTrainingValues(effects.weaponNames),
+  };
+}
+
+function getSavedFeatureChoiceStatus(
+  choice: NonNullable<Character["featureChoices"]>[number],
+  effects: FeatureChoiceEffectSummary,
+  character: Character,
+) {
+  const reference = getSelectedChoiceReference(choice);
+  const category = !isInactiveFeatureChoice(choice, character.level) &&
+    !isEquipmentChoice(choice) &&
+    reference
+    ? classifyChoiceReference(reference)
+    : null;
+
+  if (isInactiveFeatureChoice(choice, character.level)) {
+    return `${choice.selectedOptionType} - Saved choice; inactive until level ${choice.level}.`;
+  }
+
+  if (isExpertiseFeatureChoice(choice)) {
+    if (category === "skill") {
+      const skillIndex = canonicalSkillIndex(reference?.index ?? reference?.name);
+
+      return skillIndex &&
+        effects.expertiseSkillIndexes.has(skillIndex) &&
+        isCharacterProficientInSkill(character, effects, skillIndex)
+        ? `${choice.selectedOptionType} - Expertise applied where proficient.`
+        : `${choice.selectedOptionType} - Saved Expertise choice; inactive until proficient.`;
+    }
+
+    if (category === "tool") {
+      return `${choice.selectedOptionType} - Saved Expertise choice; tool roll mechanics not automated yet.`;
+    }
+  }
+
+  if (category) {
+    return `${choice.selectedOptionType} - Applied as ${category} proficiency.`;
+  }
+
+  return `${choice.selectedOptionType} - Saved choice; mechanics not automated yet.`;
+}
+
+function isCharacterProficientInSkill(
+  character: Character,
+  effects: FeatureChoiceEffectSummary,
+  skillIndex: string,
+) {
+  return (
+    effects.skillProficiencyIndexes.has(skillIndex) ||
+    character.skills.some(
+      (skill) => skill.isProficient && canonicalSkillIndex(skill.skillIndex) === skillIndex,
+    )
+  );
+}
+
+function getSelectedChoiceReference(
+  choice: NonNullable<Character["featureChoices"]>[number],
+): { index: string | null; name: string; url: string | null } | null {
+  const rawReference = getRawReference(choice.selectedRawJson);
+  const name =
+    rawReference?.name ??
+    choice.selectedOptionName ??
+    choice.selectedOptionIndex ??
+    null;
+
+  if (!name) {
+    return null;
+  }
+
+  return {
+    index: rawReference?.index ?? choice.selectedOptionIndex ?? null,
+    name,
+    url: rawReference?.url ?? choice.selectedOptionUrl ?? null,
+  };
+}
+
+function getRawReference(value: unknown): { index?: string; name?: string; url?: string } | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const item = isRecord(value.item) ? value.item : isRecord(value.of) ? value.of : null;
+
+  if (!item) {
+    return null;
+  }
+
+  return {
+    index: stringValue(item.index) ?? undefined,
+    name: stringValue(item.name) ?? undefined,
+    url: stringValue(item.url) ?? undefined,
+  };
+}
+
+function classifyChoiceReference(reference: { index: string | null; name: string; url: string | null }) {
+  const index = reference.index?.toLowerCase() ?? "";
+  const name = reference.name.toLowerCase();
+  const url = reference.url?.toLowerCase() ?? "";
+  const isProficiencyReference = url.includes("/proficiencies/");
+  const isLanguageReference = url.includes("/languages/") || name.startsWith("language:");
+
+  if (isProficiencyReference && (name.startsWith("skill:") || index.startsWith("skill-"))) {
+    return "skill";
+  }
+
+  if (name.startsWith("saving throw:") || index.startsWith("saving-throw-")) {
+    return null;
+  }
+
+  if (isLanguageReference || index.startsWith("language-")) {
+    return "language";
+  }
+
+  if (!isProficiencyReference) {
+    return null;
+  }
+
+  if (
+    name.startsWith("armor:") ||
+    index.includes("armor") ||
+    index === "shields" ||
+    name === "shields"
+  ) {
+    return "armor";
+  }
+
+  if (
+    name.startsWith("weapon:") ||
+    index.includes("weapon") ||
+    index.includes("weapons") ||
+    isWeaponLikeProficiency(index, name)
+  ) {
+    return "weapon";
+  }
+
+  if (
+    name.startsWith("tool:") ||
+    index.includes("tools") ||
+    url.includes("/proficiencies/tool-") ||
+    isToolLikeProficiency(index, name)
+  ) {
+    return "tool";
+  }
+
+  return "tool";
+}
+
+function isInactiveFeatureChoice(
+  choice: NonNullable<Character["featureChoices"]>[number],
+  characterLevel: number,
+) {
+  return typeof choice.level === "number" && choice.level > characterLevel;
+}
+
+function isEquipmentChoice(choice: NonNullable<Character["featureChoices"]>[number]) {
+  if (getRawReference(choice.selectedRawJson)?.url?.includes("/equipment")) {
+    return true;
+  }
+
+  return [
+    choice.choicePath,
+    choice.choiceKey,
+    choice.choiceLabel,
+    choice.sourceIndex,
+  ]
+    .filter(isPresent)
+    .some((value) => {
+      const normalizedValue = value.toLowerCase();
+
+      return (
+        normalizedValue.includes("starting_equipment") ||
+        normalizedValue.includes("equipment_options") ||
+        normalizedValue.includes("starting-equipment")
+      );
+    });
+}
+
+function isWeaponLikeProficiency(index: string, name: string) {
+  return [
+    "axe",
+    "blowgun",
+    "bow",
+    "club",
+    "crossbow",
+    "dagger",
+    "dart",
+    "flail",
+    "glaive",
+    "halberd",
+    "hammer",
+    "javelin",
+    "lance",
+    "mace",
+    "net",
+    "pike",
+    "rapier",
+    "scimitar",
+    "sickle",
+    "sling",
+    "spear",
+    "staff",
+    "sword",
+    "trident",
+    "war-pick",
+    "whip",
+  ].some((keyword) => index.includes(keyword) || name.includes(keyword.replace(/-/g, " ")));
+}
+
+function isToolLikeProficiency(index: string, name: string) {
+  return [
+    "bagpipes",
+    "cards",
+    "chess",
+    "dice",
+    "drum",
+    "dulcimer",
+    "flute",
+    "horn",
+    "lute",
+    "lyre",
+    "pan-flute",
+    "shawm",
+    "viol",
+    "supplies",
+    "tools",
+    "utensils",
+    "kit",
+    "instrument",
+    "vehicle",
+  ].some((keyword) => index.includes(keyword) || name.includes(keyword.replace(/-/g, " ")));
+}
+
+function isExpertiseFeatureChoice(choice: NonNullable<Character["featureChoices"]>[number]) {
+  return [
+    choice.sourceIndex,
+    choice.featureIndex,
+    choice.choiceLabel,
+    choice.choicePath,
+    choice.choiceKey,
+  ]
+    .filter(isPresent)
+    .some((value) => value.toLowerCase().includes("expertise"));
+}
+
+function canonicalSkillIndex(value: string | null | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return stripReferencePrefix(value)
+    .toLowerCase()
+    .replace(/^skill-/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function getPersistedTrainingProficiencies(character: Character) {
+  return (character.proficiencies ?? []).reduce(
+    (groups, entry) => {
+      const reference = {
+        index: entry.proficiency.index,
+        name: entry.proficiency.name,
+        url: `/proficiencies/${entry.proficiency.index}`,
+      };
+      const category = classifyChoiceReference(reference);
+      const label = stripReferencePrefix(entry.proficiency.name);
+
+      if (category === "armor") {
+        groups.armor.push(label);
+      } else if (category === "tool") {
+        groups.tools.push(label);
+      } else if (category === "weapon") {
+        groups.weapons.push(label);
+      }
+
+      return groups;
+    },
+    {
+      armor: [] as string[],
+      tools: [] as string[],
+      weapons: [] as string[],
+    },
+  );
+}
+
+function mergeTrainingValues(...valueGroups: string[][]) {
+  return uniqueTrainingValues(
+    valueGroups
+      .flat()
+      .filter((value) => value !== unavailableTrainingValue),
+  );
 }
 
 function getProficiencySourceJson(sourceJson: unknown): ProficiencySourceJson {
@@ -1181,6 +1664,18 @@ function getNormalizedBackgroundToolProficiencies(
     .map(stripReferencePrefix);
 }
 
+function filterConcreteToolProficiencies(values: string[]) {
+  return values.filter((value) => {
+    const normalizedValue = value.toLowerCase();
+
+    return (
+      !normalizedValue.startsWith("choose ") &&
+      !normalizedValue.includes("(see equipment)") &&
+      !normalizedValue.includes(" of your choice")
+    );
+  });
+}
+
 function getLanguages(sourceJson: LanguageSourceJson) {
   return [
     ...getReferenceNames(sourceJson.languages),
@@ -1189,9 +1684,28 @@ function getLanguages(sourceJson: LanguageSourceJson) {
 }
 
 function withUnavailableFallback(values: string[]) {
-  const uniqueValues = [...new Set(values.filter((value) => value.length > 0))];
+  const uniqueValues = uniqueTrainingValues(values);
 
   return uniqueValues.length > 0 ? uniqueValues : [unavailableTrainingValue];
+}
+
+function uniqueTrainingValues(values: string[]) {
+  const seenValues = new Set<string>();
+  const uniqueValues: string[] = [];
+
+  for (const value of values) {
+    const trimmedValue = value.trim();
+    const normalizedValue = trimmedValue.toLowerCase();
+
+    if (!trimmedValue || seenValues.has(normalizedValue)) {
+      continue;
+    }
+
+    seenValues.add(normalizedValue);
+    uniqueValues.push(trimmedValue);
+  }
+
+  return uniqueValues;
 }
 
 function stripReferencePrefix(value: string) {
@@ -1204,6 +1718,10 @@ function stringValue(value: unknown): string | null {
 
 function isPresent<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function getWeaponActions(

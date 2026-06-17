@@ -18,6 +18,8 @@ import { useCharacters } from "../features/characters/hooks/useCharacters";
 import type {
   FeatureChoiceSelections,
   SpeciesOption,
+  BackgroundOption,
+  ClassOption,
 } from "../features/characters/types/characterBuilder";
 import {
   clearSelectedCharacterId,
@@ -26,6 +28,7 @@ import {
 import type {
   AbilityScores,
   Character,
+  CharacterFeatureChoiceSelection,
   CharacterFeatureSelection,
   CharacterSavePayload,
 } from "../types/character";
@@ -36,6 +39,21 @@ import {
 } from "./InventorySandboxPage";
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
+const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
+const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
+  str: "str",
+  strength: "str",
+  dex: "dex",
+  dexterity: "dex",
+  con: "con",
+  constitution: "con",
+  int: "int",
+  intelligence: "int",
+  wis: "wis",
+  wisdom: "wis",
+  cha: "cha",
+  charisma: "cha",
+};
 
 function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
@@ -120,6 +138,10 @@ function CharacterDashboardPage() {
       speciesChoices,
     ],
   );
+  const selectedHeritage = useMemo(
+    () => getSelectedSpeciesHeritage(selectedSpecies, speciesChoices),
+    [selectedSpecies, speciesChoices],
+  );
   const {
     actions: normalizedActionsWithPreview,
     error: normalizedActionsErrorWithPreview,
@@ -164,10 +186,13 @@ function CharacterDashboardPage() {
       buildCharacterSavePayload(
         character,
         builderState,
+        selectedClass,
+        selectedBackground,
         persistedSkillIndexes,
         selectedSkillIndexes,
         featureChoices,
         speciesChoices,
+        backgroundChoices,
       ),
     );
 
@@ -267,6 +292,7 @@ function CharacterDashboardPage() {
               normalizedActionsError={normalizedActionsErrorWithPreview}
               normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
+              selectedHeritage={selectedHeritage}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onOpenConditions={() => setRightRailMode("conditions")}
               onSetTempHp={setTempHp}
@@ -317,10 +343,13 @@ function CharacterDashboardPage() {
 function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+  classOption: ClassOption,
+  backgroundOption: BackgroundOption,
   persistedSkillIndexes: string[],
   selectedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
   speciesChoices: Record<string, string>,
+  backgroundChoices: Record<string, string>,
 ): CharacterSavePayload {
   return {
     name: character.name,
@@ -336,21 +365,138 @@ function buildCharacterSavePayload(
     },
     skillIndexes: [...new Set([...persistedSkillIndexes, ...selectedSkillIndexes])],
     choices: [
-      ...buildClassSkillChoices(builderState.classIndex, featureChoices),
+      ...buildClassSkillChoices(builderState.classIndex, classOption, featureChoices),
       ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
       ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
+      ...buildBackgroundAbilityChoices(builderState.backgroundIndex, backgroundChoices),
     ],
+    featureChoices: buildGenericClassFeatureChoices(
+      builderState.classIndex,
+      classOption,
+      builderState.level,
+      featureChoices,
+    ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
     abilityScores: buildAbilityScorePayload(character, builderState),
-    featureChoices,
   };
+}
+
+function buildGenericClassFeatureChoices(
+  classIndex: string,
+  classOption: ClassOption,
+  characterLevel: number,
+  featureChoices: FeatureChoiceSelections,
+): CharacterFeatureChoiceSelection[] {
+  const selections: CharacterFeatureChoiceSelection[] = [];
+
+  for (const feature of classOption.features) {
+    if (feature.level > characterLevel) {
+      continue;
+    }
+
+    for (const field of feature.choiceFields ?? []) {
+      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
+        continue;
+      }
+
+      const selectedValue = featureChoices[`${feature.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        continue;
+      }
+
+      selections.push({
+        sourceType: field.sourceType,
+        sourceIndex: field.sourceIndex,
+        classIndex: field.classIndex ?? classIndex,
+        subclassIndex: field.subclassIndex ?? null,
+        level: field.level ?? feature.level ?? null,
+        featureIndex: field.featureIndex ?? feature.id,
+        choicePath: field.choicePath,
+        choiceKey: field.choiceKey ?? field.id,
+        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        selectedOptionType: selectedOption.selectedOptionType ?? "string",
+        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
+        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
+        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
+        selectedRawJson: selectedOption.selectedRawJson ?? {
+          label: selectedOption.label,
+          value: selectedOption.value,
+        },
+        grantsRawJson: null,
+      });
+    }
+  }
+
+  return selections;
+}
+
+function buildGenericBackgroundFeatureChoices(
+  backgroundOption: BackgroundOption,
+  backgroundChoices: Record<string, string>,
+): CharacterFeatureChoiceSelection[] {
+  const selections: CharacterFeatureChoiceSelection[] = [];
+
+  for (const section of backgroundOption.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
+        continue;
+      }
+
+      const selectedValue = backgroundChoices[`${backgroundOption.index}:${section.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        continue;
+      }
+
+      selections.push({
+        sourceType: field.sourceType,
+        sourceIndex: field.sourceIndex,
+        classIndex: null,
+        subclassIndex: null,
+        level: null,
+        featureIndex: null,
+        choicePath: field.choicePath,
+        choiceKey: field.choiceKey ?? field.id,
+        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        selectedOptionType: selectedOption.selectedOptionType ?? "string",
+        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
+        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
+        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
+        selectedRawJson: selectedOption.selectedRawJson ?? {
+          label: selectedOption.label,
+          value: selectedOption.value,
+        },
+        grantsRawJson: null,
+      });
+    }
+  }
+
+  return selections;
 }
 
 function buildClassSkillChoices(
   classIndex: string,
+  classOption: ClassOption,
   featureChoices: FeatureChoiceSelections,
 ): CharacterFeatureSelection[] {
   return Object.entries(featureChoices)
-    .filter(([, selectedIndex]) => selectedIndex.startsWith("skill-"))
+    .filter(
+      ([choiceKey, selectedIndex]) =>
+        selectedIndex.startsWith("skill-") &&
+        isClassSkillChoiceFieldByKey(classOption, choiceKey),
+    )
     .map(([choiceKey, selectedIndex]) => {
       const [featureId, fieldId] = choiceKey.split(":");
 
@@ -364,6 +510,17 @@ function buildClassSkillChoices(
         selectedIndex,
       };
     });
+}
+
+function isClassSkillChoiceFieldByKey(
+  classOption: ClassOption,
+  choiceKey: string,
+) {
+  const [featureId, fieldId] = choiceKey.split(":");
+  const feature = classOption.features.find((classFeature) => classFeature.id === featureId);
+  const field = feature?.choiceFields?.find((choiceField) => choiceField.id === fieldId);
+
+  return field?.choiceGroupId === "class-skill-choice";
 }
 
 function buildSpeciesLanguageChoices(
@@ -424,6 +581,41 @@ function buildSpeciesHeritageChoices(
     });
 }
 
+function buildBackgroundAbilityChoices(
+  backgroundIndex: string,
+  backgroundChoices: Record<string, string>,
+): CharacterFeatureSelection[] {
+  return Object.entries(backgroundChoices)
+    .filter(([choiceKey, selectedIndex]) => {
+      const [choiceBackgroundIndex, featureId, fieldId] = choiceKey.split(":");
+      const planKey = `${choiceBackgroundIndex}:${featureId}:score-plan`;
+      const selectedPlan = backgroundChoices[planKey];
+
+      return (
+        choiceBackgroundIndex === backgroundIndex &&
+        fieldId.startsWith("score-") &&
+        (fieldId === "score-plan" || selectedPlan !== backgroundAbilityPlanThreeScores) &&
+        selectedIndex.trim().length > 0
+      );
+    })
+    .map(([choiceKey, selectedIndex]) => {
+      const [, featureId, fieldId] = choiceKey.split(":");
+      const isPlanChoice = fieldId === "score-plan";
+      const normalizedSelectedIndex =
+        isPlanChoice ? selectedIndex : canonicalAbilityScoreIndex(selectedIndex) ?? selectedIndex;
+
+      return {
+        choiceType: isPlanChoice ? "background-ability-plan" : "background-ability-score-choice",
+        featureId,
+        fieldId,
+        sourceType: "background",
+        sourceIndex: `${backgroundIndex}:${featureId}:${fieldId}`,
+        selectedType: isPlanChoice ? "ability-plan" : "ability-score",
+        selectedIndex: normalizedSelectedIndex,
+      };
+    });
+}
+
 function buildAbilityScorePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
@@ -447,6 +639,32 @@ function buildAbilityScorePayload(
 
 function isAbilityScoreIndex(value: string): value is keyof AbilityScores {
   return abilityScoreIndexes.some((abilityIndex) => abilityIndex === value);
+}
+
+function canonicalAbilityScoreIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^ability-/, "")
+    .replace(/-score$/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
+}
+
+function getSelectedSpeciesHeritage(
+  species: SpeciesOption | undefined,
+  speciesChoices: Record<string, string>,
+) {
+  if (!species?.heritageOptions?.length) {
+    return null;
+  }
+
+  const selectedIndex = getSelectedSpeciesHeritageIndex(species, speciesChoices);
+
+  return species.heritageOptions.find((option) => option.index === selectedIndex) ?? null;
 }
 
 function getSelectedSpeciesHeritageIndex(

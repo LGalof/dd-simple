@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 
 type ReferenceIndexRecord = {
@@ -40,6 +40,24 @@ type CharacterChoiceInput = {
   selectedIndex: string;
 };
 
+type CharacterFeatureChoiceSelectionInput = {
+  sourceType: string;
+  sourceIndex: string;
+  classIndex?: string | null;
+  subclassIndex?: string | null;
+  level?: number | null;
+  featureIndex?: string | null;
+  choicePath: string;
+  choiceKey?: string | null;
+  choiceLabel?: string | null;
+  selectedOptionType: string;
+  selectedOptionIndex?: string | null;
+  selectedOptionName?: string | null;
+  selectedOptionUrl?: string | null;
+  selectedRawJson: unknown;
+  grantsRawJson?: unknown | null;
+};
+
 type HitPointCalculationMode = "fixed" | "rolled" | "override";
 
 type HitPointStateInput = {
@@ -61,7 +79,7 @@ type CharacterMutationData = {
   hitPointState?: HitPointStateInput;
   skillIndexes: string[];
   choices?: CharacterChoiceInput[];
-  featureChoices?: Record<string, string>;
+  featureChoices?: CharacterFeatureChoiceSelectionInput[];
   abilityScores: {
     str: number;
     dex: number;
@@ -83,6 +101,27 @@ const SPECIES_LANGUAGE_CHOICE_TYPE = "species-language-choice";
 const SPECIES_LANGUAGE_SELECTED_TYPE = "language";
 const SPECIES_HERITAGE_CHOICE_TYPE = "species-heritage-choice";
 const SPECIES_HERITAGE_SELECTED_TYPE = "subspecies";
+const BACKGROUND_CHOICE_SOURCE_TYPE = "background";
+const BACKGROUND_ABILITY_PLAN_CHOICE_TYPE = "background-ability-plan";
+const BACKGROUND_ABILITY_SCORE_CHOICE_TYPE = "background-ability-score-choice";
+const BACKGROUND_ABILITY_PLAN_SELECTED_TYPE = "ability-plan";
+const BACKGROUND_ABILITY_SCORE_SELECTED_TYPE = "ability-score";
+const BACKGROUND_ABILITY_PLAN_TWO_SCORES = "increase-two-scores-2-1";
+const BACKGROUND_ABILITY_PLAN_THREE_SCORES = "increase-all-three-by-1";
+const abilityScoreIndexAliases: Record<string, string> = {
+  str: "str",
+  strength: "str",
+  dex: "dex",
+  dexterity: "dex",
+  con: "con",
+  constitution: "con",
+  int: "int",
+  intelligence: "int",
+  wis: "wis",
+  wisdom: "wis",
+  cha: "cha",
+  charisma: "cha",
+};
 
 const fallbackSpeciesLanguageIndexes: Record<string, string[]> = {
   dragonborn: ["common", "draconic"],
@@ -156,6 +195,19 @@ const characterInclude = {
     },
   },
   choices: true,
+  featureChoices: {
+    orderBy: [
+      {
+        sourceType: "asc" as const,
+      },
+      {
+        sourceIndex: "asc" as const,
+      },
+      {
+        choicePath: "asc" as const,
+      },
+    ],
+  },
   languages: {
     orderBy: {
       languageIndex: "asc" as const,
@@ -299,31 +351,342 @@ function normalizeHitPointStateInput({
   };
 }
 
-function abilityScoreRows(data: CharacterMutationData) {
+function normalizeBackgroundAbilityChoices(
+  choices: CharacterChoiceInput[] | undefined,
+  backgroundIndex: string,
+) {
+  return (choices ?? [])
+    .filter((choice) => {
+      if (
+        choice.sourceType !== BACKGROUND_CHOICE_SOURCE_TYPE ||
+        !choice.sourceIndex ||
+        !choice.selectedIndex
+      ) {
+        return false;
+      }
+
+      return (
+        (choice.choiceType === BACKGROUND_ABILITY_PLAN_CHOICE_TYPE &&
+          choice.selectedType === BACKGROUND_ABILITY_PLAN_SELECTED_TYPE) ||
+        (choice.choiceType === BACKGROUND_ABILITY_SCORE_CHOICE_TYPE &&
+          choice.selectedType === BACKGROUND_ABILITY_SCORE_SELECTED_TYPE)
+      );
+    })
+    .map((choice) => ({
+      choiceType: choice.choiceType ?? "",
+      sourceType: BACKGROUND_CHOICE_SOURCE_TYPE,
+      sourceIndex: normalizeBackgroundChoiceSourceIndex(choice.sourceIndex, backgroundIndex),
+      selectedType: choice.selectedType ?? "",
+      selectedIndex:
+        choice.choiceType === BACKGROUND_ABILITY_SCORE_CHOICE_TYPE
+          ? canonicalAbilityScoreIndex(choice.selectedIndex) ?? choice.selectedIndex
+          : choice.selectedIndex,
+    }));
+}
+
+function canonicalAbilityScoreIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^ability-/, "")
+    .replace(/-score$/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
+}
+
+function normalizeBackgroundChoiceSourceIndex(sourceIndex: string | undefined, backgroundIndex: string) {
+  if (!sourceIndex) {
+    return backgroundIndex;
+  }
+
+  const [, ...choiceKeyParts] = sourceIndex.split(":");
+  const choiceKey = choiceKeyParts.join(":");
+
+  return choiceKey ? `${backgroundIndex}:${choiceKey}` : backgroundIndex;
+}
+
+function getBackgroundAbilityChoiceFieldId(sourceIndex: string) {
+  const parts = sourceIndex.split(":");
+
+  return parts[parts.length - 1] ?? "";
+}
+
+async function validateBackgroundAbilityChoices(
+  tx: Prisma.TransactionClient,
+  backgroundIndex: string,
+  choices: ReturnType<typeof normalizeBackgroundAbilityChoices>,
+) {
+  const invalidPlanChoices = choices.filter(
+    (choice) =>
+      choice.choiceType === BACKGROUND_ABILITY_PLAN_CHOICE_TYPE &&
+      choice.selectedIndex !== BACKGROUND_ABILITY_PLAN_TWO_SCORES &&
+      choice.selectedIndex !== BACKGROUND_ABILITY_PLAN_THREE_SCORES,
+  );
+
+  if (invalidPlanChoices.length > 0) {
+    throw new CharacterReferenceNotFoundError("Background ability plan not found");
+  }
+
+  const allowedOptions = await tx.refBackgroundAbilityOption.findMany({
+    where: {
+      backgroundIndex,
+    },
+    select: {
+      abilityScoreIndex: true,
+    },
+  });
+  const allowedIndexes = new Set(allowedOptions.map((option) => option.abilityScoreIndex));
+  const selectedAbilityIndexes = choices
+    .filter((choice) => choice.choiceType === BACKGROUND_ABILITY_SCORE_CHOICE_TYPE)
+    .map((choice) => choice.selectedIndex);
+
+  if (selectedAbilityIndexes.length === 0) {
+    return [...allowedIndexes];
+  }
+
+  const invalidIndexes = selectedAbilityIndexes.filter(
+    (abilityIndex) => !allowedIndexes.has(abilityIndex),
+  );
+
+  if (invalidIndexes.length > 0) {
+    throw new CharacterReferenceNotFoundError("Background ability choice not found");
+  }
+
+  const selectedPlan =
+    choices.find((choice) => choice.choiceType === BACKGROUND_ABILITY_PLAN_CHOICE_TYPE)
+      ?.selectedIndex ?? BACKGROUND_ABILITY_PLAN_TWO_SCORES;
+
+  if (selectedPlan === BACKGROUND_ABILITY_PLAN_TWO_SCORES) {
+    const scoreChoices = Object.fromEntries(
+      choices
+        .filter((choice) => choice.choiceType === BACKGROUND_ABILITY_SCORE_CHOICE_TYPE)
+        .map((choice) => [
+          getBackgroundAbilityChoiceFieldId(choice.sourceIndex),
+          canonicalAbilityScoreIndex(choice.selectedIndex),
+        ]),
+    );
+
+    if (
+      scoreChoices["score-a"] &&
+      scoreChoices["score-b"] &&
+      scoreChoices["score-a"] === scoreChoices["score-b"]
+    ) {
+      throw new CharacterReferenceNotFoundError("Background ability choices must be different");
+    }
+  }
+
+  return [...allowedIndexes];
+}
+
+function getBackgroundAbilityBonuses(
+  choices: ReturnType<typeof normalizeBackgroundAbilityChoices>,
+  supportedAbilityIndexes: string[] = [],
+) {
+  const bonuses = new Map<string, number>();
+  const selectedPlan =
+    choices.find((choice) => choice.choiceType === BACKGROUND_ABILITY_PLAN_CHOICE_TYPE)
+      ?.selectedIndex ?? BACKGROUND_ABILITY_PLAN_TWO_SCORES;
+  const scoreChoices = Object.fromEntries(
+    choices
+      .filter((choice) => choice.choiceType === BACKGROUND_ABILITY_SCORE_CHOICE_TYPE)
+      .map((choice) => [getBackgroundAbilityChoiceFieldId(choice.sourceIndex), choice.selectedIndex]),
+  );
+
+  if (selectedPlan === BACKGROUND_ABILITY_PLAN_THREE_SCORES) {
+    for (const abilityIndex of supportedAbilityIndexes) {
+      const canonicalAbilityIndex = canonicalAbilityScoreIndex(abilityIndex);
+
+      if (canonicalAbilityIndex && !bonuses.has(canonicalAbilityIndex)) {
+        bonuses.set(canonicalAbilityIndex, 1);
+      }
+    }
+
+    return bonuses;
+  }
+
+  const primaryAbilityIndex = canonicalAbilityScoreIndex(scoreChoices["score-a"]);
+  const secondaryAbilityIndex = canonicalAbilityScoreIndex(scoreChoices["score-b"]);
+
+  if (primaryAbilityIndex) {
+    bonuses.set(primaryAbilityIndex, 2);
+  }
+
+  if (secondaryAbilityIndex && !bonuses.has(secondaryAbilityIndex)) {
+    bonuses.set(secondaryAbilityIndex, 1);
+  }
+
+  return bonuses;
+}
+
+async function replaceBackgroundAbilityChoices(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  choices: ReturnType<typeof normalizeBackgroundAbilityChoices>,
+) {
+  await tx.characterChoice.deleteMany({
+    where: {
+      characterId,
+      sourceType: BACKGROUND_CHOICE_SOURCE_TYPE,
+      choiceType: {
+        in: [BACKGROUND_ABILITY_PLAN_CHOICE_TYPE, BACKGROUND_ABILITY_SCORE_CHOICE_TYPE],
+      },
+    },
+  });
+
+  if (choices.length > 0) {
+    await tx.characterChoice.createMany({
+      data: choices.map((choice) => ({
+        characterId,
+        choiceType: choice.choiceType,
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        selectedType: choice.selectedType,
+        selectedIndex: choice.selectedIndex,
+      })),
+    });
+  }
+}
+
+function toRequiredJsonInput(value: unknown) {
+  return value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue;
+}
+
+function toNullableJsonInput(value: unknown | null | undefined) {
+  return value === null || value === undefined
+    ? Prisma.DbNull
+    : value as Prisma.InputJsonValue;
+}
+
+async function upsertSubmittedFeatureChoiceSelections(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  featureChoices: CharacterFeatureChoiceSelectionInput[] | undefined,
+) {
+  if (!featureChoices?.length) {
+    return;
+  }
+
+  await Promise.all(
+    featureChoices.map((choice) => {
+      const data = {
+        sourceType: choice.sourceType,
+        sourceIndex: choice.sourceIndex,
+        classIndex: choice.classIndex ?? null,
+        subclassIndex: choice.subclassIndex ?? null,
+        level: choice.level ?? null,
+        featureIndex: choice.featureIndex ?? null,
+        choicePath: choice.choicePath,
+        choiceKey: choice.choiceKey ?? null,
+        choiceLabel: choice.choiceLabel ?? null,
+        selectedOptionType: choice.selectedOptionType,
+        selectedOptionIndex: choice.selectedOptionIndex ?? null,
+        selectedOptionName: choice.selectedOptionName ?? null,
+        selectedOptionUrl: choice.selectedOptionUrl ?? null,
+        selectedRawJson: toRequiredJsonInput(choice.selectedRawJson),
+        grantsRawJson: toNullableJsonInput(choice.grantsRawJson),
+      };
+
+      return tx.characterFeatureChoiceSelection.upsert({
+        where: {
+          characterId_sourceType_sourceIndex_choicePath: {
+            characterId,
+            sourceType: choice.sourceType,
+            sourceIndex: choice.sourceIndex,
+            choicePath: choice.choicePath,
+          },
+        },
+        update: data,
+        create: {
+          characterId,
+          ...data,
+        },
+      });
+    }),
+  );
+}
+
+async function deleteStaleFeatureChoiceSelections(
+  tx: Prisma.TransactionClient,
+  characterId: string,
+  data: Pick<CharacterMutationData, "backgroundIndex" | "classIndex" | "speciesIndex">,
+) {
+  await tx.characterFeatureChoiceSelection.deleteMany({
+    where: {
+      characterId,
+      OR: [
+        {
+          sourceType: "CLASS",
+          sourceIndex: {
+            not: data.classIndex,
+          },
+        },
+        {
+          sourceType: "FEATURE",
+          OR: [
+            {
+              classIndex: {
+                not: data.classIndex,
+              },
+            },
+            {
+              classIndex: null,
+            },
+          ],
+        },
+        {
+          sourceType: "BACKGROUND",
+          sourceIndex: {
+            not: data.backgroundIndex,
+          },
+        },
+        {
+          sourceType: "SPECIES",
+          sourceIndex: {
+            not: data.speciesIndex,
+          },
+        },
+      ],
+    },
+  });
+}
+
+function abilityScoreRows(
+  data: CharacterMutationData,
+  bonuses: Map<string, number> = new Map(),
+) {
   return [
     {
       abilityIndex: "str",
-      score: data.abilityScores.str,
+      baseScore: data.abilityScores.str,
+      score: data.abilityScores.str + (bonuses.get("str") ?? 0),
     },
     {
       abilityIndex: "dex",
-      score: data.abilityScores.dex,
+      baseScore: data.abilityScores.dex,
+      score: data.abilityScores.dex + (bonuses.get("dex") ?? 0),
     },
     {
       abilityIndex: "con",
-      score: data.abilityScores.con,
+      baseScore: data.abilityScores.con,
+      score: data.abilityScores.con + (bonuses.get("con") ?? 0),
     },
     {
       abilityIndex: "int",
-      score: data.abilityScores.int,
+      baseScore: data.abilityScores.int,
+      score: data.abilityScores.int + (bonuses.get("int") ?? 0),
     },
     {
       abilityIndex: "wis",
-      score: data.abilityScores.wis,
+      baseScore: data.abilityScores.wis,
+      score: data.abilityScores.wis + (bonuses.get("wis") ?? 0),
     },
     {
       abilityIndex: "cha",
-      score: data.abilityScores.cha,
+      baseScore: data.abilityScores.cha,
+      score: data.abilityScores.cha + (bonuses.get("cha") ?? 0),
     },
   ];
 }
@@ -665,28 +1028,6 @@ async function getClassProficiencyGrantIndexes(
   return getClassSavingThrowProficiencyIndexes(sourceJson);
 }
 
-function classFeatureChoiceRows(
-  featureChoices: Record<string, string> | undefined,
-) {
-  return Object.entries(featureChoices ?? {})
-    .filter(([, selectedIndex]) => typeof selectedIndex === "string" && selectedIndex.length > 0)
-    .map(([choiceKey, selectedIndex]) => {
-      const separatorIndex = choiceKey.indexOf(":");
-      const sourceIndex =
-        separatorIndex >= 0 ? choiceKey.slice(0, separatorIndex) : choiceKey;
-      const choiceType =
-        separatorIndex >= 0 ? choiceKey.slice(separatorIndex + 1) : "selection";
-
-      return {
-        choiceType,
-        sourceType: "class-feature",
-        sourceIndex,
-        selectedType: "reference",
-        selectedIndex,
-      };
-    });
-}
-
 async function findAllCharactersForUser(userId: string) {
   return prisma.character.findMany({
     where: {
@@ -748,6 +1089,19 @@ async function findAllCharactersForUser(userId: string) {
         },
       },
       choices: true,
+      featureChoices: {
+        orderBy: [
+          {
+            sourceType: "asc",
+          },
+          {
+            sourceIndex: "asc",
+          },
+          {
+            choicePath: "asc",
+          },
+        ],
+      },
       languages: {
         orderBy: {
           languageIndex: "asc",
@@ -776,9 +1130,6 @@ async function findAllCharactersForUser(userId: string) {
 }
 
 async function createCharacterForUser(userId: string, data: CreateCharacterData) {
-  const selectedSkillIndexes = new Set(data.skillIndexes);
-  const dexModifier = getAbilityModifier(data.abilityScores.dex);
-
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const [species, characterClass, background, skills, selectedProficiencies] =
       await Promise.all([
@@ -830,6 +1181,46 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const classSkillChoices = normalizeClassSkillChoices(data.choices, characterClass.index);
+    const allowedClassSkillChoiceProficiencyIndexes =
+      await findAllowedClassSkillChoiceProficiencyIndexes(tx, characterClass.index);
+    const invalidClassSkillChoices = classSkillChoices.filter(
+      (choice) => !allowedClassSkillChoiceProficiencyIndexes.has(choice.selectedIndex),
+    );
+
+    if (invalidClassSkillChoices.length > 0) {
+      throw new CharacterReferenceNotFoundError("Class skill choice not found");
+    }
+
+    const classSkillChoiceProficiencyIndexes = [
+      ...new Set(classSkillChoices.map((choice) => choice.selectedIndex)),
+    ];
+    const classSkillChoiceProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: classSkillChoiceProficiencyIndexes,
+        },
+      },
+    });
+    const backgroundAbilityChoices = normalizeBackgroundAbilityChoices(
+      data.choices,
+      background.index,
+    );
+    const supportedBackgroundAbilityIndexes = await validateBackgroundAbilityChoices(
+      tx,
+      background.index,
+      backgroundAbilityChoices,
+    );
+    const backgroundAbilityBonuses = getBackgroundAbilityBonuses(
+      backgroundAbilityChoices,
+      supportedBackgroundAbilityIndexes,
+    );
+    const abilityScores = abilityScoreRows(data, backgroundAbilityBonuses);
+    const abilityScoreByIndex = new Map(
+      abilityScores.map((abilityScore) => [abilityScore.abilityIndex, abilityScore.score]),
+    );
+    const dexModifier = getAbilityModifier(abilityScoreByIndex.get("dex") ?? data.abilityScores.dex);
+    const constitutionScore = abilityScoreByIndex.get("con") ?? data.abilityScores.con;
     const classProficiencyGrantIndexes = await getClassProficiencyGrantIndexes(
       tx,
       characterClass.index,
@@ -842,9 +1233,18 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         },
       },
     });
+    const selectedManualProficiencies = selectedProficiencies.filter(
+      (proficiency: ReferenceIndexRecord) =>
+        !classSkillChoiceProficiencyIndexes.includes(proficiency.index),
+    );
+    const finalSkillIndexes = new Set([
+      ...data.skillIndexes,
+      ...getSkillIndexesFromProficiencyIndexes(classProficiencyGrantIndexes),
+      ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
+    ]);
     const level = data.level ?? 1;
     const hitPointState = normalizeHitPointStateInput({
-      constitutionScore: data.abilityScores.con,
+      constitutionScore,
       data: data.hitPointState,
       hitDie: characterClass.hitDie,
       level,
@@ -878,18 +1278,18 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
           },
         },
         abilityScores: {
-          create: abilityScoreRows(data),
+          create: abilityScores,
         },
         skills: {
           create: skills.map((skill: ReferenceIndexRecord) => ({
             skillIndex: skill.index,
-            isProficient: selectedSkillIndexes.has(skill.index),
+            isProficient: finalSkillIndexes.has(skill.index),
             customBonus: 0,
           })),
         },
         proficiencies: {
           create: [
-            ...selectedProficiencies.map((proficiency: ReferenceIndexRecord) => ({
+            ...selectedManualProficiencies.map((proficiency: ReferenceIndexRecord) => ({
               proficiencyIndex: proficiency.index,
               sourceType: "manual",
             })),
@@ -899,10 +1299,22 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
                 sourceType: "class",
               }),
             ),
+            ...classSkillChoiceProficiencies.map(
+              (proficiency: ReferenceIndexRecord) => ({
+                proficiencyIndex: proficiency.index,
+                sourceType: CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE,
+              }),
+            ),
           ],
         },
         choices: {
-          create: classFeatureChoiceRows(data.featureChoices),
+          create: classSkillChoices.map((choice) => ({
+            choiceType: choice.choiceType,
+            sourceType: choice.sourceType,
+            sourceIndex: choice.sourceIndex,
+            selectedType: choice.selectedType,
+            selectedIndex: choice.selectedIndex,
+          })),
         },
       },
     });
@@ -920,6 +1332,17 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       species.index,
       data.choices,
     );
+    await replaceBackgroundAbilityChoices(
+      tx,
+      character.id,
+      backgroundAbilityChoices,
+    );
+    await deleteStaleFeatureChoiceSelections(tx, character.id, data);
+    await upsertSubmittedFeatureChoiceSelections(
+      tx,
+      character.id,
+      data.featureChoices,
+    );
 
     return tx.character.findUnique({
       where: {
@@ -935,8 +1358,6 @@ async function updateCharacterForUser(
   characterId: string,
   data: CharacterMutationData,
 ) {
-  const dexModifier = getAbilityModifier(data.abilityScores.dex);
-
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const existingCharacter = await tx.character.findFirst({
       where: {
@@ -1018,6 +1439,25 @@ async function updateCharacterForUser(
       throw new CharacterReferenceNotFoundError("Skill not found");
     }
 
+    const backgroundAbilityChoices = normalizeBackgroundAbilityChoices(
+      data.choices,
+      background.index,
+    );
+    const supportedBackgroundAbilityIndexes = await validateBackgroundAbilityChoices(
+      tx,
+      background.index,
+      backgroundAbilityChoices,
+    );
+    const backgroundAbilityBonuses = getBackgroundAbilityBonuses(
+      backgroundAbilityChoices,
+      supportedBackgroundAbilityIndexes,
+    );
+    const abilityScores = abilityScoreRows(data, backgroundAbilityBonuses);
+    const abilityScoreByIndex = new Map(
+      abilityScores.map((abilityScore) => [abilityScore.abilityIndex, abilityScore.score]),
+    );
+    const dexModifier = getAbilityModifier(abilityScoreByIndex.get("dex") ?? data.abilityScores.dex);
+    const constitutionScore = abilityScoreByIndex.get("con") ?? data.abilityScores.con;
     const classSkillChoices = normalizeClassSkillChoices(data.choices, characterClass.index);
     const allowedClassSkillChoiceProficiencyIndexes =
       await findAllowedClassSkillChoiceProficiencyIndexes(tx, characterClass.index);
@@ -1071,7 +1511,7 @@ async function updateCharacterForUser(
     ]);
     const level = data.level ?? existingCharacter.level;
     const hitPointState = normalizeHitPointStateInput({
-      constitutionScore: data.abilityScores.con,
+      constitutionScore,
       data: data.hitPointState,
       fallback: existingCharacter.hitPointState,
       hitDie: characterClass.hitDie,
@@ -1123,7 +1563,7 @@ async function updateCharacterForUser(
     });
 
     await Promise.all(
-      abilityScoreRows(data).map((abilityScore) =>
+      abilityScores.map((abilityScore) =>
         tx.characterAbilityScore.upsert({
           where: {
             characterId_abilityIndex: {
@@ -1132,11 +1572,13 @@ async function updateCharacterForUser(
             },
           },
           update: {
+            baseScore: abilityScore.baseScore,
             score: abilityScore.score,
           },
           create: {
             characterId,
             abilityIndex: abilityScore.abilityIndex,
+            baseScore: abilityScore.baseScore,
             score: abilityScore.score,
           },
         }),
@@ -1199,6 +1641,17 @@ async function updateCharacterForUser(
       species.index,
       data.choices,
     );
+    await replaceBackgroundAbilityChoices(
+      tx,
+      characterId,
+      backgroundAbilityChoices,
+    );
+    await deleteStaleFeatureChoiceSelections(tx, characterId, data);
+    await upsertSubmittedFeatureChoiceSelections(
+      tx,
+      characterId,
+      data.featureChoices,
+    );
 
     await tx.characterProficiency.deleteMany({
       where: {
@@ -1257,21 +1710,6 @@ async function updateCharacterForUser(
         sourceType: "class-feature",
       },
     });
-
-    const featureChoiceRows = classFeatureChoiceRows(data.featureChoices);
-
-    if (featureChoiceRows.length > 0) {
-      await tx.characterChoice.createMany({
-        data: featureChoiceRows.map((choice) => ({
-          characterId,
-          choiceType: choice.choiceType,
-          sourceType: choice.sourceType,
-          sourceIndex: choice.sourceIndex,
-          selectedType: choice.selectedType,
-          selectedIndex: choice.selectedIndex,
-        })),
-      });
-    }
 
     return tx.character.findUnique({
       where: {

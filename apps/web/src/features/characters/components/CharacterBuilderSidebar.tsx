@@ -96,6 +96,7 @@ function CharacterBuilderSidebar({
           {
             label: abilityScore.ability.name,
             fullLabel: abilityScore.ability.fullName ?? abilityScore.ability.name,
+            score: abilityScore.score,
           },
         ]),
       ),
@@ -345,7 +346,9 @@ function CharacterBuilderSidebar({
           <div className="builder-ability-list">
             {abilityAssignments.map((assignment) => (
               <div key={assignment.id} className="builder-ability-card">
-                <strong className="builder-ability-card-score">{assignment.score}</strong>
+                <strong className="builder-ability-card-score">
+                  {abilityOptionMap[assignment.abilityIndex]?.score ?? assignment.score}
+                </strong>
 
                 <div className="builder-ability-dice-row">
                   {(assignment.dice.length > 0 ? assignment.dice : [assignment.score]).map(
@@ -405,11 +408,7 @@ function CharacterBuilderSidebar({
               const isExpanded = expandedFeatureId === feature.id;
               const isFutureFeature = feature.level > characterLevel;
               const isChoiceComplete = isFeatureComplete(feature, selectedChoices);
-              const isAutoComplete =
-                !feature.choiceFields?.length &&
-                lastCompletedFeatureIndex >= 0 &&
-                featureIndex < lastCompletedFeatureIndex;
-              const isComplete = isChoiceComplete || isAutoComplete;
+              const isComplete = !isFutureFeature && isChoiceComplete;
 
               return (
                 <article
@@ -491,6 +490,7 @@ function CharacterBuilderSidebar({
                                   <span>{field.label}</span>
                                   <select
                                     className="builder-feature-select"
+                                    disabled={isFutureFeature}
                                     value={selectedValue}
                                     onChange={(event) =>
                                       updateChoice(
@@ -501,7 +501,11 @@ function CharacterBuilderSidebar({
                                       )
                                     }
                                   >
-                                    <option value="">Choose {field.label.toLowerCase()}</option>
+                                    <option value="">
+                                      {isFutureFeature
+                                        ? `Unlocks at level ${feature.level}`
+                                        : `Choose ${field.label.toLowerCase()}`}
+                                    </option>
                                     {field.options.map((option) => (
                                       <option
                                         key={option.value}
@@ -773,7 +777,7 @@ function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string
   );
 
   if (!visibleChoiceFields.length) {
-    return false;
+    return true;
   }
 
   return visibleChoiceFields.every((field) =>

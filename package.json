@@ -10,6 +10,7 @@
     "dev": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "build": "npm --workspace @dd-simple/web run build && npm --workspace @dd-simple/api run build",
     "dev:web": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-web.ps1",
-    "dev:api": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-api.ps1"
+    "dev:api": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-api.ps1",
+    "audit:class-feature-choices": "npm --workspace @dd-simple/api run audit:class-feature-choices"
   }
 }

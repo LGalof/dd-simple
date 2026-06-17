@@ -1,0 +1,14 @@
+-- RenameIndex
+ALTER INDEX "character_feature_choice_selections_characterId_sourceType_sour" RENAME TO "character_feature_choice_selections_characterId_sourceType__key";
+
+-- RenameIndex
+ALTER INDEX "character_languages_characterId_languageIndex_sourceType_source" RENAME TO "character_languages_characterId_languageIndex_sourceType_so_key";
+
+-- RenameIndex
+ALTER INDEX "ref_background_ability_options_backgroundIndex_abilityScoreInde" RENAME TO "ref_background_ability_options_backgroundIndex_abilityScore_key";
+
+-- RenameIndex
+ALTER INDEX "ref_background_proficiency_grants_backgroundIndex_proficiencyIn" RENAME TO "ref_background_proficiency_grants_backgroundIndex_proficien_key";
+
+-- RenameIndex
+ALTER INDEX "ref_class_proficiency_grants_classIndex_proficiencyIndex_grantT" RENAME TO "ref_class_proficiency_grants_classIndex_proficiencyIndex_gr_key";

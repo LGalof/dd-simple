@@ -15,6 +15,7 @@ export type AbilityDefinition = {
 
 export type AbilityScore = {
   abilityIndex: AbilityScoreKey | string;
+  baseScore?: number | null;
   score: number;
   ability: AbilityDefinition;
 };
@@ -146,6 +147,28 @@ export type CharacterFeatureSelection = {
   selectedIndex: string;
 };
 
+export type CharacterFeatureChoiceSelection = {
+  id?: string;
+  characterId?: string;
+  sourceType: string;
+  sourceIndex: string;
+  classIndex?: string | null;
+  subclassIndex?: string | null;
+  level?: number | null;
+  featureIndex?: string | null;
+  choicePath: string;
+  choiceKey?: string | null;
+  choiceLabel?: string | null;
+  selectedOptionType: string;
+  selectedOptionIndex?: string | null;
+  selectedOptionName?: string | null;
+  selectedOptionUrl?: string | null;
+  selectedRawJson: unknown;
+  grantsRawJson?: unknown | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type CharacterSheetStats = {
   level: number;
   experiencePoints: number;
@@ -184,6 +207,7 @@ export type Character = {
   languages?: CharacterLanguage[];
   conditions?: CharacterCondition[];
   hitPointState?: CharacterHitPointState | null;
+  featureChoices?: CharacterFeatureChoiceSelection[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];
 };
@@ -199,6 +223,6 @@ export type CharacterSavePayload = {
   hitPointState?: CharacterHitPointState;
   skillIndexes: string[];
   choices?: CharacterFeatureSelection[];
+  featureChoices?: CharacterFeatureChoiceSelection[];
   abilityScores: AbilityScores;
-  featureChoices?: Record<string, string>;
 };

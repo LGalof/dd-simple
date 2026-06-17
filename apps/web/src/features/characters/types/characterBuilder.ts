@@ -33,6 +33,11 @@ type SpeciesHeritageOption = {
   index: string;
   name: string;
   resistanceTraitIndex?: string;
+  traits?: Array<{
+    description?: string | null;
+    index: string;
+    name: string;
+  }>;
 };
 
 type SpeciesOption = {
@@ -62,6 +67,11 @@ type BackgroundOption = {
 type FeatureChoiceOption = {
   value: string;
   label: string;
+  selectedOptionIndex?: string | null;
+  selectedOptionName?: string | null;
+  selectedOptionType?: string;
+  selectedOptionUrl?: string | null;
+  selectedRawJson?: unknown;
 };
 
 type FeatureChoiceSelections = Record<string, string>;
@@ -86,9 +96,18 @@ type FeatureChoiceField = {
   choiceGroupLimit?: number;
   dependsOnFieldId?: string;
   dependsOnValues?: string[];
+  choiceKey?: string | null;
+  choiceLabel?: string | null;
+  choicePath?: string;
+  classIndex?: string | null;
   id: string;
   label: string;
+  level?: number | null;
   options: FeatureChoiceOption[];
+  featureIndex?: string | null;
+  sourceIndex?: string;
+  sourceType?: string;
+  subclassIndex?: string | null;
 };
 
 type ClassFeature = {
