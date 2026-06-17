@@ -188,6 +188,7 @@ export type Character = {
   userId?: string;
   speciesIndex?: string;
   classIndex?: string;
+  subclassIndex?: string | null;
   backgroundIndex?: string;
   name: string;
   level: number;
@@ -216,6 +217,7 @@ export type CharacterSavePayload = {
   name: string;
   speciesIndex: string;
   classIndex: string;
+  subclassIndex?: string | null;
   backgroundIndex: string;
   alignment: string | null;
   level?: number;

@@ -115,6 +115,7 @@ function CharacterDashboardPage() {
     selectedSpecies,
     setFeatureChoices,
     setSelection,
+    setSubclassIndex,
     setTempHp,
     speciesChoices,
     speciesOptions,
@@ -284,7 +285,9 @@ function CharacterDashboardPage() {
                   onOpenPanel={openPanel}
                   onRollAbility={handleRollAbility}
                   onRollAllAbilities={handleRollAllAbilities}
+                  onSubclassChange={setSubclassIndex}
                   selectedChoices={featureChoices}
+                  selectedSubclassIndex={builderState.subclassIndex}
                   species={selectedSpecies}
                 />
               </div>
@@ -373,6 +376,11 @@ function buildCharacterSavePayload(
     name: character.name,
     speciesIndex: builderState.speciesIndex,
     classIndex: builderState.classIndex,
+    subclassIndex: getSelectedSubclassIndexForSave(
+      builderState.subclassIndex,
+      classOption,
+      featureChoices,
+    ),
     backgroundIndex: builderState.backgroundIndex,
     alignment: character.alignment,
     level: builderState.level,
@@ -396,6 +404,36 @@ function buildCharacterSavePayload(
     ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
+}
+
+function getSelectedSubclassIndexForSave(
+  subclassIndex: string | null,
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+) {
+  const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  if (subclassIndex && subclassIndexes.has(subclassIndex)) {
+    return subclassIndex;
+  }
+
+  for (const feature of classOption.features) {
+    for (const field of feature.choiceFields ?? []) {
+      if (field.choiceKind !== "subclass") {
+        continue;
+      }
+
+      const selectedValue = featureChoices[`${feature.id}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+      const selectedSubclassIndex = selectedOption?.selectedOptionIndex ?? selectedOption?.value;
+
+      if (selectedSubclassIndex && subclassIndexes.has(selectedSubclassIndex)) {
+        return selectedSubclassIndex;
+      }
+    }
+  }
+
+  return null;
 }
 
 function buildGenericClassFeatureChoices(

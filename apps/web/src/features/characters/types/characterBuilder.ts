@@ -18,6 +18,7 @@ type CharacterBuilderState = {
   speciesIndex: string;
   backgroundIndex: string;
   classIndex: string;
+  subclassIndex: string | null;
   level: number;
   currentHp: number;
   tempHp: number;
@@ -76,6 +77,22 @@ type FeatureChoiceOption = {
 
 type FeatureChoiceSelections = Record<string, string>;
 
+type FeatureChoiceKind =
+  | "subclass"
+  | "skill-proficiency"
+  | "tool-proficiency"
+  | "armor-proficiency"
+  | "weapon-proficiency"
+  | "expertise"
+  | "fighting-style"
+  | "metamagic"
+  | "pact-boon"
+  | "eldritch-invocation"
+  | "weapon-mastery"
+  | "asi-feat"
+  | "epic-boon"
+  | "option";
+
 type ClassSubclassFeature = {
   description: string;
   level: number;
@@ -97,6 +114,7 @@ type FeatureChoiceField = {
   dependsOnFieldId?: string;
   dependsOnValues?: string[];
   choiceKey?: string | null;
+  choiceKind?: FeatureChoiceKind;
   choiceLabel?: string | null;
   choicePath?: string;
   classIndex?: string | null;
@@ -174,6 +192,7 @@ export type {
   ClassSubclassFeature,
   ClassSubclassOption,
   FeatureChoiceField,
+  FeatureChoiceKind,
   FeatureChoiceOption,
   FeatureChoiceSelections,
   HitPointSettings,

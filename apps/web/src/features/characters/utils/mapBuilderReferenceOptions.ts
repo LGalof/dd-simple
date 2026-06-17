@@ -12,6 +12,7 @@ import type {
   ClassOption,
   ClassSubclassOption,
   FeatureChoiceField,
+  FeatureChoiceKind,
   SpeciesOption,
   SpeciesHeritageOption,
 } from "../types/characterBuilder";
@@ -928,6 +929,7 @@ function createChoiceFieldsFromNormalizedSkillChoice(
       choice.choose === 1 ? "Skill proficiency" : `Skill proficiency ${index + 1}`,
       choice.valueOptions,
       {
+        choiceKind: "skill-proficiency",
         choiceGroupId: "class-skill-choice",
         choiceGroupLabel: choice.description ?? `Choose ${choice.choose} skill proficiencies`,
         choiceGroupLimit: choice.choose,
@@ -1138,6 +1140,7 @@ function createChoiceFieldsFromChoice(
 ): FeatureChoiceField[] {
   const groups: Array<{
     choicePath?: string;
+    choiceKind: FeatureChoiceKind;
     choose: number;
     dependsOnFieldId?: string;
     dependsOnValues?: string[];
@@ -1160,6 +1163,7 @@ function createChoiceFieldsFromChoice(
         group.options,
         {
           choiceKey: group.choose === 1 ? group.id : `${group.id}-${index + 1}`,
+          choiceKind: group.choiceKind,
           choiceGroupId: group.id,
           choiceGroupLabel: group.label,
           choiceGroupLimit: group.choose,
@@ -1188,6 +1192,7 @@ function collectChoiceGroups(
   fallbackLabel: string,
   groups: Array<{
     choicePath?: string;
+    choiceKind: FeatureChoiceKind;
     choose: number;
     dependsOnFieldId?: string;
     dependsOnValues?: string[];
@@ -1221,6 +1226,14 @@ function collectChoiceGroups(
 
   if (choose && options.length > 0) {
     const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
+    const choiceKind = inferFeatureChoiceKind({
+      fieldLabel: stringValue(value.field_label),
+      fallbackLabel,
+      groupLabel: stringValue(value.label),
+      optionKind,
+      optionLabels: options.map((option) => option.rawLabel),
+      typeLabel: stringValue(value.type),
+    });
     const visibleWhen = isRecord(value.visible_when) ? value.visible_when : null;
     const dependsOnFieldId = stringValue(visibleWhen?.field) ?? undefined;
     const dependsOnValues = Array.isArray(visibleWhen?.values)
@@ -1233,6 +1246,7 @@ function collectChoiceGroups(
 
     groups.push({
       choicePath,
+      choiceKind,
       choose,
       dependsOnFieldId,
       dependsOnValues: dependsOnValues?.length ? dependsOnValues : undefined,
@@ -1461,6 +1475,93 @@ function inferChoiceOptionKind(options: string[], fallbackLabel: string) {
   return "option";
 }
 
+function inferFeatureChoiceKind({
+  fieldLabel,
+  fallbackLabel,
+  groupLabel,
+  optionKind,
+  optionLabels,
+  typeLabel,
+}: {
+  fieldLabel?: string | null;
+  fallbackLabel: string;
+  groupLabel?: string | null;
+  optionKind: string;
+  optionLabels: string[];
+  typeLabel?: string | null;
+}): FeatureChoiceKind {
+  const text = [
+    fieldLabel,
+    fallbackLabel,
+    groupLabel,
+    optionKind,
+    typeLabel,
+    ...optionLabels,
+  ]
+    .filter(isPresent)
+    .join(" ")
+    .toLowerCase();
+
+  if (text.includes("subclass")) {
+    return "subclass";
+  }
+
+  if (text.includes("expertise")) {
+    return "expertise";
+  }
+
+  if (text.includes("fighting style")) {
+    return "fighting-style";
+  }
+
+  if (text.includes("metamagic")) {
+    return "metamagic";
+  }
+
+  if (text.includes("pact boon")) {
+    return "pact-boon";
+  }
+
+  if (text.includes("eldritch invocation") || text.includes("invocation")) {
+    return "eldritch-invocation";
+  }
+
+  if (text.includes("weapon mastery")) {
+    return "weapon-mastery";
+  }
+
+  if (text.includes("epic boon")) {
+    return "epic-boon";
+  }
+
+  if (
+    text.includes("ability score improvement") ||
+    text.includes("ability score increase") ||
+    text.includes("asi") ||
+    text.includes("feat")
+  ) {
+    return "asi-feat";
+  }
+
+  if (optionKind === "skill proficiency") {
+    return "skill-proficiency";
+  }
+
+  if (optionKind === "tool proficiency") {
+    return "tool-proficiency";
+  }
+
+  if (optionKind === "armor proficiency") {
+    return "armor-proficiency";
+  }
+
+  if (optionKind === "weapon proficiency") {
+    return "weapon-proficiency";
+  }
+
+  return "option";
+}
+
 function choiceGroupLabel(choose: number, optionKind: string, fallbackLabel: string) {
   if (optionKind === "equipment choice") {
     return "Choose starting equipment";
@@ -1509,6 +1610,7 @@ function createChoiceField(
     | "dependsOnFieldId"
     | "dependsOnValues"
     | "choiceKey"
+    | "choiceKind"
     | "choiceLabel"
     | "choicePath"
     | "classIndex"

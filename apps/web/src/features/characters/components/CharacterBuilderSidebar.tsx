@@ -33,7 +33,9 @@ type CharacterBuilderSidebarProps = {
   onOpenPanel: (kind: BuilderSelectionKind) => void;
   onRollAbility: (slotId: string) => void;
   onRollAllAbilities: () => void;
+  onSubclassChange: (subclassIndex: string | null) => void;
   selectedChoices: FeatureChoiceSelections;
+  selectedSubclassIndex: string | null;
   species: SpeciesOption;
   hitPointSettings: HitPointSettings | null;
 };
@@ -52,7 +54,9 @@ function CharacterBuilderSidebar({
   onOpenPanel,
   onRollAbility,
   onRollAllAbilities,
+  onSubclassChange,
   selectedChoices,
+  selectedSubclassIndex: persistedSubclassIndex,
   species,
 }: CharacterBuilderSidebarProps) {
   const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
@@ -104,8 +108,8 @@ function CharacterBuilderSidebar({
   );
 
   const selectedSubclassIndex = useMemo(
-    () => getSelectedSubclassIndex(classOption, selectedChoices),
-    [classOption, selectedChoices],
+    () => getSelectedSubclassIndex(classOption, selectedChoices, persistedSubclassIndex),
+    [classOption, persistedSubclassIndex, selectedChoices],
   );
 
   const visibleFeatures = useMemo(
@@ -148,8 +152,13 @@ function CharacterBuilderSidebar({
     value: string,
     choiceFields: ClassFeature["choiceFields"] = [],
   ) {
+    const field = choiceFields.find((choiceField) => choiceField.id === fieldId);
+
+    if (field?.choiceKind === "subclass") {
+      onSubclassChange(value || null);
+    }
+
     onFeatureChoicesChange((currentChoices) => {
-      const field = choiceFields.find((choiceField) => choiceField.id === fieldId);
       const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
         featureId,
         choiceFields,
@@ -869,15 +878,24 @@ function isChoiceOptionSelectedElsewhere(
 function getSelectedSubclassIndex(
   classOption: ClassOption,
   selectedChoices: FeatureChoiceSelections,
+  persistedSubclassIndex: string | null,
 ) {
   const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
 
+  if (persistedSubclassIndex && subclassIndexes.has(persistedSubclassIndex)) {
+    return persistedSubclassIndex;
+  }
+
   for (const feature of classOption.features) {
-    if (!feature.id.includes("subclass") || !feature.choiceFields?.length) {
+    if (!feature.choiceFields?.length) {
       continue;
     }
 
     for (const field of feature.choiceFields) {
+      if (field.choiceKind !== "subclass" && !feature.id.includes("subclass")) {
+        continue;
+      }
+
       const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
 
       if (selectedValue && subclassIndexes.has(selectedValue)) {

@@ -83,34 +83,33 @@ function createBuilderStateFromOptions(
   },
 ): CharacterBuilderState {
   const initialClass =
+    options.classOptions.find((classOption) => classOption.index === character.classIndex) ??
     options.classOptions.find((classOption) => classOption.name === character.class.name) ??
     options.classOptions[0];
+  const initialSpeciesIndex =
+    options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
+    options.speciesOptions[0].index;
+  const initialBackgroundIndex =
+    options.backgroundOptions.find(
+      (background) => background.name === character.background.name,
+    )?.index ?? options.backgroundOptions[0].index;
   const hitPointSettings = getSavedHitPointSettings(character, initialClass.hitDie);
 
   return {
-    speciesIndex:
-      options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
-      options.speciesOptions[0].index,
-    backgroundIndex:
-      options.backgroundOptions.find(
-        (background) => background.name === character.background.name,
-      )?.index ?? options.backgroundOptions[0].index,
-    classIndex:
-      options.classOptions.find((classOption) => classOption.name === character.class.name)?.index ??
-      options.classOptions[0].index,
+    speciesIndex: initialSpeciesIndex,
+    backgroundIndex: initialBackgroundIndex,
+    classIndex: initialClass.index,
+    subclassIndex: getSavedSubclassIndex(character, initialClass),
     level: character.level,
     currentHp: character.currentHp,
     tempHp: character.hitPointState?.tempHp ?? 0,
     speciesChoices: getSavedSpeciesChoices(character, {
       speciesIndex:
-        options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
-        options.speciesOptions[0].index,
+        initialSpeciesIndex,
       speciesOptions: options.speciesOptions,
     }),
     backgroundChoices: getSavedBackgroundAbilityChoices(character, {
-      backgroundIndex:
-        options.backgroundOptions.find((background) => background.name === character.background.name)
-          ?.index ?? options.backgroundOptions[0].index,
+      backgroundIndex: initialBackgroundIndex,
       backgroundOptions: options.backgroundOptions,
     }),
     hitPointSettings,
@@ -126,6 +125,37 @@ function createBuilderStateFromOptions(
         dice: [],
       })),
   };
+}
+
+function getSavedSubclassIndex(character: Character, classOption: ClassOption) {
+  const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  if (character.subclassIndex && subclassIndexes.has(character.subclassIndex)) {
+    return character.subclassIndex;
+  }
+
+  for (const choice of character.featureChoices ?? []) {
+    if (typeof choice.level === "number" && choice.level > character.level) {
+      continue;
+    }
+
+    const fieldMatch = findGenericFeatureChoiceField(classOption, choice);
+
+    if (!fieldMatch || fieldMatch.field.choiceKind !== "subclass") {
+      continue;
+    }
+
+    const option = fieldMatch.field.options.find((candidate) =>
+      savedFeatureChoiceOptionMatches(candidate, choice),
+    );
+    const selectedSubclassIndex = option?.selectedOptionIndex ?? option?.value;
+
+    if (selectedSubclassIndex && subclassIndexes.has(selectedSubclassIndex)) {
+      return selectedSubclassIndex;
+    }
+  }
+
+  return null;
 }
 
 function getSavedBackgroundAbilityChoices(
@@ -774,6 +804,38 @@ function getGenericFeatureChoiceFieldByKey(
   return field?.sourceType && field.sourceIndex && field.choicePath ? field : null;
 }
 
+function shouldClearSubclassForLevel(
+  classOption: ClassOption,
+  subclassIndex: string | null,
+  level: number,
+) {
+  if (!subclassIndex) {
+    return false;
+  }
+
+  const subclassChoiceLevel = getSubclassChoiceLevel(classOption, subclassIndex);
+
+  return subclassChoiceLevel !== null && level < subclassChoiceLevel;
+}
+
+function getSubclassChoiceLevel(classOption: ClassOption, subclassIndex: string) {
+  for (const feature of classOption.features) {
+    for (const field of feature.choiceFields ?? []) {
+      if (
+        field.choiceKind === "subclass" &&
+        field.options.some(
+          (option) =>
+            option.value === subclassIndex || option.selectedOptionIndex === subclassIndex,
+        )
+      ) {
+        return feature.level;
+      }
+    }
+  }
+
+  return null;
+}
+
 function stableJsonString(value: unknown) {
   if (value === undefined) {
     return "";
@@ -1087,11 +1149,20 @@ function useCharacterBuilder(character: Character | undefined) {
       return;
     }
 
+    const normalizedLevel = clampLevel(nextLevel);
+
     setBuilderState((currentState) =>
       currentState
         ? {
             ...currentState,
-            level: clampLevel(nextLevel),
+            level: normalizedLevel,
+            subclassIndex: shouldClearSubclassForLevel(
+              selectedClass,
+              currentState.subclassIndex,
+              normalizedLevel,
+            )
+              ? null
+              : currentState.subclassIndex,
           }
         : currentState,
     );
@@ -1148,6 +1219,13 @@ function useCharacterBuilder(character: Character | undefined) {
             return {
               ...currentState,
               level: normalizedLevel,
+              subclassIndex: shouldClearSubclassForLevel(
+                selectedClass,
+                currentState.subclassIndex,
+                normalizedLevel,
+              )
+                ? null
+                : currentState.subclassIndex,
               currentHp: Math.min(currentState.currentHp, nextHitPointPreview.maxHp),
               hitPointSettings: normalizedSettings,
             };
@@ -1301,6 +1379,7 @@ function useCharacterBuilder(character: Character | undefined) {
       ...(activePanel === "species" ? { speciesIndex: pendingSelection } : {}),
       ...(activePanel === "background" ? { backgroundIndex: pendingSelection } : {}),
       ...(activePanel === "class" ? { classIndex: pendingSelection } : {}),
+      ...(activePanel === "class" ? { subclassIndex: null } : {}),
       ...(activePanel === "species" ? { speciesChoices: nextSpeciesChoices } : {}),
       ...(activePanel === "background" ? { backgroundChoices: nextBackgroundChoices } : {}),
     });
@@ -1314,6 +1393,17 @@ function useCharacterBuilder(character: Character | undefined) {
 
   function setSelection(nextSelection: string) {
     setPendingSelection(nextSelection);
+  }
+
+  function setSubclassIndex(nextSubclassIndex: string | null) {
+    setBuilderState((currentState) =>
+      currentState
+        ? {
+            ...currentState,
+            subclassIndex: nextSubclassIndex,
+          }
+        : currentState,
+    );
   }
 
   const selectedPanelOption = useMemo(() => {
@@ -1359,6 +1449,7 @@ function useCharacterBuilder(character: Character | undefined) {
     backgroundChoices: builderState?.backgroundChoices ?? {},
     persistedSkillIndexes,
     setSelection,
+    setSubclassIndex,
     setFeatureChoices,
     speciesOptions: referenceOptions.speciesOptions,
     backgroundOptions: referenceOptions.backgroundOptions,

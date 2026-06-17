@@ -28,6 +28,7 @@ model Character {
 
   speciesIndex    String
   classIndex      String
+  subclassIndex   String?
   backgroundIndex String
 
   name             String

@@ -23,6 +23,7 @@ type CharacterMutationRequestBody = {
   name?: unknown;
   speciesIndex?: unknown;
   classIndex?: unknown;
+  subclassIndex?: unknown;
   backgroundIndex?: unknown;
   alignment?: unknown;
   level?: unknown;
@@ -110,6 +111,7 @@ type ValidCharacterMutationRequestBody = {
   name: string;
   speciesIndex: string;
   classIndex: string;
+  subclassIndex?: string | null;
   backgroundIndex: string;
   alignment?: string | null;
   level?: number;
@@ -330,6 +332,7 @@ function isCharacterMutationRequestBody(
     candidate.speciesIndex.trim().length > 0 &&
     typeof candidate.classIndex === "string" &&
     candidate.classIndex.trim().length > 0 &&
+    isOptionalString(candidate.subclassIndex) &&
     typeof candidate.backgroundIndex === "string" &&
     candidate.backgroundIndex.trim().length > 0 &&
     (candidate.alignment === undefined ||
@@ -647,6 +650,8 @@ async function createCharacter(req: Request, res: Response) {
       name: body.name.trim(),
       speciesIndex: body.speciesIndex.trim(),
       classIndex: body.classIndex.trim(),
+      subclassIndex:
+        "subclassIndex" in body ? normalizeOptionalString(body.subclassIndex) : undefined,
       backgroundIndex: body.backgroundIndex.trim(),
       alignment: body.alignment?.trim() || null,
       level: body.level,
@@ -710,6 +715,8 @@ async function updateCharacter(req: Request, res: Response) {
         name: body.name.trim(),
         speciesIndex: body.speciesIndex.trim(),
         classIndex: body.classIndex.trim(),
+        subclassIndex:
+          "subclassIndex" in body ? normalizeOptionalString(body.subclassIndex) : undefined,
         backgroundIndex: body.backgroundIndex.trim(),
         alignment: body.alignment?.trim() || null,
         level: body.level,

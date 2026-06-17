@@ -7,6 +7,18 @@ type ReferenceIndexRecord = {
 
 type ClassSourceJson = {
   saving_throws?: ReferenceIndexRecord[];
+  subclasses?: ReferenceIndexRecord[];
+};
+
+type FeatureSourceJson = {
+  class?: {
+    index?: unknown;
+  };
+  feature_specific?: unknown;
+  level?: unknown;
+  subclass?: {
+    index?: unknown;
+  };
 };
 
 type SpeciesSourceJson = {
@@ -72,6 +84,7 @@ type CharacterMutationData = {
   name: string;
   speciesIndex: string;
   classIndex: string;
+  subclassIndex?: string | null;
   backgroundIndex: string;
   alignment: string | null;
   level?: number;
@@ -564,6 +577,362 @@ function toNullableFeatureChoiceJson(
   return (value ?? null) as never;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function stableJsonString(value: unknown) {
+  if (value === undefined) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
+}
+
+async function findAllowedSubclassIndexes(
+  tx: Prisma.TransactionClient,
+  classIndex: string,
+  classSourceJson: unknown,
+) {
+  const classJson = isRecord(classSourceJson) ? classSourceJson as ClassSourceJson : {};
+  const sourceSubclassIndexes = (classJson.subclasses ?? [])
+    .map((subclass) => stringValue(subclass.index))
+    .filter((subclassIndex): subclassIndex is string => Boolean(subclassIndex));
+  const subclassDocuments = await tx.refRuleDocument.findMany({
+    where: {
+      category: "subclasses",
+    },
+    select: {
+      index: true,
+      sourceJson: true,
+    },
+  });
+  const documentSubclassIndexes = subclassDocuments
+    .filter((document) => {
+      const sourceJson = isRecord(document.sourceJson) ? document.sourceJson : {};
+      const sourceClass = isRecord(sourceJson.class) ? sourceJson.class : {};
+
+      return stringValue(sourceClass.index) === classIndex;
+    })
+    .map((document) => document.index);
+
+  return new Set([...sourceSubclassIndexes, ...documentSubclassIndexes]);
+}
+
+async function normalizeSubclassIndex(
+  tx: Prisma.TransactionClient,
+  classIndex: string,
+  classSourceJson: unknown,
+  subclassIndex: string | null | undefined,
+) {
+  if (!subclassIndex) {
+    return null;
+  }
+
+  const allowedSubclassIndexes = await findAllowedSubclassIndexes(
+    tx,
+    classIndex,
+    classSourceJson,
+  );
+
+  if (!allowedSubclassIndexes.has(subclassIndex)) {
+    throw new CharacterReferenceNotFoundError("Subclass not found for class");
+  }
+
+  return subclassIndex;
+}
+
+async function validateFeatureChoiceSelections(
+  tx: Prisma.TransactionClient,
+  data: Pick<
+    CharacterMutationData,
+    "backgroundIndex" | "classIndex" | "featureChoices" | "speciesIndex"
+  >,
+  options: {
+    backgroundSourceJson: unknown;
+    characterLevel: number;
+    classSourceJson: unknown;
+    subclassIndex: string | null;
+    speciesSourceJson: unknown;
+  },
+) {
+  for (const choice of data.featureChoices ?? []) {
+    if (typeof choice.level === "number" && choice.level > options.characterLevel) {
+      throw new CharacterReferenceNotFoundError("Class feature choice is not available at this level");
+    }
+
+    const sourceType = choice.sourceType.toUpperCase();
+
+    if (sourceType === "CLASS") {
+      validateChoiceSourceScope(choice.sourceIndex, data.classIndex, "Class feature choice not found");
+      validateChoicePathSelection(options.classSourceJson, choice, "Class feature choice not found");
+      continue;
+    }
+
+    if (sourceType === "FEATURE") {
+      await validateClassFeatureChoiceSelection(tx, choice, {
+        characterLevel: options.characterLevel,
+        classIndex: data.classIndex,
+        subclassIndex: options.subclassIndex,
+      });
+      continue;
+    }
+
+    if (sourceType === "BACKGROUND") {
+      validateChoiceSourceScope(
+        choice.sourceIndex,
+        data.backgroundIndex,
+        "Background feature choice not found",
+      );
+      validateChoicePathSelection(
+        options.backgroundSourceJson,
+        choice,
+        "Background feature choice not found",
+      );
+      continue;
+    }
+
+    if (sourceType === "SPECIES") {
+      validateChoiceSourceScope(choice.sourceIndex, data.speciesIndex, "Species feature choice not found");
+      validateChoicePathSelection(options.speciesSourceJson, choice, "Species feature choice not found");
+      continue;
+    }
+
+    throw new CharacterReferenceNotFoundError("Feature choice source not found");
+  }
+}
+
+function validateChoiceSourceScope(
+  sourceIndex: string,
+  expectedSourceIndex: string,
+  message: string,
+) {
+  if (sourceIndex !== expectedSourceIndex) {
+    throw new CharacterReferenceNotFoundError(message);
+  }
+}
+
+async function validateClassFeatureChoiceSelection(
+  tx: Prisma.TransactionClient,
+  choice: CharacterFeatureChoiceSelectionInput,
+  context: {
+    characterLevel: number;
+    classIndex: string;
+    subclassIndex: string | null;
+  },
+) {
+  if (choice.classIndex && choice.classIndex !== context.classIndex) {
+    throw new CharacterReferenceNotFoundError("Class feature choice not found");
+  }
+
+  if (choice.subclassIndex) {
+    if (!context.subclassIndex || choice.subclassIndex !== context.subclassIndex) {
+      throw new CharacterReferenceNotFoundError("Subclass feature choice not found");
+    }
+  }
+
+  const featureDocument = await tx.refRuleDocument.findFirst({
+    where: {
+      category: "features",
+      index: choice.sourceIndex,
+    },
+    select: {
+      sourceJson: true,
+    },
+  });
+
+  if (!featureDocument) {
+    throw new CharacterReferenceNotFoundError("Class feature choice not found");
+  }
+
+  const featureSourceJson = isRecord(featureDocument.sourceJson)
+    ? featureDocument.sourceJson as FeatureSourceJson
+    : {};
+  const featureClass = isRecord(featureSourceJson.class) ? featureSourceJson.class : {};
+  const featureClassIndex = stringValue(featureClass.index) ?? choice.classIndex;
+
+  if (featureClassIndex !== context.classIndex) {
+    throw new CharacterReferenceNotFoundError("Class feature choice not found");
+  }
+
+  const featureSubclass = isRecord(featureSourceJson.subclass) ? featureSourceJson.subclass : {};
+  const featureSubclassIndex = stringValue(featureSubclass.index);
+
+  if (featureSubclassIndex && featureSubclassIndex !== context.subclassIndex) {
+    throw new CharacterReferenceNotFoundError("Subclass feature choice not found");
+  }
+
+  const featureLevel = numberValue(featureSourceJson.level);
+
+  if (featureLevel !== null && featureLevel > context.characterLevel) {
+    throw new CharacterReferenceNotFoundError("Class feature choice is not available at this level");
+  }
+
+  validateChoicePathSelection(
+    featureDocument.sourceJson,
+    choice,
+    "Class feature choice not found",
+  );
+}
+
+function validateChoicePathSelection(
+  sourceJson: unknown,
+  choice: CharacterFeatureChoiceSelectionInput,
+  message: string,
+) {
+  const choiceNode = getValueAtChoicePath(sourceJson, stripChoiceSlot(choice.choicePath));
+
+  if (!isRecord(choiceNode)) {
+    throw new CharacterReferenceNotFoundError(message);
+  }
+
+  const options = getRawChoiceOptions(choiceNode);
+
+  if (!options.some((option) => rawChoiceOptionMatchesSelection(option, choice))) {
+    throw new CharacterReferenceNotFoundError(message);
+  }
+}
+
+function stripChoiceSlot(choicePath: string) {
+  return choicePath.replace(/\.slot\d+$/, "");
+}
+
+function getValueAtChoicePath(sourceJson: unknown, choicePath: string) {
+  const pathSegments = parseChoicePath(choicePath);
+  let currentValue = sourceJson;
+
+  for (const segment of pathSegments) {
+    if (typeof segment === "number") {
+      if (!Array.isArray(currentValue)) {
+        return null;
+      }
+
+      currentValue = currentValue[segment];
+      continue;
+    }
+
+    if (!isRecord(currentValue)) {
+      return null;
+    }
+
+    currentValue = currentValue[segment];
+  }
+
+  return currentValue;
+}
+
+function parseChoicePath(choicePath: string): Array<string | number> {
+  return choicePath.split(".").flatMap((part) => {
+    const segments: Array<string | number> = [];
+    const propertyName = part.match(/^[^\[]+/)?.[0];
+
+    if (propertyName) {
+      segments.push(propertyName);
+    }
+
+    for (const match of part.matchAll(/\[(\d+)\]/g)) {
+      segments.push(Number(match[1]));
+    }
+
+    return segments;
+  });
+}
+
+function getRawChoiceOptions(choiceNode: Record<string, unknown>) {
+  const from = isRecord(choiceNode.from) ? choiceNode.from : {};
+
+  return Array.isArray(from.options) ? from.options : [];
+}
+
+function rawChoiceOptionMatchesSelection(
+  option: unknown,
+  choice: CharacterFeatureChoiceSelectionInput,
+): boolean {
+  if (stableJsonString(option) === stableJsonString(choice.selectedRawJson)) {
+    return true;
+  }
+
+  const references = collectChoiceOptionReferences(option);
+
+  return Boolean(
+    (choice.selectedOptionIndex && references.indexes.has(choice.selectedOptionIndex)) ||
+      (choice.selectedOptionUrl && references.urls.has(choice.selectedOptionUrl)) ||
+      (choice.selectedOptionName && references.names.has(choice.selectedOptionName)),
+  );
+}
+
+function collectChoiceOptionReferences(option: unknown): {
+  indexes: Set<string>;
+  names: Set<string>;
+  urls: Set<string>;
+} {
+  const references = {
+    indexes: new Set<string>(),
+    names: new Set<string>(),
+    urls: new Set<string>(),
+  };
+
+  collectChoiceOptionReferencesInto(option, references);
+
+  return references;
+}
+
+function collectChoiceOptionReferencesInto(
+  option: unknown,
+  references: {
+    indexes: Set<string>;
+    names: Set<string>;
+    urls: Set<string>;
+  },
+) {
+  if (!isRecord(option)) {
+    return;
+  }
+
+  for (const referenceKey of ["item", "of"] as const) {
+    const reference = isRecord(option[referenceKey]) ? option[referenceKey] : null;
+    const index = stringValue(reference?.index);
+    const name = stringValue(reference?.name);
+    const url = stringValue(reference?.url);
+
+    if (index) {
+      references.indexes.add(index);
+    }
+
+    if (name) {
+      references.names.add(name);
+    }
+
+    if (url) {
+      references.urls.add(url);
+    }
+  }
+
+  if (isRecord(option.choice)) {
+    const description = stringValue(option.choice.desc);
+
+    if (description) {
+      references.names.add(description);
+    }
+  }
+
+  if (Array.isArray(option.items)) {
+    option.items.forEach((item) => collectChoiceOptionReferencesInto(item, references));
+  }
+}
+
 async function upsertSubmittedFeatureChoiceSelections(
   tx: Prisma.TransactionClient,
   characterId: string,
@@ -615,7 +984,13 @@ async function upsertSubmittedFeatureChoiceSelections(
 async function deleteStaleFeatureChoiceSelections(
   tx: Prisma.TransactionClient,
   characterId: string,
-  data: Pick<CharacterMutationData, "backgroundIndex" | "classIndex" | "speciesIndex">,
+  data: Pick<
+    CharacterMutationData,
+    "backgroundIndex" | "classIndex" | "speciesIndex"
+  > & {
+    level: number;
+    subclassIndex: string | null;
+  },
 ) {
   await tx.characterFeatureChoiceSelection.deleteMany({
     where: {
@@ -652,6 +1027,31 @@ async function deleteStaleFeatureChoiceSelections(
             not: data.speciesIndex,
           },
         },
+        {
+          level: {
+            gt: data.level,
+          },
+        },
+        data.subclassIndex
+          ? {
+              AND: [
+                {
+                  subclassIndex: {
+                    not: null,
+                  },
+                },
+                {
+                  subclassIndex: {
+                    not: data.subclassIndex,
+                  },
+                },
+              ],
+            }
+          : {
+              subclassIndex: {
+                not: null,
+              },
+            },
       ],
     },
   });
@@ -1247,6 +1647,12 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
     ]);
     const level = data.level ?? 1;
+    const subclassIndex = await normalizeSubclassIndex(
+      tx,
+      characterClass.index,
+      characterClass.sourceJson,
+      data.subclassIndex,
+    );
     const hitPointState = normalizeHitPointStateInput({
       constitutionScore,
       data: data.hitPointState,
@@ -1264,6 +1670,7 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         name: data.name,
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
+        subclassIndex,
         backgroundIndex: data.backgroundIndex,
         level,
         experiencePoints: 0,
@@ -1341,7 +1748,18 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       character.id,
       backgroundAbilityChoices,
     );
-    await deleteStaleFeatureChoiceSelections(tx, character.id, data);
+    await validateFeatureChoiceSelections(tx, data, {
+      backgroundSourceJson: background.sourceJson,
+      characterLevel: level,
+      classSourceJson: characterClass.sourceJson,
+      subclassIndex,
+      speciesSourceJson: species.sourceJson,
+    });
+    await deleteStaleFeatureChoiceSelections(tx, character.id, {
+      ...data,
+      level,
+      subclassIndex,
+    });
     await upsertSubmittedFeatureChoiceSelections(
       tx,
       character.id,
@@ -1514,6 +1932,16 @@ async function updateCharacterForUser(
       ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
     ]);
     const level = data.level ?? existingCharacter.level;
+    const requestedSubclassIndex =
+      data.subclassIndex === undefined && existingCharacter.classIndex === data.classIndex
+        ? existingCharacter.subclassIndex
+        : data.subclassIndex ?? null;
+    const subclassIndex = await normalizeSubclassIndex(
+      tx,
+      characterClass.index,
+      characterClass.sourceJson,
+      requestedSubclassIndex,
+    );
     const hitPointState = normalizeHitPointStateInput({
       constitutionScore,
       data: data.hitPointState,
@@ -1535,6 +1963,7 @@ async function updateCharacterForUser(
         name: data.name,
         speciesIndex: data.speciesIndex,
         classIndex: data.classIndex,
+        subclassIndex,
         backgroundIndex: data.backgroundIndex,
         level,
         alignment: data.alignment,
@@ -1650,7 +2079,18 @@ async function updateCharacterForUser(
       characterId,
       backgroundAbilityChoices,
     );
-    await deleteStaleFeatureChoiceSelections(tx, characterId, data);
+    await validateFeatureChoiceSelections(tx, data, {
+      backgroundSourceJson: background.sourceJson,
+      characterLevel: level,
+      classSourceJson: characterClass.sourceJson,
+      subclassIndex,
+      speciesSourceJson: species.sourceJson,
+    });
+    await deleteStaleFeatureChoiceSelections(tx, characterId, {
+      ...data,
+      level,
+      subclassIndex,
+    });
     await upsertSubmittedFeatureChoiceSelections(
       tx,
       characterId,
