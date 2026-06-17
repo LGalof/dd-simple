@@ -1203,6 +1203,7 @@ function collectChoiceGroups(
     optionKind: string;
   }>,
   choicePath?: string,
+  inheritedChoiceKind?: FeatureChoiceKind,
 ) {
   if (Array.isArray(value)) {
     value.forEach((entry, index) =>
@@ -1212,6 +1213,7 @@ function collectChoiceGroups(
         fallbackLabel,
         groups,
         appendChoicePath(choicePath, `[${index}]`),
+        inheritedChoiceKind,
       ),
     );
     return;
@@ -1221,12 +1223,22 @@ function collectChoiceGroups(
     return;
   }
 
+  const recordChoiceKind = inferFeatureChoiceKind({
+    fieldLabel: stringValue(value.field_label),
+    fallbackLabel,
+    groupLabel: stringValue(value.label),
+    optionKind: "",
+    optionLabels: [],
+    typeLabel: stringValue(value.type),
+  });
+  const nextInheritedChoiceKind =
+    recordChoiceKind === "option" ? inheritedChoiceKind : recordChoiceKind;
   const choose = numberValue(value.choose);
   const options = getChoiceOptions(value);
 
   if (choose && options.length > 0) {
     const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
-    const choiceKind = inferFeatureChoiceKind({
+    const inferredChoiceKind = inferFeatureChoiceKind({
       fieldLabel: stringValue(value.field_label),
       fallbackLabel,
       groupLabel: stringValue(value.label),
@@ -1234,6 +1246,10 @@ function collectChoiceGroups(
       optionLabels: options.map((option) => option.rawLabel),
       typeLabel: stringValue(value.type),
     });
+    const choiceKind =
+      inferredChoiceKind === "option"
+        ? nextInheritedChoiceKind ?? "option"
+        : inferredChoiceKind;
     const visibleWhen = isRecord(value.visible_when) ? value.visible_when : null;
     const dependsOnFieldId = stringValue(visibleWhen?.field) ?? undefined;
     const dependsOnValues = Array.isArray(visibleWhen?.values)
@@ -1272,6 +1288,7 @@ function collectChoiceGroups(
       toTitle(key),
       groups,
       appendChoicePath(choicePath, key),
+      nextInheritedChoiceKind,
     );
   });
 }

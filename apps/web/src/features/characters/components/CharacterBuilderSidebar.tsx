@@ -535,6 +535,31 @@ function CharacterBuilderSidebar({
                           })}
                         </div>
                       ) : null}
+
+                      {getFeatureChoiceSummaries(
+                        feature.id,
+                        feature.choiceFields,
+                        selectedChoices,
+                      ).length > 0 ? (
+                        <div className="builder-feature-choice-list">
+                          {getFeatureChoiceSummaries(
+                            feature.id,
+                            feature.choiceFields,
+                            selectedChoices,
+                          ).map((summary) => (
+                            <p
+                              key={summary.id}
+                              className={
+                                summary.status === "missing"
+                                  ? "builder-feature-detail muted"
+                                  : "builder-feature-detail"
+                              }
+                            >
+                              <strong>{summary.label}:</strong> {summary.value}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </article>
@@ -840,6 +865,40 @@ function pruneHiddenFeatureChoices(
   }
 
   return nextChoices;
+}
+
+function getFeatureChoiceSummaries(
+  featureId: string,
+  choiceFields: ClassFeature["choiceFields"],
+  selectedChoices: Record<string, string>,
+) {
+  return getVisibleChoiceFieldsForSelection(featureId, choiceFields, selectedChoices)
+    .filter((field) => isSummaryChoiceField(field))
+    .map((field) => {
+      const selectedValue = selectedChoices[`${featureId}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      return {
+        id: `${featureId}:${field.id}`,
+        label: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        status: selectedOption ? "selected" as const : "missing" as const,
+        value: selectedOption?.label ?? "Required choice missing",
+      };
+    });
+}
+
+function isSummaryChoiceField(field: NonNullable<ClassFeature["choiceFields"]>[number]) {
+  return (
+    field.choiceKind === "subclass" ||
+    field.choiceKind === "asi-feat" ||
+    field.choiceKind === "epic-boon" ||
+    field.choiceKind === "expertise" ||
+    field.choiceKind === "fighting-style" ||
+    field.choiceKind === "metamagic" ||
+    field.choiceKind === "pact-boon" ||
+    field.choiceKind === "eldritch-invocation" ||
+    field.choiceKind === "weapon-mastery"
+  );
 }
 
 function getChoiceGroupFields(

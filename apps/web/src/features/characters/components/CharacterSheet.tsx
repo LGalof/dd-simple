@@ -44,10 +44,12 @@ type CharacterSheetProps = {
   normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onOpenConditions: () => void;
+  progressionChoiceSummaries: ProgressionChoiceSummary[];
   selectedHeritage?: SpeciesHeritageOption | null;
   selectedBackground: BackgroundOption;
   selectedClass: ClassOption;
   selectedSpecies: SpeciesOption;
+  selectedSubclassName?: string | null;
   speciesChoices: Record<string, string>;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
@@ -101,6 +103,14 @@ type FeatureChoiceEffectSummary = {
   skillProficiencyIndexes: Set<string>;
   toolNames: string[];
   weaponNames: string[];
+};
+
+type ProgressionChoiceSummary = {
+  id: string;
+  label: string;
+  level: number;
+  status: "missing" | "selected";
+  value: string;
 };
 
 type ProficiencySourceJson = {
@@ -185,10 +195,12 @@ function CharacterSheet({
   normalizedActionsLoading,
   onActiveTabChange,
   onOpenConditions,
+  progressionChoiceSummaries,
   selectedHeritage,
   selectedBackground,
   selectedClass,
   selectedSpecies,
+  selectedSubclassName,
   speciesChoices,
   tempHp,
   onApplyCurrentHpAdjustment,
@@ -290,7 +302,7 @@ function CharacterSheet({
     [abilityScoreMap, character.skills, featureChoiceEffects, proficiencyBonus],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
-  const saveProficiencies = getSavingThrowProficiencies(character.class.name);
+  const saveProficiencies = getSavingThrowProficiencyIndexes(character);
   const savingThrows = sortedAbilityScores.map((abilityScore) => {
     const modifier = abilityModifier(abilityScore.score);
     const hasSaveProficiency = saveProficiencies.includes(abilityScore.abilityIndex as AbilityIndex);
@@ -561,6 +573,18 @@ function CharacterSheet({
           <div className="character-dashboard-summary-chip character-dashboard-summary-chip-name">
             <span>Character Name</span>
             <strong>{character.name}</strong>
+          </div>
+          <div className="character-dashboard-summary-chip">
+            <span>Class</span>
+            <strong>
+              {selectedSubclassName
+                ? `${character.class.name} - ${selectedSubclassName}`
+                : character.class.name}
+            </strong>
+          </div>
+          <div className="character-dashboard-summary-chip">
+            <span>Level</span>
+            <strong>{character.level}</strong>
           </div>
         </div>
 
@@ -1037,6 +1061,24 @@ function CharacterSheet({
                       </Card>
                     )}
 
+                    {progressionChoiceSummaries.length > 0 ? (
+                      <Card title="Progression Choices">
+                        <div className="list">
+                          {progressionChoiceSummaries.map((choice) => (
+                            <div key={choice.id} className="character-feature-entry">
+                              <strong>
+                                {choice.label} - Level {choice.level}
+                              </strong>
+                              <p>{choice.value}</p>
+                              {choice.status === "missing" ? (
+                                <p className="muted">Required choice missing.</p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    ) : null}
+
                     <Card title="Active Traits">
                       <div className="list">
                         {passiveDerivedSources.length > 0 ? (
@@ -1055,6 +1097,29 @@ function CharacterSheet({
                             No passive feature descriptions are available for the current build.
                           </p>
                         )}
+                      </div>
+                    </Card>
+
+                    <Card title="Origin">
+                      <div className="list">
+                        <div className="list-row">
+                          <span>Species</span>
+                          <strong>{character.species.name}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Class</span>
+                          <strong>{character.class.name}</strong>
+                        </div>
+                        {selectedSubclassName ? (
+                          <div className="list-row">
+                            <span>Subclass</span>
+                            <strong>{selectedSubclassName}</strong>
+                          </div>
+                        ) : null}
+                        <div className="list-row">
+                          <span>Background</span>
+                          <strong>{character.background.name}</strong>
+                        </div>
                       </div>
                     </Card>
 
@@ -1575,23 +1640,68 @@ function getCreatureSize(speciesName: string) {
   }
 }
 
-function getSavingThrowProficiencies(className: string): AbilityIndex[] {
-  switch (className.toLowerCase()) {
-    case "fighter":
-      return ["str", "con"];
-    case "rogue":
-      return ["dex", "int"];
-    case "wizard":
-      return ["int", "wis"];
-    case "cleric":
-      return ["wis", "cha"];
-    case "ranger":
-      return ["str", "dex"];
-    case "bard":
-      return ["dex", "cha"];
-    default:
-      return ["str", "dex"];
+function getSavingThrowProficiencyIndexes(character: Character): AbilityIndex[] {
+  const persistedSaveIndexes = (character.proficiencies ?? [])
+    .map((proficiency) =>
+      savingThrowAbilityIndexFromReference(
+        proficiency.proficiency.index,
+        proficiency.proficiency.name,
+      ),
+    )
+    .filter(isPresent);
+
+  if (persistedSaveIndexes.length > 0) {
+    return [...new Set(persistedSaveIndexes)];
   }
+
+  const trainingCharacter = character as TrainingReferenceCharacter;
+  const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
+  const sourceSaveIndexes = (classSourceJson.proficiencies ?? [])
+    .map((proficiency) =>
+      savingThrowAbilityIndexFromReference(
+        stringValue(proficiency.index),
+        stringValue(proficiency.name),
+      ),
+    )
+    .filter(isPresent);
+
+  return [...new Set(sourceSaveIndexes)];
+}
+
+function savingThrowAbilityIndexFromReference(
+  index: string | null | undefined,
+  name: string | null | undefined,
+): AbilityIndex | null {
+  const normalizedIndex = index?.toLowerCase() ?? "";
+  const normalizedName = name?.toLowerCase() ?? "";
+  const value = normalizedIndex.replace(/^saving-throw-/, "") ||
+    normalizedName.replace(/^saving throw:\s*/, "").slice(0, 3);
+
+  if (value.startsWith("str")) {
+    return "str";
+  }
+
+  if (value.startsWith("dex")) {
+    return "dex";
+  }
+
+  if (value.startsWith("con")) {
+    return "con";
+  }
+
+  if (value.startsWith("int")) {
+    return "int";
+  }
+
+  if (value.startsWith("wis")) {
+    return "wis";
+  }
+
+  if (value.startsWith("cha")) {
+    return "cha";
+  }
+
+  return null;
 }
 
 function getSkillTotal(skills: SkillWithTotal[], name: string) {
@@ -2552,3 +2662,4 @@ function formatInventoryDamage(baseDamage: string, modifier: number) {
 
 export { CharacterSheet };
 export type { WorkspaceTab };
+export type { ProgressionChoiceSummary };

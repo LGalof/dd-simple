@@ -10,7 +10,10 @@ import {
 import { CharacterBuilderSidebar } from "../features/characters/components/CharacterBuilderSidebar";
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
-import type { WorkspaceTab } from "../features/characters/components/CharacterSheet";
+import type {
+  ProgressionChoiceSummary,
+  WorkspaceTab,
+} from "../features/characters/components/CharacterSheet";
 import { useCharacterActions } from "../features/characters/hooks/useCharacterActions";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
 import { useCharacterDerivedState } from "../features/characters/hooks/useCharacterDerivedState";
@@ -18,8 +21,10 @@ import { useCharacterDefenses } from "../features/characters/hooks/useCharacterD
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import type {
   BackgroundOption,
+  ClassFeature,
   ClassOption,
   FeatureChoiceSelections,
+  FeatureChoiceField,
   SpeciesOption,
 } from "../features/characters/types/characterBuilder";
 import {
@@ -146,6 +151,24 @@ function CharacterDashboardPage() {
   const selectedHeritage = useMemo(
     () => getSelectedSpeciesHeritage(selectedSpecies, speciesChoices),
     [selectedSpecies, speciesChoices],
+  );
+  const selectedSubclass = useMemo(
+    () =>
+      selectedClass.subclasses?.find(
+        (subclass) => subclass.index === builderState?.subclassIndex,
+      ) ?? null,
+    [builderState?.subclassIndex, selectedClass.subclasses],
+  );
+  const progressionChoiceSummaries = useMemo(
+    () =>
+      builderState
+        ? getProgressionChoiceSummaries(
+            selectedClass,
+            builderState.level,
+            featureChoices,
+          )
+        : [],
+    [builderState, featureChoices, selectedClass],
   );
   const {
     actions: normalizedActionsWithPreview,
@@ -309,7 +332,9 @@ function CharacterDashboardPage() {
               normalizedActionsError={normalizedActionsErrorWithPreview}
               normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
+              progressionChoiceSummaries={progressionChoiceSummaries}
               selectedHeritage={selectedHeritage}
+              selectedSubclassName={selectedSubclass?.name ?? null}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onOpenConditions={() => setRightRailMode("conditions")}
               onSetTempHp={setTempHp}
@@ -490,6 +515,81 @@ function buildGenericClassFeatureChoices(
   }
 
   return selections;
+}
+
+function getProgressionChoiceSummaries(
+  classOption: ClassOption,
+  characterLevel: number,
+  featureChoices: FeatureChoiceSelections,
+): ProgressionChoiceSummary[] {
+  return classOption.features
+    .filter((feature) => feature.level <= characterLevel)
+    .flatMap((feature) =>
+      getVisibleChoiceFieldsForSelection(feature.id, feature.choiceFields, featureChoices)
+        .filter((field) => isProgressionChoiceField(feature, field))
+        .map((field) => {
+          const selectedValue = featureChoices[`${feature.id}:${field.id}`];
+          const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+          return {
+            id: `${feature.id}:${field.id}`,
+            label: `${feature.title}: ${field.label}`,
+            level: field.level ?? feature.level,
+            status: selectedOption ? "selected" as const : "missing" as const,
+            value: selectedOption?.label ?? "Missing required choice",
+          };
+        }),
+    );
+}
+
+function isProgressionChoiceField(feature: ClassFeature, field: FeatureChoiceField) {
+  if (field.choiceKind === "asi-feat" || field.choiceKind === "epic-boon") {
+    return true;
+  }
+
+  const searchableText = [
+    feature.id,
+    feature.title,
+    field.choiceKey,
+    field.choiceLabel,
+    field.choiceGroupLabel,
+    field.choicePath,
+    field.label,
+    field.sourceIndex,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    searchableText.includes("ability score improvement") ||
+    searchableText.includes("epic boon") ||
+    searchableText.includes("asi-feat")
+  );
+}
+
+function getVisibleChoiceFieldsForSelection(
+  featureId: string,
+  choiceFields: ClassFeature["choiceFields"],
+  selectedChoices: FeatureChoiceSelections,
+) {
+  return (choiceFields ?? []).filter((field) =>
+    isChoiceFieldVisible(featureId, field, selectedChoices),
+  );
+}
+
+function isChoiceFieldVisible(
+  featureId: string,
+  field: NonNullable<ClassFeature["choiceFields"]>[number],
+  selectedChoices: FeatureChoiceSelections,
+) {
+  if (!field.dependsOnFieldId || !field.dependsOnValues?.length) {
+    return true;
+  }
+
+  const dependencyValue = selectedChoices[`${featureId}:${field.dependsOnFieldId}`];
+
+  return Boolean(dependencyValue && field.dependsOnValues.includes(dependencyValue));
 }
 
 function buildGenericBackgroundFeatureChoices(
