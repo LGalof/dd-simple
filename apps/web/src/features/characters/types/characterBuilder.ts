@@ -77,6 +77,28 @@ type FeatureChoiceOption = {
 
 type FeatureChoiceSelections = Record<string, string>;
 
+type ClassSpellSlotSummary = {
+  level: number;
+  slots: number;
+};
+
+type ClassSpellcastingLevelSummary = {
+  cantripsKnown?: number;
+  level: number;
+  preparedSpells?: number;
+  spellSlots: ClassSpellSlotSummary[];
+  spellsKnown?: number;
+};
+
+type ClassSpellcastingInfo = {
+  abilityIndex?: string | null;
+  abilityName?: string | null;
+  castingType: "full-caster" | "half-caster" | "pact-magic" | "unknown";
+  levels: ClassSpellcastingLevelSummary[];
+  notes: string[];
+  source: "reference" | "level-reference";
+};
+
 type FeatureChoiceKind =
   | "subclass"
   | "skill-proficiency"
@@ -175,6 +197,7 @@ type ClassOption = {
     weapons: string[];
     tools: string[];
   };
+  spellcasting?: ClassSpellcastingInfo;
   startingEquipment: string[];
   subclasses?: ClassSubclassOption[];
   features: ClassFeature[];
@@ -189,6 +212,9 @@ export type {
   ClassOverviewRow,
   ClassFeature,
   ClassOption,
+  ClassSpellSlotSummary,
+  ClassSpellcastingInfo,
+  ClassSpellcastingLevelSummary,
   ClassSubclassFeature,
   ClassSubclassOption,
   FeatureChoiceField,

@@ -12,6 +12,8 @@ import { CharacterSelectionPanel } from "../features/characters/components/Chara
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
 import type {
   ProgressionChoiceSummary,
+  ResourceActionSummary,
+  SpellcastingSummary,
   WorkspaceTab,
 } from "../features/characters/components/CharacterSheet";
 import { useCharacterActions } from "../features/characters/hooks/useCharacterActions";
@@ -23,6 +25,8 @@ import type {
   BackgroundOption,
   ClassFeature,
   ClassOption,
+  ClassSpellcastingLevelSummary,
+  ClassSubclassOption,
   FeatureChoiceSelections,
   FeatureChoiceField,
   SpeciesOption,
@@ -46,6 +50,26 @@ import {
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
+const spellcastingAbilityFallbacks: Record<string, keyof AbilityScores> = {
+  bard: "cha",
+  cleric: "wis",
+  druid: "wis",
+  paladin: "cha",
+  ranger: "wis",
+  sorcerer: "cha",
+  warlock: "cha",
+  wizard: "int",
+};
+const spellcastingTypeFallbacks: Record<string, SpellcastingSummary["castingType"]> = {
+  bard: "Full caster",
+  cleric: "Full caster",
+  druid: "Full caster",
+  paladin: "Half caster",
+  ranger: "Half caster",
+  sorcerer: "Full caster",
+  warlock: "Pact Magic",
+  wizard: "Full caster",
+};
 const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
   str: "str",
   strength: "str",
@@ -169,6 +193,20 @@ function CharacterDashboardPage() {
           )
         : [],
     [builderState, featureChoices, selectedClass],
+  );
+  const spellcastingSummary = useMemo(
+    () =>
+      previewCharacter && builderState
+        ? getSpellcastingSummary(previewCharacter, selectedClass, selectedSubclass)
+        : null,
+    [builderState, previewCharacter, selectedClass, selectedSubclass],
+  );
+  const resourceActionSummaries = useMemo(
+    () =>
+      builderState
+        ? getResourceActionSummaries(selectedClass, builderState.level)
+        : [],
+    [builderState, selectedClass],
   );
   const {
     actions: normalizedActionsWithPreview,
@@ -333,8 +371,10 @@ function CharacterDashboardPage() {
               normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
               progressionChoiceSummaries={progressionChoiceSummaries}
+              resourceActionSummaries={resourceActionSummaries}
               selectedHeritage={selectedHeritage}
               selectedSubclassName={selectedSubclass?.name ?? null}
+              spellcastingSummary={spellcastingSummary}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onOpenConditions={() => setRightRailMode("conditions")}
               onSetTempHp={setTempHp}
@@ -540,6 +580,346 @@ function getProgressionChoiceSummaries(
           };
         }),
     );
+}
+
+function getSpellcastingSummary(
+  character: Character,
+  classOption: ClassOption,
+  selectedSubclass: ClassSubclassOption | null,
+): SpellcastingSummary | null {
+  const abilityIndex = getSpellcastingAbilityIndex(classOption);
+
+  if (!abilityIndex) {
+    return null;
+  }
+
+  const abilityScore = character.abilityScores.find(
+    (score) => score.abilityIndex === abilityIndex,
+  );
+  const abilityValue = abilityScore?.score ?? 10;
+  const abilityModifier = Math.floor((abilityValue - 10) / 2);
+  const proficiencyBonus = getProficiencyBonus(character.level);
+  const levelSummary = getCurrentSpellcastingLevel(classOption, character.level);
+  const slotRows = (levelSummary?.spellSlots ?? []).map((slot) => ({
+    label: `Level ${slot.level}`,
+    value: String(slot.slots),
+  }));
+  const knownPrepared = [
+    levelSummary?.cantripsKnown !== undefined
+      ? {
+          label: "Cantrips Known",
+          value: String(levelSummary.cantripsKnown),
+        }
+      : null,
+    levelSummary?.spellsKnown !== undefined
+      ? {
+          label: "Spells Known",
+          value: String(levelSummary.spellsKnown),
+        }
+      : null,
+    levelSummary?.preparedSpells !== undefined
+      ? {
+          label: "Prepared Spells",
+          value: String(levelSummary.preparedSpells),
+        }
+      : null,
+  ].filter((entry): entry is { label: string; value: string } => Boolean(entry));
+
+  return {
+    abilityLabel: abilityScore?.ability.fullName ?? abilityIndex.toUpperCase(),
+    attackBonus: abilityModifier + proficiencyBonus,
+    castingType: getSpellcastingTypeLabel(classOption),
+    knownPrepared,
+    notes: getSpellcastingNotesForDisplay(classOption, selectedSubclass, character.level),
+    proficiencyBonus,
+    saveDc: 8 + abilityModifier + proficiencyBonus,
+    slotRows,
+    slotsAvailable: slotRows.length > 0,
+    slotsUnavailableReason:
+      "Spell slots are not available from the current reference data for this class level yet.",
+  };
+}
+
+function getSpellcastingNotesForDisplay(
+  classOption: ClassOption,
+  selectedSubclass: ClassSubclassOption | null,
+  characterLevel: number,
+) {
+  const baseNotes =
+    classOption.index === "wizard"
+      ? ["Prepare Wizard spells from your spellbook for which you have spell slots."]
+      : classOption.spellcasting?.notes ?? [];
+
+  return uniqueStrings([
+    ...baseNotes,
+    ...getSubclassSpellcastingNotes(selectedSubclass, characterLevel),
+  ]);
+}
+
+function getSubclassSpellcastingNotes(
+  selectedSubclass: ClassSubclassOption | null,
+  characterLevel: number,
+) {
+  return (selectedSubclass?.features ?? [])
+    .filter((feature) => feature.level <= characterLevel)
+    .filter((feature) => {
+      const searchableText = `${feature.name} ${feature.description}`.toLowerCase();
+
+      return searchableText.includes("spell");
+    })
+    .map((feature) => `${selectedSubclass?.name}: ${feature.name} - ${feature.description}`);
+}
+
+function getSpellcastingAbilityIndex(classOption: ClassOption): keyof AbilityScores | null {
+  const structuredAbilityIndex = canonicalAbilityScoreIndex(
+    classOption.spellcasting?.abilityIndex ?? undefined,
+  );
+
+  if (structuredAbilityIndex) {
+    return structuredAbilityIndex;
+  }
+
+  return spellcastingAbilityFallbacks[classOption.index] ?? null;
+}
+
+function getSpellcastingTypeLabel(classOption: ClassOption) {
+  if (classOption.spellcasting?.castingType === "pact-magic") {
+    return "Pact Magic";
+  }
+
+  if (classOption.spellcasting?.castingType === "half-caster") {
+    return "Half caster";
+  }
+
+  if (classOption.spellcasting?.castingType === "full-caster") {
+    return "Full caster";
+  }
+
+  return spellcastingTypeFallbacks[classOption.index] ?? "Spellcaster";
+}
+
+function getCurrentSpellcastingLevel(
+  classOption: ClassOption,
+  characterLevel: number,
+): ClassSpellcastingLevelSummary | null {
+  const levels = classOption.spellcasting?.levels ?? [];
+
+  return [...levels].reverse().find((level) => level.level <= characterLevel) ?? null;
+}
+
+function uniqueStrings(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    const trimmedValue = value.trim();
+    const normalizedValue = trimmedValue.toLowerCase();
+
+    if (!trimmedValue || seen.has(normalizedValue)) {
+      continue;
+    }
+
+    seen.add(normalizedValue);
+    result.push(trimmedValue);
+  }
+
+  return result;
+}
+
+function getResourceActionSummaries(
+  classOption: ClassOption,
+  characterLevel: number,
+): ResourceActionSummary[] {
+  const summaries = classOption.features
+    .filter((feature) => feature.level <= characterLevel)
+    .map((feature) => getResourceActionSummary(feature, characterLevel))
+    .filter((summary): summary is ResourceActionSummary => Boolean(summary));
+  const byName = new Map<string, ResourceActionSummary>();
+
+  for (const summary of summaries) {
+    const existing = byName.get(summary.name);
+
+    if (!existing || existing.level <= summary.level) {
+      byName.set(summary.name, summary);
+    }
+  }
+
+  return [...byName.values()].sort((left, right) => left.level - right.level || left.name.localeCompare(right.name));
+}
+
+function getResourceActionSummary(
+  feature: ClassFeature,
+  characterLevel: number,
+): ResourceActionSummary | null {
+  const key = `${feature.id} ${feature.title}`.toLowerCase();
+  const base = {
+    id: `resource:${feature.id}`,
+    level: feature.level,
+    sourceFeature: feature.title,
+  };
+
+  if (key.includes("rage")) {
+    return {
+      ...base,
+      automationNote: "Summary only; damage, resistance, and duration automation are not implemented.",
+      category: "bonus action",
+      maxUses: "Uses follow class progression",
+      name: "Rage",
+      recharge: "Long Rest",
+    };
+  }
+
+  if (key.includes("bardic-inspiration")) {
+    return {
+      ...base,
+      automationNote: "Summary only; die size and target tracking are not automated.",
+      category: "bonus action",
+      maxUses: "Uses follow class progression",
+      name: "Bardic Inspiration",
+      recharge: "Long Rest / feature-based recovery",
+    };
+  }
+
+  if (key.includes("channel-divinity")) {
+    return {
+      ...base,
+      automationNote: "Summary only; subclass Channel Divinity effects are not automated.",
+      category: "resource",
+      maxUses: "Uses follow class progression",
+      name: "Channel Divinity",
+      recharge: "Short or Long Rest",
+    };
+  }
+
+  if (key.includes("wild-shape")) {
+    return {
+      ...base,
+      automationNote: "Summary only; beast forms and transformation stats are not implemented.",
+      category: "resource",
+      maxUses: "Uses follow class progression",
+      name: "Wild Shape",
+      recharge: "Short or Long Rest",
+    };
+  }
+
+  if (key.includes("second-wind")) {
+    return {
+      ...base,
+      automationNote: "Summary only; healing roll and use tracking are not automated.",
+      category: "bonus action",
+      maxUses: "Uses follow class progression",
+      name: "Second Wind",
+      recharge: "Long Rest",
+    };
+  }
+
+  if (key.includes("action-surge")) {
+    return {
+      ...base,
+      automationNote: "Summary only; extra action timing is not automated.",
+      category: "resource",
+      maxUses: key.includes("2-use") ? "2 uses" : "1 use",
+      name: "Action Surge",
+      recharge: "Short or Long Rest",
+    };
+  }
+
+  if (key.includes("monks-focus") || key.includes("monk's focus")) {
+    return {
+      ...base,
+      automationNote: "Summary only; Focus spenders are not automated.",
+      category: "resource",
+      maxUses: `${characterLevel} Focus Points`,
+      name: "Monk's Focus",
+      recharge: "Short or Long Rest",
+    };
+  }
+
+  if (key.includes("lay-on-hands")) {
+    return {
+      ...base,
+      automationNote: "Summary only; healing pool spending is not automated.",
+      category: "bonus action",
+      maxUses: `${characterLevel * 5} HP pool`,
+      name: "Lay on Hands",
+      recharge: "Long Rest",
+    };
+  }
+
+  if (key.includes("cunning-action")) {
+    return {
+      ...base,
+      automationNote: "Display only; action economy reminders are not automated.",
+      category: "bonus action",
+      maxUses: "At will",
+      name: "Cunning Action",
+    };
+  }
+
+  if (key.includes("cunning-strike")) {
+    return {
+      ...base,
+      automationNote: "Summary only; Sneak Attack tradeoffs and save DCs are not automated.",
+      category: "passive",
+      name: key.includes("improved") ? "Improved Cunning Strike" : "Cunning Strike",
+    };
+  }
+
+  if (key.includes("font-of-magic")) {
+    return {
+      ...base,
+      automationNote: "Summary only; Sorcery Point spending and conversion are not automated.",
+      category: "resource",
+      maxUses: `${characterLevel} Sorcery Points`,
+      name: "Font of Magic",
+      recharge: "Long Rest",
+    };
+  }
+
+  if (key.includes("pact-magic")) {
+    return {
+      ...base,
+      automationNote: "Spell slot details appear in the Spells tab when reference data provides them.",
+      category: "resource",
+      name: "Pact Magic",
+      recharge: "Short or Long Rest",
+    };
+  }
+
+  if (key.includes("mystic-arcanum")) {
+    return {
+      ...base,
+      automationNote: "Summary only; arcanum spell choice and casting are not automated.",
+      category: "resource",
+      maxUses: "1 use",
+      name: "Mystic Arcanum",
+      recharge: "Long Rest",
+    };
+  }
+
+  if (key.includes("arcane-recovery")) {
+    return {
+      ...base,
+      automationNote: "Summary only; recovered slot selection is not automated.",
+      category: "resource",
+      name: "Arcane Recovery",
+      recharge: "Long Rest",
+    };
+  }
+
+  return null;
+}
+
+function getProficiencyBonus(level: number) {
+  return level <= 4
+    ? 2
+    : level <= 8
+      ? 3
+      : level <= 12
+        ? 4
+        : level <= 16
+          ? 5
+          : 6;
 }
 
 function isProgressionChoiceField(feature: ClassFeature, field: FeatureChoiceField) {

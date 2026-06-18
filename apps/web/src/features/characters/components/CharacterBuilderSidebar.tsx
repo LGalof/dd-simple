@@ -971,14 +971,18 @@ function getVisibleClassFeatures(
   subclasses: ClassSubclassOption[],
   selectedSubclassIndex: string | null,
 ) : ClassFeature[] {
-  if (!selectedSubclassIndex || !feature.id.includes("subclass-feature")) {
+  if (!feature.id.includes("subclass-feature")) {
     return [feature];
+  }
+
+  if (!selectedSubclassIndex) {
+    return [];
   }
 
   const selectedSubclass = subclasses.find((subclass) => subclass.index === selectedSubclassIndex);
 
   if (!selectedSubclass) {
-    return [feature];
+    return [];
   }
 
   const subclassFeaturesAtLevel = selectedSubclass.features.filter(
@@ -999,7 +1003,7 @@ function getVisibleClassFeatures(
     .filter((description): description is string => description !== null);
 
   if (filteredDescriptions.length === 0) {
-    return [feature];
+    return [];
   }
 
   return [
