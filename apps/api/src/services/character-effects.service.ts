@@ -395,7 +395,7 @@ async function findCharacterDerivedStateForUser(
   );
   const selectedFeatIndexes = getSelectedFeatIndexes(character.choices, classSubclassIndexes);
   const activeTraitIndexes = getActiveSpeciesTraitIndexes(
-    effectiveSpecies.traits.map((trait) => trait.traitIndex),
+    effectiveSpecies.traits.map((trait: { traitIndex: string }) => trait.traitIndex),
     validatedSubspeciesDocument?.sourceJson,
   );
 

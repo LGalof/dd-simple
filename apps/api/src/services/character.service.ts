@@ -418,7 +418,7 @@ async function validateBackgroundAbilityChoices(
   tx: Prisma.TransactionClient,
   backgroundIndex: string,
   choices: ReturnType<typeof normalizeBackgroundAbilityChoices>,
-) {
+): Promise<string[]> {
   const invalidPlanChoices = choices.filter(
     (choice) =>
       choice.choiceType === BACKGROUND_ABILITY_PLAN_CHOICE_TYPE &&
@@ -438,7 +438,9 @@ async function validateBackgroundAbilityChoices(
       abilityScoreIndex: true,
     },
   });
-  const allowedIndexes = new Set(allowedOptions.map((option) => option.abilityScoreIndex));
+  const allowedIndexes = new Set(
+    allowedOptions.map((option: { abilityScoreIndex: string }) => option.abilityScoreIndex),
+  );
   const selectedAbilityIndexes = choices
     .filter((choice) => choice.choiceType === BACKGROUND_ABILITY_SCORE_CHOICE_TYPE)
     .map((choice) => choice.selectedIndex);
@@ -550,14 +552,16 @@ async function replaceBackgroundAbilityChoices(
   }
 }
 
-function toRequiredJsonInput(value: unknown) {
-  return value === null ? Prisma.JsonNull : value as Prisma.InputJsonValue;
+function toRequiredFeatureChoiceJson(
+  value: unknown,
+): Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["selectedRawJson"] {
+  return value as Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["selectedRawJson"];
 }
 
-function toNullableJsonInput(value: unknown | null | undefined) {
-  return value === null || value === undefined
-    ? Prisma.DbNull
-    : value as Prisma.InputJsonValue;
+function toNullableFeatureChoiceJson(
+  value: unknown | null | undefined,
+): Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["grantsRawJson"] {
+  return value as Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["grantsRawJson"];
 }
 
 async function upsertSubmittedFeatureChoiceSelections(
@@ -585,8 +589,8 @@ async function upsertSubmittedFeatureChoiceSelections(
         selectedOptionIndex: choice.selectedOptionIndex ?? null,
         selectedOptionName: choice.selectedOptionName ?? null,
         selectedOptionUrl: choice.selectedOptionUrl ?? null,
-        selectedRawJson: toRequiredJsonInput(choice.selectedRawJson),
-        grantsRawJson: toNullableJsonInput(choice.grantsRawJson),
+        selectedRawJson: toRequiredFeatureChoiceJson(choice.selectedRawJson),
+        grantsRawJson: toNullableFeatureChoiceJson(choice.grantsRawJson),
       };
 
       return tx.characterFeatureChoiceSelection.upsert({
