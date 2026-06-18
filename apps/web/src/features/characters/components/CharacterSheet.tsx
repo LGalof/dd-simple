@@ -5,19 +5,39 @@ import {
   type InventorySandboxController,
 } from "../../../pages/InventorySandboxPage";
 import type {
+  BackgroundOption,
+  ClassFeature,
+  ClassOption,
+  ClassSubclassOption,
+  FeatureChoiceField,
+  FeatureChoiceSelections,
+  SpeciesOption,
+} from "../types/characterBuilder";
+import type {
   ActionActivationType,
   CharacterActionEntry,
 } from "../../../types/characterAction";
 import type { Character } from "../../../types/character";
 import type { SpeciesHeritageOption } from "../types/characterBuilder";
+import type {
+  CharacterDerivedSource,
+  CharacterDerivedState,
+  CharacterSpellEntry,
+  DerivedArmorClassMode,
+} from "../../../types/characterDerived";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
 
 type CharacterSheetProps = {
   activeTab: WorkspaceTab;
+  backgroundChoices: Record<string, string>;
   character: Character;
   conditionSummary: Array<{ label: string; value: string }>;
   currentHp: number;
   defenseSummary: Array<{ label: string; value: string }>;
+  derivedState: CharacterDerivedState | null;
+  derivedStateError: string | null;
+  derivedStateLoading: boolean;
+  featureChoices: FeatureChoiceSelections;
   inventoryController: InventorySandboxController;
   normalizedActions: CharacterActionEntry[];
   normalizedActionsError: string | null;
@@ -25,6 +45,10 @@ type CharacterSheetProps = {
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onOpenConditions: () => void;
   selectedHeritage?: SpeciesHeritageOption | null;
+  selectedBackground: BackgroundOption;
+  selectedClass: ClassOption;
+  selectedSpecies: SpeciesOption;
+  speciesChoices: Record<string, string>;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
   onSetTempHp: (amount: number) => void;
@@ -146,10 +170,15 @@ const unavailableTrainingValue = "Not available from current reference data";
 
 function CharacterSheet({
   activeTab,
+  backgroundChoices,
   character,
   conditionSummary,
   currentHp,
   defenseSummary,
+  derivedState,
+  derivedStateError,
+  derivedStateLoading,
+  featureChoices,
   inventoryController,
   normalizedActions,
   normalizedActionsError,
@@ -157,6 +186,10 @@ function CharacterSheet({
   onActiveTabChange,
   onOpenConditions,
   selectedHeritage,
+  selectedBackground,
+  selectedClass,
+  selectedSpecies,
+  speciesChoices,
   tempHp,
   onApplyCurrentHpAdjustment,
   onSetTempHp,
@@ -195,8 +228,28 @@ function CharacterSheet({
   const strengthModifier = abilityModifier(strengthScore);
   const constitutionModifier = abilityModifier(constitutionScore);
   const wisdomModifier = abilityModifier(wisdomScore);
+  const equippedArmorClassBonus = useMemo(
+    () => liveEquippedInventoryItems.reduce((total, item) => total + item.armorClassBonus, 0),
+    [liveEquippedInventoryItems],
+  );
+  const nonBodyArmorClassBonus = useMemo(
+    () =>
+      liveEquippedInventoryItems
+        .filter((item) => item.equippedSlot !== "body")
+        .reduce((total, item) => total + item.armorClassBonus, 0),
+    [liveEquippedInventoryItems],
+  );
+  const equippedSpeedPenalty = useMemo(
+    () => liveEquippedInventoryItems.reduce((total, item) => total + item.speedPenalty, 0),
+    [liveEquippedInventoryItems],
+  );
+  const isBodyArmorEquipped = useMemo(
+    () => liveEquippedInventoryItems.some((item) => item.equippedSlot === "body"),
+    [liveEquippedInventoryItems],
+  );
   const proficiencyBonus =
-    character.level <= 4
+    derivedState?.stats.proficiencyBonus ??
+    (character.level <= 4
       ? 2
       : character.level <= 8
         ? 3
@@ -204,7 +257,7 @@ function CharacterSheet({
           ? 4
           : character.level <= 16
             ? 5
-            : 6;
+            : 6);
   const featureChoiceEffects = useMemo(
     () => getFeatureChoiceEffects(character),
     [character.featureChoices, character.level],
@@ -248,10 +301,64 @@ function CharacterSheet({
     };
   });
   const passiveStats = [
-    { label: "Passive Perception", value: 10 + getSkillTotal(skillTotals, "Perception") },
-    { label: "Passive Investigation", value: 10 + getSkillTotal(skillTotals, "Investigation") },
-    { label: "Passive Insight", value: 10 + getSkillTotal(skillTotals, "Insight") },
+    {
+      label: "Passive Perception",
+      value:
+        10 +
+        getSkillTotal(skillTotals, "Perception") +
+        (derivedState?.stats.passivePerceptionBonus ?? 0),
+    },
+    {
+      label: "Passive Investigation",
+      value:
+        10 +
+        getSkillTotal(skillTotals, "Investigation") +
+        (derivedState?.stats.passiveInvestigationBonus ?? 0),
+    },
+    {
+      label: "Passive Insight",
+      value:
+        10 + getSkillTotal(skillTotals, "Insight") + (derivedState?.stats.passiveInsightBonus ?? 0),
+    },
   ];
+  const derivedSpeed = useMemo(
+    () =>
+      Math.max(
+        0,
+        character.speed + (derivedState?.stats.speedBonus ?? 0) - equippedSpeedPenalty,
+      ),
+    [character.speed, derivedState?.stats.speedBonus, equippedSpeedPenalty],
+  );
+  const derivedInitiative = useMemo(
+    () => dexterityModifier + (derivedState?.stats.initiativeBonus ?? 0),
+    [derivedState?.stats.initiativeBonus, dexterityModifier],
+  );
+  const derivedArmorClass = useMemo(
+    () =>
+      calculateDisplayedArmorClass({
+        baseArmorClass: character.armorClass,
+        constitutionModifier,
+        dexterityModifier,
+        derivedArmorClassBonus: derivedState?.stats.armorClassBonus ?? 0,
+        mode: derivedState?.stats.armorClassMode ?? "base",
+        nonBodyArmorClassBonus,
+        equippedArmorClassBonus,
+        isBodyArmorEquipped,
+        wisdomModifier,
+      }),
+    [
+      character.armorClass,
+      constitutionModifier,
+      dexterityModifier,
+      derivedState?.stats.armorClassBonus,
+      derivedState?.stats.armorClassMode,
+      equippedArmorClassBonus,
+      isBodyArmorEquipped,
+      nonBodyArmorClassBonus,
+      wisdomModifier,
+    ],
+  );
+  const spellEntries = derivedState?.spells ?? [];
   const training = getTrainingProfile(character, featureChoiceEffects);
   const weaponActions = getWeaponActions(
     liveEquippedInventoryItems,
@@ -324,11 +431,78 @@ function CharacterSheet({
       activeActionFilter === "action") &&
     attackActionRows.length > 0;
   const hasVisibleActionContent = attackActionRows.length > 0 || detailActionRows.length > 0;
-  const featureHighlights = getFeatureHighlights(
-    character.class.name,
-    character.background.name,
-    character.species.name,
-    character.level,
+  const selectedSubclassIndex = useMemo(
+    () => getSelectedSubclassIndex(selectedClass, featureChoices),
+    [featureChoices, selectedClass],
+  );
+  const visibleClassFeatures = useMemo(
+    () =>
+      selectedClass.features
+        .flatMap((feature) =>
+          getVisibleClassFeatures(feature, selectedClass.subclasses ?? [], selectedSubclassIndex),
+        )
+        .filter((feature) => feature.level <= character.level)
+        .sort(compareVisibleFeatures),
+    [character.level, featureChoices, selectedClass, selectedSubclassIndex],
+  );
+  const selectedSubclass = useMemo(
+    () =>
+      selectedClass.subclasses?.find((subclass) => subclass.index === selectedSubclassIndex) ?? null,
+    [selectedClass.subclasses, selectedSubclassIndex],
+  );
+  const classFeatureEntries = useMemo(
+    () =>
+      visibleClassFeatures.map((feature) => ({
+        feature,
+        selections: getSelectedClassFeatureSummaries(feature, featureChoices),
+      })),
+    [featureChoices, visibleClassFeatures],
+  );
+  const speciesSectionEntries = useMemo(
+    () =>
+      selectedSpecies.previewSections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        subtitle: section.subtitle ?? null,
+        details: section.details,
+        selections: getSectionSelectionSummaries(
+          selectedSpecies.index,
+          section.choiceFields,
+          speciesChoices,
+          section.id,
+        ),
+      })),
+    [selectedSpecies, speciesChoices],
+  );
+  const backgroundSectionEntries = useMemo(
+    () =>
+      selectedBackground.previewSections.map((section) => ({
+        id: section.id,
+        title: section.title,
+        subtitle: section.subtitle,
+        details: section.details,
+        selections: getSectionSelectionSummaries(
+          selectedBackground.index,
+          getVisibleBackgroundChoiceFields(
+            selectedBackground.index,
+            section.id,
+            section.choiceFields ?? [],
+            backgroundChoices,
+          ),
+          backgroundChoices,
+          section.id,
+        ),
+      })),
+    [backgroundChoices, selectedBackground],
+  );
+  const passiveDerivedSources = useMemo(
+    () =>
+      getPassiveDerivedSources(
+        derivedState?.activeSources ?? [],
+        normalizedActions,
+        spellEntries,
+      ),
+    [derivedState?.activeSources, normalizedActions, spellEntries],
   );
   const savedFeatureChoices = character.featureChoices ?? [];
   const heritageSenseDetails = getHeritageSenseDetails(selectedHeritage);
@@ -431,19 +605,19 @@ function CharacterSheet({
 
             <div className="character-primary-metric-card">
               <span>Walking</span>
-              <strong>{character.speed} ft</strong>
+              <strong>{derivedSpeed} ft</strong>
               <em>Speed</em>
             </div>
 
             <div className="character-primary-metric-card">
               <span>Initiative</span>
-              <strong>{formatModifier(dexterityModifier)}</strong>
+              <strong>{formatModifier(derivedInitiative)}</strong>
               <em>Modifier</em>
             </div>
 
             <div className="character-primary-metric-card">
               <span>Armor</span>
-              <strong>{character.armorClass}</strong>
+              <strong>{derivedArmorClass}</strong>
               <em>Class</em>
             </div>
           </div>
@@ -748,10 +922,28 @@ function CharacterSheet({
               {activeTab === "spells" && (
                 <div className="character-tab-scroll-stage">
                   <Card title="Spells">
-                    <p className="muted">
-                      Spell management will live here later. This area is reserved for spell slots,
-                      prepared spells, and casting references.
-                    </p>
+                    {derivedStateLoading ? (
+                      <p className="muted">Loading spell features...</p>
+                    ) : null}
+                    {derivedStateError ? (
+                      <p className="error-message">Spell data unavailable: {derivedStateError}</p>
+                    ) : null}
+                    {!derivedStateLoading && !derivedStateError && spellEntries.length === 0 ? (
+                      <p className="muted">
+                        No normalized spellcasting entries are available yet for this character.
+                      </p>
+                    ) : null}
+                    {!derivedStateLoading && !derivedStateError && spellEntries.length > 0 ? (
+                      <div className="list">
+                        {spellEntries.map((entry) => (
+                          <div key={entry.id} className="character-feature-entry">
+                            <strong>{entry.title}</strong>
+                            <p>{getSpellEntrySubtitle(entry)}</p>
+                            <p>{entry.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </Card>
                 </div>
               )}
@@ -765,10 +957,32 @@ function CharacterSheet({
                   <div className="workspace-card-grid">
                     <Card title="Class Features">
                       <div className="list">
-                        {featureHighlights.map((highlight) => (
-                          <div key={highlight.title} className="character-feature-entry">
-                            <strong>{highlight.title}</strong>
-                            <p>{highlight.description}</p>
+                        {classFeatureEntries.map(({ feature, selections }) => (
+                          <div key={feature.id} className="character-feature-entry">
+                            <strong>{feature.title}</strong>
+                            <p className="muted">
+                              {formatFeatureLevel(feature.level)}
+                              {feature.id.includes("subclass") && selectedSubclass
+                                ? ` - ${selectedSubclass.name}`
+                                : ""}
+                            </p>
+                            <p>{feature.summary}</p>
+                            {feature.details?.map((detail) => (
+                              <p key={`${feature.id}-${detail}`}>{detail}</p>
+                            ))}
+                            {selections.length > 0 ? (
+                              <div className="list">
+                                {selections.map((selection) => (
+                                  <div
+                                    key={`${feature.id}-${selection.label}-${selection.value}`}
+                                    className="list-row"
+                                  >
+                                    <span>{selection.label}</span>
+                                    <strong>{selection.value}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -823,20 +1037,51 @@ function CharacterSheet({
                       </Card>
                     )}
 
-                    <Card title="Origin">
+                    <Card title="Active Traits">
                       <div className="list">
-                        <div className="list-row">
-                          <span>Species</span>
-                          <strong>{character.species.name}</strong>
-                        </div>
-                        <div className="list-row">
-                          <span>Class</span>
-                          <strong>{character.class.name}</strong>
-                        </div>
-                        <div className="list-row">
-                          <span>Background</span>
-                          <strong>{character.background.name}</strong>
-                        </div>
+                        {passiveDerivedSources.length > 0 ? (
+                          passiveDerivedSources.map((source) => (
+                            <div
+                              key={`${source.sourceType}:${source.sourceIndex}`}
+                              className="character-feature-entry"
+                            >
+                              <strong>{source.title}</strong>
+                              <p className="muted">{formatDerivedSourceSubtitle(source)}</p>
+                              <p>{source.description}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="muted">
+                            No passive feature descriptions are available for the current build.
+                          </p>
+                        )}
+                      </div>
+                    </Card>
+
+                    <Card title="Species Traits">
+                      <div className="list">
+                        {speciesSectionEntries.map((section) => (
+                          <div key={section.id} className="character-feature-entry">
+                            <strong>{section.title}</strong>
+                            {section.subtitle ? <p className="muted">{section.subtitle}</p> : null}
+                            {section.details.map((detail) => (
+                              <p key={`${section.id}-${detail}`}>{detail}</p>
+                            ))}
+                            {section.selections.length > 0 ? (
+                              <div className="list">
+                                {section.selections.map((selection) => (
+                                  <div
+                                    key={`${section.id}-${selection.label}-${selection.value}`}
+                                    className="list-row"
+                                  >
+                                    <span>{selection.label}</span>
+                                    <strong>{selection.value}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
                       </div>
                     </Card>
                   </div>
@@ -864,10 +1109,35 @@ function CharacterSheet({
                     </Card>
 
                     <Card title="Background Hooks">
-                      <p className="muted">
-                        {character.background.name} informs tool access, social flavor, and quest
-                        hooks. This panel is reserved for deeper campaign-facing notes later on.
-                      </p>
+                      <div className="list">
+                        <div className="character-feature-entry">
+                          <strong>{selectedBackground.name}</strong>
+                          <p>{selectedBackground.description}</p>
+                        </div>
+
+                        {backgroundSectionEntries.map((section) => (
+                          <div key={section.id} className="character-feature-entry">
+                            <strong>{section.title}</strong>
+                            {section.subtitle ? <p className="muted">{section.subtitle}</p> : null}
+                            {section.details.map((detail) => (
+                              <p key={`${section.id}-${detail}`}>{detail}</p>
+                            ))}
+                            {section.selections.length > 0 ? (
+                              <div className="list">
+                                {section.selections.map((selection) => (
+                                  <div
+                                    key={`${section.id}-${selection.label}-${selection.value}`}
+                                    className="list-row"
+                                  >
+                                    <span>{selection.label}</span>
+                                    <strong>{selection.value}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
                     </Card>
                   </div>
                 </div>
@@ -904,7 +1174,7 @@ function CharacterSheet({
                       <div className="list">
                         <div className="list-row">
                           <span>Speed</span>
-                          <strong>{character.speed} ft</strong>
+                          <strong>{derivedSpeed} ft</strong>
                         </div>
                         <div className="list-row">
                           <span>Proficiency</span>
@@ -1065,6 +1335,233 @@ function TrainingBlock({ label, values }: TrainingBlockProps) {
   );
 }
 
+function getSelectedClassFeatureSummaries(
+  feature: ClassFeature,
+  selectedChoices: FeatureChoiceSelections,
+) {
+  return getVisibleChoiceFieldsForFeature(feature, selectedChoices)
+    .map((field) => {
+      const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
+
+      if (!selectedValue) {
+        return null;
+      }
+
+      const option = field.options.find((candidate) => candidate.value === selectedValue);
+
+      return option
+        ? {
+            label: field.label,
+            value: option.label,
+          }
+        : null;
+    })
+    .filter(isPresent);
+}
+
+function getSectionSelectionSummaries(
+  prefixIndex: string,
+  fields: FeatureChoiceField[] | undefined,
+  selectedChoices: Record<string, string>,
+  sectionId: string,
+) {
+  return (fields ?? [])
+    .map((field) => {
+      const selectedValue = selectedChoices[`${prefixIndex}:${sectionId}:${field.id}`];
+
+      if (!selectedValue) {
+        return null;
+      }
+
+      const option = field.options.find((candidate) => candidate.value === selectedValue);
+
+      return option
+        ? {
+            label: field.label,
+            value: option.label,
+          }
+        : null;
+    })
+    .filter(isPresent);
+}
+
+function getPassiveDerivedSources(
+  activeSources: CharacterDerivedSource[],
+  normalizedActions: CharacterActionEntry[],
+  spellEntries: CharacterSpellEntry[],
+) {
+  const actionSourceKeys = new Set(
+    normalizedActions.map((action) => `${action.sourceType}:${action.sourceIndex}`),
+  );
+  const spellSourceKeys = new Set(
+    spellEntries.map((entry) => `${entry.sourceType}:${entry.sourceIndex}`),
+  );
+
+  return activeSources.filter((source) => {
+    const sourceKey = `${source.sourceType}:${source.sourceIndex}`;
+
+    return (
+      source.sourceType !== "species_trait" &&
+      !actionSourceKeys.has(sourceKey) &&
+      !spellSourceKeys.has(sourceKey)
+    );
+  });
+}
+
+function formatFeatureLevel(level: number) {
+  return `${formatOrdinal(level)} level`;
+}
+
+function formatDerivedSourceSubtitle(source: CharacterDerivedSource) {
+  const sourceLabel =
+    source.sourceType === "class_feature"
+      ? "Class Feature"
+      : source.sourceType === "subclass_feature"
+        ? "Subclass Feature"
+        : "Species Trait";
+  const levelLabel = source.level ? `Level ${source.level}` : null;
+
+  return [sourceLabel, levelLabel].filter(isPresent).join(" - ");
+}
+
+function getSelectedSubclassIndex(
+  classOption: ClassOption,
+  selectedChoices: FeatureChoiceSelections,
+) {
+  const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  for (const feature of classOption.features) {
+    if (!feature.id.includes("subclass") || !feature.choiceFields?.length) {
+      continue;
+    }
+
+    for (const field of feature.choiceFields) {
+      const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
+
+      if (selectedValue && subclassIndexes.has(selectedValue)) {
+        return selectedValue;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getVisibleClassFeatures(
+  feature: ClassFeature,
+  subclasses: ClassSubclassOption[],
+  selectedSubclassIndex: string | null,
+): ClassFeature[] {
+  if (!selectedSubclassIndex || !feature.id.includes("subclass-feature")) {
+    return [feature];
+  }
+
+  const selectedSubclass = subclasses.find((subclass) => subclass.index === selectedSubclassIndex);
+
+  if (!selectedSubclass) {
+    return [feature];
+  }
+
+  const subclassFeaturesAtLevel = selectedSubclass.features.filter(
+    (subclassFeature) => subclassFeature.level === feature.level,
+  );
+
+  if (subclassFeaturesAtLevel.length > 0) {
+    return subclassFeaturesAtLevel.map((subclassFeature) => ({
+      id: `${feature.id}:${slugifyFeatureName(subclassFeature.name)}`,
+      level: feature.level,
+      title: subclassFeature.name,
+      summary: subclassFeature.description,
+    }));
+  }
+
+  return [feature];
+}
+
+function compareVisibleFeatures(left: ClassFeature, right: ClassFeature) {
+  if (left.level !== right.level) {
+    return left.level - right.level;
+  }
+
+  return left.title.localeCompare(right.title);
+}
+
+function getVisibleChoiceFieldsForFeature(
+  feature: ClassFeature,
+  selectedChoices: FeatureChoiceSelections,
+) {
+  return (feature.choiceFields ?? []).filter((field) => {
+    if (!field.dependsOnFieldId || !field.dependsOnValues?.length) {
+      return true;
+    }
+
+    const dependencyValue = selectedChoices[`${feature.id}:${field.dependsOnFieldId}`];
+
+    return Boolean(dependencyValue && field.dependsOnValues.includes(dependencyValue));
+  });
+}
+
+function getVisibleBackgroundChoiceFields(
+  backgroundIndex: string,
+  sectionId: string,
+  fields: FeatureChoiceField[],
+  selectedChoices: Record<string, string>,
+) {
+  if (!sectionId.endsWith("ability-scores")) {
+    return fields;
+  }
+
+  const planKey = `${backgroundIndex}:${sectionId}:score-plan`;
+  const selectedPlan = selectedChoices[planKey];
+
+  if (selectedPlan === "increase-all-three-by-1") {
+    const planField = fields.find((field) => field.id === "score-plan");
+    const primaryField = fields.find((field) => field.id === "score-a");
+    const secondaryField = fields.find((field) => field.id === "score-b");
+    const thirdField = fields.find((field) => field.id === "score-c");
+
+    if (planField && primaryField && secondaryField && thirdField) {
+      return [planField, primaryField, secondaryField, thirdField];
+    }
+
+    if (planField && primaryField && secondaryField) {
+      return [
+        planField,
+        primaryField,
+        secondaryField,
+        {
+          ...secondaryField,
+          id: "score-c",
+          label: "Third Increase",
+        },
+      ];
+    }
+  }
+
+  return fields.filter((field) => field.id !== "score-c");
+}
+
+function slugifyFeatureName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+function formatOrdinal(value: number) {
+  if (value % 100 >= 11 && value % 100 <= 13) {
+    return `${value}th`;
+  }
+
+  switch (value % 10) {
+    case 1:
+      return `${value}st`;
+    case 2:
+      return `${value}nd`;
+    case 3:
+      return `${value}rd`;
+    default:
+      return `${value}th`;
+  }
+}
+
 function getCreatureSize(speciesName: string) {
   switch (speciesName.toLowerCase()) {
     case "halfling":
@@ -1110,7 +1607,12 @@ function getHeritageSenseDetails(heritage: SpeciesHeritageOption | null | undefi
 }
 
 function getActionSubtitle(action: CharacterActionEntry) {
-  const sourceLabel = action.sourceType === "class_feature" ? "Class Feature" : "Species Trait";
+  const sourceLabel =
+    action.sourceType === "class_feature"
+      ? "Class Feature"
+      : action.sourceType === "subclass_feature"
+        ? "Subclass Feature"
+        : "Species Trait";
   const activationLabel = formatActivationLabel(action.activationType);
   const levelLabel = action.level ? `Level ${action.level}` : null;
 
@@ -1118,11 +1620,74 @@ function getActionSubtitle(action: CharacterActionEntry) {
 }
 
 function getReadableActionSubtitle(action: CharacterActionEntry) {
-  const sourceLabel = action.sourceType === "class_feature" ? "Class Feature" : "Species Trait";
+  const sourceLabel =
+    action.sourceType === "class_feature"
+      ? "Class Feature"
+      : action.sourceType === "subclass_feature"
+        ? "Subclass Feature"
+        : "Species Trait";
   const activationLabel = formatActivationLabel(action.activationType);
   const levelLabel = action.level ? `Level ${action.level}` : null;
 
   return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
+}
+
+function getSpellEntrySubtitle(entry: CharacterSpellEntry) {
+  const sourceLabel =
+    entry.sourceType === "class_feature"
+      ? "Class Feature"
+      : entry.sourceType === "subclass_feature"
+        ? "Subclass Feature"
+        : "Species Trait";
+  const kindLabel =
+    entry.kind === "spellcasting"
+      ? "Spellcasting"
+      : entry.kind === "always_prepared"
+        ? "Always Prepared"
+        : "Spell Feature";
+  const levelLabel = entry.level ? `Level ${entry.level}` : null;
+
+  return [kindLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
+}
+
+function calculateDisplayedArmorClass({
+  baseArmorClass,
+  constitutionModifier,
+  dexterityModifier,
+  derivedArmorClassBonus,
+  mode,
+  nonBodyArmorClassBonus,
+  equippedArmorClassBonus,
+  isBodyArmorEquipped,
+  wisdomModifier,
+}: {
+  baseArmorClass: number;
+  constitutionModifier: number;
+  derivedArmorClassBonus: number;
+  dexterityModifier: number;
+  equippedArmorClassBonus: number;
+  isBodyArmorEquipped: boolean;
+  mode: DerivedArmorClassMode;
+  nonBodyArmorClassBonus: number;
+  wisdomModifier: number;
+}) {
+  const baseWithBonuses = baseArmorClass + equippedArmorClassBonus + derivedArmorClassBonus;
+
+  if (mode === "barbarian_unarmored" && !isBodyArmorEquipped) {
+    return Math.max(
+      baseWithBonuses,
+      10 + dexterityModifier + constitutionModifier + nonBodyArmorClassBonus + derivedArmorClassBonus,
+    );
+  }
+
+  if (mode === "monk_unarmored" && !isBodyArmorEquipped) {
+    return Math.max(
+      baseWithBonuses,
+      10 + dexterityModifier + wisdomModifier + nonBodyArmorClassBonus + derivedArmorClassBonus,
+    );
+  }
+
+  return baseWithBonuses;
 }
 
 function formatConditionSummaryEntry(entry: { label: string; value: string }) {
@@ -1983,59 +2548,6 @@ function formatInventoryDamage(baseDamage: string, modifier: number) {
   const damagePrefix = diceMatch ? diceMatch[0] : trimmedDamage;
 
   return `${damagePrefix} ${formatInlineModifier(modifier)}`;
-}
-
-function getFeatureHighlights(
-  className: string,
-  backgroundName: string,
-  speciesName: string,
-  level: number,
-) {
-  const classKey = className.toLowerCase();
-  const backgroundKey = backgroundName.toLowerCase();
-  const speciesKey = speciesName.toLowerCase();
-  const entries = [];
-
-  if (classKey === "rogue") {
-    entries.push({
-      description:
-        "Deliver extra damage once per turn when you have advantage or an allied threat nearby.",
-      title: `Sneak Attack ${Math.max(1, Math.ceil(level / 2))}d6`,
-    });
-    entries.push({
-      description: "Dash, Disengage, or Hide as a bonus action to reposition safely.",
-      title: "Cunning Action",
-    });
-  } else if (classKey === "fighter") {
-    entries.push({
-      description: "Take one additional action on your turn when the moment matters most.",
-      title: "Action Surge",
-    });
-    entries.push({
-      description: "Recover a small burst of hit points as a bonus action.",
-      title: "Second Wind",
-    });
-  } else {
-    entries.push({
-      description: "Core class features will appear here as the rules layer expands.",
-      title: `${className} Core Features`,
-    });
-  }
-
-  entries.push({
-    description: `${backgroundName} informs roleplay hooks, tool access, and narrative context.`,
-    title: `${backgroundName} Background`,
-  });
-
-  entries.push({
-    description:
-      speciesKey === "elf" || speciesKey === "dwarf" || speciesKey === "tiefling"
-        ? `${speciesName} grants ancestry flavor and a distinct exploration edge.`
-        : `${speciesName} grants flexible ancestry flavor for this build.`,
-    title: `${speciesName} Heritage`,
-  });
-
-  return entries;
 }
 
 export { CharacterSheet };

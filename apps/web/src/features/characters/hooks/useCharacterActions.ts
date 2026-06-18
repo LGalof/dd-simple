@@ -7,6 +7,7 @@ type CharacterActionPreviewState = {
   classIndex?: string;
   level?: number;
   subspeciesIndex?: string;
+  subclassIndex?: string;
   speciesIndex?: string;
 };
 
@@ -55,6 +56,7 @@ function useCharacterActions(
     previewState.classIndex,
     previewState.level,
     previewState.speciesIndex,
+    previewState.subclassIndex,
     previewState.subspeciesIndex,
     token,
   ]);

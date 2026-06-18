@@ -6,7 +6,7 @@ type CharacterActionEntry = {
   id: string;
   level: number | null;
   sourceIndex: string;
-  sourceType: "class_feature" | "species_trait";
+  sourceType: "class_feature" | "species_trait" | "subclass_feature";
   title: string;
 };
 

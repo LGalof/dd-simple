@@ -4,6 +4,7 @@ import {
   createCharacter,
   deleteCharacter,
   getCharacterActions,
+  getCharacterDerivedState,
   getCharacterDefenses,
   getCharacterById,
   getCharacters,
@@ -21,6 +22,7 @@ charactersRouter.post("/characters", createCharacter);
 charactersRouter.get("/characters", getCharacters);
 
 charactersRouter.get("/characters/:id/actions", getCharacterActions);
+charactersRouter.get("/characters/:id/derived", getCharacterDerivedState);
 
 charactersRouter.post("/characters/:id/conditions", addCharacterCondition);
 

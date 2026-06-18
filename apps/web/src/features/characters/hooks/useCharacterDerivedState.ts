@@ -1,29 +1,29 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
-import { fetchCharacterDefenses } from "../api/fetchCharacterDefenses";
-import type { CharacterDefenseEntry } from "../../../types/characterDefense";
+import { fetchCharacterDerivedState } from "../api/fetchCharacterDerivedState";
+import type { CharacterDerivedState } from "../../../types/characterDerived";
 
-type CharacterDefensePreviewState = {
+type CharacterDerivedPreviewState = {
   classIndex?: string;
   level?: number;
-  subspeciesIndex?: string;
-  subclassIndex?: string;
   speciesIndex?: string;
+  subclassIndex?: string;
+  subspeciesIndex?: string;
 };
 
-function useCharacterDefenses(
+function useCharacterDerivedState(
   characterId: string | null,
-  previewState: CharacterDefensePreviewState = {},
+  previewState: CharacterDerivedPreviewState = {},
 ) {
   const { token } = useAuth();
-  const [defenses, setDefenses] = useState<CharacterDefenseEntry[]>([]);
+  const [derivedState, setDerivedState] = useState<CharacterDerivedState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadCharacterDefenses() {
+    async function loadDerivedState() {
       if (!token || !characterId) {
-        setDefenses([]);
+        setDerivedState(null);
         setLoading(false);
         return;
       }
@@ -32,14 +32,14 @@ function useCharacterDefenses(
       setError(null);
 
       try {
-        const nextDefenses = await fetchCharacterDefenses(characterId, token, previewState);
-        setDefenses(nextDefenses);
+        const nextState = await fetchCharacterDerivedState(characterId, token, previewState);
+        setDerivedState(nextState);
       } catch (nextError) {
         const message =
-          nextError instanceof Error ? nextError.message : "Failed to load character defenses";
+          nextError instanceof Error ? nextError.message : "Failed to load character derived state";
 
         if (message.includes("status 404")) {
-          setDefenses([]);
+          setDerivedState(null);
           setError(null);
           return;
         }
@@ -50,7 +50,7 @@ function useCharacterDefenses(
       }
     }
 
-    void loadCharacterDefenses();
+    void loadDerivedState();
   }, [
     characterId,
     previewState.classIndex,
@@ -62,10 +62,10 @@ function useCharacterDefenses(
   ]);
 
   return {
-    defenses,
+    derivedState,
     error,
     loading,
   };
 }
 
-export { useCharacterDefenses };
+export { useCharacterDerivedState };

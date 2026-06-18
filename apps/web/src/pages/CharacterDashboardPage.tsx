@@ -13,13 +13,14 @@ import { CharacterSheet } from "../features/characters/components/CharacterSheet
 import type { WorkspaceTab } from "../features/characters/components/CharacterSheet";
 import { useCharacterActions } from "../features/characters/hooks/useCharacterActions";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
+import { useCharacterDerivedState } from "../features/characters/hooks/useCharacterDerivedState";
 import { useCharacterDefenses } from "../features/characters/hooks/useCharacterDefenses";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import type {
-  FeatureChoiceSelections,
-  SpeciesOption,
   BackgroundOption,
   ClassOption,
+  FeatureChoiceSelections,
+  SpeciesOption,
 } from "../features/characters/types/characterBuilder";
 import {
   clearSelectedCharacterId,
@@ -125,6 +126,7 @@ function CharacterDashboardPage() {
       classIndex: builderState?.classIndex ?? character?.classIndex,
       level: builderState?.level ?? character?.level,
       speciesIndex: builderState?.speciesIndex ?? character?.speciesIndex,
+      subclassIndex: getSelectedClassSubclassIndex(selectedClass, featureChoices),
       subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
     }),
     [
@@ -134,6 +136,8 @@ function CharacterDashboardPage() {
       character?.classIndex,
       character?.level,
       character?.speciesIndex,
+      featureChoices,
+      selectedClass,
       selectedSpecies,
       speciesChoices,
     ],
@@ -151,6 +155,11 @@ function CharacterDashboardPage() {
     character?.id ?? null,
     builderActionPreview,
   );
+  const {
+    derivedState: characterDerivedStateWithPreview,
+    error: characterDerivedStateErrorWithPreview,
+    loading: characterDerivedStateLoadingWithPreview,
+  } = useCharacterDerivedState(character?.id ?? null, builderActionPreview);
   const defenseSummary = useMemo(
     () => summarizeDefenses(normalizedDefensesWithPreview),
     [normalizedDefensesWithPreview],
@@ -191,8 +200,8 @@ function CharacterDashboardPage() {
         persistedSkillIndexes,
         selectedSkillIndexes,
         featureChoices,
-        speciesChoices,
         backgroundChoices,
+        speciesChoices,
       ),
     );
 
@@ -283,10 +292,15 @@ function CharacterDashboardPage() {
 
             <CharacterSheet
               activeTab={activeWorkspaceTab}
+              backgroundChoices={backgroundChoices}
               character={previewCharacter}
               conditionSummary={conditionSummary}
               currentHp={builderState.currentHp}
               defenseSummary={defenseSummary}
+              derivedState={characterDerivedStateWithPreview}
+              derivedStateError={characterDerivedStateErrorWithPreview}
+              derivedStateLoading={characterDerivedStateLoadingWithPreview}
+              featureChoices={featureChoices}
               inventoryController={inventoryController}
               normalizedActions={normalizedActionsWithPreview}
               normalizedActionsError={normalizedActionsErrorWithPreview}
@@ -296,6 +310,10 @@ function CharacterDashboardPage() {
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onOpenConditions={() => setRightRailMode("conditions")}
               onSetTempHp={setTempHp}
+              selectedBackground={selectedBackground}
+              selectedClass={selectedClass}
+              selectedSpecies={selectedSpecies}
+              speciesChoices={speciesChoices}
               tempHp={builderState.tempHp}
             />
 
@@ -348,8 +366,8 @@ function buildCharacterSavePayload(
   persistedSkillIndexes: string[],
   selectedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
-  speciesChoices: Record<string, string>,
   backgroundChoices: Record<string, string>,
+  speciesChoices: Record<string, string>,
 ): CharacterSavePayload {
   return {
     name: character.name,
@@ -678,6 +696,19 @@ function getSelectedSpeciesHeritageIndex(
   const choiceKey = `${species.index}:${species.index}-heritage-choice:heritage`;
 
   return speciesChoices[choiceKey];
+}
+
+function getSelectedClassSubclassIndex(
+  classOption: ClassOption | undefined,
+  featureChoices: Record<string, string>,
+) {
+  if (!classOption?.subclasses?.length) {
+    return undefined;
+  }
+
+  const subclassIndexes = new Set(classOption.subclasses.map((subclassOption) => subclassOption.index));
+
+  return Object.values(featureChoices).find((selectedIndex) => subclassIndexes.has(selectedIndex));
 }
 
 function buildConditionStateFromCharacter(character: Character | undefined): ConditionState {

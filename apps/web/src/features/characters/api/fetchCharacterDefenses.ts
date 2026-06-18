@@ -5,6 +5,7 @@ type CharacterDefenseQuery = {
   classIndex?: string;
   level?: number;
   subspeciesIndex?: string;
+  subclassIndex?: string;
   speciesIndex?: string;
 };
 
@@ -25,6 +26,10 @@ async function fetchCharacterDefenses(
 
   if (query.subspeciesIndex) {
     params.set("subspeciesIndex", query.subspeciesIndex);
+  }
+
+  if (query.subclassIndex) {
+    params.set("subclassIndex", query.subclassIndex);
   }
 
   if (typeof query.level === "number") {

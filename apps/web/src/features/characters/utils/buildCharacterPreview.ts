@@ -3,6 +3,7 @@ import type {
   BackgroundOption,
   CharacterBuilderState,
   ClassOption,
+  FeatureChoiceSelections,
   HitPointSettings,
   SpeciesOption,
 } from "../types/characterBuilder";
@@ -29,10 +30,26 @@ type BuildCharacterPreviewOptions = {
   background: BackgroundOption;
   character: Character;
   classOption: ClassOption;
+  featureChoices?: FeatureChoiceSelections;
   persistedSkillIndexes?: string[];
   selectedSkillIndexes?: string[];
   species: SpeciesOption;
   state: CharacterBuilderState;
+};
+
+const ABILITY_CHOICE_TO_INDEX: Record<string, string> = {
+  str: "str",
+  dex: "dex",
+  con: "con",
+  int: "int",
+  wis: "wis",
+  cha: "cha",
+  strength: "str",
+  dexterity: "dex",
+  constitution: "con",
+  intelligence: "int",
+  wisdom: "wis",
+  charisma: "cha",
 };
 
 type HitPointPreview = {
@@ -62,6 +79,7 @@ function buildCharacterPreview({
   background,
   character,
   classOption,
+  featureChoices = {},
   persistedSkillIndexes,
   selectedSkillIndexes = [],
   species,
@@ -75,18 +93,23 @@ function buildCharacterPreview({
     state.backgroundChoices,
     background,
   );
-  const nextAbilityScores = character.abilityScores.map((abilityScore) => {
-    const baseScore =
-      assignedScores[abilityScore.abilityIndex] ??
-      abilityScore.baseScore ??
-      abilityScore.score;
+  const nextAbilityScores = applyAbilityScoreImprovements(
+    character.abilityScores.map((abilityScore) => {
+      const baseScore =
+        assignedScores[abilityScore.abilityIndex] ??
+        abilityScore.baseScore ??
+        abilityScore.score;
 
-    return {
-      ...abilityScore,
-      baseScore,
-      score: baseScore + (backgroundAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
-    };
-  });
+      return {
+        ...abilityScore,
+        baseScore,
+        score: baseScore + (backgroundAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
+      };
+    }),
+    classOption,
+    featureChoices,
+    state.level,
+  );
 
   const dexterityScore =
     nextAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "dex")?.score ?? 10;
@@ -392,6 +415,53 @@ function synchronizeHitPointRolls(level: number, hitDie: number, rolls: number[]
 
 function rollHitDie(hitDie: number) {
   return Math.floor(Math.random() * hitDie) + 1;
+}
+
+function isAbilityScoreImprovementFeature(feature: ClassOption["features"][number]) {
+  const choiceFieldIds = new Set((feature.choiceFields ?? []).map((field) => field.id));
+
+  return (
+    choiceFieldIds.has("asi-mode") &&
+    (choiceFieldIds.has("asi-score-1") || choiceFieldIds.has("asi-score"))
+  );
+}
+
+function applyAbilityScoreImprovements(
+  abilityScores: Character["abilityScores"],
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+  _level: number,
+) {
+  const increases = new Map<string, number>();
+
+  for (const feature of classOption.features) {
+    if (
+      !isAbilityScoreImprovementFeature(feature) ||
+      featureChoices[`${feature.id}:asi-mode`] !== "ability-score-improvement"
+    ) {
+      continue;
+    }
+
+    for (const fieldId of ["asi-score-1", "asi-score-2"]) {
+      const selectedAbility = featureChoices[`${feature.id}:${fieldId}`];
+      const abilityIndex = selectedAbility ? ABILITY_CHOICE_TO_INDEX[selectedAbility] : undefined;
+
+      if (!abilityIndex) {
+        continue;
+      }
+
+      increases.set(abilityIndex, (increases.get(abilityIndex) ?? 0) + 1);
+    }
+  }
+
+  if (!increases.size) {
+    return abilityScores;
+  }
+
+  return abilityScores.map((abilityScore) => ({
+    ...abilityScore,
+    score: abilityScore.score + (increases.get(abilityScore.abilityIndex) ?? 0),
+  }));
 }
 
 export { buildCharacterPreview, calculateHitPointPreview, rollHitDie, synchronizeHitPointRolls };

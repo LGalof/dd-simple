@@ -10,7 +10,7 @@ type CharacterDefenseEntry = {
   kind: CharacterDefenseKind;
   level: number | null;
   sourceIndex: string;
-  sourceType: "class_feature" | "species_trait";
+  sourceType: "class_feature" | "species_trait" | "subclass_feature";
   target: string;
   title: string;
 };

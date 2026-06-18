@@ -12,6 +12,7 @@ import {
 } from "../services/character.service.js";
 import { findCharacterActionsForUser } from "../services/character-actions.service.js";
 import { findCharacterDefensesForUser } from "../services/character-defenses.service.js";
+import { findCharacterDerivedStateForUser } from "../services/character-effects.service.js";
 
 const ABILITY_SCORE_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
 
@@ -467,6 +468,10 @@ async function getCharacterActions(req: Request, res: Response) {
       typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
         ? req.query.subspeciesIndex.trim()
         : undefined;
+    const subclassIndex =
+      typeof req.query.subclassIndex === "string" && req.query.subclassIndex.trim().length > 0
+        ? req.query.subclassIndex.trim()
+        : undefined;
     const level =
       typeof req.query.level === "string" &&
       Number.isInteger(Number(req.query.level)) &&
@@ -478,6 +483,7 @@ async function getCharacterActions(req: Request, res: Response) {
     const actions = await findCharacterActionsForUser(getAuthenticatedUser(req).id, id, {
       classIndex,
       level,
+      subclassIndex,
       subspeciesIndex,
       speciesIndex,
     });
@@ -495,6 +501,72 @@ async function getCharacterActions(req: Request, res: Response) {
 
     res.status(500).json({
       error: "Failed to fetch character actions",
+    });
+  }
+}
+
+async function getCharacterDerivedState(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const classIndex =
+      typeof req.query.classIndex === "string" && req.query.classIndex.trim().length > 0
+        ? req.query.classIndex.trim()
+        : undefined;
+    const speciesIndex =
+      typeof req.query.speciesIndex === "string" && req.query.speciesIndex.trim().length > 0
+        ? req.query.speciesIndex.trim()
+        : undefined;
+    const subspeciesIndex =
+      typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
+        ? req.query.subspeciesIndex.trim()
+        : undefined;
+    const subclassIndex =
+      typeof req.query.subclassIndex === "string" && req.query.subclassIndex.trim().length > 0
+        ? req.query.subclassIndex.trim()
+        : undefined;
+    const level =
+      typeof req.query.level === "string" &&
+      Number.isInteger(Number(req.query.level)) &&
+      Number(req.query.level) >= 1 &&
+      Number(req.query.level) <= 20
+        ? Number(req.query.level)
+        : undefined;
+
+    const derivedState = await findCharacterDerivedStateForUser(getAuthenticatedUser(req).id, id, {
+      classIndex,
+      level,
+      speciesIndex,
+      subclassIndex,
+      subspeciesIndex,
+    });
+
+    if (!derivedState) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json({
+      activeSources: derivedState.activeSources,
+      selectedSubclassIndex: derivedState.selectedSubclassIndex,
+      selectedSubspeciesIndex: derivedState.selectedSubspeciesIndex,
+      spells: derivedState.spells,
+      stats: derivedState.stats,
+    });
+  } catch (error) {
+    console.error("Failed to fetch character derived state:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch character derived state",
     });
   }
 }
@@ -522,6 +594,10 @@ async function getCharacterDefenses(req: Request, res: Response) {
       typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
         ? req.query.subspeciesIndex.trim()
         : undefined;
+    const subclassIndex =
+      typeof req.query.subclassIndex === "string" && req.query.subclassIndex.trim().length > 0
+        ? req.query.subclassIndex.trim()
+        : undefined;
     const level =
       typeof req.query.level === "string" &&
       Number.isInteger(Number(req.query.level)) &&
@@ -533,6 +609,7 @@ async function getCharacterDefenses(req: Request, res: Response) {
     const defenses = await findCharacterDefensesForUser(getAuthenticatedUser(req).id, id, {
       classIndex,
       level,
+      subclassIndex,
       subspeciesIndex,
       speciesIndex,
     });
@@ -802,6 +879,7 @@ export {
   createCharacter,
   deleteCharacter,
   getCharacterActions,
+  getCharacterDerivedState,
   getCharacterDefenses,
   getCharacterById,
   getCharacters,

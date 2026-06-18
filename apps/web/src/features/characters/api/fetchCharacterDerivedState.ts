@@ -1,18 +1,18 @@
 import { api } from "../../../lib/api";
-import type { CharacterActionEntry } from "../../../types/characterAction";
+import type { CharacterDerivedState } from "../../../types/characterDerived";
 
-type CharacterActionQuery = {
+type CharacterDerivedQuery = {
   classIndex?: string;
   level?: number;
-  subspeciesIndex?: string;
-  subclassIndex?: string;
   speciesIndex?: string;
+  subclassIndex?: string;
+  subspeciesIndex?: string;
 };
 
-async function fetchCharacterActions(
+async function fetchCharacterDerivedState(
   characterId: string,
   token: string,
-  query: CharacterActionQuery = {},
+  query: CharacterDerivedQuery = {},
 ) {
   const params = new URLSearchParams();
 
@@ -37,13 +37,13 @@ async function fetchCharacterActions(
   }
 
   const path = params.size > 0
-    ? `/characters/${characterId}/actions?${params.toString()}`
-    : `/characters/${characterId}/actions`;
+    ? `/characters/${characterId}/derived?${params.toString()}`
+    : `/characters/${characterId}/derived`;
 
-  return api.get<CharacterActionEntry[]>(path, {
+  return api.get<CharacterDerivedState>(path, {
     token,
   });
 }
 
-export { fetchCharacterActions };
-export type { CharacterActionQuery };
+export { fetchCharacterDerivedState };
+export type { CharacterDerivedQuery };
