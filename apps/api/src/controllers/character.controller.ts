@@ -7,8 +7,13 @@ import {
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
+  findCharacterInventoryForUser,
+  findCharacterInventoryStateForUser,
   removeConditionFromCharacterForUser,
+  replaceCharacterInventoryForUser,
+  saveCharacterInventoryStateForUser,
   updateCharacterForUser,
+  type CharacterInventoryMutationItem,
 } from "../services/character.service.js";
 import { findCharacterActionsForUser } from "../services/character-actions.service.js";
 import { findCharacterDefensesForUser } from "../services/character-defenses.service.js";
@@ -63,6 +68,24 @@ type FeatureChoiceSelectionRequestBody = {
 
 type AddConditionRequestBody = {
   conditionIndex?: unknown;
+};
+
+type InventoryMutationRequestBody = {
+  items?: unknown;
+};
+
+type InventoryStateRequestBody = {
+  stateCode?: unknown;
+};
+
+type InventoryMutationItemRequestBody = {
+  customName?: unknown;
+  equipped?: unknown;
+  equipmentIndex?: unknown;
+  gridX?: unknown;
+  gridY?: unknown;
+  notes?: unknown;
+  quantity?: unknown;
 };
 
 type HitPointStateRequestBody = {
@@ -401,6 +424,90 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
+function isNullableString(value: unknown) {
+  return value === undefined || value === null || typeof value === "string";
+}
+
+function isNullableGridCoordinate(value: unknown) {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 99)
+  );
+}
+
+function normalizeGridCoordinate(value: unknown) {
+  return typeof value === "number" ? value : null;
+}
+
+function parseInventoryMutationBody(body: unknown): CharacterInventoryMutationItem[] | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const candidate = body as InventoryMutationRequestBody;
+
+  if (!Array.isArray(candidate.items) || candidate.items.length > 200) {
+    return null;
+  }
+
+  const parsedItems: CharacterInventoryMutationItem[] = [];
+
+  for (const item of candidate.items) {
+    if (!item || typeof item !== "object") {
+      return null;
+    }
+
+    const candidateItem = item as InventoryMutationItemRequestBody;
+
+    if (
+      typeof candidateItem.equipmentIndex !== "string" ||
+      candidateItem.equipmentIndex.trim().length === 0 ||
+      typeof candidateItem.quantity !== "number" ||
+      !Number.isInteger(candidateItem.quantity) ||
+      candidateItem.quantity < 1 ||
+      candidateItem.quantity > 999 ||
+      typeof candidateItem.equipped !== "boolean" ||
+      !isNullableGridCoordinate(candidateItem.gridX) ||
+      !isNullableGridCoordinate(candidateItem.gridY) ||
+      !isNullableString(candidateItem.customName) ||
+      !isNullableString(candidateItem.notes)
+    ) {
+      return null;
+    }
+
+    parsedItems.push({
+      customName: candidateItem.customName ?? null,
+      equipped: candidateItem.equipped,
+      equipmentIndex: candidateItem.equipmentIndex.trim(),
+      gridX: normalizeGridCoordinate(candidateItem.gridX),
+      gridY: normalizeGridCoordinate(candidateItem.gridY),
+      notes: candidateItem.notes ?? null,
+      quantity: candidateItem.quantity,
+    });
+  }
+
+  return parsedItems;
+}
+
+function parseInventoryStateBody(body: unknown) {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const candidate = body as InventoryStateRequestBody;
+
+  if (
+    typeof candidate.stateCode !== "string" ||
+    candidate.stateCode.trim().length === 0 ||
+    candidate.stateCode.length > 1_000_000
+  ) {
+    return null;
+  }
+
+  return candidate.stateCode.trim();
+}
+
 async function getCharacters(req: Request, res: Response) {
   try {
     const characters = await findAllCharactersForUser(getAuthenticatedUser(req).id);
@@ -630,6 +737,172 @@ async function getCharacterDefenses(req: Request, res: Response) {
 
     res.status(500).json({
       error: "Failed to fetch character defenses",
+    });
+  }
+}
+
+async function getCharacterInventory(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const inventory = await findCharacterInventoryForUser(getAuthenticatedUser(req).id, id);
+
+    if (!inventory) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json({ items: inventory });
+  } catch (error) {
+    console.error("Failed to fetch character inventory:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch character inventory",
+    });
+  }
+}
+
+async function updateCharacterInventory(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const inventoryItems = parseInventoryMutationBody(req.body);
+
+    if (!inventoryItems) {
+      res.status(400).json({
+        error: "Request body must include an items array with equipmentIndex, quantity, and equipped",
+      });
+      return;
+    }
+
+    const inventory = await replaceCharacterInventoryForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      inventoryItems,
+    );
+
+    if (!inventory) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json({ items: inventory });
+  } catch (error) {
+    if (error instanceof CharacterReferenceNotFoundError) {
+      res.status(404).json({
+        error: error.message,
+      });
+      return;
+    }
+
+    console.error("Failed to update character inventory:", error);
+
+    res.status(500).json({
+      error: "Failed to update character inventory",
+    });
+  }
+}
+
+async function getCharacterInventoryState(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const inventoryState = await findCharacterInventoryStateForUser(
+      getAuthenticatedUser(req).id,
+      id,
+    );
+
+    if (inventoryState === null) {
+      const character = await findCharacterByIdForUser(getAuthenticatedUser(req).id, id);
+
+      if (!character) {
+        res.status(404).json({
+          error: "Character not found",
+        });
+        return;
+      }
+    }
+
+    res.json({
+      stateCode: inventoryState?.stateCode ?? null,
+      updatedAt: inventoryState?.updatedAt ?? null,
+    });
+  } catch (error) {
+    console.error("Failed to fetch character inventory state:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch character inventory state",
+    });
+  }
+}
+
+async function updateCharacterInventoryState(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const stateCode = parseInventoryStateBody(req.body);
+
+    if (!stateCode) {
+      res.status(400).json({
+        error: "Request body must include a non-empty stateCode string",
+      });
+      return;
+    }
+
+    const inventoryState = await saveCharacterInventoryStateForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      stateCode,
+    );
+
+    if (!inventoryState) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json({
+      stateCode: inventoryState.stateCode,
+      updatedAt: inventoryState.updatedAt,
+    });
+  } catch (error) {
+    console.error("Failed to update character inventory state:", error);
+
+    res.status(500).json({
+      error: "Failed to update character inventory state",
     });
   }
 }
@@ -889,7 +1162,11 @@ export {
   getCharacterDerivedState,
   getCharacterDefenses,
   getCharacterById,
+  getCharacterInventory,
+  getCharacterInventoryState,
   getCharacters,
   removeCharacterCondition,
   updateCharacter,
+  updateCharacterInventory,
+  updateCharacterInventoryState,
 };

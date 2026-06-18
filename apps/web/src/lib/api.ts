@@ -70,6 +70,23 @@ async function patch<T>(path: string, body: unknown, options: RequestOptions = {
   return (await response.json()) as T;
 }
 
+async function put<T>(path: string, body: unknown, options: RequestOptions = {}) {
+  const response = await fetchApi(path, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(options.token),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+
+  return (await response.json()) as T;
+}
+
 async function deleteRequest<T = void>(path: string, options: RequestOptions = {}) {
   const response = await fetchApi(path, {
     method: "DELETE",
@@ -102,6 +119,7 @@ const api = {
   get,
   patch,
   post,
+  put,
 };
 
 export { API_BASE_URL, api };

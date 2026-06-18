@@ -78,10 +78,23 @@ export type CharacterHitPointState = {
 
 export type InventoryItem = {
   id: string;
+  characterId?: string;
+  customName?: string | null;
   quantity: number;
   equipped: boolean;
+  equipmentIndex?: string;
+  gridX?: number | null;
+  gridY?: number | null;
+  notes?: string | null;
   equipment: {
+    costQuantity?: number | null;
+    costUnit?: string | null;
+    description?: string | null;
+    equipmentCategory?: string | null;
+    index?: string;
+    itemType?: string | null;
     name: string;
+    weight?: number | null;
   };
 };
 

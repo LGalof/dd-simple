@@ -31,7 +31,7 @@ export const defaultLayers: LayerState = {
   fog: true,
   pins: true,
   templates: true,
-  vision: true,
+  vision: false,
   grid: true,
 };
 

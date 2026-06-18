@@ -7,9 +7,13 @@ import {
   getCharacterDerivedState,
   getCharacterDefenses,
   getCharacterById,
+  getCharacterInventory,
+  getCharacterInventoryState,
   getCharacters,
   removeCharacterCondition,
   updateCharacter,
+  updateCharacterInventory,
+  updateCharacterInventoryState,
 } from "../controllers/character.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -31,6 +35,14 @@ charactersRouter.delete(
   removeCharacterCondition,
 );
 charactersRouter.get("/characters/:id/defenses", getCharacterDefenses);
+
+charactersRouter.get("/characters/:id/inventory", getCharacterInventory);
+
+charactersRouter.put("/characters/:id/inventory", updateCharacterInventory);
+
+charactersRouter.get("/characters/:id/inventory/state", getCharacterInventoryState);
+
+charactersRouter.put("/characters/:id/inventory/state", updateCharacterInventoryState);
 
 charactersRouter.get("/characters/:id", getCharacterById);
 

@@ -8,6 +8,7 @@ import {
   PackageOpen,
   Plus,
   RotateCw,
+  Save,
   Search,
   Shield,
   Shirt,
@@ -17,10 +18,17 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../features/auth/AuthContext";
+import {
+  fetchCharacterInventory,
+  fetchCharacterInventoryState,
+  saveCharacterInventory,
+  saveCharacterInventoryState,
+  type CharacterInventorySaveItem,
+} from "../features/characters/api/characterInventory";
 import { fetchEquipment } from "../features/references/api/fetchReferences";
 import { AppLayout } from "../components/layout/AppLayout";
 import type { ReferenceEquipment } from "../types/reference";
@@ -54,6 +62,7 @@ type InventoryItem = {
   notes: string;
   equipmentSlot?: EquipmentSlotId;
   equippedSlot?: EquipmentSlotId;
+  referenceEquipmentIndex?: string;
 };
 
 type InventoryContainer = {
@@ -132,7 +141,10 @@ type InventoryLibraryType =
   | "wondrous"
   | "other";
 
+type BackendCharacterInventoryItem = Awaited<ReturnType<typeof fetchCharacterInventory>>[number];
+
 const inventoryStorageKey = "dd-simple.inventory-sandbox.v1";
+const inventoryDashboardStoragePrefix = "dd-simple.character-inventory.v1";
 
 const inventoryLibraryTypeOptions: Array<{ id: InventoryLibraryType; label: string }> = [
   { id: "armor", label: "Armor" },
@@ -510,8 +522,12 @@ const itemTemplates: ItemTemplate[] = [
   },
 ];
 
-function useInventorySandboxController() {
-  const savedInventoryState = useMemo(() => loadSavedInventoryState(), []);
+function useInventorySandboxController(storageScope = "sandbox", backendCharacterId?: string) {
+  const { token } = useAuth();
+  const storageKey = useMemo(() => getInventoryStorageKey(storageScope), [storageScope]);
+  const savedInventoryState = useMemo(() => loadSavedInventoryState(storageKey), [storageKey]);
+  const skipNextPersistRef = useRef(false);
+  const backendEnabled = Boolean(backendCharacterId && token);
   const [containers, setContainers] = useState(
     savedInventoryState?.containers ?? initialContainers,
   );
@@ -540,6 +556,7 @@ function useInventorySandboxController() {
   const [splitAmount, setSplitAmount] = useState(1);
   const [shareCode, setShareCode] = useState("");
   const [message, setMessage] = useState("Drag items between grids, rotate them, or drop gear on equipment slots.");
+  const [backendSaving, setBackendSaving] = useState(false);
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
   const equippedItems = useMemo(
     () => new Map(items.filter((item) => item.location === "equipped").map((item) => [item.equippedSlot, item])),
@@ -547,14 +564,97 @@ function useInventorySandboxController() {
   );
 
   useEffect(() => {
+    const nextState = loadSavedInventoryState(storageKey);
+
+    skipNextPersistRef.current = true;
+    setContainers(nextState?.containers ?? initialContainers);
+    setItems(nextState?.items ?? initialItems);
+    setSelectedItemId(nextState?.selectedItemId ?? initialItems[0].id);
+    setDragItemId(null);
+    setHoverPreview(null);
+    setMergeTargetId(null);
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+
     const state: SavedInventoryState = {
       containers,
       items,
       selectedItemId,
     };
 
-    localStorage.setItem(inventoryStorageKey, JSON.stringify(state));
-  }, [containers, items, selectedItemId]);
+    localStorage.setItem(storageKey, JSON.stringify(state));
+  }, [containers, items, selectedItemId, storageKey]);
+
+  useEffect(() => {
+    async function loadBackendInventory() {
+      if (!backendCharacterId || !token) {
+        return;
+      }
+
+      try {
+        const stateResponse = await fetchCharacterInventoryState(backendCharacterId, token);
+
+        if (stateResponse.stateCode) {
+          const decodedState = decodeInventoryState(stateResponse.stateCode);
+
+          if (decodedState) {
+            setContainers(decodedState.containers);
+            setItems(decodedState.items);
+            setSelectedItemId(decodedState.selectedItemId);
+            setMessage("Inventory layout loaded from character database.");
+            return;
+          }
+        }
+
+        const backendItems = await fetchCharacterInventory(backendCharacterId, token);
+        const nextItems = backendItems.map(mapBackendInventoryItemToGridItem);
+
+        if (nextItems.length > 0) {
+          setContainers(initialContainers);
+          setItems(nextItems);
+          setSelectedItemId(nextItems[0].id);
+          setMessage("Inventory loaded from character database.");
+        }
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Failed to load backend inventory.");
+      }
+    }
+
+    void loadBackendInventory();
+  }, [backendCharacterId, token]);
+
+  async function saveToBackend() {
+    if (!backendCharacterId || !token) {
+      setMessage("Login and select a character before saving inventory to the database.");
+      return;
+    }
+
+    const backendItems = items
+      .map(mapGridItemToBackendInventoryItem)
+      .filter((item): item is CharacterInventorySaveItem => Boolean(item));
+    const fullStateCode = encodeInventoryState({
+      containers,
+      items,
+      selectedItemId,
+    });
+
+    setBackendSaving(true);
+
+    try {
+      await saveCharacterInventoryState(backendCharacterId, fullStateCode, token);
+      await saveCharacterInventory(backendCharacterId, backendItems, token);
+      setMessage("Saved full inventory layout to the character database.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to save inventory.");
+    } finally {
+      setBackendSaving(false);
+    }
+  }
 
   function updateItem(nextItem: InventoryItem) {
     setItems((currentItems) =>
@@ -956,6 +1056,7 @@ function useInventorySandboxController() {
       speedPenalty: 0,
       notes: extractReferenceDescription(referenceItem),
       equipmentSlot,
+      referenceEquipmentIndex: referenceItem.index,
     };
     const position = findFirstAvailableSlot(baseItem, container, items);
 
@@ -1192,6 +1293,8 @@ function useInventorySandboxController() {
 
   return {
     applyItemTemplate,
+    backendEnabled,
+    backendSaving,
     clearContainer,
     containers,
     createChest,
@@ -1227,6 +1330,7 @@ function useInventorySandboxController() {
     rotateSelectedItem,
     selectedItem,
     selectedItemId,
+    saveToBackend,
     setNewChestColumns,
     setNewChestName,
     setNewChestRows,
@@ -1266,6 +1370,8 @@ function InventoryDetailsContent({
   const {
     addReferenceEquipment,
     applyItemTemplate,
+    backendEnabled,
+    backendSaving,
     clearContainer,
     containers,
     createChest,
@@ -1281,6 +1387,7 @@ function InventoryDetailsContent({
     newItemForm,
     renameContainer,
     resizeContainer,
+    saveToBackend,
     selectedItem,
     setNewChestColumns,
     setNewChestName,
@@ -2071,6 +2178,15 @@ function InventoryDetailsContent({
           label="Create Item"
           onClick={() => setActiveToolPanel("createItem")}
         />
+        {backendEnabled && (
+          <InventorySidebarActionButton
+            icon={<Save size={16} />}
+            label={backendSaving ? "Saving" : "Save DB"}
+            onClick={() => {
+              void saveToBackend();
+            }}
+          />
+        )}
       </div>
 
       <section className="inventory-library-shell">
@@ -2516,16 +2632,23 @@ function InventoryGrid({
   onSelectItem,
   selectedItemId,
 }: InventoryGridProps) {
+  const containerStats = getContainerStats(container, items);
+
   return (
     <section className="inventory-grid-panel">
       <div className="inventory-panel-heading">
         <span>
-          {container.columns} x {container.rows}
+          {container.columns} x {container.rows} · {containerStats.usedCells}/{containerStats.totalCells} cells
         </span>
         <strong>
           {container.id === "inventory" ? <Backpack size={18} /> : <Archive size={18} />}
           {container.name}
         </strong>
+      </div>
+      <div className="inventory-grid-meta">
+        <span>{containerStats.itemCount} items</span>
+        <span>{formatInventoryNumber(containerStats.weight)} lb</span>
+        <span>{formatInventoryNumber(containerStats.value)} gp</span>
       </div>
 
       <div
@@ -2595,6 +2718,94 @@ function InventoryGrid({
       </div>
     </section>
   );
+}
+
+function getContainerStats(container: InventoryContainer, items: InventoryItem[]) {
+  return items.reduce(
+    (stats, item) => ({
+      itemCount: stats.itemCount + item.quantity,
+      totalCells: stats.totalCells,
+      usedCells: stats.usedCells + getItemWidth(item) * getItemHeight(item),
+      value: stats.value + item.value * item.quantity,
+      weight: stats.weight + item.weight * item.quantity,
+    }),
+    {
+      itemCount: 0,
+      totalCells: container.columns * container.rows,
+      usedCells: 0,
+      value: 0,
+      weight: 0,
+    },
+  );
+}
+
+function formatInventoryNumber(value: number) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem): InventoryItem {
+  const referenceItem: ReferenceEquipment = {
+    costQuantity: item.equipment.costQuantity ?? null,
+    costUnit: item.equipment.costUnit ?? null,
+    description: item.equipment.description ?? null,
+    equipmentCategory: item.equipment.equipmentCategory ?? null,
+    index: item.equipment.index ?? item.equipmentIndex ?? item.id,
+    itemType: item.equipment.itemType ?? null,
+    name: item.equipment.name,
+    weight:
+      item.equipment.weight == null
+        ? null
+        : Number(item.equipment.weight),
+  };
+  const kind = inferReferenceItemKind(referenceItem);
+  const equipmentSlot = inferReferenceEquipmentSlot(referenceItem);
+
+  return {
+    armorClassBonus: 0,
+    attackBonus: 0,
+    color: inferReferenceItemColor(referenceItem),
+    damage: kind === "weapon" ? "1d6" : "",
+    equipmentSlot,
+    equippedSlot: item.equipped ? equipmentSlot : undefined,
+    height: inferReferenceItemHeight(referenceItem),
+    id: item.id,
+    kind,
+    location: item.equipped && equipmentSlot ? "equipped" : "inventory",
+    maxStack: Math.max(1, item.quantity),
+    name: item.customName?.trim() || item.equipment.name,
+    notes: item.notes ?? extractReferenceDescription(referenceItem),
+    quantity: item.quantity,
+    rarity: isReferenceEquipmentMagical(referenceItem) ? "Magical" : "Common",
+    referenceEquipmentIndex: item.equipment.index ?? item.equipmentIndex,
+    rotated: false,
+    speedPenalty: 0,
+    stackable: item.quantity > 1 || kind === "consumable",
+    value: item.equipment.costQuantity ?? 0,
+    weight: Number(item.equipment.weight ?? 1),
+    width: inferReferenceItemWidth(referenceItem),
+    x: item.gridX ?? 0,
+    y: item.gridY ?? 0,
+  };
+}
+
+function mapGridItemToBackendInventoryItem(item: InventoryItem): CharacterInventorySaveItem | null {
+  if (!item.referenceEquipmentIndex) {
+    return null;
+  }
+
+  return {
+    customName: item.name,
+    equipped: item.location === "equipped",
+    equipmentIndex: item.referenceEquipmentIndex,
+    gridX: item.location === "equipped" ? null : item.x,
+    gridY: item.location === "equipped" ? null : item.y,
+    notes: item.notes,
+    quantity: item.quantity,
+  };
 }
 
 function getDropPosition(
@@ -3015,9 +3226,17 @@ function clampNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.trunc(value)));
 }
 
-function loadSavedInventoryState(): SavedInventoryState | null {
+function getInventoryStorageKey(storageScope: string) {
+  if (storageScope === "sandbox") {
+    return inventoryStorageKey;
+  }
+
+  return `${inventoryDashboardStoragePrefix}.${storageScope}`;
+}
+
+function loadSavedInventoryState(storageKey = inventoryStorageKey): SavedInventoryState | null {
   try {
-    const rawState = localStorage.getItem(inventoryStorageKey);
+    const rawState = localStorage.getItem(storageKey);
 
     if (!rawState) {
       return null;

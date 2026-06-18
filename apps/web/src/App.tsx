@@ -70,11 +70,7 @@ function App() {
           />
           <Route
             path="/inventory"
-            element={
-              <ProtectedRoute>
-                <InventorySandboxPage />
-              </ProtectedRoute>
-            }
+            element={<InventorySandboxPage />}
           />
           <Route
             path="/board"

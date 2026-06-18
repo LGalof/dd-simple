@@ -110,6 +110,16 @@ type CharacterMutationData = {
 
 type CreateCharacterData = CharacterMutationData;
 
+type CharacterInventoryMutationItem = {
+  equipmentIndex: string;
+  quantity: number;
+  equipped: boolean;
+  gridX?: number | null;
+  gridY?: number | null;
+  customName?: string | null;
+  notes?: string | null;
+};
+
 const CLASS_CHOICE_SOURCE_TYPE = "class";
 const CLASS_SKILL_CHOICE_TYPE = "class-skill-choice";
 const CLASS_SKILL_CHOICE_SELECTED_TYPE = "skill";
@@ -2283,6 +2293,151 @@ async function removeConditionFromCharacterForUser(
   });
 }
 
+async function findCharacterInventoryForUser(userId: string, characterId: string) {
+  const character = await prisma.character.findFirst({
+    where: {
+      id: characterId,
+      userId,
+    },
+    select: {
+      id: true,
+      inventory: {
+        include: {
+          equipment: true,
+        },
+      },
+    },
+  });
+
+  return character?.inventory ?? null;
+}
+
+async function replaceCharacterInventoryForUser(
+  userId: string,
+  characterId: string,
+  inventoryItems: CharacterInventoryMutationItem[],
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const character = await tx.character.findFirst({
+      where: {
+        id: characterId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!character) {
+      return null;
+    }
+
+    const equipmentIndexes = [...new Set(inventoryItems.map((item) => item.equipmentIndex))];
+    const existingEquipment = await tx.refEquipment.findMany({
+      where: {
+        index: {
+          in: equipmentIndexes,
+        },
+      },
+      select: {
+        index: true,
+      },
+    });
+    const existingEquipmentIndexes = new Set(existingEquipment.map((equipment) => equipment.index));
+    const missingEquipmentIndex = equipmentIndexes.find(
+      (equipmentIndex) => !existingEquipmentIndexes.has(equipmentIndex),
+    );
+
+    if (missingEquipmentIndex) {
+      throw new CharacterReferenceNotFoundError(`Equipment not found: ${missingEquipmentIndex}`);
+    }
+
+    await tx.characterInventory.deleteMany({
+      where: {
+        characterId,
+      },
+    });
+
+    if (inventoryItems.length > 0) {
+      await tx.characterInventory.createMany({
+        data: inventoryItems.map((item) => ({
+          characterId,
+          customName: item.customName?.trim() || null,
+          equipped: item.equipped,
+          equipmentIndex: item.equipmentIndex,
+          gridX: item.gridX ?? null,
+          gridY: item.gridY ?? null,
+          notes: item.notes?.trim() || null,
+          quantity: item.quantity,
+        })),
+      });
+    }
+
+    return tx.characterInventory.findMany({
+      where: {
+        characterId,
+      },
+      include: {
+        equipment: true,
+      },
+    });
+  });
+}
+
+async function findCharacterInventoryStateForUser(userId: string, characterId: string) {
+  const character = await prisma.character.findFirst({
+    where: {
+      id: characterId,
+      userId,
+    },
+    select: {
+      id: true,
+      inventoryState: true,
+    },
+  });
+
+  if (!character) {
+    return null;
+  }
+
+  return character.inventoryState;
+}
+
+async function saveCharacterInventoryStateForUser(
+  userId: string,
+  characterId: string,
+  stateCode: string,
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const character = await tx.character.findFirst({
+      where: {
+        id: characterId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!character) {
+      return null;
+    }
+
+    return tx.characterInventoryState.upsert({
+      where: {
+        characterId,
+      },
+      update: {
+        stateCode,
+      },
+      create: {
+        characterId,
+        stateCode,
+      },
+    });
+  });
+}
+
 export {
   addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
@@ -2290,7 +2445,11 @@ export {
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
+  findCharacterInventoryForUser,
+  findCharacterInventoryStateForUser,
   removeConditionFromCharacterForUser,
+  replaceCharacterInventoryForUser,
+  saveCharacterInventoryStateForUser,
   updateCharacterForUser,
 };
-export type { CharacterMutationData, CreateCharacterData };
+export type { CharacterInventoryMutationItem, CharacterMutationData, CreateCharacterData };

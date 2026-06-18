@@ -91,7 +91,6 @@ function CharacterDashboardPage() {
   const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | null>(null);
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
-  const inventoryController = useInventorySandboxController();
   const {
     addCondition,
     characters,
@@ -111,6 +110,10 @@ function CharacterDashboardPage() {
     [characters, selectedCharacterId],
   );
   const character = selectedCharacter ?? characters[0];
+  const inventoryController = useInventorySandboxController(
+    character ? `character-${character.id}` : "dashboard",
+    character?.id,
+  );
 
   useEffect(() => {
     if (!loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {

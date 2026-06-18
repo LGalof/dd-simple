@@ -93,6 +93,52 @@ const terrainIcons = {
   forest: Trees,
 };
 
+const boardModeLabels: Record<BoardMode, string> = {
+  move: "Move",
+  target: "Target",
+  ruler: "Ruler",
+  fog: "Fog",
+  pin: "Pin",
+  waypoint: "Path",
+  normal: "Normal",
+  difficult: "Difficult",
+  wall: "Wall",
+  water: "Water",
+  forest: "Forest",
+};
+
+const boardModeDescriptions: Record<BoardMode, string> = {
+  move: "Drag tokens. Green squares show the selected token's movement reach.",
+  target: "Hover or click a square to preview spell range, area, and line of sight.",
+  ruler: "Click a start square and an end square to measure distance.",
+  fog: "Click squares to hide or reveal fog of war.",
+  pin: "Click a square to place or remove a note, trap, door, loot, or lever.",
+  waypoint: "Click squares to draw a movement path, then press Move.",
+  normal: "Paint normal floor and clear terrain markings.",
+  difficult: "Paint difficult terrain that costs extra movement.",
+  wall: "Paint blocked wall squares.",
+  water: "Paint water terrain.",
+  forest: "Paint forest terrain.",
+};
+
+const boardLegendItems = [
+  { className: "battle-legend-reach", label: "Move reach" },
+  { className: "battle-legend-path", label: "Path / ruler" },
+  { className: "battle-legend-spell", label: "Spell range" },
+  { className: "battle-legend-aoe", label: "AOE / template" },
+  { className: "battle-legend-fog", label: "Fog" },
+  { className: "battle-legend-wall", label: "Wall" },
+];
+
+type TurnResourceKey = "actionUsed" | "bonusActionUsed" | "reactionUsed";
+type SpellResource = TurnResourceKey | "free";
+
+const turnResourceLabels: Record<TurnResourceKey, string> = {
+  actionUsed: "Action",
+  bonusActionUsed: "Bonus Action",
+  reactionUsed: "Reaction",
+};
+
 function TacticalBoardPage() {
   const savedBoardState = useMemo(() => loadSavedBoardState(), []);
   const initialSavedBoards = useMemo(() => loadSavedBoardEntries(), []);
@@ -128,6 +174,7 @@ function TacticalBoardPage() {
   const [spellName, setSpellName] = useState("Fireball");
   const [spellDamage, setSpellDamage] = useState("8d6 fire");
   const [spellRangeFeet, setSpellRangeFeet] = useState(60);
+  const [spellResource, setSpellResource] = useState<SpellResource>("actionUsed");
   const [aoeShape, setAoeShape] = useState<AoeShape>("burst");
   const [aoeSizeFeet, setAoeSizeFeet] = useState(15);
   const [targetCell, setTargetCell] = useState<{ x: number; y: number } | null>(null);
@@ -145,6 +192,7 @@ function TacticalBoardPage() {
   const [savedBoards, setSavedBoards] = useState(initialSavedBoards);
   const [boardName, setBoardName] = useState(initialSavedBoards[0]?.name ?? "Forest Road");
   const [selectedSavedBoardId, setSelectedSavedBoardId] = useState(initialSavedBoards[0]?.id ?? "");
+  const [ruleOverride, setRuleOverride] = useState(false);
   const [message, setMessage] = useState("Drag tokens on the board or paint terrain.");
 
   const selectedToken = tokens.find((token) => token.id === selectedTokenId) ?? null;
@@ -160,7 +208,11 @@ function TacticalBoardPage() {
   const selectedSavedBoard =
     savedBoards.find((board) => board.id === selectedSavedBoardId) ?? null;
   const feetPerSquare = Math.max(1, boardSettings.feetPerSquare || cellDistance);
-  const selectedReach = selectedToken ? Math.floor(selectedToken.speed / feetPerSquare) : 0;
+  const selectedMovementUsed = selectedToken?.turn?.movementUsed ?? 0;
+  const selectedMovementRemaining = selectedToken
+    ? Math.max(0, selectedToken.speed - selectedMovementUsed)
+    : 0;
+  const selectedReach = selectedToken ? Math.floor(selectedMovementRemaining / feetPerSquare) : 0;
   const spellRangeCells = Math.max(1, Math.floor(spellRangeFeet / feetPerSquare));
   const aoeSizeCells = Math.max(0, Math.floor(aoeSizeFeet / feetPerSquare));
   const spellOrigin = selectedToken ? getTokenCenter(selectedToken) : null;
@@ -311,6 +363,75 @@ function TacticalBoardPage() {
     return tokens.find((token) => token.id === tokenId) ?? null;
   }
 
+  function getRemainingMovementFeet(token: BoardToken) {
+    return Math.max(0, token.speed - (token.turn?.movementUsed ?? 0));
+  }
+
+  function getTurnOwnershipIssue(token: BoardToken) {
+    if (ruleOverride || !activeTokenId || token.id === activeTokenId) {
+      return "";
+    }
+
+    return `${token.name} is not the active turn. Enable DM override to force it.`;
+  }
+
+  function spendTurnResource(token: BoardToken, resourceKey: TurnResourceKey, activity: string) {
+    const turnIssue = getTurnOwnershipIssue(token);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
+      return false;
+    }
+
+    if (token.turn?.[resourceKey] && !ruleOverride) {
+      const resourceLabel = turnResourceLabels[resourceKey].toLowerCase();
+
+      setMessage(`${token.name} already used their ${resourceLabel}. Enable DM override to force it.`);
+      addCombatLog(`Rule warning: ${token.name} already used their ${resourceLabel}.`);
+      return false;
+    }
+
+    updateToken({
+      ...token,
+      turn: {
+        ...defaultTurnState,
+        ...(token.turn ?? {}),
+        [resourceKey]: true,
+      },
+    });
+    addCombatLog(`${token.name} spent ${turnResourceLabels[resourceKey]}: ${activity}.`);
+    return true;
+  }
+
+  function getMovementRuleIssue(
+    token: BoardToken,
+    movementCostFeet: number,
+    pathCells: Array<{ x: number; y: number }>,
+  ) {
+    if (pathCells.slice(1).some((cell) => terrain[getCellKey(cell.x, cell.y)] === "wall")) {
+      return `${token.name}'s path crosses a wall.`;
+    }
+
+    if (ruleOverride) {
+      return "";
+    }
+
+    const turnIssue = getTurnOwnershipIssue(token);
+
+    if (turnIssue) {
+      return turnIssue;
+    }
+
+    const remainingFeet = getRemainingMovementFeet(token);
+
+    if (movementCostFeet > remainingFeet) {
+      return `${token.name} only has ${remainingFeet} ft of movement left. Enable DM override to force it.`;
+    }
+
+    return "";
+  }
+
   function handleBoardDragOver(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
 
@@ -326,7 +447,16 @@ function TacticalBoardPage() {
       x: cell.x,
       y: cell.y,
     };
-    const valid = canPlaceToken(candidate, tokens, terrain);
+    const movementCells = getLineCells({ x: draggedToken.x, y: draggedToken.y }, cell);
+    const moveCost = getMovementCostFeet(
+      movementCells,
+      terrain,
+      feetPerSquare,
+      boardSettings.diagonalRule,
+    );
+    const valid =
+      canPlaceToken(candidate, tokens, terrain) &&
+      !getMovementRuleIssue(draggedToken, moveCost, movementCells);
 
     event.dataTransfer.dropEffect = valid ? "move" : "none";
     setHoverCell({ ...cell, valid });
@@ -353,12 +483,20 @@ function TacticalBoardPage() {
       return;
     }
 
+    const movementCells = getLineCells({ x: draggedToken.x, y: draggedToken.y }, cell);
     const moveCost = getMovementCostFeet(
-      getLineCells({ x: draggedToken.x, y: draggedToken.y }, cell),
+      movementCells,
       terrain,
       feetPerSquare,
       boardSettings.diagonalRule,
     );
+    const movementIssue = getMovementRuleIssue(draggedToken, moveCost, movementCells);
+
+    if (movementIssue) {
+      setMessage(movementIssue);
+      addCombatLog(`Rule warning: ${movementIssue}`);
+      return;
+    }
 
     updateToken({
       ...nextToken,
@@ -550,6 +688,18 @@ function TacticalBoardPage() {
       return;
     }
 
+    if (!selectedToken) {
+      setMessage("Select a caster before placing a spell template.");
+      return;
+    }
+
+    if (
+      spellResource !== "free" &&
+      !spendTurnResource(selectedToken, spellResource, spellName.trim() || "Spell")
+    ) {
+      return;
+    }
+
     const template: PlacedTemplate = {
       id: `template-${Date.now()}`,
       name: spellName.trim() || "Area Effect",
@@ -589,6 +739,14 @@ function TacticalBoardPage() {
       return;
     }
 
+    const movementIssue = getMovementRuleIssue(selectedToken, waypointCostFeet, waypointCells);
+
+    if (movementIssue) {
+      setMessage(movementIssue);
+      addCombatLog(`Rule warning: ${movementIssue}`);
+      return;
+    }
+
     updateToken({
       ...nextToken,
       turn: {
@@ -602,9 +760,21 @@ function TacticalBoardPage() {
     setMessage(`${selectedToken.name} moved by waypoint path.`);
   }
 
-  function quickCombatAction(action: string) {
+  function quickCombatAction(
+    action: string,
+    resourceKey?: TurnResourceKey,
+  ) {
     if (!selectedToken) {
       setMessage("Select a token first.");
+      return;
+    }
+
+    if (resourceKey) {
+      if (!spendTurnResource(selectedToken, resourceKey, action)) {
+        return;
+      }
+
+      setMessage(`${selectedToken.name}: ${action}.`);
       return;
     }
 
@@ -1009,105 +1179,141 @@ function TacticalBoardPage() {
               })}
             </div>
 
-            <div className="battle-layer-grid">
-              {(Object.keys(layerLabels) as LayerKey[]).map((layer) => (
-                <button
-                  key={layer}
-                  type="button"
-                  className={layers[layer] ? "battle-layer-active" : ""}
-                  onClick={() => toggleLayer(layer)}
-                >
-                  {layerLabels[layer]}
-                </button>
+            <div className="battle-tool-hint">
+              <span>Active Tool</span>
+              <strong>{boardModeLabels[mode]}</strong>
+              <p>{boardModeDescriptions[mode]}</p>
+            </div>
+
+            <div className="battle-legend">
+              {boardLegendItems.map((item) => (
+                <span key={item.label}>
+                  <i className={item.className} />
+                  {item.label}
+                </span>
               ))}
             </div>
-            <label className="battle-check-field">
-              <input
-                checked={showDmNotes}
-                type="checkbox"
-                onChange={(event) => setShowDmNotes(event.target.checked)}
-              />
-              Show DM notes
-            </label>
 
-            <div className="battle-tool-strip">
-              <label className="battle-field">
-                <span>Brush</span>
-                <select value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))}>
-                  <option value={1}>1 x 1</option>
-                  <option value={2}>2 x 2</option>
-                  <option value={3}>3 x 3</option>
-                </select>
-              </label>
-              <label className="battle-field">
-                <span>Pin Text</span>
-                <input value={pinLabel} onChange={(event) => setPinLabel(event.target.value)} />
-              </label>
-            </div>
+            <details className="battle-compact-section">
+              <summary>
+                <span>View</span>
+                <strong>Layers</strong>
+              </summary>
 
-            <div className="battle-tool-strip">
-              <label className="battle-field">
-                <span>Pin Type</span>
-                <select value={pinType} onChange={(event) => setPinType(event.target.value as PinType)}>
-                  {(Object.keys(pinTypeLabels) as PinType[]).map((type) => (
-                    <option key={type} value={type}>
-                      {pinTypeLabels[type]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="battle-layer-grid">
+                {(Object.keys(layerLabels) as LayerKey[]).map((layer) => (
+                  <button
+                    key={layer}
+                    type="button"
+                    className={layers[layer] ? "battle-layer-active" : ""}
+                    onClick={() => toggleLayer(layer)}
+                  >
+                    {layerLabels[layer]}
+                  </button>
+                ))}
+              </div>
               <label className="battle-check-field">
                 <input
-                  checked={pinHidden}
+                  checked={showDmNotes}
                   type="checkbox"
-                  onChange={(event) => setPinHidden(event.target.checked)}
+                  onChange={(event) => setShowDmNotes(event.target.checked)}
                 />
-                DM only
+                Show DM notes
               </label>
-            </div>
+            </details>
 
-            <div className="battle-ruler-summary">
-              <span>Ruler</span>
-              <strong>{rulerDistanceFeet > 0 ? `${rulerDistanceFeet} ft` : "Pick two squares"}</strong>
+            <details className="battle-compact-section">
+              <summary>
+                <span>Interact</span>
+                <strong>Brush / Pins</strong>
+              </summary>
+
+              <div className="battle-tool-strip">
+                <label className="battle-field">
+                  <span>Brush</span>
+                  <select value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))}>
+                    <option value={1}>1 x 1</option>
+                    <option value={2}>2 x 2</option>
+                    <option value={3}>3 x 3</option>
+                  </select>
+                </label>
+                <label className="battle-field">
+                  <span>Pin Text</span>
+                  <input value={pinLabel} onChange={(event) => setPinLabel(event.target.value)} />
+                </label>
+              </div>
+
+              <div className="battle-tool-strip">
+                <label className="battle-field">
+                  <span>Pin Type</span>
+                  <select value={pinType} onChange={(event) => setPinType(event.target.value as PinType)}>
+                    {(Object.keys(pinTypeLabels) as PinType[]).map((type) => (
+                      <option key={type} value={type}>
+                        {pinTypeLabels[type]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="battle-check-field">
+                  <input
+                    checked={pinHidden}
+                    type="checkbox"
+                    onChange={(event) => setPinHidden(event.target.checked)}
+                  />
+                  DM only
+                </label>
+              </div>
+            </details>
+
+            <details className="battle-compact-section" open>
+              <summary>
+                <span>Measure</span>
+                <strong>Movement</strong>
+              </summary>
+
+              <div className="battle-ruler-summary">
+                <span>Ruler</span>
+                <strong>{rulerDistanceFeet > 0 ? `${rulerDistanceFeet} ft` : "Pick two squares"}</strong>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRulerStart(null);
+                    setRulerEnd(null);
+                    setHoverRulerCell(null);
+                    setMessage("Ruler cleared.");
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div className="battle-ruler-summary">
+                <span>Move Cost</span>
+                <strong>{movementCostFeet > 0 ? `${movementCostFeet} ft` : "Drag a token"}</strong>
+                <button type="button" onClick={() => setMessage("Green path shows estimated movement cost.")}>
+                  Info
+                </button>
+              </div>
+
+              <div className="battle-ruler-summary">
+                <span>Path Cost</span>
+                <strong>{waypointCostFeet > 0 ? `${waypointCostFeet} ft` : "Click path"}</strong>
+                <button type="button" onClick={applyWaypointMove}>
+                  Move
+                </button>
+              </div>
               <button
                 type="button"
+                className="battle-primary-button battle-primary-button-muted"
                 onClick={() => {
-                  setRulerStart(null);
-                  setRulerEnd(null);
-                  setHoverRulerCell(null);
-                  setMessage("Ruler cleared.");
+                  setWaypoints([]);
+                  setMessage("Waypoint path cleared.");
                 }}
               >
-                Clear
+                <RotateCcw size={17} />
+                Clear Path
               </button>
-            </div>
-
-            <div className="battle-ruler-summary">
-              <span>Move Cost</span>
-              <strong>{movementCostFeet > 0 ? `${movementCostFeet} ft` : "Drag a token"}</strong>
-              <button type="button" onClick={() => setMessage("Green path shows estimated movement cost.")}>
-                Info
-              </button>
-            </div>
-
-            <div className="battle-ruler-summary">
-              <span>Path Cost</span>
-              <strong>{waypointCostFeet > 0 ? `${waypointCostFeet} ft` : "Click path"}</strong>
-              <button type="button" onClick={applyWaypointMove}>
-                Move
-              </button>
-            </div>
-            <button
-              type="button"
-              className="battle-primary-button battle-primary-button-muted"
-              onClick={() => {
-                setWaypoints([]);
-                setMessage("Waypoint path cleared.");
-              }}
-            >
-              <RotateCcw size={17} />
-              Clear Path
-            </button>
+            </details>
 
             <div className="battle-panel-heading">
               <span>Measure</span>
@@ -1129,6 +1335,8 @@ function TacticalBoardPage() {
               <em>
                 {spellName} · {spellDamage} · {aoeShapeLabels[aoeShape]}
                 {aoeShape === "single" ? "" : ` ${aoeSizeFeet} ft`}
+                {" · "}
+                {spellResource === "free" ? "Free" : turnResourceLabels[spellResource]}
               </em>
               <small>{spellCoverStatus}</small>
             </div>
@@ -1153,100 +1361,117 @@ function TacticalBoardPage() {
               )}
             </div>
 
-            <div className="battle-spell-presets">
-              {spellTemplates.map((template) => (
-                <button
-                  key={template.name}
-                  type="button"
-                  onClick={() => applySpellTemplate(template)}
-                >
-                  {template.name}
-                </button>
-              ))}
-            </div>
+            <details className="battle-compact-section">
+              <summary>
+                <span>Spells</span>
+                <strong>Templates / Damage</strong>
+              </summary>
 
-            <label className="battle-field">
-              <span>Spell</span>
-              <input value={spellName} onChange={(event) => setSpellName(event.target.value)} />
-            </label>
-
-            <label className="battle-field">
-              <span>Damage / Effect</span>
-              <input
-                value={spellDamage}
-                onChange={(event) => setSpellDamage(event.target.value)}
-              />
-            </label>
-
-            <div className="battle-field-row">
-              <label className="battle-field">
-                <span>Range ft</span>
-                <input
-                  min={5}
-                  step={5}
-                  type="number"
-                  value={spellRangeFeet}
-                  onChange={(event) => setSpellRangeFeet(Math.max(5, Number(event.target.value)))}
-                />
-              </label>
-              <label className="battle-field">
-                <span>AOE ft</span>
-                <input
-                  min={0}
-                  step={5}
-                  type="number"
-                  value={aoeSizeFeet}
-                  onChange={(event) => setAoeSizeFeet(Math.max(0, Number(event.target.value)))}
-                />
-              </label>
-            </div>
-
-            <label className="battle-field">
-              <span>Shape</span>
-              <select value={aoeShape} onChange={(event) => setAoeShape(event.target.value as AoeShape)}>
-                {(Object.keys(aoeShapeLabels) as AoeShape[]).map((shape) => (
-                  <option key={shape} value={shape}>
-                    {aoeShapeLabels[shape]}
-                  </option>
+              <div className="battle-spell-presets">
+                {spellTemplates.map((template) => (
+                  <button
+                    key={template.name}
+                    type="button"
+                    onClick={() => applySpellTemplate(template)}
+                  >
+                    {template.name}
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
 
-            <div className="battle-field-row">
-              <button
-                type="button"
-                className="battle-primary-button battle-primary-button-muted"
-                onClick={() => {
-                  setMode("target");
-                  setMessage("Hover or click a square to preview range and AOE.");
-                }}
-              >
-                <Sparkles size={17} />
-                Preview
-              </button>
-              <button
-                type="button"
-                className="battle-primary-button battle-primary-button-muted"
-                onClick={() => {
-                  setTargetCell(null);
-                  setHoverTargetCell(null);
-                  setMessage("Spell preview cleared.");
-                }}
-              >
-                <RotateCcw size={17} />
-                Clear
-              </button>
-            </div>
-            <div className="battle-field-row">
-              <button type="button" className="battle-primary-button" onClick={placePersistentTemplate}>
-                <Plus size={17} />
-                Place
-              </button>
-              <button type="button" className="battle-danger-button" onClick={clearPlacedTemplates}>
-                <Trash2 size={17} />
-                Clear Areas
-              </button>
-            </div>
+              <label className="battle-field">
+                <span>Spell</span>
+                <input value={spellName} onChange={(event) => setSpellName(event.target.value)} />
+              </label>
+
+              <label className="battle-field">
+                <span>Damage / Effect</span>
+                <input
+                  value={spellDamage}
+                  onChange={(event) => setSpellDamage(event.target.value)}
+                />
+              </label>
+
+              <div className="battle-field-row">
+                <label className="battle-field">
+                  <span>Range ft</span>
+                  <input
+                    min={5}
+                    step={5}
+                    type="number"
+                    value={spellRangeFeet}
+                    onChange={(event) => setSpellRangeFeet(Math.max(5, Number(event.target.value)))}
+                  />
+                </label>
+                <label className="battle-field">
+                  <span>AOE ft</span>
+                  <input
+                    min={0}
+                    step={5}
+                    type="number"
+                    value={aoeSizeFeet}
+                    onChange={(event) => setAoeSizeFeet(Math.max(0, Number(event.target.value)))}
+                  />
+                </label>
+              </div>
+
+              <label className="battle-field">
+                <span>Shape</span>
+                <select value={aoeShape} onChange={(event) => setAoeShape(event.target.value as AoeShape)}>
+                  {(Object.keys(aoeShapeLabels) as AoeShape[]).map((shape) => (
+                    <option key={shape} value={shape}>
+                      {aoeShapeLabels[shape]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="battle-field">
+                <span>Consumes</span>
+                <select value={spellResource} onChange={(event) => setSpellResource(event.target.value as SpellResource)}>
+                  <option value="actionUsed">Action</option>
+                  <option value="bonusActionUsed">Bonus Action</option>
+                  <option value="reactionUsed">Reaction</option>
+                  <option value="free">Free / No Cost</option>
+                </select>
+              </label>
+
+              <div className="battle-field-row">
+                <button
+                  type="button"
+                  className="battle-primary-button battle-primary-button-muted"
+                  onClick={() => {
+                    setMode("target");
+                    setMessage("Hover or click a square to preview range and AOE.");
+                  }}
+                >
+                  <Sparkles size={17} />
+                  Preview
+                </button>
+                <button
+                  type="button"
+                  className="battle-primary-button battle-primary-button-muted"
+                  onClick={() => {
+                    setTargetCell(null);
+                    setHoverTargetCell(null);
+                    setMessage("Spell preview cleared.");
+                  }}
+                >
+                  <RotateCcw size={17} />
+                  Clear
+                </button>
+              </div>
+              <div className="battle-field-row">
+                <button type="button" className="battle-primary-button" onClick={placePersistentTemplate}>
+                  <Plus size={17} />
+                  Place
+                </button>
+                <button type="button" className="battle-danger-button" onClick={clearPlacedTemplates}>
+                  <Trash2 size={17} />
+                  Clear Areas
+                </button>
+              </div>
+            </details>
 
             <details className="battle-compact-section">
               <summary>
@@ -1545,6 +1770,18 @@ function TacticalBoardPage() {
                     }}
                   />
                 </label>
+                <div className="battle-rule-summary">
+                  <span>Remaining</span>
+                  <strong>{getRemainingMovementFeet(activeToken)} ft</strong>
+                </div>
+                <label className="battle-rule-override">
+                  <input
+                    checked={ruleOverride}
+                    type="checkbox"
+                    onChange={(event) => setRuleOverride(event.target.checked)}
+                  />
+                  DM override
+                </label>
               </div>
             )}
 
@@ -1632,6 +1869,13 @@ function TacticalBoardPage() {
                   </div>
                 </div>
 
+                {getTurnOwnershipIssue(selectedToken) && (
+                  <div className="battle-rule-warning">
+                    <span>Turn ownership</span>
+                    <strong>{getTurnOwnershipIssue(selectedToken)}</strong>
+                  </div>
+                )}
+
                 <div className="battle-condition-row">
                   {(selectedToken.conditions ?? []).length > 0 ? (
                     selectedToken.conditions?.map((condition) => <span key={condition}>{condition}</span>)
@@ -1695,7 +1939,20 @@ function TacticalBoardPage() {
                 </div>
 
                 <div className="battle-quick-actions">
-                  <button type="button" onClick={() => quickCombatAction("Attack roll")}>Attack</button>
+                  <button type="button" onClick={() => quickCombatAction("Attack roll", "actionUsed")}>Attack</button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      quickCombatAction(
+                        `${spellName || "Spell"} cast`,
+                        spellResource === "free" ? undefined : spellResource,
+                      )
+                    }
+                  >
+                    Cast
+                  </button>
+                  <button type="button" onClick={() => quickCombatAction("Bonus action", "bonusActionUsed")}>Bonus</button>
+                  <button type="button" onClick={() => quickCombatAction("Reaction", "reactionUsed")}>React</button>
                   <button type="button" onClick={() => quickCombatAction("Saving throw")}>Save</button>
                   <button type="button" onClick={() => quickCombatAction("Concentration check")}>Conc.</button>
                   <button type="button" onClick={() => quickCombatAction("Death save")}>Death</button>
@@ -1816,7 +2073,7 @@ function TacticalBoardPage() {
                     </div>
                     <div>
                       <span>Move</span>
-                      <strong>{selectedReach} cells</strong>
+                      <strong>{selectedMovementRemaining} ft left</strong>
                     </div>
                     <div>
                       <span>Distance</span>

@@ -1,6 +1,6 @@
 import { Shield, Skull } from "lucide-react";
 import type { CSSProperties, DragEvent } from "react";
-import { boardColumns, boardRows, pinTypeLabels } from "../data/boardConstants";
+import { boardColumns, boardRows, pinTypeLabels, terrainLabels } from "../data/boardConstants";
 import type {
   BoardMode,
   BoardSettings,
@@ -143,8 +143,24 @@ function TacticalBoardGrid({
         const isSpellLine = spellLineCells.some((cell) => cell.x === x && cell.y === y);
         const isFogged = layers.fog && Boolean(fog[getCellKey(x, y)]);
         const hasPin = layers.pins && Boolean(pins[getCellKey(x, y)]);
-        const isInVision = selectedVisionCells.some((cell) => cell.x === x && cell.y === y);
+        const isInVision = layers.vision && selectedVisionCells.some((cell) => cell.x === x && cell.y === y);
         const hasPlacedTemplate = placedTemplateCells.some((cell) => cell.x === x && cell.y === y);
+        const cellHint = [
+          terrainType !== "normal" ? `${terrainLabels[terrainType]} terrain` : "Open ground",
+          isFogged ? "Fog of war" : "",
+          hasPin ? "Map pin" : "",
+          isInReach ? "Movement reach" : "",
+          isMovementPath ? "Drag path" : "",
+          isWaypointPath ? "Waypoint path" : "",
+          isRulerPath ? "Ruler line" : "",
+          isSpellInRange ? "Spell range" : "",
+          isSpellAffected ? "AOE target area" : "",
+          isSpellLine && spellCoverStatus === "Line blocked" ? "Line blocked" : "",
+          isInVision ? "Vision area" : "",
+          layers.templates && hasPlacedTemplate ? "Placed template" : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
 
         return (
           <button
@@ -171,6 +187,8 @@ function TacticalBoardGrid({
             ]
               .filter(Boolean)
               .join(" ")}
+            aria-label={cellHint}
+            title={cellHint}
             onClick={() => handleCellClick(x, y)}
             onMouseEnter={() => {
               if (mode === "target") {

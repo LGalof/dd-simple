@@ -50,6 +50,7 @@ model Character {
   skills         CharacterSkill[]
   proficiencies  CharacterProficiency[]
   inventory      CharacterInventory[]
+  inventoryState CharacterInventoryState?
   choices        CharacterChoice[]
   featureChoices CharacterFeatureChoiceSelection[]
   languages      CharacterLanguage[]
@@ -417,6 +418,16 @@ model CharacterInventory {
   equipment RefEquipment @relation(fields: [equipmentIndex], references: [index])
 
   @@map("character_inventory")
+}
+
+model CharacterInventoryState {
+  characterId String   @id @db.Uuid
+  stateCode   String   @db.Text
+  updatedAt   DateTime @updatedAt
+
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("character_inventory_states")
 }
 
 model CharacterChoice {
