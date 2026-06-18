@@ -438,7 +438,7 @@ async function validateBackgroundAbilityChoices(
       abilityScoreIndex: true,
     },
   });
-  const allowedIndexes = new Set(
+  const allowedIndexes: Set<string> = new Set(
     allowedOptions.map((option: { abilityScoreIndex: string }) => option.abilityScoreIndex),
   );
   const selectedAbilityIndexes = choices
@@ -446,7 +446,7 @@ async function validateBackgroundAbilityChoices(
     .map((choice) => choice.selectedIndex);
 
   if (selectedAbilityIndexes.length === 0) {
-    return [...allowedIndexes];
+    return Array.from(allowedIndexes);
   }
 
   const invalidIndexes = selectedAbilityIndexes.filter(
@@ -480,7 +480,7 @@ async function validateBackgroundAbilityChoices(
     }
   }
 
-  return [...allowedIndexes];
+  return Array.from(allowedIndexes);
 }
 
 function getBackgroundAbilityBonuses(
@@ -554,14 +554,14 @@ async function replaceBackgroundAbilityChoices(
 
 function toRequiredFeatureChoiceJson(
   value: unknown,
-): Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["selectedRawJson"] {
-  return value as Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["selectedRawJson"];
+) {
+  return value as never;
 }
 
 function toNullableFeatureChoiceJson(
   value: unknown | null | undefined,
-): Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["grantsRawJson"] {
-  return value as Prisma.CharacterFeatureChoiceSelectionUncheckedCreateInput["grantsRawJson"];
+) {
+  return (value ?? null) as never;
 }
 
 async function upsertSubmittedFeatureChoiceSelections(
