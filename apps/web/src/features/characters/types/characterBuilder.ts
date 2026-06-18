@@ -18,6 +18,7 @@ type CharacterBuilderState = {
   speciesIndex: string;
   backgroundIndex: string;
   classIndex: string;
+  subclassIndex: string | null;
   level: number;
   currentHp: number;
   tempHp: number;
@@ -76,6 +77,44 @@ type FeatureChoiceOption = {
 
 type FeatureChoiceSelections = Record<string, string>;
 
+type ClassSpellSlotSummary = {
+  level: number;
+  slots: number;
+};
+
+type ClassSpellcastingLevelSummary = {
+  cantripsKnown?: number;
+  level: number;
+  preparedSpells?: number;
+  spellSlots: ClassSpellSlotSummary[];
+  spellsKnown?: number;
+};
+
+type ClassSpellcastingInfo = {
+  abilityIndex?: string | null;
+  abilityName?: string | null;
+  castingType: "full-caster" | "half-caster" | "pact-magic" | "unknown";
+  levels: ClassSpellcastingLevelSummary[];
+  notes: string[];
+  source: "reference" | "level-reference";
+};
+
+type FeatureChoiceKind =
+  | "subclass"
+  | "skill-proficiency"
+  | "tool-proficiency"
+  | "armor-proficiency"
+  | "weapon-proficiency"
+  | "expertise"
+  | "fighting-style"
+  | "metamagic"
+  | "pact-boon"
+  | "eldritch-invocation"
+  | "weapon-mastery"
+  | "asi-feat"
+  | "epic-boon"
+  | "option";
+
 type ClassSubclassFeature = {
   description: string;
   level: number;
@@ -97,6 +136,7 @@ type FeatureChoiceField = {
   dependsOnFieldId?: string;
   dependsOnValues?: string[];
   choiceKey?: string | null;
+  choiceKind?: FeatureChoiceKind;
   choiceLabel?: string | null;
   choicePath?: string;
   classIndex?: string | null;
@@ -157,6 +197,7 @@ type ClassOption = {
     weapons: string[];
     tools: string[];
   };
+  spellcasting?: ClassSpellcastingInfo;
   startingEquipment: string[];
   subclasses?: ClassSubclassOption[];
   features: ClassFeature[];
@@ -171,9 +212,13 @@ export type {
   ClassOverviewRow,
   ClassFeature,
   ClassOption,
+  ClassSpellSlotSummary,
+  ClassSpellcastingInfo,
+  ClassSpellcastingLevelSummary,
   ClassSubclassFeature,
   ClassSubclassOption,
   FeatureChoiceField,
+  FeatureChoiceKind,
   FeatureChoiceOption,
   FeatureChoiceSelections,
   HitPointSettings,

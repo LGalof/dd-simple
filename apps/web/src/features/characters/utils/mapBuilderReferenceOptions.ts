@@ -10,8 +10,11 @@ import type {
   BackgroundOption,
   ClassFeature,
   ClassOption,
+  ClassSpellcastingInfo,
+  ClassSpellcastingLevelSummary,
   ClassSubclassOption,
   FeatureChoiceField,
+  FeatureChoiceKind,
   SpeciesOption,
   SpeciesHeritageOption,
 } from "../types/characterBuilder";
@@ -19,6 +22,17 @@ import type {
 type ReferenceItem = {
   index?: unknown;
   name?: unknown;
+};
+
+type SpellcastingInfoSource = {
+  desc?: unknown;
+  name?: unknown;
+};
+
+type SpellcastingSourceJson = {
+  info?: SpellcastingInfoSource[];
+  level?: unknown;
+  spellcasting_ability?: ReferenceItem;
 };
 
 type ChoiceOption = {
@@ -113,6 +127,7 @@ type ClassSourceJson = {
   proficiencies?: ReferenceItem[];
   proficiency_choices?: Choice[];
   saving_throws?: ReferenceItem[];
+  spellcasting?: SpellcastingSourceJson;
   starting_equipment_options?: Choice[];
   subclasses?: ReferenceItem[];
 };
@@ -134,8 +149,10 @@ type LevelSourceJson = {
   class?: {
     index?: unknown;
   };
+  class_specific?: Record<string, unknown>;
   features?: ReferenceItem[];
   level?: unknown;
+  spellcasting?: Record<string, unknown>;
 };
 
 type ChoicePersistenceContext = Pick<
@@ -760,11 +777,133 @@ function mapClassReferences(
         options: skillOptions,
       },
       proficiencies: groupedProficiencies,
+      spellcasting: createClassSpellcastingInfo(reference, sourceJson),
       startingEquipment,
       subclasses,
       features,
     };
   });
+}
+
+function createClassSpellcastingInfo(
+  reference: ReferenceClass,
+  sourceJson: ClassSourceJson,
+): ClassSpellcastingInfo | undefined {
+  const levelSummaries = createSpellcastingLevelSummaries(reference.levels ?? []);
+  const spellcastingAbility = sourceJson.spellcasting?.spellcasting_ability;
+  const abilityIndex = stringValue(spellcastingAbility?.index);
+  const abilityName = stringValue(spellcastingAbility?.name);
+
+  if (!abilityIndex && levelSummaries.length === 0) {
+    return undefined;
+  }
+
+  return {
+    abilityIndex,
+    abilityName,
+    castingType: inferClassCastingType(reference.index),
+    levels: levelSummaries,
+    notes: getSpellcastingNotes(sourceJson.spellcasting),
+    source: sourceJson.spellcasting ? "reference" : "level-reference",
+  };
+}
+
+function createSpellcastingLevelSummaries(
+  levels: NonNullable<ReferenceClass["levels"]>,
+): ClassSpellcastingLevelSummary[] {
+  return levels
+    .map((levelReference) => {
+      const sourceJson = asRecord(levelReference.sourceJson) as LevelSourceJson;
+      const spellcasting = asRecord(sourceJson.spellcasting);
+
+      if (!Object.keys(spellcasting).length) {
+        return null;
+      }
+
+      const level = numberValue(sourceJson.level) ?? levelReference.level;
+      const spellSlots = Object.entries(spellcasting)
+        .map(([key, value]) => {
+          const match = key.match(/^spell_slots_level_(\d+)$/);
+          const slots = numberValue(value);
+
+          return match && slots !== null && slots > 0
+            ? {
+                level: Number(match[1]),
+                slots,
+              }
+            : null;
+        })
+        .filter(isPresent);
+      const cantripsKnown = numberValue(spellcasting.cantrips_known) ?? undefined;
+      const spellsKnown = numberValue(spellcasting.spells_known) ?? undefined;
+      const preparedSpells =
+        numberValue(spellcasting.prepared_spells) ??
+        numberValue(sourceJson.class_specific?.prepared_spells) ??
+        undefined;
+
+      if (
+        spellSlots.length === 0 &&
+        cantripsKnown === undefined &&
+        spellsKnown === undefined &&
+        preparedSpells === undefined
+      ) {
+        return null;
+      }
+
+      return {
+        cantripsKnown,
+        level,
+        preparedSpells,
+        spellSlots,
+        spellsKnown,
+      };
+    })
+    .filter(isPresent)
+    .sort((left, right) => left.level - right.level);
+}
+
+function getSpellcastingNotes(sourceJson: SpellcastingSourceJson | undefined) {
+  if (!sourceJson) {
+    return [];
+  }
+
+  const notes: string[] = [];
+  const focusText = (sourceJson.info ?? [])
+    .find((entry) => stringValue(entry.name)?.toLowerCase().includes("focus"))
+    ?.desc;
+  const focusDescription = Array.isArray(focusText)
+    ? focusText.find((entry): entry is string => typeof entry === "string")
+    : null;
+
+  if (focusDescription) {
+    notes.push(focusDescription);
+  }
+
+  return notes;
+}
+
+function inferClassCastingType(classIndex: string): ClassSpellcastingInfo["castingType"] {
+  if (classIndex === "warlock") {
+    return "pact-magic";
+  }
+
+  if (classIndex === "paladin" || classIndex === "ranger") {
+    return "half-caster";
+  }
+
+  if (
+    [
+      "bard",
+      "cleric",
+      "druid",
+      "sorcerer",
+      "wizard",
+    ].includes(classIndex)
+  ) {
+    return "full-caster";
+  }
+
+  return "unknown";
 }
 
 function formatPrimaryAbilities(primaryAbilities: ReferenceClass["primaryAbilities"]) {
@@ -928,6 +1067,7 @@ function createChoiceFieldsFromNormalizedSkillChoice(
       choice.choose === 1 ? "Skill proficiency" : `Skill proficiency ${index + 1}`,
       choice.valueOptions,
       {
+        choiceKind: "skill-proficiency",
         choiceGroupId: "class-skill-choice",
         choiceGroupLabel: choice.description ?? `Choose ${choice.choose} skill proficiencies`,
         choiceGroupLimit: choice.choose,
@@ -943,6 +1083,12 @@ function createNormalizedClassFeatures(
   return features
     .map((feature) => {
       const featureSourceJson = asRecord(feature.sourceJson) as FeatureSourceJson;
+      const subclassIndex = stringValue(featureSourceJson.subclass?.index);
+
+      if (subclassIndex) {
+        return null;
+      }
+
       const choiceFields = createChoiceFieldsFromChoice(
         featureSourceJson.feature_specific,
         `feature-${feature.index ?? feature.id}`,
@@ -954,7 +1100,7 @@ function createNormalizedClassFeatures(
           level: feature.level ?? numberValue(featureSourceJson.level),
           sourceIndex: feature.index ?? feature.id,
           sourceType: "FEATURE",
-          subclassIndex: stringValue(featureSourceJson.subclass?.index),
+          subclassIndex,
         },
       );
 
@@ -970,6 +1116,7 @@ function createNormalizedClassFeatures(
         choiceFields: choiceFields.length > 0 ? choiceFields : undefined,
       });
     })
+    .filter(isPresent)
     .sort((left, right) => left.level - right.level || left.title.localeCompare(right.title));
 }
 
@@ -1007,6 +1154,11 @@ function createReferenceBackedClassFeatures(
 
           const featureDocument = featureDocumentMap.get(featureIndex);
           const featureSourceJson = asRecord(featureDocument?.sourceJson) as FeatureSourceJson;
+
+          if (stringValue(featureSourceJson.subclass?.index)) {
+            return null;
+          }
+
           const descriptions = Array.isArray(featureSourceJson.desc)
             ? featureSourceJson.desc.filter((entry): entry is string => typeof entry === "string")
             : [];
@@ -1138,6 +1290,7 @@ function createChoiceFieldsFromChoice(
 ): FeatureChoiceField[] {
   const groups: Array<{
     choicePath?: string;
+    choiceKind: FeatureChoiceKind;
     choose: number;
     dependsOnFieldId?: string;
     dependsOnValues?: string[];
@@ -1160,6 +1313,7 @@ function createChoiceFieldsFromChoice(
         group.options,
         {
           choiceKey: group.choose === 1 ? group.id : `${group.id}-${index + 1}`,
+          choiceKind: group.choiceKind,
           choiceGroupId: group.id,
           choiceGroupLabel: group.label,
           choiceGroupLimit: group.choose,
@@ -1188,6 +1342,7 @@ function collectChoiceGroups(
   fallbackLabel: string,
   groups: Array<{
     choicePath?: string;
+    choiceKind: FeatureChoiceKind;
     choose: number;
     dependsOnFieldId?: string;
     dependsOnValues?: string[];
@@ -1198,6 +1353,7 @@ function collectChoiceGroups(
     optionKind: string;
   }>,
   choicePath?: string,
+  inheritedChoiceKind?: FeatureChoiceKind,
 ) {
   if (Array.isArray(value)) {
     value.forEach((entry, index) =>
@@ -1207,6 +1363,7 @@ function collectChoiceGroups(
         fallbackLabel,
         groups,
         appendChoicePath(choicePath, `[${index}]`),
+        inheritedChoiceKind,
       ),
     );
     return;
@@ -1216,11 +1373,33 @@ function collectChoiceGroups(
     return;
   }
 
+  const recordChoiceKind = inferFeatureChoiceKind({
+    fieldLabel: stringValue(value.field_label),
+    fallbackLabel,
+    groupLabel: stringValue(value.label),
+    optionKind: "",
+    optionLabels: [],
+    typeLabel: stringValue(value.type),
+  });
+  const nextInheritedChoiceKind =
+    recordChoiceKind === "option" ? inheritedChoiceKind : recordChoiceKind;
   const choose = numberValue(value.choose);
   const options = getChoiceOptions(value);
 
   if (choose && options.length > 0) {
     const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
+    const inferredChoiceKind = inferFeatureChoiceKind({
+      fieldLabel: stringValue(value.field_label),
+      fallbackLabel,
+      groupLabel: stringValue(value.label),
+      optionKind,
+      optionLabels: options.map((option) => option.rawLabel),
+      typeLabel: stringValue(value.type),
+    });
+    const choiceKind =
+      inferredChoiceKind === "option"
+        ? nextInheritedChoiceKind ?? "option"
+        : inferredChoiceKind;
     const visibleWhen = isRecord(value.visible_when) ? value.visible_when : null;
     const dependsOnFieldId = stringValue(visibleWhen?.field) ?? undefined;
     const dependsOnValues = Array.isArray(visibleWhen?.values)
@@ -1233,6 +1412,7 @@ function collectChoiceGroups(
 
     groups.push({
       choicePath,
+      choiceKind,
       choose,
       dependsOnFieldId,
       dependsOnValues: dependsOnValues?.length ? dependsOnValues : undefined,
@@ -1258,6 +1438,7 @@ function collectChoiceGroups(
       toTitle(key),
       groups,
       appendChoicePath(choicePath, key),
+      nextInheritedChoiceKind,
     );
   });
 }
@@ -1461,6 +1642,93 @@ function inferChoiceOptionKind(options: string[], fallbackLabel: string) {
   return "option";
 }
 
+function inferFeatureChoiceKind({
+  fieldLabel,
+  fallbackLabel,
+  groupLabel,
+  optionKind,
+  optionLabels,
+  typeLabel,
+}: {
+  fieldLabel?: string | null;
+  fallbackLabel: string;
+  groupLabel?: string | null;
+  optionKind: string;
+  optionLabels: string[];
+  typeLabel?: string | null;
+}): FeatureChoiceKind {
+  const text = [
+    fieldLabel,
+    fallbackLabel,
+    groupLabel,
+    optionKind,
+    typeLabel,
+    ...optionLabels,
+  ]
+    .filter(isPresent)
+    .join(" ")
+    .toLowerCase();
+
+  if (text.includes("subclass")) {
+    return "subclass";
+  }
+
+  if (text.includes("expertise")) {
+    return "expertise";
+  }
+
+  if (text.includes("fighting style")) {
+    return "fighting-style";
+  }
+
+  if (text.includes("metamagic")) {
+    return "metamagic";
+  }
+
+  if (text.includes("pact boon")) {
+    return "pact-boon";
+  }
+
+  if (text.includes("eldritch invocation") || text.includes("invocation")) {
+    return "eldritch-invocation";
+  }
+
+  if (text.includes("weapon mastery")) {
+    return "weapon-mastery";
+  }
+
+  if (text.includes("epic boon")) {
+    return "epic-boon";
+  }
+
+  if (
+    text.includes("ability score improvement") ||
+    text.includes("ability score increase") ||
+    text.includes("asi") ||
+    text.includes("feat")
+  ) {
+    return "asi-feat";
+  }
+
+  if (optionKind === "skill proficiency") {
+    return "skill-proficiency";
+  }
+
+  if (optionKind === "tool proficiency") {
+    return "tool-proficiency";
+  }
+
+  if (optionKind === "armor proficiency") {
+    return "armor-proficiency";
+  }
+
+  if (optionKind === "weapon proficiency") {
+    return "weapon-proficiency";
+  }
+
+  return "option";
+}
+
 function choiceGroupLabel(choose: number, optionKind: string, fallbackLabel: string) {
   if (optionKind === "equipment choice") {
     return "Choose starting equipment";
@@ -1509,6 +1777,7 @@ function createChoiceField(
     | "dependsOnFieldId"
     | "dependsOnValues"
     | "choiceKey"
+    | "choiceKind"
     | "choiceLabel"
     | "choicePath"
     | "classIndex"

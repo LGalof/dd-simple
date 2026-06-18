@@ -44,11 +44,15 @@ type CharacterSheetProps = {
   normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onOpenConditions: () => void;
+  progressionChoiceSummaries: ProgressionChoiceSummary[];
+  resourceActionSummaries: ResourceActionSummary[];
   selectedHeritage?: SpeciesHeritageOption | null;
   selectedBackground: BackgroundOption;
   selectedClass: ClassOption;
   selectedSpecies: SpeciesOption;
+  selectedSubclassName?: string | null;
   speciesChoices: Record<string, string>;
+  spellcastingSummary: SpellcastingSummary | null;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
   onSetTempHp: (amount: number) => void;
@@ -101,6 +105,44 @@ type FeatureChoiceEffectSummary = {
   skillProficiencyIndexes: Set<string>;
   toolNames: string[];
   weaponNames: string[];
+};
+
+type ProgressionChoiceSummary = {
+  id: string;
+  label: string;
+  level: number;
+  status: "missing" | "selected";
+  value: string;
+};
+
+type SpellcastingSummary = {
+  abilityLabel: string;
+  attackBonus: number;
+  castingType: string;
+  knownPrepared: Array<{
+    label: string;
+    value: string;
+  }>;
+  notes: string[];
+  proficiencyBonus: number;
+  saveDc: number;
+  slotRows: Array<{
+    label: string;
+    value: string;
+  }>;
+  slotsAvailable: boolean;
+  slotsUnavailableReason: string;
+};
+
+type ResourceActionSummary = {
+  automationNote: string;
+  category: "action" | "bonus action" | "reaction" | "passive" | "resource";
+  id: string;
+  level: number;
+  maxUses?: string;
+  name: string;
+  recharge?: string;
+  sourceFeature: string;
 };
 
 type ProficiencySourceJson = {
@@ -185,11 +227,15 @@ function CharacterSheet({
   normalizedActionsLoading,
   onActiveTabChange,
   onOpenConditions,
+  progressionChoiceSummaries,
+  resourceActionSummaries,
   selectedHeritage,
   selectedBackground,
   selectedClass,
   selectedSpecies,
+  selectedSubclassName,
   speciesChoices,
+  spellcastingSummary,
   tempHp,
   onApplyCurrentHpAdjustment,
   onSetTempHp,
@@ -290,7 +336,7 @@ function CharacterSheet({
     [abilityScoreMap, character.skills, featureChoiceEffects, proficiencyBonus],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
-  const saveProficiencies = getSavingThrowProficiencies(character.class.name);
+  const saveProficiencies = getSavingThrowProficiencyIndexes(character);
   const savingThrows = sortedAbilityScores.map((abilityScore) => {
     const modifier = abilityModifier(abilityScore.score);
     const hasSaveProficiency = saveProficiencies.includes(abilityScore.abilityIndex as AbilityIndex);
@@ -561,6 +607,18 @@ function CharacterSheet({
           <div className="character-dashboard-summary-chip character-dashboard-summary-chip-name">
             <span>Character Name</span>
             <strong>{character.name}</strong>
+          </div>
+          <div className="character-dashboard-summary-chip">
+            <span>Class</span>
+            <strong>
+              {selectedSubclassName
+                ? `${character.class.name} - ${selectedSubclassName}`
+                : character.class.name}
+            </strong>
+          </div>
+          <div className="character-dashboard-summary-chip">
+            <span>Level</span>
+            <strong>{character.level}</strong>
           </div>
         </div>
 
@@ -922,6 +980,32 @@ function CharacterSheet({
               {activeTab === "spells" && (
                 <div className="character-tab-scroll-stage">
                   <Card title="Spells">
+                    {spellcastingSummary ? (
+                      <div className="list">
+                        <div className="list-row">
+                          <span>Spellcasting Ability</span>
+                          <strong>{spellcastingSummary.abilityLabel}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Spell Save DC</span>
+                          <strong>{spellcastingSummary.saveDc}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Spell Attack</span>
+                          <strong>{formatModifier(spellcastingSummary.attackBonus)}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Casting Type</span>
+                          <strong>{spellcastingSummary.castingType}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Proficiency Used</span>
+                          <strong>{formatModifier(spellcastingSummary.proficiencyBonus)}</strong>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="muted">This class has no class spellcasting summary yet.</p>
+                    )}
                     {derivedStateLoading ? (
                       <p className="muted">Loading spell features...</p>
                     ) : null}
@@ -945,6 +1029,46 @@ function CharacterSheet({
                       </div>
                     ) : null}
                   </Card>
+
+                  {spellcastingSummary ? (
+                    <Card title="Spell Slots">
+                      {spellcastingSummary.slotsAvailable ? (
+                        <div className="list">
+                          {spellcastingSummary.slotRows.map((slot) => (
+                            <div key={slot.label} className="list-row">
+                              <span>{slot.label}</span>
+                              <strong>{slot.value}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="muted">{spellcastingSummary.slotsUnavailableReason}</p>
+                      )}
+                    </Card>
+                  ) : null}
+
+                  {spellcastingSummary?.knownPrepared.length ? (
+                    <Card title="Known & Prepared">
+                      <div className="list">
+                        {spellcastingSummary.knownPrepared.map((entry) => (
+                          <div key={entry.label} className="list-row">
+                            <span>{entry.label}</span>
+                            <strong>{entry.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ) : null}
+
+                  {spellcastingSummary?.notes.length ? (
+                    <Card title="Spellcasting Notes">
+                      <div className="list">
+                        {spellcastingSummary.notes.slice(0, 4).map((note) => (
+                          <p key={note} className="muted">{note}</p>
+                        ))}
+                      </div>
+                    </Card>
+                  ) : null}
                 </div>
               )}
 
@@ -1037,6 +1161,24 @@ function CharacterSheet({
                       </Card>
                     )}
 
+                    {progressionChoiceSummaries.length > 0 ? (
+                      <Card title="Progression Choices">
+                        <div className="list">
+                          {progressionChoiceSummaries.map((choice) => (
+                            <div key={choice.id} className="character-feature-entry">
+                              <strong>
+                                {choice.label} - Level {choice.level}
+                              </strong>
+                              <p>{choice.value}</p>
+                              {choice.status === "missing" ? (
+                                <p className="muted">Required choice missing.</p>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    ) : null}
+
                     <Card title="Active Traits">
                       <div className="list">
                         {passiveDerivedSources.length > 0 ? (
@@ -1055,6 +1197,50 @@ function CharacterSheet({
                             No passive feature descriptions are available for the current build.
                           </p>
                         )}
+                      </div>
+                    </Card>
+
+                    {resourceActionSummaries.length > 0 ? (
+                      <Card title="Resources & Actions">
+                        <div className="list">
+                          {resourceActionSummaries.map((resource) => (
+                            <div key={resource.id} className="character-feature-entry">
+                              <strong>
+                                {resource.name} - Level {resource.level}
+                              </strong>
+                              <p>
+                                {resource.category}
+                                {resource.maxUses ? ` - ${resource.maxUses}` : ""}
+                                {resource.recharge ? ` - ${resource.recharge}` : ""}
+                              </p>
+                              <p className="muted">Source: {resource.sourceFeature}</p>
+                              <p className="muted">{resource.automationNote}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    ) : null}
+
+                    <Card title="Origin">
+                      <div className="list">
+                        <div className="list-row">
+                          <span>Species</span>
+                          <strong>{character.species.name}</strong>
+                        </div>
+                        <div className="list-row">
+                          <span>Class</span>
+                          <strong>{character.class.name}</strong>
+                        </div>
+                        {selectedSubclassName ? (
+                          <div className="list-row">
+                            <span>Subclass</span>
+                            <strong>{selectedSubclassName}</strong>
+                          </div>
+                        ) : null}
+                        <div className="list-row">
+                          <span>Background</span>
+                          <strong>{character.background.name}</strong>
+                        </div>
                       </div>
                     </Card>
 
@@ -1575,23 +1761,68 @@ function getCreatureSize(speciesName: string) {
   }
 }
 
-function getSavingThrowProficiencies(className: string): AbilityIndex[] {
-  switch (className.toLowerCase()) {
-    case "fighter":
-      return ["str", "con"];
-    case "rogue":
-      return ["dex", "int"];
-    case "wizard":
-      return ["int", "wis"];
-    case "cleric":
-      return ["wis", "cha"];
-    case "ranger":
-      return ["str", "dex"];
-    case "bard":
-      return ["dex", "cha"];
-    default:
-      return ["str", "dex"];
+function getSavingThrowProficiencyIndexes(character: Character): AbilityIndex[] {
+  const persistedSaveIndexes = (character.proficiencies ?? [])
+    .map((proficiency) =>
+      savingThrowAbilityIndexFromReference(
+        proficiency.proficiency.index,
+        proficiency.proficiency.name,
+      ),
+    )
+    .filter(isPresent);
+
+  if (persistedSaveIndexes.length > 0) {
+    return [...new Set(persistedSaveIndexes)];
   }
+
+  const trainingCharacter = character as TrainingReferenceCharacter;
+  const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
+  const sourceSaveIndexes = (classSourceJson.proficiencies ?? [])
+    .map((proficiency) =>
+      savingThrowAbilityIndexFromReference(
+        stringValue(proficiency.index),
+        stringValue(proficiency.name),
+      ),
+    )
+    .filter(isPresent);
+
+  return [...new Set(sourceSaveIndexes)];
+}
+
+function savingThrowAbilityIndexFromReference(
+  index: string | null | undefined,
+  name: string | null | undefined,
+): AbilityIndex | null {
+  const normalizedIndex = index?.toLowerCase() ?? "";
+  const normalizedName = name?.toLowerCase() ?? "";
+  const value = normalizedIndex.replace(/^saving-throw-/, "") ||
+    normalizedName.replace(/^saving throw:\s*/, "").slice(0, 3);
+
+  if (value.startsWith("str")) {
+    return "str";
+  }
+
+  if (value.startsWith("dex")) {
+    return "dex";
+  }
+
+  if (value.startsWith("con")) {
+    return "con";
+  }
+
+  if (value.startsWith("int")) {
+    return "int";
+  }
+
+  if (value.startsWith("wis")) {
+    return "wis";
+  }
+
+  if (value.startsWith("cha")) {
+    return "cha";
+  }
+
+  return null;
 }
 
 function getSkillTotal(skills: SkillWithTotal[], name: string) {
@@ -2552,3 +2783,4 @@ function formatInventoryDamage(baseDamage: string, modifier: number) {
 
 export { CharacterSheet };
 export type { WorkspaceTab };
+export type { ProgressionChoiceSummary, ResourceActionSummary, SpellcastingSummary };

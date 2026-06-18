@@ -137,6 +137,7 @@ function buildCharacterPreview({
   return {
     ...character,
     level: state.level,
+    subclassIndex: state.subclassIndex,
     maxHp: hitPointPreview.maxHp,
     currentHp: Math.max(0, Math.min(hitPointPreview.maxHp, state.currentHp)),
     armorClass: 10 + dexterityModifier,

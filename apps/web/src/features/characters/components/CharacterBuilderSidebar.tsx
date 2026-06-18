@@ -33,7 +33,9 @@ type CharacterBuilderSidebarProps = {
   onOpenPanel: (kind: BuilderSelectionKind) => void;
   onRollAbility: (slotId: string) => void;
   onRollAllAbilities: () => void;
+  onSubclassChange: (subclassIndex: string | null) => void;
   selectedChoices: FeatureChoiceSelections;
+  selectedSubclassIndex: string | null;
   species: SpeciesOption;
   hitPointSettings: HitPointSettings | null;
 };
@@ -52,7 +54,9 @@ function CharacterBuilderSidebar({
   onOpenPanel,
   onRollAbility,
   onRollAllAbilities,
+  onSubclassChange,
   selectedChoices,
+  selectedSubclassIndex: persistedSubclassIndex,
   species,
 }: CharacterBuilderSidebarProps) {
   const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
@@ -104,8 +108,8 @@ function CharacterBuilderSidebar({
   );
 
   const selectedSubclassIndex = useMemo(
-    () => getSelectedSubclassIndex(classOption, selectedChoices),
-    [classOption, selectedChoices],
+    () => getSelectedSubclassIndex(classOption, selectedChoices, persistedSubclassIndex),
+    [classOption, persistedSubclassIndex, selectedChoices],
   );
 
   const visibleFeatures = useMemo(
@@ -148,8 +152,13 @@ function CharacterBuilderSidebar({
     value: string,
     choiceFields: ClassFeature["choiceFields"] = [],
   ) {
+    const field = choiceFields.find((choiceField) => choiceField.id === fieldId);
+
+    if (field?.choiceKind === "subclass") {
+      onSubclassChange(value || null);
+    }
+
     onFeatureChoicesChange((currentChoices) => {
-      const field = choiceFields.find((choiceField) => choiceField.id === fieldId);
       const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
         featureId,
         choiceFields,
@@ -526,6 +535,31 @@ function CharacterBuilderSidebar({
                           })}
                         </div>
                       ) : null}
+
+                      {getFeatureChoiceSummaries(
+                        feature.id,
+                        feature.choiceFields,
+                        selectedChoices,
+                      ).length > 0 ? (
+                        <div className="builder-feature-choice-list">
+                          {getFeatureChoiceSummaries(
+                            feature.id,
+                            feature.choiceFields,
+                            selectedChoices,
+                          ).map((summary) => (
+                            <p
+                              key={summary.id}
+                              className={
+                                summary.status === "missing"
+                                  ? "builder-feature-detail muted"
+                                  : "builder-feature-detail"
+                              }
+                            >
+                              <strong>{summary.label}:</strong> {summary.value}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </article>
@@ -833,6 +867,40 @@ function pruneHiddenFeatureChoices(
   return nextChoices;
 }
 
+function getFeatureChoiceSummaries(
+  featureId: string,
+  choiceFields: ClassFeature["choiceFields"],
+  selectedChoices: Record<string, string>,
+) {
+  return getVisibleChoiceFieldsForSelection(featureId, choiceFields, selectedChoices)
+    .filter((field) => isSummaryChoiceField(field))
+    .map((field) => {
+      const selectedValue = selectedChoices[`${featureId}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      return {
+        id: `${featureId}:${field.id}`,
+        label: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        status: selectedOption ? "selected" as const : "missing" as const,
+        value: selectedOption?.label ?? "Required choice missing",
+      };
+    });
+}
+
+function isSummaryChoiceField(field: NonNullable<ClassFeature["choiceFields"]>[number]) {
+  return (
+    field.choiceKind === "subclass" ||
+    field.choiceKind === "asi-feat" ||
+    field.choiceKind === "epic-boon" ||
+    field.choiceKind === "expertise" ||
+    field.choiceKind === "fighting-style" ||
+    field.choiceKind === "metamagic" ||
+    field.choiceKind === "pact-boon" ||
+    field.choiceKind === "eldritch-invocation" ||
+    field.choiceKind === "weapon-mastery"
+  );
+}
+
 function getChoiceGroupFields(
   choiceFields: ClassFeature["choiceFields"],
   field: NonNullable<ClassFeature["choiceFields"]>[number],
@@ -869,15 +937,24 @@ function isChoiceOptionSelectedElsewhere(
 function getSelectedSubclassIndex(
   classOption: ClassOption,
   selectedChoices: FeatureChoiceSelections,
+  persistedSubclassIndex: string | null,
 ) {
   const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
 
+  if (persistedSubclassIndex && subclassIndexes.has(persistedSubclassIndex)) {
+    return persistedSubclassIndex;
+  }
+
   for (const feature of classOption.features) {
-    if (!feature.id.includes("subclass") || !feature.choiceFields?.length) {
+    if (!feature.choiceFields?.length) {
       continue;
     }
 
     for (const field of feature.choiceFields) {
+      if (field.choiceKind !== "subclass" && !feature.id.includes("subclass")) {
+        continue;
+      }
+
       const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
 
       if (selectedValue && subclassIndexes.has(selectedValue)) {
@@ -894,14 +971,18 @@ function getVisibleClassFeatures(
   subclasses: ClassSubclassOption[],
   selectedSubclassIndex: string | null,
 ) : ClassFeature[] {
-  if (!selectedSubclassIndex || !feature.id.includes("subclass-feature")) {
+  if (!feature.id.includes("subclass-feature")) {
     return [feature];
+  }
+
+  if (!selectedSubclassIndex) {
+    return [];
   }
 
   const selectedSubclass = subclasses.find((subclass) => subclass.index === selectedSubclassIndex);
 
   if (!selectedSubclass) {
-    return [feature];
+    return [];
   }
 
   const subclassFeaturesAtLevel = selectedSubclass.features.filter(
@@ -922,7 +1003,7 @@ function getVisibleClassFeatures(
     .filter((description): description is string => description !== null);
 
   if (filteredDescriptions.length === 0) {
-    return [feature];
+    return [];
   }
 
   return [
