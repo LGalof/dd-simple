@@ -5,6 +5,13 @@ type ReferenceIndexRecord = {
   index: string;
 };
 
+type SubclassReferenceDocument = Prisma.RefRuleDocumentGetPayload<{
+  select: {
+    index: true;
+    sourceJson: true;
+  };
+}>;
+
 type ClassSourceJson = {
   saving_throws?: ReferenceIndexRecord[];
   subclasses?: ReferenceIndexRecord[];
@@ -620,13 +627,13 @@ async function findAllowedSubclassIndexes(
     },
   });
   const documentSubclassIndexes = subclassDocuments
-    .filter((document) => {
+    .filter((document: SubclassReferenceDocument) => {
       const sourceJson = isRecord(document.sourceJson) ? document.sourceJson : {};
       const sourceClass = isRecord(sourceJson.class) ? sourceJson.class : {};
 
       return stringValue(sourceClass.index) === classIndex;
     })
-    .map((document) => document.index);
+    .map((document: SubclassReferenceDocument) => document.index);
 
   return new Set([...sourceSubclassIndexes, ...documentSubclassIndexes]);
 }
