@@ -5,12 +5,10 @@ type ReferenceIndexRecord = {
   index: string;
 };
 
-type SubclassReferenceDocument = Prisma.RefRuleDocumentGetPayload<{
-  select: {
-    index: true;
-    sourceJson: true;
-  };
-}>;
+type SubclassReferenceDocument = {
+  index: string;
+  sourceJson: unknown;
+};
 
 type ClassSourceJson = {
   saving_throws?: ReferenceIndexRecord[];
