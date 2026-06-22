@@ -146,6 +146,16 @@ type ValidCharacterMutationRequestBody = {
   abilityScores: AbilityScoreRequestBody;
 };
 
+type CharacterPreviewOverrides = {
+  backgroundIndex?: string;
+  classIndex?: string;
+  featIndexes?: string[];
+  level?: number;
+  speciesIndex?: string;
+  subclassIndex?: string;
+  subspeciesIndex?: string;
+};
+
 function isAbilityScoresBody(value: unknown): value is AbilityScoreRequestBody {
   if (!value || typeof value !== "object") {
     return false;
@@ -415,6 +425,58 @@ function normalizeOptionalString(value: string | null | undefined) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function parseCharacterPreviewOverrides(query: Request["query"]): CharacterPreviewOverrides {
+  const backgroundIndex =
+    typeof query.backgroundIndex === "string" && query.backgroundIndex.trim().length > 0
+      ? query.backgroundIndex.trim()
+      : undefined;
+  const classIndex =
+    typeof query.classIndex === "string" && query.classIndex.trim().length > 0
+      ? query.classIndex.trim()
+      : undefined;
+  const featIndexes = parsePreviewFeatIndexes(query.featIndex);
+  const speciesIndex =
+    typeof query.speciesIndex === "string" && query.speciesIndex.trim().length > 0
+      ? query.speciesIndex.trim()
+      : undefined;
+  const subspeciesIndex =
+    typeof query.subspeciesIndex === "string" && query.subspeciesIndex.trim().length > 0
+      ? query.subspeciesIndex.trim()
+      : undefined;
+  const subclassIndex =
+    typeof query.subclassIndex === "string" && query.subclassIndex.trim().length > 0
+      ? query.subclassIndex.trim()
+      : undefined;
+  const level =
+    typeof query.level === "string" &&
+    Number.isInteger(Number(query.level)) &&
+    Number(query.level) >= 1 &&
+    Number(query.level) <= 20
+      ? Number(query.level)
+      : undefined;
+
+  return {
+    backgroundIndex,
+    classIndex,
+    featIndexes,
+    level,
+    speciesIndex,
+    subclassIndex,
+    subspeciesIndex,
+  };
+}
+
+function parsePreviewFeatIndexes(value: Request["query"][string]) {
+  const rawValues = (
+    Array.isArray(value) ? value : typeof value === "string" ? [value] : []
+  ).filter((entry): entry is string => typeof entry === "string");
+
+  return rawValues
+    .flatMap((entry) => entry.split(","))
+    .map((entry) => entry.trim())
+    .filter((entry, index, collection) => entry.length > 0 && collection.indexOf(entry) === index);
+}
+
 function isUniqueConstraintError(error: unknown) {
   return (
     typeof error === "object" &&
@@ -566,37 +628,11 @@ async function getCharacterActions(req: Request, res: Response) {
       return;
     }
 
-    const classIndex =
-      typeof req.query.classIndex === "string" && req.query.classIndex.trim().length > 0
-        ? req.query.classIndex.trim()
-        : undefined;
-    const speciesIndex =
-      typeof req.query.speciesIndex === "string" && req.query.speciesIndex.trim().length > 0
-        ? req.query.speciesIndex.trim()
-        : undefined;
-    const subspeciesIndex =
-      typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
-        ? req.query.subspeciesIndex.trim()
-        : undefined;
-    const subclassIndex =
-      typeof req.query.subclassIndex === "string" && req.query.subclassIndex.trim().length > 0
-        ? req.query.subclassIndex.trim()
-        : undefined;
-    const level =
-      typeof req.query.level === "string" &&
-      Number.isInteger(Number(req.query.level)) &&
-      Number(req.query.level) >= 1 &&
-      Number(req.query.level) <= 20
-        ? Number(req.query.level)
-        : undefined;
-
-    const actions = await findCharacterActionsForUser(getAuthenticatedUser(req).id, id, {
-      classIndex,
-      level,
-      subclassIndex,
-      subspeciesIndex,
-      speciesIndex,
-    });
+    const actions = await findCharacterActionsForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      parseCharacterPreviewOverrides(req.query),
+    );
 
     if (!actions) {
       res.status(404).json({
@@ -626,37 +662,11 @@ async function getCharacterDerivedState(req: Request, res: Response) {
       return;
     }
 
-    const classIndex =
-      typeof req.query.classIndex === "string" && req.query.classIndex.trim().length > 0
-        ? req.query.classIndex.trim()
-        : undefined;
-    const speciesIndex =
-      typeof req.query.speciesIndex === "string" && req.query.speciesIndex.trim().length > 0
-        ? req.query.speciesIndex.trim()
-        : undefined;
-    const subspeciesIndex =
-      typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
-        ? req.query.subspeciesIndex.trim()
-        : undefined;
-    const subclassIndex =
-      typeof req.query.subclassIndex === "string" && req.query.subclassIndex.trim().length > 0
-        ? req.query.subclassIndex.trim()
-        : undefined;
-    const level =
-      typeof req.query.level === "string" &&
-      Number.isInteger(Number(req.query.level)) &&
-      Number(req.query.level) >= 1 &&
-      Number(req.query.level) <= 20
-        ? Number(req.query.level)
-        : undefined;
-
-    const derivedState = await findCharacterDerivedStateForUser(getAuthenticatedUser(req).id, id, {
-      classIndex,
-      level,
-      speciesIndex,
-      subclassIndex,
-      subspeciesIndex,
-    });
+    const derivedState = await findCharacterDerivedStateForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      parseCharacterPreviewOverrides(req.query),
+    );
 
     if (!derivedState) {
       res.status(404).json({
@@ -666,7 +676,9 @@ async function getCharacterDerivedState(req: Request, res: Response) {
     }
 
     res.json({
+      actions: derivedState.actions,
       activeSources: derivedState.activeSources,
+      defenses: derivedState.defenses,
       selectedSubclassIndex: derivedState.selectedSubclassIndex,
       selectedSubspeciesIndex: derivedState.selectedSubspeciesIndex,
       spells: derivedState.spells,
@@ -692,37 +704,11 @@ async function getCharacterDefenses(req: Request, res: Response) {
       return;
     }
 
-    const classIndex =
-      typeof req.query.classIndex === "string" && req.query.classIndex.trim().length > 0
-        ? req.query.classIndex.trim()
-        : undefined;
-    const speciesIndex =
-      typeof req.query.speciesIndex === "string" && req.query.speciesIndex.trim().length > 0
-        ? req.query.speciesIndex.trim()
-        : undefined;
-    const subspeciesIndex =
-      typeof req.query.subspeciesIndex === "string" && req.query.subspeciesIndex.trim().length > 0
-        ? req.query.subspeciesIndex.trim()
-        : undefined;
-    const subclassIndex =
-      typeof req.query.subclassIndex === "string" && req.query.subclassIndex.trim().length > 0
-        ? req.query.subclassIndex.trim()
-        : undefined;
-    const level =
-      typeof req.query.level === "string" &&
-      Number.isInteger(Number(req.query.level)) &&
-      Number(req.query.level) >= 1 &&
-      Number(req.query.level) <= 20
-        ? Number(req.query.level)
-        : undefined;
-
-    const defenses = await findCharacterDefensesForUser(getAuthenticatedUser(req).id, id, {
-      classIndex,
-      level,
-      subclassIndex,
-      subspeciesIndex,
-      speciesIndex,
-    });
+    const defenses = await findCharacterDefensesForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      parseCharacterPreviewOverrides(req.query),
+    );
 
     if (!defenses) {
       res.status(404).json({

@@ -18,6 +18,7 @@ import type {
   SpeciesOption,
   SpeciesHeritageOption,
 } from "../types/characterBuilder";
+import { getFeatAbilityChoiceFieldConfigs } from "./featAbilityChoiceFields";
 
 type ReferenceItem = {
   index?: unknown;
@@ -1113,7 +1114,10 @@ function createNormalizedClassFeatures(
           feature.description ??
           "No description available from reference data.",
         details: feature.details,
-        choiceFields: choiceFields.length > 0 ? choiceFields : undefined,
+        choiceFields:
+          choiceFields.length > 0
+            ? augmentFeatAbilityChoiceFields(choiceFields)
+            : undefined,
       });
     })
     .filter(isPresent)
@@ -1189,7 +1193,10 @@ function createReferenceBackedClassFeatures(
               descriptions[0] ?? "No description available from reference data.",
             ),
             details: descriptions.slice(1).map(trimDescription).filter(isPresent),
-            choiceFields: choiceFields.length > 0 ? choiceFields : undefined,
+            choiceFields:
+              choiceFields.length > 0
+                ? augmentFeatAbilityChoiceFields(choiceFields)
+                : undefined,
           });
         })
         .filter(isPresent);
@@ -1213,6 +1220,43 @@ function createFeature(feature: ClassFeature): ClassFeature {
     details: feature.details?.length ? feature.details : undefined,
     choiceFields: feature.choiceFields?.length ? feature.choiceFields : undefined,
   };
+}
+
+function augmentFeatAbilityChoiceFields(choiceFields: FeatureChoiceField[]) {
+  const nextFields = [...choiceFields];
+
+  for (const field of choiceFields) {
+    if (field.choiceKind !== "asi-feat" && field.choiceKind !== "epic-boon") {
+      continue;
+    }
+
+    const featOptions = field.options.map((option) => ({
+      label: option.label,
+      value: option.selectedOptionIndex ?? option.value,
+    }));
+
+    for (const fieldConfig of getFeatAbilityChoiceFieldConfigs(field.id, featOptions)) {
+      nextFields.push(
+        createChoiceField(fieldConfig.id, fieldConfig.label, fieldConfig.options, {
+          choiceKind: fieldConfig.choiceKind,
+          choiceGroupId: fieldConfig.choiceGroupId,
+          choiceGroupLabel: fieldConfig.choiceGroupLabel,
+          choiceGroupLimit: fieldConfig.choiceGroupLimit,
+          dependsOnFieldId: fieldConfig.dependsOnFieldId,
+          dependsOnValues: fieldConfig.dependsOnValues,
+          choicePath: appendChoicePath(field.choicePath, fieldConfig.id),
+          classIndex: field.classIndex,
+          featureIndex: field.featureIndex,
+          level: field.level,
+          sourceIndex: field.sourceIndex,
+          sourceType: field.sourceType,
+          subclassIndex: field.subclassIndex,
+        }),
+      );
+    }
+  }
+
+  return nextFields;
 }
 
 function getClassSubclasses(

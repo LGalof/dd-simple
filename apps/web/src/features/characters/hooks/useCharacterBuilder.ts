@@ -24,8 +24,13 @@ import type {
 import {
   buildCharacterPreview,
   calculateHitPointPreview,
+  getFeatureChoiceHitPointBonus,
   synchronizeHitPointRolls,
 } from "../utils/buildCharacterPreview";
+import {
+  buildGenericBackgroundFeatureChoices,
+  buildGenericClassFeatureChoices,
+} from "../utils/buildFeatureChoiceSelections";
 import {
   rerollAbilityAssignments,
   rollAbilitySet,
@@ -1105,17 +1110,27 @@ function useCharacterBuilder(character: Character | undefined) {
       "con",
       10,
     );
+    const featureBonusHp = getFeatureChoiceHitPointBonus(
+      selectedClass,
+      featureChoices,
+      builderState.level,
+    );
 
     return calculateHitPointPreview({
       constitutionScore,
+      featureBonusHp,
       hitDie: selectedClass.hitDie,
       level: builderState.level,
       settings: builderState.hitPointSettings,
     });
-  }, [builderState, selectedClass.hitDie]);
+  }, [builderState, featureChoices, selectedClass]);
   const selectedSkillIndexes = useMemo(
     () => getSelectedSkillIndexes(featureChoices, selectedClass),
     [featureChoices, selectedClass],
+  );
+  const resolvedPreviewSubclassIndex = useMemo(
+    () => getResolvedSubclassIndex(selectedClass, featureChoices, builderState?.subclassIndex ?? null),
+    [builderState?.subclassIndex, featureChoices, selectedClass],
   );
 
   const previewCharacter = useMemo(() => {
@@ -1123,11 +1138,25 @@ function useCharacterBuilder(character: Character | undefined) {
       return null;
     }
 
+    const previewFeatureSelections = buildGenericClassFeatureChoices(
+      builderState.classIndex,
+      selectedClass,
+      builderState.level,
+      featureChoices,
+    ).concat(
+      buildGenericBackgroundFeatureChoices(
+        selectedBackground,
+        builderState.backgroundChoices,
+      ),
+    );
+
     return buildCharacterPreview({
       background: selectedBackground,
       character,
       classOption: selectedClass,
       featureChoices,
+      previewFeatureSelections,
+      previewSubclassIndex: resolvedPreviewSubclassIndex,
       persistedSkillIndexes,
       selectedSkillIndexes,
       species: selectedSpecies,
@@ -1140,6 +1169,7 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedClass,
     featureChoices,
     persistedSkillIndexes,
+    resolvedPreviewSubclassIndex,
     selectedSkillIndexes,
     selectedSpecies,
   ]);
@@ -1209,8 +1239,14 @@ function useCharacterBuilder(character: Character | undefined) {
               "con",
               10,
             );
+            const featureBonusHp = getFeatureChoiceHitPointBonus(
+              selectedClass,
+              featureChoices,
+              normalizedLevel,
+            );
             const nextHitPointPreview = calculateHitPointPreview({
               constitutionScore,
+              featureBonusHp,
               hitDie: selectedClass.hitDie,
               level: normalizedLevel,
               settings: normalizedSettings,
@@ -1249,8 +1285,14 @@ function useCharacterBuilder(character: Character | undefined) {
         "con",
         10,
       );
+      const featureBonusHp = getFeatureChoiceHitPointBonus(
+        selectedClass,
+        featureChoices,
+        currentState.level,
+      );
       const nextHitPointPreview = calculateHitPointPreview({
         constitutionScore,
+        featureBonusHp,
         hitDie: selectedClass.hitDie,
         level: currentState.level,
         settings: currentState.hitPointSettings,
@@ -1465,6 +1507,36 @@ function useCharacterBuilder(character: Character | undefined) {
     updateLevel,
     handleRollAllAbilities,
   };
+}
+
+function getResolvedSubclassIndex(
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+  persistedSubclassIndex: string | null,
+) {
+  const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  if (persistedSubclassIndex && subclassIndexes.has(persistedSubclassIndex)) {
+    return persistedSubclassIndex;
+  }
+
+  for (const feature of classOption.features) {
+    for (const field of feature.choiceFields ?? []) {
+      if (field.choiceKind !== "subclass") {
+        continue;
+      }
+
+      const selectedValue = featureChoices[`${feature.id}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+      const selectedSubclassIndex = selectedOption?.selectedOptionIndex ?? selectedOption?.value;
+
+      if (selectedSubclassIndex && subclassIndexes.has(selectedSubclassIndex)) {
+        return selectedSubclassIndex;
+      }
+    }
+  }
+
+  return null;
 }
 
 function swapAbilityAssignments(

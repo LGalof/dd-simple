@@ -1,19 +1,12 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import { fetchCharacterDerivedState } from "../api/fetchCharacterDerivedState";
+import type { CharacterPreviewQuery } from "../api/characterPreviewQuery";
 import type { CharacterDerivedState } from "../../../types/characterDerived";
-
-type CharacterDerivedPreviewState = {
-  classIndex?: string;
-  level?: number;
-  speciesIndex?: string;
-  subclassIndex?: string;
-  subspeciesIndex?: string;
-};
 
 function useCharacterDerivedState(
   characterId: string | null,
-  previewState: CharacterDerivedPreviewState = {},
+  previewState: CharacterPreviewQuery = {},
 ) {
   const { token } = useAuth();
   const [derivedState, setDerivedState] = useState<CharacterDerivedState | null>(null);
@@ -52,8 +45,10 @@ function useCharacterDerivedState(
 
     void loadDerivedState();
   }, [
+    previewState.backgroundIndex,
     characterId,
     previewState.classIndex,
+    (previewState.featIndexes ?? []).join("|"),
     previewState.level,
     previewState.speciesIndex,
     previewState.subclassIndex,

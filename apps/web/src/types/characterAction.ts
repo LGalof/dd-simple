@@ -1,7 +1,16 @@
 type ActionActivationType = "attack" | "action" | "bonus_action" | "reaction" | "other";
 
+type CharacterActionCombatSummary = {
+  damage?: string | null;
+  hit?: string | null;
+  notes?: string | null;
+  range?: string | null;
+  subtitle?: string | null;
+};
+
 type CharacterActionEntry = {
   activationType: ActionActivationType;
+  combat?: CharacterActionCombatSummary | null;
   description: string;
   id: string;
   level: number | null;
@@ -10,4 +19,4 @@ type CharacterActionEntry = {
   title: string;
 };
 
-export type { ActionActivationType, CharacterActionEntry };
+export type { ActionActivationType, CharacterActionCombatSummary, CharacterActionEntry };

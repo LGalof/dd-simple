@@ -60,6 +60,9 @@ function CharacterBuilderSidebar({
   species,
 }: CharacterBuilderSidebarProps) {
   const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
+  const [manuallyCompletedFeatureIds, setManuallyCompletedFeatureIds] = useState<
+    Record<string, boolean>
+  >({});
   const [isHitPointPanelOpen, setIsHitPointPanelOpen] = useState(false);
   const [draftLevel, setDraftLevel] = useState(1);
   const [draftBonusHp, setDraftBonusHp] = useState("0");
@@ -120,30 +123,54 @@ function CharacterBuilderSidebar({
     [classOption.features, classOption.subclasses, selectedSubclassIndex],
   );
 
-  const featureCountLabel = useMemo(() => {
-    const availableNow = visibleFeatures.filter(
-      (feature) => feature.level <= characterLevel,
-    ).length;
+  useEffect(() => {
+    setManuallyCompletedFeatureIds((currentState) => {
+      const visibleFeatureIds = new Set(visibleFeatures.map((feature) => feature.id));
+      const nextStateEntries = Object.entries(currentState).filter(([featureId, isCompleted]) =>
+        isCompleted && visibleFeatureIds.has(featureId)
+      );
 
-    return `${availableNow} unlocked - levels 1-20`;
-  }, [characterLevel, visibleFeatures]);
+      if (nextStateEntries.length === Object.keys(currentState).length) {
+        return currentState;
+      }
 
-  const lastCompletedFeatureIndex = useMemo(
+      return Object.fromEntries(nextStateEntries);
+    });
+  }, [visibleFeatures]);
+
+  const highestCompletedRequiredFeatureLevel = useMemo(
     () =>
-      visibleFeatures.reduce((lastCompletedIndex, feature, featureIndex) => {
-        if (isFeatureComplete(feature, selectedChoices)) {
-          return featureIndex;
+      visibleFeatures.reduce((highestLevel, feature) => {
+        if (featureRequiresSelection(feature, selectedChoices) &&
+          isFeatureChoiceComplete(feature, selectedChoices)
+        ) {
+          return Math.max(highestLevel, feature.level);
         }
 
-        return lastCompletedIndex;
+        return highestLevel;
       }, -1),
     [selectedChoices, visibleFeatures],
   );
+
+  const featureCountLabel = useMemo(() => {
+    const completedCount = visibleFeatures.filter((feature) =>
+      isFeatureMarkedComplete(feature, selectedChoices, highestCompletedRequiredFeatureLevel),
+    ).length;
+
+    return `${completedCount} completed - levels 1-20`;
+  }, [highestCompletedRequiredFeatureLevel, selectedChoices, visibleFeatures]);
 
   function toggleFeature(featureId: string) {
     setExpandedFeatureId((currentFeatureId) =>
       currentFeatureId === featureId ? null : featureId,
     );
+  }
+
+  function toggleManualFeatureCompletion(featureId: string) {
+    setManuallyCompletedFeatureIds((currentState) => ({
+      ...currentState,
+      [featureId]: !currentState[featureId],
+    }));
   }
 
   function updateChoice(
@@ -413,18 +440,21 @@ function CharacterBuilderSidebar({
           </div>
 
           <div className="builder-feature-accordion">
-            {visibleFeatures.map((feature, featureIndex) => {
+            {visibleFeatures.map((feature) => {
               const isExpanded = expandedFeatureId === feature.id;
-              const isFutureFeature = feature.level > characterLevel;
-              const isChoiceComplete = isFeatureComplete(feature, selectedChoices);
-              const isComplete = !isFutureFeature && isChoiceComplete;
+              const isAutoComplete = isFeatureMarkedComplete(
+                feature,
+                selectedChoices,
+                highestCompletedRequiredFeatureLevel,
+              );
+              const isManuallyComplete = Boolean(manuallyCompletedFeatureIds[feature.id]);
+              const isComplete = isAutoComplete || isManuallyComplete;
 
               return (
                 <article
                   key={feature.id}
                   className={[
                     "builder-feature-item",
-                    isFutureFeature ? "builder-feature-item-future" : "",
                     isComplete ? "builder-feature-item-complete" : "",
                   ]
                     .filter(Boolean)
@@ -460,6 +490,17 @@ function CharacterBuilderSidebar({
                           {detail}
                         </p>
                       ))}
+
+                      <label className="builder-feature-manual-toggle">
+                        <input
+                          type="checkbox"
+                          checked={isManuallyComplete}
+                          onChange={() => toggleManualFeatureCompletion(feature.id)}
+                        />
+                        <span>
+                          {isAutoComplete ? "Marked complete automatically" : "Mark as complete"}
+                        </span>
+                      </label>
 
                       {getVisibleChoiceFieldsForSelection(
                         feature.id,
@@ -499,7 +540,6 @@ function CharacterBuilderSidebar({
                                   <span>{field.label}</span>
                                   <select
                                     className="builder-feature-select"
-                                    disabled={isFutureFeature}
                                     value={selectedValue}
                                     onChange={(event) =>
                                       updateChoice(
@@ -511,9 +551,7 @@ function CharacterBuilderSidebar({
                                     }
                                   >
                                     <option value="">
-                                      {isFutureFeature
-                                        ? `Unlocks at level ${feature.level}`
-                                        : `Choose ${field.label.toLowerCase()}`}
+                                      {`Choose ${field.label.toLowerCase()}`}
                                     </option>
                                     {field.options.map((option) => (
                                       <option
@@ -804,6 +842,10 @@ function formatFeatureMeta(feature: ClassFeature, selectedChoices: Record<string
 }
 
 function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string, string>) {
+  return isFeatureChoiceComplete(feature, selectedChoices);
+}
+
+function isFeatureChoiceComplete(feature: ClassFeature, selectedChoices: Record<string, string>) {
   const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
     feature.id,
     feature.choiceFields,
@@ -817,6 +859,27 @@ function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string
   return visibleChoiceFields.every((field) =>
     Boolean(selectedChoices[`${feature.id}:${field.id}`]),
   );
+}
+
+function featureRequiresSelection(feature: ClassFeature, selectedChoices: Record<string, string>) {
+  return getVisibleChoiceFieldsForSelection(
+    feature.id,
+    feature.choiceFields,
+    selectedChoices,
+  ).length > 0;
+}
+
+function isFeatureMarkedComplete(
+  feature: ClassFeature,
+  selectedChoices: Record<string, string>,
+  highestCompletedRequiredFeatureLevel: number,
+) {
+  if (featureRequiresSelection(feature, selectedChoices)) {
+    return isFeatureChoiceComplete(feature, selectedChoices);
+  }
+
+  return highestCompletedRequiredFeatureLevel !== -1 &&
+    feature.level <= highestCompletedRequiredFeatureLevel;
 }
 
 function isChoiceFieldVisible(

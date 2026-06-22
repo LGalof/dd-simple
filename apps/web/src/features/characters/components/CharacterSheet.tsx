@@ -39,9 +39,6 @@ type CharacterSheetProps = {
   derivedStateLoading: boolean;
   featureChoices: FeatureChoiceSelections;
   inventoryController: InventorySandboxController;
-  normalizedActions: CharacterActionEntry[];
-  normalizedActionsError: string | null;
-  normalizedActionsLoading: boolean;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onOpenConditions: () => void;
   progressionChoiceSummaries: ProgressionChoiceSummary[];
@@ -101,7 +98,9 @@ type FeatureChoiceEffectSummary = {
   armorNames: string[];
   expertiseSkillIndexes: Set<string>;
   expertiseToolNames: string[];
+  featIndexes: Set<string>;
   languageNames: string[];
+  savingThrowProficiencyIndexes: Set<AbilityIndex>;
   skillProficiencyIndexes: Set<string>;
   toolNames: string[];
   weaponNames: string[];
@@ -181,6 +180,10 @@ type TrainingReferenceCharacter = Character & {
     sourceJson?: unknown;
   };
   species: Character["species"] & {
+    traits?: Array<{
+      description?: string | null;
+      name: string;
+    }>;
     sourceJson?: unknown;
   };
 };
@@ -222,9 +225,6 @@ function CharacterSheet({
   derivedStateLoading,
   featureChoices,
   inventoryController,
-  normalizedActions,
-  normalizedActionsError,
-  normalizedActionsLoading,
   onActiveTabChange,
   onOpenConditions,
   progressionChoiceSummaries,
@@ -336,7 +336,7 @@ function CharacterSheet({
     [abilityScoreMap, character.skills, featureChoiceEffects, proficiencyBonus],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
-  const saveProficiencies = getSavingThrowProficiencyIndexes(character);
+  const saveProficiencies = getSavingThrowProficiencyIndexes(character, featureChoiceEffects);
   const savingThrows = sortedAbilityScores.map((abilityScore) => {
     const modifier = abilityModifier(abilityScore.score);
     const hasSaveProficiency = saveProficiencies.includes(abilityScore.abilityIndex as AbilityIndex);
@@ -405,12 +405,20 @@ function CharacterSheet({
     ],
   );
   const spellEntries = derivedState?.spells ?? [];
-  const training = getTrainingProfile(character, featureChoiceEffects);
+  const normalizedActions = derivedState?.actions ?? [];
+  const training = getTrainingProfile(
+    character,
+    featureChoiceEffects,
+    selectedClass,
+    selectedSpecies,
+    selectedBackground,
+  );
   const weaponActions = getWeaponActions(
     liveEquippedInventoryItems,
     equippedItems,
     dexterityModifier,
     strengthModifier,
+    featureChoiceEffects.featIndexes,
     proficiencyBonus,
     training.weapons,
   );
@@ -434,17 +442,24 @@ function CharacterSheet({
         subtitle: action.type,
         title: action.name,
       })),
-      ...normalizedActions.map((action) => ({
-        activationType: action.activationType,
-        damage: "--",
-        displayMode: "detail" as const,
-        hit: "--",
-        id: action.id,
-        notes: action.description,
-        range: "--",
-        subtitle: getReadableActionSubtitle(action),
-        title: action.title,
-      })),
+      ...normalizedActions.map((action) => {
+        const combatSummary = action.combat;
+        const hasCombatSummary = Boolean(
+          combatSummary?.range || combatSummary?.hit || combatSummary?.damage || combatSummary?.notes,
+        );
+
+        return {
+          activationType: action.activationType,
+          damage: combatSummary?.damage ?? "--",
+          displayMode: hasCombatSummary ? ("table" as const) : ("detail" as const),
+          hit: combatSummary?.hit ?? "--",
+          id: action.id,
+          notes: combatSummary?.notes ?? action.description,
+          range: combatSummary?.range ?? "--",
+          subtitle: combatSummary?.subtitle ?? getReadableActionSubtitle(action),
+          title: action.title,
+        };
+      }),
     ],
     [normalizedActions, weaponActions],
   );
@@ -550,8 +565,19 @@ function CharacterSheet({
       ),
     [derivedState?.activeSources, normalizedActions, spellEntries],
   );
-  const savedFeatureChoices = character.featureChoices ?? [];
+  const savedFeatureChoices = useMemo(
+    () =>
+      (character.featureChoices ?? []).filter((choice) =>
+        isSupplementalSavedFeatureChoice(choice),
+      ),
+    [character.featureChoices],
+  );
+  const speciesSenseDetails = getSpeciesSenseDetails(character);
   const heritageSenseDetails = getHeritageSenseDetails(selectedHeritage);
+  const senseDetails = uniqueTrainingValues([
+    ...speciesSenseDetails,
+    ...heritageSenseDetails,
+  ]);
   const workspaceTabs: Array<{ id: WorkspaceTab; label: string }> = [
     { id: "actions", label: "Actions" },
     { id: "spells", label: "Spells" },
@@ -756,7 +782,7 @@ function CharacterSheet({
               </div>
 
               <p className="character-reference-note">
-                {[training.senses, ...heritageSenseDetails].join(" - ")}
+                {senseDetails.length > 0 ? senseDetails.join(" - ") : training.senses}
               </p>
             </section>
 
@@ -910,14 +936,14 @@ function CharacterSheet({
                     </div>
                   ) : null}
 
-                  {normalizedActionsLoading ? (
+                  {derivedStateLoading ? (
                     <p className="muted">Loading normalized actions...</p>
                   ) : null}
-                  {normalizedActionsError ? (
-                    <p className="error-message">Actions unavailable: {normalizedActionsError}</p>
+                  {derivedStateError ? (
+                    <p className="error-message">Actions unavailable: {derivedStateError}</p>
                   ) : null}
 
-                  {!normalizedActionsLoading && !normalizedActionsError && !hasVisibleActionContent ? (
+                  {!derivedStateLoading && !derivedStateError && !hasVisibleActionContent ? (
                     <p className="muted">
                       {activeActionFilter === "all"
                         ? "No action entries are currently available."
@@ -1136,7 +1162,7 @@ function CharacterSheet({
                     ) : null}
 
                     {savedFeatureChoices.length > 0 && (
-                      <Card title="Saved Feature Choices">
+                      <Card title="Feature Choices">
                         <div className="list">
                           {savedFeatureChoices.map((choice) => (
                             <div
@@ -1761,7 +1787,10 @@ function getCreatureSize(speciesName: string) {
   }
 }
 
-function getSavingThrowProficiencyIndexes(character: Character): AbilityIndex[] {
+function getSavingThrowProficiencyIndexes(
+  character: Character,
+  effects?: FeatureChoiceEffectSummary,
+): AbilityIndex[] {
   const persistedSaveIndexes = (character.proficiencies ?? [])
     .map((proficiency) =>
       savingThrowAbilityIndexFromReference(
@@ -1770,10 +1799,6 @@ function getSavingThrowProficiencyIndexes(character: Character): AbilityIndex[] 
       ),
     )
     .filter(isPresent);
-
-  if (persistedSaveIndexes.length > 0) {
-    return [...new Set(persistedSaveIndexes)];
-  }
 
   const trainingCharacter = character as TrainingReferenceCharacter;
   const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
@@ -1786,7 +1811,13 @@ function getSavingThrowProficiencyIndexes(character: Character): AbilityIndex[] 
     )
     .filter(isPresent);
 
-  return [...new Set(sourceSaveIndexes)];
+  return [
+    ...new Set([
+      ...persistedSaveIndexes,
+      ...sourceSaveIndexes,
+      ...(effects ? [...effects.savingThrowProficiencyIndexes] : []),
+    ]),
+  ];
 }
 
 function savingThrowAbilityIndexFromReference(
@@ -1832,8 +1863,16 @@ function getSkillTotal(skills: SkillWithTotal[], name: string) {
 function getHeritageSenseDetails(heritage: SpeciesHeritageOption | null | undefined) {
   return (heritage?.traits ?? [])
     .filter((trait) =>
-      `${trait.name} ${trait.description ?? ""}`.toLowerCase().includes("darkvision"),
+      hasSenseKeyword(`${trait.name} ${trait.description ?? ""}`),
     )
+    .map((trait) => trait.description ?? trait.name);
+}
+
+function getSpeciesSenseDetails(character: Character) {
+  const trainingCharacter = character as TrainingReferenceCharacter;
+
+  return (trainingCharacter.species.traits ?? [])
+    .filter((trait) => hasSenseKeyword(`${trait.name} ${trait.description ?? ""}`))
     .map((trait) => trait.description ?? trait.name);
 }
 
@@ -1847,7 +1886,7 @@ function getActionSubtitle(action: CharacterActionEntry) {
   const activationLabel = formatActivationLabel(action.activationType);
   const levelLabel = action.level ? `Level ${action.level}` : null;
 
-  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" â€˘ ");
+  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
 }
 
 function getReadableActionSubtitle(action: CharacterActionEntry) {
@@ -1956,6 +1995,9 @@ function compareSkills(left: SkillWithTotal, right: SkillWithTotal) {
 function getTrainingProfile(
   character: Character,
   featureChoiceEffects: FeatureChoiceEffectSummary,
+  selectedClass: ClassOption,
+  selectedSpecies: SpeciesOption,
+  selectedBackground: BackgroundOption,
 ) {
   const trainingCharacter = character as TrainingReferenceCharacter;
   const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
@@ -1965,37 +2007,47 @@ function getTrainingProfile(
     getReferenceNames(classSourceJson.proficiencies),
   );
   const persistedTraining = getPersistedTrainingProficiencies(character);
-  const armor = withUnavailableFallback(
+  const armor = withFallbackLabel(
     mergeTrainingValues(
       groupedClassProficiencies.armor.length > 0
         ? groupedClassProficiencies.armor
-        : trainingCharacter.class.proficiencies?.armor ?? [],
+        : trainingCharacter.class.proficiencies?.armor ??
+          selectedClass.proficiencies?.armor ??
+          [],
       persistedTraining.armor,
       featureChoiceEffects.armorNames,
     ),
+    "None",
   );
-  const weapons = withUnavailableFallback(
+  const weapons = withFallbackLabel(
     mergeTrainingValues(
       groupedClassProficiencies.weapons.length > 0
         ? groupedClassProficiencies.weapons
-        : trainingCharacter.class.proficiencies?.weapons ?? [],
+        : trainingCharacter.class.proficiencies?.weapons ??
+          selectedClass.proficiencies?.weapons ??
+          [],
       persistedTraining.weapons,
       featureChoiceEffects.weaponNames,
     ),
+    "None",
   );
   const classTools =
     groupedClassProficiencies.tools.length > 0
       ? groupedClassProficiencies.tools
-      : trainingCharacter.class.proficiencies?.tools ?? [];
+      : trainingCharacter.class.proficiencies?.tools ??
+        selectedClass.proficiencies?.tools ??
+        [];
   const backgroundTools = getToolProficiencies(backgroundSourceJson);
   const normalizedBackgroundTools = getNormalizedBackgroundToolProficiencies(
     trainingCharacter.background,
   );
   const mappedBackgroundTools = filterConcreteToolProficiencies(
-    trainingCharacter.background.toolProficiencies ?? [],
+    trainingCharacter.background.toolProficiencies ??
+      selectedBackground.toolProficiencies ??
+      [],
   );
   const concreteBackgroundTools = filterConcreteToolProficiencies(backgroundTools);
-  const tools = withUnavailableFallback(
+  const tools = withFallbackLabel(
     mergeTrainingValues(
       classTools,
       normalizedBackgroundTools.length > 0
@@ -2007,20 +2059,25 @@ function getTrainingProfile(
       featureChoiceEffects.toolNames,
       featureChoiceEffects.expertiseToolNames.map((toolName) => `${toolName} (Expertise)`),
     ),
+    "None",
   );
-  const languages = withUnavailableFallback(
+  const languages = withFallbackLabel(
     mergeTrainingValues(
       trainingCharacter.languages?.length
         ? trainingCharacter.languages.map((language) => language.language.name)
-        : getLanguages(speciesSourceJson),
+        : getLanguages(speciesSourceJson).length > 0
+          ? getLanguages(speciesSourceJson)
+          : selectedSpecies.languages,
+      getNormalizedBackgroundLanguageProficiencies(trainingCharacter.background),
       featureChoiceEffects.languageNames,
     ),
+    "None recorded",
   );
 
   return {
     armor,
     languages,
-    senses: unavailableTrainingValue,
+    senses: "Standard vision",
     tools,
     weapons,
   };
@@ -2031,7 +2088,9 @@ function getFeatureChoiceEffects(character: Character): FeatureChoiceEffectSumma
     armorNames: [],
     expertiseSkillIndexes: new Set(),
     expertiseToolNames: [],
+    featIndexes: new Set(),
     languageNames: [],
+    savingThrowProficiencyIndexes: new Set(),
     skillProficiencyIndexes: new Set(),
     toolNames: [],
     weaponNames: [],
@@ -2046,6 +2105,10 @@ function getFeatureChoiceEffects(character: Character): FeatureChoiceEffectSumma
 
     if (!reference) {
       continue;
+    }
+
+    if (reference.url?.toLowerCase().includes("/feats/") && reference.index) {
+      effects.featIndexes.add(reference.index.toLowerCase());
     }
 
     const category = classifyChoiceReference(reference);
@@ -2075,6 +2138,14 @@ function getFeatureChoiceEffects(character: Character): FeatureChoiceEffectSumma
       case "language":
         effects.languageNames.push(stripReferencePrefix(reference.name));
         break;
+      case "saving-throw": {
+        const abilityIndex = savingThrowAbilityIndexFromReference(reference.index, reference.name);
+
+        if (abilityIndex) {
+          effects.savingThrowProficiencyIndexes.add(abilityIndex);
+        }
+        break;
+      }
       case "skill": {
         const skillIndex = canonicalSkillIndex(reference.index ?? reference.name);
 
@@ -2115,7 +2186,7 @@ function getSavedFeatureChoiceStatus(
     : null;
 
   if (isInactiveFeatureChoice(choice, character.level)) {
-    return `${choice.selectedOptionType} - Saved choice; inactive until level ${choice.level}.`;
+    return `${choice.selectedOptionType} - Choice selected; inactive until level ${choice.level}.`;
   }
 
   if (isExpertiseFeatureChoice(choice)) {
@@ -2126,19 +2197,21 @@ function getSavedFeatureChoiceStatus(
         effects.expertiseSkillIndexes.has(skillIndex) &&
         isCharacterProficientInSkill(character, effects, skillIndex)
         ? `${choice.selectedOptionType} - Expertise applied where proficient.`
-        : `${choice.selectedOptionType} - Saved Expertise choice; inactive until proficient.`;
+        : `${choice.selectedOptionType} - Expertise choice selected; inactive until proficient.`;
     }
 
     if (category === "tool") {
-      return `${choice.selectedOptionType} - Saved Expertise choice; tool roll mechanics not automated yet.`;
+      return `${choice.selectedOptionType} - Expertise choice selected; tool roll mechanics are not automated yet.`;
     }
   }
 
   if (category) {
-    return `${choice.selectedOptionType} - Applied as ${category} proficiency.`;
+    return category === "saving-throw"
+      ? `${choice.selectedOptionType} - Applied as saving throw proficiency.`
+      : `${choice.selectedOptionType} - Applied as ${category} proficiency.`;
   }
 
-  return `${choice.selectedOptionType} - Saved choice; mechanics not automated yet.`;
+  return `${choice.selectedOptionType} - Choice selected; mechanics are not automated yet.`;
 }
 
 function isCharacterProficientInSkill(
@@ -2205,7 +2278,7 @@ function classifyChoiceReference(reference: { index: string | null; name: string
   }
 
   if (name.startsWith("saving throw:") || index.startsWith("saving-throw-")) {
-    return null;
+    return "saving-throw";
   }
 
   if (isLanguageReference || index.startsWith("language-")) {
@@ -2274,6 +2347,36 @@ function isEquipmentChoice(choice: NonNullable<Character["featureChoices"]>[numb
         normalizedValue.includes("starting-equipment")
       );
     });
+}
+
+function isSupplementalSavedFeatureChoice(
+  choice: NonNullable<Character["featureChoices"]>[number],
+) {
+  const searchableText = [
+    choice.choiceKey,
+    choice.choiceLabel,
+    choice.choicePath,
+    choice.sourceIndex,
+    choice.featureIndex,
+  ]
+    .filter(isPresent)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    searchableText.includes("asi-mode") ||
+    searchableText.includes("asi-feat") ||
+    searchableText.includes("epic-boon") ||
+    searchableText.includes("feat-ability-") ||
+    searchableText.includes("feat-save-") ||
+    searchableText.includes("feat-skill-") ||
+    searchableText.includes("feat-expertise-") ||
+    searchableText.includes("feat-weapon-")
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function isWeaponLikeProficiency(index: string, name: string) {
@@ -2460,6 +2563,16 @@ function getNormalizedBackgroundToolProficiencies(
     .map(stripReferencePrefix);
 }
 
+function getNormalizedBackgroundLanguageProficiencies(
+  background: TrainingReferenceCharacter["background"],
+) {
+  return (background.proficiencyGrants ?? [])
+    .filter((grant) => grant.grantType === "LANGUAGE")
+    .map((grant) => grant.sourceLabel ?? grant.proficiency?.name ?? grant.proficiencyIndex)
+    .filter(isPresent)
+    .map(stripReferencePrefix);
+}
+
 function filterConcreteToolProficiencies(values: string[]) {
   return values.filter((value) => {
     const normalizedValue = value.toLowerCase();
@@ -2479,10 +2592,18 @@ function getLanguages(sourceJson: LanguageSourceJson) {
   ].filter(isPresent);
 }
 
-function withUnavailableFallback(values: string[]) {
+function hasSenseKeyword(value: string) {
+  const normalizedValue = value.toLowerCase();
+
+  return ["darkvision", "blindsight", "tremorsense", "truesight"].some((keyword) =>
+    normalizedValue.includes(keyword),
+  );
+}
+
+function withFallbackLabel(values: string[], fallbackLabel: string) {
   const uniqueValues = uniqueTrainingValues(values);
 
-  return uniqueValues.length > 0 ? uniqueValues : [unavailableTrainingValue];
+  return uniqueValues.length > 0 ? uniqueValues : [fallbackLabel];
 }
 
 function uniqueTrainingValues(values: string[]) {
@@ -2505,7 +2626,11 @@ function uniqueTrainingValues(values: string[]) {
 }
 
 function stripReferencePrefix(value: string) {
-  return value.replace(/^Skill: /, "").replace(/^Tool: /, "").replace(/^Saving Throw: /, "");
+  return value
+    .replace(/^Skill: /, "")
+    .replace(/^Tool: /, "")
+    .replace(/^Weapon: /, "")
+    .replace(/^Saving Throw: /, "");
 }
 
 function stringValue(value: unknown): string | null {
@@ -2525,14 +2650,37 @@ function getWeaponActions(
   equippedItems: Character["inventory"],
   dexterityModifier: number,
   strengthModifier: number,
+  featIndexes: Set<string>,
   proficiencyBonus: number,
   weaponProficiencies: string[],
 ) {
+  const shieldEquipped =
+    liveEquippedItems.some((item) => isShieldItem(item.name)) ||
+    equippedItems.some((item) => isShieldItem(item.equipment.name));
+  const attackItemNames =
+    liveEquippedItems.length > 0
+      ? liveEquippedItems.filter(isLiveAttackItem).map((item) => item.name)
+      : equippedItems
+          .filter((item) => isAttackItem(item.equipment.name))
+          .map((item) => item.equipment.name);
+  const meleeWeaponCount = attackItemNames.filter((itemName) => {
+    const weaponKind = getWeaponKind(itemName.toLowerCase());
+
+    return weaponKind !== null && !isRangedWeaponKind(weaponKind);
+  }).length;
+  const hasDueling = hasCombatFeat(featIndexes, "dueling");
+  const hasUnarmedFighting = hasCombatFeat(featIndexes, "unarmed-fighting");
+  const unarmedDamageDie =
+    hasUnarmedFighting && attackItemNames.length === 0 && !shieldEquipped ? "1d8" :
+      hasUnarmedFighting ? "1d6" : "1";
   const unarmedStrikeAction = {
-    damage: `1 + ${Math.max(1, strengthModifier)}`,
+    damage:
+      unarmedDamageDie === "1"
+        ? `1 + ${Math.max(1, strengthModifier)}`
+        : `${unarmedDamageDie} + ${Math.max(1, strengthModifier)}`,
     hit: formatModifier(strengthModifier + proficiencyBonus),
     name: "Unarmed Strike",
-    notes: "Melee",
+    notes: hasUnarmedFighting ? "Melee, Unarmed Fighting" : "Melee",
     range: "5 ft.",
     type: "Melee Attack",
   };
@@ -2546,8 +2694,10 @@ function getWeaponActions(
           item.name,
           dexterityModifier,
           strengthModifier,
+          featIndexes,
           proficiencyBonus,
           weaponProficiencies,
+          hasDueling && meleeWeaponCount === 1,
         );
         const attackBonus = profile.attackBonus + item.attackBonus;
         const damage = formatInventoryDamage(
@@ -2575,8 +2725,10 @@ function getWeaponActions(
       item.equipment.name,
       dexterityModifier,
       strengthModifier,
+      featIndexes,
       proficiencyBonus,
       weaponProficiencies,
+      hasDueling && meleeWeaponCount === 1,
     );
 
     return {
@@ -2606,16 +2758,22 @@ function getAttackProfile(
   itemName: string,
   dexterityModifier: number,
   strengthModifier: number,
+  featIndexes: Set<string>,
   proficiencyBonus: number,
   weaponProficiencies: string[],
+  applyDuelingBonus: boolean,
 ) {
   const normalizedName = itemName.toLowerCase();
   const weaponKind = getWeaponKind(normalizedName) ?? "simpleMelee";
   const isProficient = hasWeaponProficiency(normalizedName, weaponKind, weaponProficiencies);
+  const archeryBonus =
+    hasCombatFeat(featIndexes, "archery") && isRangedWeaponKind(weaponKind) ? 2 : 0;
+  const duelingBonus =
+    applyDuelingBonus && isOneHandedMeleeWeaponKind(weaponKind) ? 2 : 0;
 
   if (weaponKind === "bow") {
     return {
-      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0),
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0) + archeryBonus,
       damage: `1d6 ${formatInlineModifier(dexterityModifier)}`,
       damageModifier: dexterityModifier,
       notes: "Ranged weapon",
@@ -2626,7 +2784,7 @@ function getAttackProfile(
 
   if (weaponKind === "crossbow") {
     return {
-      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0),
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0) + archeryBonus,
       damage: `1d6 ${formatInlineModifier(dexterityModifier)}`,
       damageModifier: dexterityModifier,
       notes: "Ranged weapon",
@@ -2641,8 +2799,8 @@ function getAttackProfile(
     return {
       attackBonus: modifier + (isProficient ? proficiencyBonus : 0),
       damage: `1d4 ${formatInlineModifier(modifier)}`,
-      damageModifier: modifier,
-      notes: "Finesse, light, thrown",
+      damageModifier: modifier + duelingBonus,
+      notes: duelingBonus > 0 ? "Finesse, light, thrown, Dueling" : "Finesse, light, thrown",
       range: "20/60 ft.",
       type: "Melee / Thrown",
     };
@@ -2654,8 +2812,8 @@ function getAttackProfile(
     return {
       attackBonus: modifier + (isProficient ? proficiencyBonus : 0),
       damage: `1d8 ${formatInlineModifier(modifier)}`,
-      damageModifier: modifier,
-      notes: "Finesse",
+      damageModifier: modifier + duelingBonus,
+      notes: duelingBonus > 0 ? "Finesse, Dueling" : "Finesse",
       range: "5 ft.",
       type: "Melee Attack",
     };
@@ -2663,7 +2821,7 @@ function getAttackProfile(
 
   if (weaponKind === "sling") {
     return {
-      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0),
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0) + archeryBonus,
       damage: `1d4 ${formatInlineModifier(dexterityModifier)}`,
       damageModifier: dexterityModifier,
       notes: "Ranged weapon",
@@ -2675,11 +2833,31 @@ function getAttackProfile(
   return {
     attackBonus: strengthModifier + (isProficient ? proficiencyBonus : 0),
     damage: `1d6 ${formatInlineModifier(strengthModifier)}`,
-    damageModifier: strengthModifier,
-    notes: "Weapon attack",
+    damageModifier: strengthModifier + duelingBonus,
+    notes: duelingBonus > 0 ? "Weapon attack, Dueling" : "Weapon attack",
     range: "5 ft.",
     type: "Melee Attack",
   };
+}
+
+function hasCombatFeat(featIndexes: Set<string>, featIndex: string) {
+  return featIndexes.has(featIndex.toLowerCase());
+}
+
+function isRangedWeaponKind(
+  weaponKind: ReturnType<typeof getWeaponKind> | "simpleMelee",
+) {
+  return weaponKind === "bow" || weaponKind === "crossbow" || weaponKind === "sling";
+}
+
+function isOneHandedMeleeWeaponKind(
+  weaponKind: ReturnType<typeof getWeaponKind> | "simpleMelee",
+) {
+  return weaponKind === "dagger" || weaponKind === "finesseMelee" || weaponKind === "simpleMelee";
+}
+
+function isShieldItem(name: string) {
+  return name.toLowerCase().includes("shield");
 }
 
 function isLiveAttackItem(item: LiveInventoryItem) {

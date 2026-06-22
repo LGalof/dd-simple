@@ -1,19 +1,12 @@
 import {
   findCharacterDerivedStateForUser,
 } from "./character-effects.service.js";
-
-type CharacterActionOverrides = {
-  classIndex?: string;
-  level?: number;
-  speciesIndex?: string;
-  subclassIndex?: string;
-  subspeciesIndex?: string;
-};
+import type { CharacterFeatureEffectsOverrides } from "./character-effects.service.js";
 
 async function findCharacterActionsForUser(
   userId: string,
   characterId: string,
-  overrides: CharacterActionOverrides = {},
+  overrides: CharacterFeatureEffectsOverrides = {},
 ) {
   const derivedState = await findCharacterDerivedStateForUser(userId, characterId, overrides);
 
@@ -25,4 +18,4 @@ export type {
   ActionActivationType,
   CharacterActionEntry,
 } from "./character-effects.service.js";
-export type { CharacterActionOverrides };
+export type { CharacterFeatureEffectsOverrides as CharacterActionOverrides };

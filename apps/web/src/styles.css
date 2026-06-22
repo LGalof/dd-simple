@@ -269,7 +269,7 @@ h1 {
   display: grid;
   grid-template-columns: minmax(320px, 388px) minmax(0, 1fr) 304px;
   gap: 0.75rem;
-  align-items: start;
+  align-items: stretch;
   min-height: 100%;
   height: 100%;
   overflow: visible;
@@ -277,6 +277,7 @@ h1 {
 
 .dashboard-layout > * {
   min-width: 0;
+  min-height: 0;
 }
 
 .dashboard-layout-sidebar-hidden {
@@ -1430,6 +1431,29 @@ h1 {
   padding-top: 0.7rem;
 }
 
+.builder-feature-manual-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: fit-content;
+  color: #d1d5db;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.builder-feature-manual-toggle input {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: #4ade80;
+  cursor: pointer;
+}
+
+.builder-feature-manual-toggle span {
+  color: inherit;
+}
+
 .builder-feature-choice-list {
   display: grid;
   gap: 0.45rem;
@@ -1979,6 +2003,7 @@ h1 {
   --sheet-accent-border: rgba(212, 176, 106, 0.38);
   gap: 0.75rem;
   height: 100%;
+  align-self: stretch;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -2800,7 +2825,7 @@ h1 {
 .character-main-workspace {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  align-self: start;
+  align-self: stretch;
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -4424,28 +4449,6 @@ h1 {
   background: rgba(17, 24, 39, 0.92);
   color: #f9fafb;
   font: inherit;
-}
-
-@media (max-width: 1600px) {
-  .dashboard-layout {
-    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-  }
-
-  .dashboard-layout-sidebar-hidden {
-    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
-  }
-
-  .inventory-side-rail {
-    position: static;
-    top: auto;
-    max-height: none;
-    grid-column: 1 / -1;
-  }
-
-  .inventory-library-panel,
-  .inventory-side-placeholder {
-    max-height: none;
-  }
 }
 
 .inventory-workbench {

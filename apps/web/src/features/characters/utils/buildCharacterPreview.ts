@@ -1,4 +1,9 @@
-import type { Character } from "../../../types/character";
+import type { Character, CharacterFeatureChoiceSelection } from "../../../types/character";
+import {
+  buildFeatAbilityBonuses,
+  getFeatAbilityChoiceFieldIds,
+  getFeatAbilityRule,
+} from "@dd-simple/shared";
 import type {
   BackgroundOption,
   CharacterBuilderState,
@@ -8,6 +13,7 @@ import type {
   SpeciesOption,
 } from "../types/characterBuilder";
 import { abilityModifier } from "./characterFormat";
+import { mergeFeatureChoiceSelections } from "./buildFeatureChoiceSelections";
 
 const backgroundAbilityPlanTwoScores = "increase-two-scores-2-1";
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
@@ -31,6 +37,8 @@ type BuildCharacterPreviewOptions = {
   character: Character;
   classOption: ClassOption;
   featureChoices?: FeatureChoiceSelections;
+  previewFeatureSelections?: CharacterFeatureChoiceSelection[];
+  previewSubclassIndex?: string | null;
   persistedSkillIndexes?: string[];
   selectedSkillIndexes?: string[];
   species: SpeciesOption;
@@ -70,6 +78,7 @@ type HitPointPreview = {
 
 type CalculateHitPointPreviewOptions = {
   constitutionScore: number;
+  featureBonusHp?: number;
   hitDie: number;
   level: number;
   settings: HitPointSettings;
@@ -80,6 +89,8 @@ function buildCharacterPreview({
   character,
   classOption,
   featureChoices = {},
+  previewFeatureSelections = [],
+  previewSubclassIndex,
   persistedSkillIndexes,
   selectedSkillIndexes = [],
   species,
@@ -115,10 +126,16 @@ function buildCharacterPreview({
     nextAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "dex")?.score ?? 10;
   const constitutionScore =
     nextAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "con")?.score ?? 10;
+  const featureBonusHp = getFeatureChoiceHitPointBonus(
+    classOption,
+    featureChoices,
+    state.level,
+  );
 
   const dexterityModifier = abilityModifier(dexterityScore);
   const hitPointPreview = calculateHitPointPreview({
     constitutionScore,
+    featureBonusHp,
     hitDie: classOption.hitDie,
     level: state.level,
     settings: state.hitPointSettings,
@@ -137,7 +154,7 @@ function buildCharacterPreview({
   return {
     ...character,
     level: state.level,
-    subclassIndex: state.subclassIndex,
+    subclassIndex: previewSubclassIndex ?? state.subclassIndex,
     maxHp: hitPointPreview.maxHp,
     currentHp: Math.max(0, Math.min(hitPointPreview.maxHp, state.currentHp)),
     armorClass: 10 + dexterityModifier,
@@ -165,10 +182,13 @@ function buildCharacterPreview({
         backgroundSkillIndexSet.has(canonicalSkillIndex(characterSkill.skillIndex)) ||
         selectedSkillIndexSet.has(characterSkill.skillIndex),
     })),
-    featureChoices: filterActiveFeatureChoices(
-      character.featureChoices,
-      classOption.index,
-      background.index,
+    featureChoices: mergeFeatureChoiceSelections(
+      filterActiveFeatureChoices(
+        character.featureChoices,
+        classOption.index,
+        background.index,
+      ),
+      previewFeatureSelections,
     ),
     proficiencies: character.proficiencies,
   };
@@ -195,6 +215,7 @@ function filterActiveFeatureChoices(
     return true;
   });
 }
+
 
 function getSelectedBackgroundToolProficiencies(
   backgroundChoices: Record<string, string>,
@@ -348,6 +369,7 @@ function canonicalAbilityScoreIndex(value: string | undefined) {
 
 function calculateHitPointPreview({
   constitutionScore,
+  featureBonusHp = 0,
   hitDie,
   level,
   settings,
@@ -363,7 +385,7 @@ function calculateHitPointPreview({
     settings.rolledHitPoints,
   );
   const rolledClassHp = rolledHitPoints.reduce((total, dieValue) => total + dieValue, 0);
-  const bonusHp = settings.bonusHp;
+  const bonusHp = settings.bonusHp + featureBonusHp;
   const totalFixedHp = Math.max(1, fixedClassHp + constitutionBonus + bonusHp);
   const totalRolledHp = Math.max(1, rolledClassHp + constitutionBonus + bonusHp);
   const averageHp = Math.max(
@@ -436,22 +458,53 @@ function applyAbilityScoreImprovements(
   const increases = new Map<string, number>();
 
   for (const feature of classOption.features) {
-    if (
-      !isAbilityScoreImprovementFeature(feature) ||
-      featureChoices[`${feature.id}:asi-mode`] !== "ability-score-improvement"
-    ) {
-      continue;
+    if (isAbilityScoreImprovementFeature(feature)) {
+      const selectedMode = featureChoices[`${feature.id}:asi-mode`];
+
+      if (selectedMode === "ability-score-improvement") {
+        for (const fieldId of ["asi-score-1", "asi-score-2"]) {
+          const selectedAbility = featureChoices[`${feature.id}:${fieldId}`];
+          const abilityIndex = selectedAbility ? ABILITY_CHOICE_TO_INDEX[selectedAbility] : undefined;
+
+          if (!abilityIndex) {
+            continue;
+          }
+
+          increases.set(abilityIndex, (increases.get(abilityIndex) ?? 0) + 1);
+        }
+      }
     }
 
-    for (const fieldId of ["asi-score-1", "asi-score-2"]) {
-      const selectedAbility = featureChoices[`${feature.id}:${fieldId}`];
-      const abilityIndex = selectedAbility ? ABILITY_CHOICE_TO_INDEX[selectedAbility] : undefined;
-
-      if (!abilityIndex) {
+    for (const field of feature.choiceFields ?? []) {
+      if (field.choiceKind !== "asi-feat" && field.choiceKind !== "epic-boon") {
         continue;
       }
 
-      increases.set(abilityIndex, (increases.get(abilityIndex) ?? 0) + 1);
+      const selectedFeatIndex = featureChoices[`${feature.id}:${field.id}`];
+      const featRule = getFeatAbilityRule(selectedFeatIndex);
+
+      if (!selectedFeatIndex || !featRule) {
+        continue;
+      }
+
+      const selectedFeatAbilityIndexes = getFeatAbilityChoiceFieldIds(
+        selectedFeatIndex,
+        featRule.selectableCount ?? 1,
+      )
+        .map((fieldId) => featureChoices[`${feature.id}:${fieldId}`])
+        .map((value) => ABILITY_CHOICE_TO_INDEX[value ?? ""] ?? null);
+      const featBonuses = buildFeatAbilityBonuses(
+        selectedFeatIndex,
+        selectedFeatAbilityIndexes,
+      );
+
+      for (const [abilityIndex, bonus] of Object.entries(featBonuses)) {
+        if (!bonus) {
+          continue;
+        }
+
+        increases.set(abilityIndex, (increases.get(abilityIndex) ?? 0) + bonus);
+      }
     }
   }
 
@@ -465,5 +518,77 @@ function applyAbilityScoreImprovements(
   }));
 }
 
-export { buildCharacterPreview, calculateHitPointPreview, rollHitDie, synchronizeHitPointRolls };
+function getSelectedFeatIndexesForPreview(
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+  characterLevel: number,
+) {
+  const featIndexes = new Set<string>();
+
+  for (const feature of classOption.features) {
+    if (feature.level > characterLevel) {
+      continue;
+    }
+
+    for (const field of feature.choiceFields ?? []) {
+      const selectedValue = featureChoices[`${feature.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+      const selectedOptionUrl = selectedOption?.selectedOptionUrl?.toLowerCase() ?? "";
+      const selectedOptionIndex = selectedOption?.selectedOptionIndex?.toLowerCase() ?? "";
+      const searchText = [
+        field.choiceKind,
+        field.choiceGroupId,
+        field.choiceGroupLabel,
+        field.choiceKey,
+        field.choiceLabel,
+        field.label,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(" ")
+        .toLowerCase();
+      const isSpecificFeatReference =
+        selectedOptionUrl.includes("/feats/") ||
+        (searchText.includes("feat") && selectedOptionIndex !== "feat");
+
+      if (!isSpecificFeatReference) {
+        continue;
+      }
+      const featIndex = selectedOption?.selectedOptionIndex ?? selectedOption?.value;
+
+      if (featIndex) {
+        featIndexes.add(featIndex);
+      }
+    }
+  }
+
+  return [...featIndexes];
+}
+
+function getFeatureChoiceHitPointBonus(
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+  characterLevel: number,
+) {
+  const selectedFeatIndexes = getSelectedFeatIndexesForPreview(
+    classOption,
+    featureChoices,
+    characterLevel,
+  );
+
+  return selectedFeatIndexes.includes("tough") ? characterLevel * 2 : 0;
+}
+
+export {
+  buildCharacterPreview,
+  calculateHitPointPreview,
+  getFeatureChoiceHitPointBonus,
+  getSelectedFeatIndexesForPreview,
+  rollHitDie,
+  synchronizeHitPointRolls,
+};
 export type { HitPointPreview };

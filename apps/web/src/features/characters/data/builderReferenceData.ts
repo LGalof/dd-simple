@@ -7,6 +7,7 @@ import type {
   SpeciesPreviewSection,
   SpeciesOption,
 } from "../types/characterBuilder";
+import { getFeatAbilityChoiceFieldConfigs } from "../utils/featAbilityChoiceFields";
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -34,13 +35,14 @@ const coreFeatNames = [
 function createChoiceField(
   id: string,
   label: string,
-  values: string[],
+  values: Array<string | FeatureChoiceOption>,
   metadata: Partial<
     Pick<
       FeatureChoiceField,
       | "choiceGroupId"
       | "choiceGroupLabel"
       | "choiceGroupLimit"
+      | "choiceKind"
       | "dependsOnFieldId"
       | "dependsOnValues"
     >
@@ -50,7 +52,14 @@ function createChoiceField(
     ...metadata,
     id,
     label,
-    options: toOptions(values),
+    options: values.map((value) =>
+      typeof value === "string"
+        ? {
+            value: slugify(value),
+            label: value,
+          }
+        : value,
+    ),
   };
 }
 
@@ -102,6 +111,8 @@ function createFeature({
 }
 
 function createAbilityScoreImprovement(level: number): ClassFeature {
+  const featOptions = toOptions(coreFeatNames);
+
   return createFeature({
     id: `ability-score-improvement-${level}`,
     level,
@@ -109,7 +120,7 @@ function createAbilityScoreImprovement(level: number): ClassFeature {
     summary: "Choose either Ability Score Improvement or a feat, similar to the D&D Beyond flow.",
     details: [
       "Use this step to shape the next breakpoint in your build.",
-      "In later iterations this will update your live sheet and derived modifiers automatically.",
+      "Your live sheet preview updates immediately, and the final character data is applied when you save the build.",
     ],
     choiceFields: [
       createChoiceField(
@@ -157,6 +168,16 @@ function createAbilityScoreImprovement(level: number): ClassFeature {
         dependsOnFieldId: "asi-mode",
         dependsOnValues: ["feat"],
       }),
+      ...getFeatAbilityChoiceFieldConfigs("asi-feat", featOptions).map((fieldConfig) =>
+        createChoiceField(fieldConfig.id, fieldConfig.label, fieldConfig.options, {
+          choiceKind: fieldConfig.choiceKind,
+          choiceGroupId: fieldConfig.choiceGroupId,
+          choiceGroupLabel: fieldConfig.choiceGroupLabel,
+          choiceGroupLimit: fieldConfig.choiceGroupLimit,
+          dependsOnFieldId: fieldConfig.dependsOnFieldId,
+          dependsOnValues: fieldConfig.dependsOnValues,
+        }),
+      ),
     ],
   });
 }

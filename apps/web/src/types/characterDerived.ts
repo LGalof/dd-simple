@@ -1,3 +1,6 @@
+import type { CharacterActionEntry } from "./characterAction";
+import type { CharacterDefenseEntry } from "./characterDefense";
+
 type DerivedArmorClassMode = "base" | "barbarian_unarmored" | "monk_unarmored";
 
 type CharacterDerivedStats = {
@@ -30,7 +33,9 @@ type CharacterDerivedSource = {
 };
 
 type CharacterDerivedState = {
+  actions: CharacterActionEntry[];
   activeSources: CharacterDerivedSource[];
+  defenses: CharacterDefenseEntry[];
   selectedSubclassIndex: string | null;
   selectedSubspeciesIndex: string | null;
   spells: CharacterSpellEntry[];

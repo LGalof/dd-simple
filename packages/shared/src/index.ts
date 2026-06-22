@@ -1,5 +1,13 @@
 export type AppName = "dd-simple";
 
+export {
+  allAbilityScoreKeys,
+  buildFeatAbilityBonuses,
+  getFeatAbilityChoiceFieldIds,
+  getFeatAbilityRule,
+} from "./featAbilityRules.js";
+export type { FeatAbilityRule } from "./featAbilityRules.js";
+
 export const APP_NAME: AppName = "dd-simple";
 
 export type AbilityScoreKey = "str" | "dex" | "con" | "int" | "wis" | "cha";

@@ -16,10 +16,8 @@ import type {
   SpellcastingSummary,
   WorkspaceTab,
 } from "../features/characters/components/CharacterSheet";
-import { useCharacterActions } from "../features/characters/hooks/useCharacterActions";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
 import { useCharacterDerivedState } from "../features/characters/hooks/useCharacterDerivedState";
-import { useCharacterDefenses } from "../features/characters/hooks/useCharacterDefenses";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import type {
   BackgroundOption,
@@ -35,14 +33,19 @@ import {
   clearSelectedCharacterId,
   getSelectedCharacterId,
 } from "../features/characters/utils/selectedCharacter";
+import { getSelectedFeatIndexesForPreview } from "../features/characters/utils/buildCharacterPreview";
+import {
+  buildGenericBackgroundFeatureChoices,
+  buildGenericClassFeatureChoices,
+  getVisibleChoiceFieldsForSelection,
+} from "../features/characters/utils/buildFeatureChoiceSelections";
 import type {
   AbilityScores,
   Character,
-  CharacterFeatureChoiceSelection,
   CharacterFeatureSelection,
   CharacterSavePayload,
 } from "../types/character";
-import type { CharacterDefenseEntry } from "../types/characterDefense";
+import type { CharacterDerivedState } from "../types/characterDerived";
 import {
   InventoryDetailsSidebar,
   useInventorySandboxController,
@@ -153,23 +156,46 @@ function CharacterDashboardPage() {
     speciesOptions,
     updateAbilityAssignment,
   } = useCharacterBuilder(character);
+  const resolvedSubclassIndex = useMemo(
+    () =>
+      getSelectedSubclassIndexForSave(
+        builderState?.subclassIndex ?? character?.subclassIndex ?? null,
+        selectedClass,
+        featureChoices,
+      ),
+    [
+      builderState?.subclassIndex,
+      character?.subclassIndex,
+      featureChoices,
+      selectedClass,
+    ],
+  );
 
   const builderActionPreview = useMemo(
     () => ({
+      backgroundIndex: builderState?.backgroundIndex ?? character?.backgroundIndex,
       classIndex: builderState?.classIndex ?? character?.classIndex,
+      featIndexes: getSelectedFeatIndexesForPreview(
+        selectedClass,
+        featureChoices,
+        builderState?.level ?? character?.level ?? 1,
+      ),
       level: builderState?.level ?? character?.level,
       speciesIndex: builderState?.speciesIndex ?? character?.speciesIndex,
-      subclassIndex: getSelectedClassSubclassIndex(selectedClass, featureChoices),
+      subclassIndex: resolvedSubclassIndex ?? undefined,
       subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
     }),
     [
+      builderState?.backgroundIndex,
       builderState?.classIndex,
       builderState?.level,
       builderState?.speciesIndex,
+      character?.backgroundIndex,
       character?.classIndex,
       character?.level,
       character?.speciesIndex,
       featureChoices,
+      resolvedSubclassIndex,
       selectedClass,
       selectedSpecies,
       speciesChoices,
@@ -182,9 +208,9 @@ function CharacterDashboardPage() {
   const selectedSubclass = useMemo(
     () =>
       selectedClass.subclasses?.find(
-        (subclass) => subclass.index === builderState?.subclassIndex,
+        (subclass) => subclass.index === resolvedSubclassIndex,
       ) ?? null,
-    [builderState?.subclassIndex, selectedClass.subclasses],
+    [resolvedSubclassIndex, selectedClass.subclasses],
   );
   const progressionChoiceSummaries = useMemo(
     () =>
@@ -212,22 +238,13 @@ function CharacterDashboardPage() {
     [builderState, selectedClass],
   );
   const {
-    actions: normalizedActionsWithPreview,
-    error: normalizedActionsErrorWithPreview,
-    loading: normalizedActionsLoadingWithPreview,
-  } = useCharacterActions(character?.id ?? null, builderActionPreview);
-  const { defenses: normalizedDefensesWithPreview } = useCharacterDefenses(
-    character?.id ?? null,
-    builderActionPreview,
-  );
-  const {
     derivedState: characterDerivedStateWithPreview,
     error: characterDerivedStateErrorWithPreview,
     loading: characterDerivedStateLoadingWithPreview,
   } = useCharacterDerivedState(character?.id ?? null, builderActionPreview);
   const defenseSummary = useMemo(
-    () => summarizeDefenses(normalizedDefensesWithPreview),
-    [normalizedDefensesWithPreview],
+    () => summarizeDefenses(characterDerivedStateWithPreview?.defenses ?? []),
+    [characterDerivedStateWithPreview?.defenses],
   );
   const conditionSummary = useMemo(
     () => getConditionSummaryEntries(conditionState),
@@ -369,9 +386,6 @@ function CharacterDashboardPage() {
               derivedStateLoading={characterDerivedStateLoadingWithPreview}
               featureChoices={featureChoices}
               inventoryController={inventoryController}
-              normalizedActions={normalizedActionsWithPreview}
-              normalizedActionsError={normalizedActionsErrorWithPreview}
-              normalizedActionsLoading={normalizedActionsLoadingWithPreview}
               onActiveTabChange={setActiveWorkspaceTab}
               progressionChoiceSummaries={progressionChoiceSummaries}
               resourceActionSummaries={resourceActionSummaries}
@@ -502,62 +516,6 @@ function getSelectedSubclassIndexForSave(
   }
 
   return null;
-}
-
-function buildGenericClassFeatureChoices(
-  classIndex: string,
-  classOption: ClassOption,
-  characterLevel: number,
-  featureChoices: FeatureChoiceSelections,
-): CharacterFeatureChoiceSelection[] {
-  const selections: CharacterFeatureChoiceSelection[] = [];
-
-  for (const feature of classOption.features) {
-    if (feature.level > characterLevel) {
-      continue;
-    }
-
-    for (const field of feature.choiceFields ?? []) {
-      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
-        continue;
-      }
-
-      const selectedValue = featureChoices[`${feature.id}:${field.id}`];
-
-      if (!selectedValue) {
-        continue;
-      }
-
-      const selectedOption = field.options.find((option) => option.value === selectedValue);
-
-      if (!selectedOption) {
-        continue;
-      }
-
-      selections.push({
-        sourceType: field.sourceType,
-        sourceIndex: field.sourceIndex,
-        classIndex: field.classIndex ?? classIndex,
-        subclassIndex: field.subclassIndex ?? null,
-        level: field.level ?? feature.level ?? null,
-        featureIndex: field.featureIndex ?? feature.id,
-        choicePath: field.choicePath,
-        choiceKey: field.choiceKey ?? field.id,
-        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
-        selectedOptionType: selectedOption.selectedOptionType ?? "string",
-        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
-        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
-        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
-        selectedRawJson: selectedOption.selectedRawJson ?? {
-          label: selectedOption.label,
-          value: selectedOption.value,
-        },
-        grantsRawJson: null,
-      });
-    }
-  }
-
-  return selections;
 }
 
 function getProgressionChoiceSummaries(
@@ -930,6 +888,18 @@ function isProgressionChoiceField(feature: ClassFeature, field: FeatureChoiceFie
     return true;
   }
 
+  const normalizedChoiceKey = field.choiceKey?.toLowerCase() ?? field.id.toLowerCase();
+
+  if (
+    normalizedChoiceKey.startsWith("feat-ability-") ||
+    normalizedChoiceKey.startsWith("feat-save-") ||
+    normalizedChoiceKey.startsWith("feat-skill-") ||
+    normalizedChoiceKey.startsWith("feat-expertise-") ||
+    normalizedChoiceKey.startsWith("feat-weapon-")
+  ) {
+    return true;
+  }
+
   const searchableText = [
     feature.id,
     feature.title,
@@ -949,80 +919,6 @@ function isProgressionChoiceField(feature: ClassFeature, field: FeatureChoiceFie
     searchableText.includes("epic boon") ||
     searchableText.includes("asi-feat")
   );
-}
-
-function getVisibleChoiceFieldsForSelection(
-  featureId: string,
-  choiceFields: ClassFeature["choiceFields"],
-  selectedChoices: FeatureChoiceSelections,
-) {
-  return (choiceFields ?? []).filter((field) =>
-    isChoiceFieldVisible(featureId, field, selectedChoices),
-  );
-}
-
-function isChoiceFieldVisible(
-  featureId: string,
-  field: NonNullable<ClassFeature["choiceFields"]>[number],
-  selectedChoices: FeatureChoiceSelections,
-) {
-  if (!field.dependsOnFieldId || !field.dependsOnValues?.length) {
-    return true;
-  }
-
-  const dependencyValue = selectedChoices[`${featureId}:${field.dependsOnFieldId}`];
-
-  return Boolean(dependencyValue && field.dependsOnValues.includes(dependencyValue));
-}
-
-function buildGenericBackgroundFeatureChoices(
-  backgroundOption: BackgroundOption,
-  backgroundChoices: Record<string, string>,
-): CharacterFeatureChoiceSelection[] {
-  const selections: CharacterFeatureChoiceSelection[] = [];
-
-  for (const section of backgroundOption.previewSections) {
-    for (const field of section.choiceFields ?? []) {
-      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
-        continue;
-      }
-
-      const selectedValue = backgroundChoices[`${backgroundOption.index}:${section.id}:${field.id}`];
-
-      if (!selectedValue) {
-        continue;
-      }
-
-      const selectedOption = field.options.find((option) => option.value === selectedValue);
-
-      if (!selectedOption) {
-        continue;
-      }
-
-      selections.push({
-        sourceType: field.sourceType,
-        sourceIndex: field.sourceIndex,
-        classIndex: null,
-        subclassIndex: null,
-        level: null,
-        featureIndex: null,
-        choicePath: field.choicePath,
-        choiceKey: field.choiceKey ?? field.id,
-        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
-        selectedOptionType: selectedOption.selectedOptionType ?? "string",
-        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
-        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
-        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
-        selectedRawJson: selectedOption.selectedRawJson ?? {
-          label: selectedOption.label,
-          value: selectedOption.value,
-        },
-        grantsRawJson: null,
-      });
-    }
-  }
-
-  return selections;
 }
 
 function buildClassSkillChoices(
@@ -1250,7 +1146,9 @@ function buildConditionStateFromCharacter(character: Character | undefined): Con
   return nextState;
 }
 
-function summarizeDefenses(defenses: CharacterDefenseEntry[]) {
+function summarizeDefenses(
+  defenses: CharacterDerivedState["defenses"],
+) {
   const groupedValues = defenses.reduce(
     (groups, entry) => {
       switch (entry.kind) {

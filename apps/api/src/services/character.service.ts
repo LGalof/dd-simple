@@ -1,4 +1,9 @@
 import { Prisma } from "@prisma/client";
+import {
+  buildFeatAbilityBonuses,
+  getFeatAbilityChoiceFieldIds,
+  getFeatAbilityRule,
+} from "@dd-simple/shared";
 import { prisma } from "../lib/prisma.js";
 
 type ReferenceIndexRecord = {
@@ -327,12 +332,14 @@ function calculateMaxHp({
 function normalizeHitPointStateInput({
   constitutionScore,
   data,
+  featureBonusHp = 0,
   fallback,
   hitDie,
   level,
 }: {
   constitutionScore: number;
   data?: HitPointStateInput;
+  featureBonusHp?: number;
   fallback?: {
     bonusHp: number;
     calculationMode: string;
@@ -346,7 +353,7 @@ function normalizeHitPointStateInput({
   const normalizedLevel = Math.max(1, Math.min(20, Math.floor(level)));
   const normalizedHitDie = Math.max(1, Math.floor(hitDie));
   const calculationMode = normalizeHitPointMode(data?.calculationMode ?? fallback?.calculationMode);
-  const bonusHp = normalizeInteger(data?.bonusHp, fallback?.bonusHp ?? 0);
+  const bonusHp = normalizeInteger(data?.bonusHp, fallback?.bonusHp ?? 0) + featureBonusHp;
   const rawOverrideMaxHp =
     data?.overrideMaxHp === undefined ? fallback?.overrideMaxHp ?? null : data.overrideMaxHp;
   const overrideMaxHp =
@@ -377,6 +384,61 @@ function normalizeHitPointStateInput({
     tempHp,
     maxHp,
   };
+}
+
+function getFeatureChoiceHitPointBonus(
+  featureChoices: CharacterFeatureChoiceSelectionInput[] | undefined,
+  characterLevel: number,
+) {
+  const featIndexes = new Set<string>();
+
+  for (const choice of featureChoices ?? []) {
+    if (!isFeatFeatureChoiceSelection(choice)) {
+      continue;
+    }
+
+    const featIndex = normalizeFeatureChoiceFeatIndex(choice);
+
+    if (featIndex) {
+      featIndexes.add(featIndex);
+    }
+  }
+
+  return featIndexes.has("tough") ? Math.max(1, characterLevel) * 2 : 0;
+}
+
+function isFeatFeatureChoiceSelection(choice: CharacterFeatureChoiceSelectionInput) {
+  if (choice.selectedOptionUrl?.includes("/feats/")) {
+    return true;
+  }
+
+  const searchText = [
+    choice.choiceKey,
+    choice.choiceLabel,
+    choice.choicePath,
+    choice.selectedOptionType,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ")
+    .toLowerCase();
+
+  return searchText.includes("feat");
+}
+
+function normalizeFeatureChoiceFeatIndex(choice: CharacterFeatureChoiceSelectionInput) {
+  const selectedOptionIndex = choice.selectedOptionIndex?.trim().toLowerCase();
+
+  if (selectedOptionIndex) {
+    return selectedOptionIndex;
+  }
+
+  const selectedOptionName = choice.selectedOptionName?.trim().toLowerCase();
+
+  if (!selectedOptionName) {
+    return null;
+  }
+
+  return selectedOptionName.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
 function normalizeBackgroundAbilityChoices(
@@ -810,14 +872,58 @@ function validateChoicePathSelection(
   const choiceNode = getValueAtChoicePath(sourceJson, stripChoiceSlot(choice.choicePath));
 
   if (!isRecord(choiceNode)) {
+    if (isSyntheticFeatureChoiceSelection(choice)) {
+      return;
+    }
+
     throw new CharacterReferenceNotFoundError(message);
   }
 
   const options = getRawChoiceOptions(choiceNode);
 
   if (!options.some((option) => rawChoiceOptionMatchesSelection(option, choice))) {
+    if (isSyntheticFeatureChoiceSelection(choice)) {
+      return;
+    }
+
     throw new CharacterReferenceNotFoundError(message);
   }
+}
+
+function isSyntheticFeatureChoiceSelection(choice: CharacterFeatureChoiceSelectionInput) {
+  const normalizedChoiceKey = choice.choiceKey?.toLowerCase() ?? "";
+  const selectedOptionIndex = choice.selectedOptionIndex ?? undefined;
+  const selectedOptionName = choice.selectedOptionName ?? undefined;
+
+  if (
+    isAbilityScoreImprovementChoiceKey(choice.choiceKey, choice.choicePath) ||
+    normalizedChoiceKey.startsWith("feat-ability-")
+  ) {
+    return Boolean(
+      canonicalAbilityScoreIndex(selectedOptionIndex) ??
+        canonicalAbilityScoreIndex(selectedOptionName),
+    );
+  }
+
+  if (normalizedChoiceKey === "feat-save-resilient") {
+    return Boolean(
+      normalizeSavingThrowAbilityIndex(selectedOptionIndex) ??
+        normalizeSavingThrowAbilityIndex(selectedOptionName),
+    );
+  }
+
+  if (
+    normalizedChoiceKey === "feat-skill-skill-expert" ||
+    normalizedChoiceKey === "feat-expertise-skill-expert"
+  ) {
+    return isSyntheticSkillReference(selectedOptionIndex, selectedOptionName);
+  }
+
+  if (normalizedChoiceKey === "feat-weapon-weapon-master") {
+    return isSyntheticWeaponReference(selectedOptionIndex, selectedOptionName);
+  }
+
+  return false;
 }
 
 function stripChoiceSlot(choicePath: string) {
@@ -1076,38 +1182,173 @@ function abilityScoreRows(
   data: CharacterMutationData,
   bonuses: Map<string, number> = new Map(),
 ) {
+  const totalBonuses = mergeAbilityBonuses(
+    bonuses,
+    getFeatureChoiceAbilityBonuses(data.featureChoices),
+  );
+
   return [
     {
       abilityIndex: "str",
       baseScore: data.abilityScores.str,
-      score: data.abilityScores.str + (bonuses.get("str") ?? 0),
+      score: data.abilityScores.str + (totalBonuses.get("str") ?? 0),
     },
     {
       abilityIndex: "dex",
       baseScore: data.abilityScores.dex,
-      score: data.abilityScores.dex + (bonuses.get("dex") ?? 0),
+      score: data.abilityScores.dex + (totalBonuses.get("dex") ?? 0),
     },
     {
       abilityIndex: "con",
       baseScore: data.abilityScores.con,
-      score: data.abilityScores.con + (bonuses.get("con") ?? 0),
+      score: data.abilityScores.con + (totalBonuses.get("con") ?? 0),
     },
     {
       abilityIndex: "int",
       baseScore: data.abilityScores.int,
-      score: data.abilityScores.int + (bonuses.get("int") ?? 0),
+      score: data.abilityScores.int + (totalBonuses.get("int") ?? 0),
     },
     {
       abilityIndex: "wis",
       baseScore: data.abilityScores.wis,
-      score: data.abilityScores.wis + (bonuses.get("wis") ?? 0),
+      score: data.abilityScores.wis + (totalBonuses.get("wis") ?? 0),
     },
     {
       abilityIndex: "cha",
       baseScore: data.abilityScores.cha,
-      score: data.abilityScores.cha + (bonuses.get("cha") ?? 0),
+      score: data.abilityScores.cha + (totalBonuses.get("cha") ?? 0),
     },
   ];
+}
+
+function mergeAbilityBonuses(...bonusMaps: Array<Map<string, number>>) {
+  const mergedBonuses = new Map<string, number>();
+
+  for (const bonusMap of bonusMaps) {
+    for (const [abilityIndex, bonusValue] of bonusMap.entries()) {
+      mergedBonuses.set(abilityIndex, (mergedBonuses.get(abilityIndex) ?? 0) + bonusValue);
+    }
+  }
+
+  return mergedBonuses;
+}
+
+function getFeatureChoiceAbilityBonuses(
+  featureChoices: CharacterFeatureChoiceSelectionInput[] | undefined,
+) {
+  const bonuses = new Map<string, number>();
+  const allChoices = featureChoices ?? [];
+
+  for (const choice of allChoices) {
+    if (!isAbilityScoreImprovementChoiceKey(choice.choiceKey, choice.choicePath)) {
+      if (!isFeatSelectionChoice(choice)) {
+        continue;
+      }
+
+      const featIndex = choice.selectedOptionIndex ?? undefined;
+      const featRule = getFeatAbilityRule(featIndex);
+
+      if (!featIndex || !featRule) {
+        continue;
+      }
+
+      const siblingAbilityIndexes = getFeatAbilityChoiceFieldIds(
+        featIndex,
+        featRule.selectableCount ?? 1,
+      )
+        .map((fieldId) =>
+          allChoices.find(
+            (candidate) =>
+              candidate.sourceType === choice.sourceType &&
+              candidate.sourceIndex === choice.sourceIndex &&
+              (candidate.choiceKey?.toLowerCase() ?? "") === fieldId,
+          ),
+        )
+        .map((candidate) =>
+          canonicalAbilityScoreIndex(candidate?.selectedOptionIndex ?? undefined) ??
+          canonicalAbilityScoreIndex(candidate?.selectedOptionName ?? undefined),
+        );
+      const featBonuses = buildFeatAbilityBonuses(featIndex, siblingAbilityIndexes);
+
+      for (const [abilityIndex, bonusValue] of Object.entries(featBonuses)) {
+        if (!bonusValue) {
+          continue;
+        }
+
+        bonuses.set(abilityIndex, (bonuses.get(abilityIndex) ?? 0) + bonusValue);
+      }
+
+      continue;
+    }
+
+    const abilityIndex =
+      canonicalAbilityScoreIndex(choice.selectedOptionIndex ?? undefined) ??
+      canonicalAbilityScoreIndex(choice.selectedOptionName ?? undefined);
+
+    if (!abilityIndex) {
+      continue;
+    }
+
+    bonuses.set(abilityIndex, (bonuses.get(abilityIndex) ?? 0) + 1);
+  }
+
+  return bonuses;
+}
+
+function isAbilityScoreImprovementChoiceKey(choiceKey: string | null | undefined, choicePath: string) {
+  const normalizedChoiceKey = choiceKey?.toLowerCase() ?? "";
+  const normalizedChoicePath = choicePath.toLowerCase();
+
+  return (
+    normalizedChoiceKey === "asi-score-1" ||
+    normalizedChoiceKey === "asi-score-2" ||
+    normalizedChoicePath.endsWith("asi-score-1") ||
+    normalizedChoicePath.endsWith("asi-score-2")
+  );
+}
+
+function isFeatSelectionChoice(choice: CharacterFeatureChoiceSelectionInput) {
+  const normalizedChoiceKey = choice.choiceKey?.toLowerCase() ?? "";
+  const normalizedUrl = choice.selectedOptionUrl?.toLowerCase() ?? "";
+
+  return (
+    normalizedChoiceKey === "asi-feat" ||
+    normalizedChoiceKey === "epic-boon" ||
+    normalizedUrl.includes("/feats/")
+  );
+}
+
+function normalizeSavingThrowAbilityIndex(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalizedValue = value
+    .toLowerCase()
+    .replace(/^saving throw:\s*/, "")
+    .replace(/^saving-throw-/, "");
+
+  return abilityScoreIndexAliases[normalizedValue] ?? null;
+}
+
+function isSyntheticSkillReference(
+  selectedOptionIndex: string | undefined,
+  selectedOptionName: string | undefined,
+) {
+  const normalizedIndex = selectedOptionIndex?.toLowerCase() ?? "";
+  const normalizedName = selectedOptionName?.toLowerCase() ?? "";
+
+  return normalizedIndex.startsWith("skill-") || normalizedName.startsWith("skill:");
+}
+
+function isSyntheticWeaponReference(
+  selectedOptionIndex: string | undefined,
+  selectedOptionName: string | undefined,
+) {
+  const normalizedIndex = selectedOptionIndex?.toLowerCase() ?? "";
+  const normalizedName = selectedOptionName?.toLowerCase() ?? "";
+
+  return normalizedIndex.startsWith("weapon-") || normalizedName.startsWith("weapon:");
 }
 
 function getClassSavingThrowProficiencyIndexes(sourceJson: unknown) {
@@ -1668,9 +1909,11 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       characterClass.sourceJson,
       data.subclassIndex,
     );
+    const featureBonusHp = getFeatureChoiceHitPointBonus(data.featureChoices, level);
     const hitPointState = normalizeHitPointStateInput({
       constitutionScore,
       data: data.hitPointState,
+      featureBonusHp,
       hitDie: characterClass.hitDie,
       level,
     });
@@ -1957,9 +2200,11 @@ async function updateCharacterForUser(
       characterClass.sourceJson,
       requestedSubclassIndex,
     );
+    const featureBonusHp = getFeatureChoiceHitPointBonus(data.featureChoices, level);
     const hitPointState = normalizeHitPointStateInput({
       constitutionScore,
       data: data.hitPointState,
+      featureBonusHp,
       fallback: existingCharacter.hitPointState,
       hitDie: characterClass.hitDie,
       level,
