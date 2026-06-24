@@ -4,6 +4,7 @@ import {
   InventoryWorkbench,
   type InventorySandboxController,
 } from "../../../pages/InventorySandboxPage";
+import { Rollable, type RollableResult } from "./Rollable";
 import type {
   BackgroundOption,
   ClassFeature,
@@ -26,6 +27,10 @@ import type {
   DerivedArmorClassMode,
 } from "../../../types/characterDerived";
 import { abilityModifier, formatModifier } from "../utils/characterFormat";
+import {
+  canParseDiceExpression,
+  formatD20Formula,
+} from "../utils/diceRoller";
 
 type CharacterSheetProps = {
   activeTab: WorkspaceTab;
@@ -40,6 +45,7 @@ type CharacterSheetProps = {
   featureChoices: FeatureChoiceSelections;
   inventoryController: InventorySandboxController;
   onActiveTabChange: (tab: WorkspaceTab) => void;
+  onLocalRoll: (result: RollableResult) => void;
   onOpenConditions: () => void;
   progressionChoiceSummaries: ProgressionChoiceSummary[];
   resourceActionSummaries: ResourceActionSummary[];
@@ -226,6 +232,7 @@ function CharacterSheet({
   featureChoices,
   inventoryController,
   onActiveTabChange,
+  onLocalRoll,
   onOpenConditions,
   progressionChoiceSummaries,
   resourceActionSummaries,
@@ -676,13 +683,26 @@ function CharacterSheet({
       <section className="character-dashboard-top-grid">
         <div className="character-primary-stats">
           <div className="character-primary-ability-grid">
-            {sortedAbilityScores.map((abilityScore) => (
-              <div key={abilityScore.abilityIndex} className="character-primary-stat-card">
-                <span>{abilityScore.ability.fullName ?? abilityScore.ability.name}</span>
-                <strong>{formatModifier(abilityModifier(abilityScore.score))}</strong>
-                <em>{abilityScore.score}</em>
-              </div>
-            ))}
+            {sortedAbilityScores.map((abilityScore) => {
+              const modifier = abilityModifier(abilityScore.score);
+              const abilityLabel = abilityScore.ability.fullName ?? abilityScore.ability.name;
+
+              return (
+                <div key={abilityScore.abilityIndex} className="character-primary-stat-card">
+                  <span>{abilityLabel}</span>
+                  <Rollable
+                    formula={formatD20Formula(modifier)}
+                    label={`${abilityLabel} Check`}
+                    rollType="ability"
+                    source={abilityLabel}
+                    onRoll={onLocalRoll}
+                  >
+                    <strong>{formatModifier(modifier)}</strong>
+                  </Rollable>
+                  <em>{abilityScore.score}</em>
+                </div>
+              );
+            })}
           </div>
 
           <div className="character-primary-utility-grid">
@@ -700,7 +720,15 @@ function CharacterSheet({
 
             <div className="character-primary-metric-card">
               <span>Initiative</span>
-              <strong>{formatModifier(derivedInitiative)}</strong>
+              <Rollable
+                formula={formatD20Formula(derivedInitiative)}
+                label="Initiative"
+                rollType="initiative"
+                source="Initiative"
+                onRoll={onLocalRoll}
+              >
+                <strong>{formatModifier(derivedInitiative)}</strong>
+              </Rollable>
               <em>Modifier</em>
             </div>
 
@@ -766,7 +794,15 @@ function CharacterSheet({
                 {savingThrows.map((savingThrow) => (
                   <div key={savingThrow.shortLabel} className="character-save-pill">
                     <span>{savingThrow.shortLabel}</span>
-                    <strong>{formatModifier(savingThrow.total)}</strong>
+                    <Rollable
+                      formula={formatD20Formula(savingThrow.total)}
+                      label={`${savingThrow.shortLabel} Saving Throw`}
+                      rollType="saving_throw"
+                      source="Saving Throws"
+                      onRoll={onLocalRoll}
+                    >
+                      <strong>{formatModifier(savingThrow.total)}</strong>
+                    </Rollable>
                   </div>
                 ))}
               </div>
@@ -828,7 +864,16 @@ function CharacterSheet({
                     {skill.name}
                     {skill.hasExpertise ? " (Expertise)" : ""}
                   </span>
-                  <strong className="character-skill-bonus-pill">{formatModifier(skill.total)}</strong>
+                  <Rollable
+                    className="character-skill-bonus-pill"
+                    formula={formatD20Formula(skill.total)}
+                    label={`${skill.name} Check`}
+                    rollType="skill"
+                    source={`${skill.ability} Skill`}
+                    onRoll={onLocalRoll}
+                  >
+                    {formatModifier(skill.total)}
+                  </Rollable>
                 </div>
               ))}
             </div>
@@ -926,18 +971,50 @@ function CharacterSheet({
                         <span>Notes</span>
                       </div>
 
-                      {attackActionRows.map((action) => (
-                        <div key={action.id} className="character-actions-table-row">
-                          <div className="character-actions-cell character-actions-cell-main">
-                            <strong>{action.title}</strong>
-                            <em>{action.subtitle}</em>
+                      {attackActionRows.map((action) => {
+                        const hitFormula = getD20FormulaFromDisplayModifier(action.hit);
+                        const damageRoll = getDamageRollFromDisplay(action.damage);
+
+                        return (
+                          <div key={action.id} className="character-actions-table-row">
+                            <div className="character-actions-cell character-actions-cell-main">
+                              <strong>{action.title}</strong>
+                              <em>{action.subtitle}</em>
+                            </div>
+                            <span>{action.range}</span>
+                            {hitFormula ? (
+                              <Rollable
+                                className="character-actions-roll-value"
+                                formula={hitFormula}
+                                label={`${action.title} Attack`}
+                                rollType="attack"
+                                source={action.title}
+                                onRoll={onLocalRoll}
+                              >
+                                {action.hit}
+                              </Rollable>
+                            ) : (
+                              <strong>{action.hit}</strong>
+                            )}
+                            {damageRoll ? (
+                              <Rollable
+                                className="character-actions-roll-value"
+                                damageType={damageRoll.damageType}
+                                formula={damageRoll.formula}
+                                label={`${action.title} Damage`}
+                                rollType="damage"
+                                source={action.title}
+                                onRoll={onLocalRoll}
+                              >
+                                {action.damage}
+                              </Rollable>
+                            ) : (
+                              <strong>{action.damage}</strong>
+                            )}
+                            <span>{action.notes}</span>
                           </div>
-                          <span>{action.range}</span>
-                          <strong>{action.hit}</strong>
-                          <strong>{action.damage}</strong>
-                          <span>{action.notes}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : null}
 
@@ -2954,6 +3031,36 @@ function hasWeaponProficiency(
 
 function formatInlineModifier(value: number) {
   return value >= 0 ? `+ ${value}` : `- ${Math.abs(value)}`;
+}
+
+function getD20FormulaFromDisplayModifier(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!/^[+-]?\d+$/.test(trimmedValue)) {
+    return null;
+  }
+
+  return formatD20Formula(Number.parseInt(trimmedValue, 10));
+}
+
+function getDamageRollFromDisplay(value: string) {
+  const trimmedValue = value.trim();
+  const match = trimmedValue.match(/^((?:\d*)d\d+(?:\s*[+-]\s*\d+)?)(?:\s+([a-z][a-z -]*))?$/i);
+
+  if (!match) {
+    return null;
+  }
+
+  const formula = match[1].trim();
+
+  if (!canParseDiceExpression(formula)) {
+    return null;
+  }
+
+  return {
+    damageType: match[2]?.trim().toLowerCase(),
+    formula,
+  };
 }
 
 function formatInventoryDamage(baseDamage: string, modifier: number) {

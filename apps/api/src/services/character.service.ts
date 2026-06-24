@@ -125,6 +125,19 @@ type CharacterInventoryMutationItem = {
   notes?: string | null;
 };
 
+type CharacterDiceRollInput = {
+  formula: string;
+  modifier?: number;
+  reason?: string | null;
+  rollMode?: string;
+  rollType: string;
+  rollValues: Prisma.InputJsonValue;
+  targetIndex?: string | null;
+  targetType?: string | null;
+  total: number;
+  visibility?: string;
+};
+
 const CLASS_CHOICE_SOURCE_TYPE = "class";
 const CLASS_SKILL_CHOICE_TYPE = "class-skill-choice";
 const CLASS_SKILL_CHOICE_SELECTED_TYPE = "skill";
@@ -2448,6 +2461,43 @@ async function findCharacterByIdForUser(userId: string, characterId: string) {
   });
 }
 
+async function createDiceRollForCharacterForUser(
+  userId: string,
+  characterId: string,
+  data: CharacterDiceRollInput,
+) {
+  const character = await prisma.character.findFirst({
+    where: {
+      id: characterId,
+      userId,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!character) {
+    return null;
+  }
+
+  return prisma.diceRoll.create({
+    data: {
+      characterId: character.id,
+      formula: data.formula,
+      modifier: data.modifier ?? 0,
+      reason: data.reason ?? null,
+      rolledByUserId: userId,
+      rollMode: data.rollMode ?? "normal",
+      rollType: data.rollType,
+      rollValues: data.rollValues,
+      targetIndex: data.targetIndex ?? null,
+      targetType: data.targetType ?? null,
+      total: data.total,
+      visibility: data.visibility ?? "private",
+    },
+  });
+}
+
 async function addConditionToCharacterForUser(
   userId: string,
   characterId: string,
@@ -2690,6 +2740,7 @@ export {
   addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
   createCharacterForUser,
+  createDiceRollForCharacterForUser,
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   addCharacterCondition,
   createCharacter,
+  createCharacterDiceRoll,
   deleteCharacter,
   getCharacterActions,
   getCharacterDerivedState,
@@ -29,6 +30,8 @@ charactersRouter.get("/characters/:id/actions", getCharacterActions);
 charactersRouter.get("/characters/:id/derived", getCharacterDerivedState);
 
 charactersRouter.post("/characters/:id/conditions", addCharacterCondition);
+
+charactersRouter.post("/characters/:id/dice-rolls", createCharacterDiceRoll);
 
 charactersRouter.delete(
   "/characters/:id/conditions/:conditionIndex",

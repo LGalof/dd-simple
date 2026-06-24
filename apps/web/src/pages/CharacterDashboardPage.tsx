@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import {
   ConditionsSidebar,
@@ -10,6 +10,11 @@ import {
 import { CharacterBuilderSidebar } from "../features/characters/components/CharacterBuilderSidebar";
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
+import {
+  LocalRollsPanel,
+  type LocalRollEntry,
+} from "../features/characters/components/LocalRollsPanel";
+import type { RollableResult } from "../features/characters/components/Rollable";
 import type {
   ProgressionChoiceSummary,
   ResourceActionSummary,
@@ -53,6 +58,7 @@ import {
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
+const maxLocalRollCount = 3;
 const spellcastingAbilityFallbacks: Record<string, keyof AbilityScores> = {
   bard: "cha",
   cleric: "wis",
@@ -93,6 +99,8 @@ function CharacterDashboardPage() {
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | null>(null);
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
+  const [diceRollSaveError, setDiceRollSaveError] = useState<string | null>(null);
+  const [localRolls, setLocalRolls] = useState<LocalRollEntry[]>([]);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const {
     addCondition,
@@ -100,6 +108,7 @@ function CharacterDashboardPage() {
     error,
     loading,
     removeCondition,
+    recordDiceRoll,
     saveCharacter,
     saveError,
     savingCharacterId,
@@ -307,6 +316,52 @@ function CharacterDashboardPage() {
     }
   }
 
+  function handleLocalRoll(result: RollableResult) {
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${result.rolledAt}-${Math.random().toString(36).slice(2)}`;
+
+    setLocalRolls((currentRolls) =>
+      [
+        {
+          ...result,
+          id,
+        },
+        ...currentRolls,
+      ].slice(0, maxLocalRollCount),
+    );
+
+    setDiceRollSaveError(null);
+
+    if (!character || !result.parseable) {
+      return;
+    }
+
+    void recordDiceRoll(character.id, {
+      formula: result.normalizedFormula,
+      modifier: result.modifier,
+      reason: buildDiceRollReason(result),
+      rollMode: "normal",
+      rollType: result.rollType,
+      rollValues: result.dice.map((die) => ({
+        discarded: die.discarded,
+        sides: die.sides,
+        value: die.value,
+      })),
+      total: result.total,
+      visibility: "private",
+    }).then((diceRoll) => {
+      if (!diceRoll) {
+        setDiceRollSaveError("Roll saved locally; history sync failed.");
+      }
+    });
+  }
+
+  const dismissLocalRoll = useCallback((rollId: string) => {
+    setLocalRolls((currentRolls) => currentRolls.filter((roll) => roll.id !== rollId));
+  }, []);
+
   return (
     <AppLayout variant="wide-left">
       <section className="character-section">
@@ -387,6 +442,7 @@ function CharacterDashboardPage() {
               featureChoices={featureChoices}
               inventoryController={inventoryController}
               onActiveTabChange={setActiveWorkspaceTab}
+              onLocalRoll={handleLocalRoll}
               progressionChoiceSummaries={progressionChoiceSummaries}
               resourceActionSummaries={resourceActionSummaries}
               selectedHeritage={selectedHeritage}
@@ -402,26 +458,36 @@ function CharacterDashboardPage() {
               tempHp={builderState.tempHp}
             />
 
-            {rightRailMode === "conditions" ? (
-              <ConditionsSidebar
-                conditionState={conditionState}
-                isOpen
-                onSetExhaustionLevel={(level) =>
-                  setConditionState((currentState) => ({
-                    ...currentState,
-                    exhaustionLevel: level,
-                  }))
-                }
-                onToggleCondition={(conditionId) => {
-                  void toggleCondition(conditionId);
-                }}
-              />
-            ) : (
-              <InventoryDetailsSidebar
-                controller={inventoryController}
-                isOpen={rightRailMode === "inventory"}
-              />
-            )}
+            <aside className="dashboard-utility-rail">
+              {localRolls.length > 0 ? (
+                <LocalRollsPanel
+                  rolls={localRolls}
+                  onDismiss={dismissLocalRoll}
+                  syncMessage={diceRollSaveError}
+                />
+              ) : null}
+
+              {rightRailMode === "conditions" ? (
+                <ConditionsSidebar
+                  conditionState={conditionState}
+                  isOpen
+                  onSetExhaustionLevel={(level) =>
+                    setConditionState((currentState) => ({
+                      ...currentState,
+                      exhaustionLevel: level,
+                    }))
+                  }
+                  onToggleCondition={(conditionId) => {
+                    void toggleCondition(conditionId);
+                  }}
+                />
+              ) : (
+                <InventoryDetailsSidebar
+                  controller={inventoryController}
+                  isOpen={rightRailMode === "inventory"}
+                />
+              )}
+            </aside>
           </div>
         ) : null}
       </section>
@@ -486,6 +552,14 @@ function buildCharacterSavePayload(
     ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
+}
+
+function buildDiceRollReason(result: RollableResult) {
+  if (result.source && result.source !== result.label) {
+    return `${result.label} - ${result.source}`;
+  }
+
+  return result.label;
 }
 
 function getSelectedSubclassIndexForSave(

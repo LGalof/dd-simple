@@ -2,12 +2,18 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../auth/AuthContext";
 import type { Character } from "../../../types/character";
 import { addCharacterCondition } from "../api/addCharacterCondition";
+import {
+  createCharacterDiceRoll,
+  type CreateCharacterDiceRollPayload,
+} from "../api/createCharacterDiceRoll";
 import { deleteCharacter } from "../api/deleteCharacter";
 import { fetchCharacters } from "../api/fetchCharacters";
 import { removeCharacterCondition } from "../api/removeCharacterCondition";
 import { updateCharacter } from "../api/updateCharacter";
 import { clearSelectedCharacterId } from "../utils/selectedCharacter";
 import type { CharacterSavePayload } from "../../../types/character";
+
+const recentDiceRollLimit = 5;
 
 function useCharacters() {
   const { token } = useAuth();
@@ -133,6 +139,31 @@ function useCharacters() {
     }
   }
 
+  async function recordDiceRoll(characterId: string, payload: CreateCharacterDiceRollPayload) {
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const diceRoll = await createCharacterDiceRoll(characterId, payload, token);
+
+      setCharacters((currentCharacters) =>
+        currentCharacters.map((character) =>
+          character.id === characterId
+            ? {
+                ...character,
+                diceRolls: [diceRoll, ...character.diceRolls].slice(0, recentDiceRollLimit),
+              }
+            : character,
+        ),
+      );
+
+      return diceRoll;
+    } catch {
+      return null;
+    }
+  }
+
   function replaceCharacter(updatedCharacter: Character) {
     setCharacters((currentCharacters) =>
       currentCharacters.map((character) =>
@@ -149,6 +180,7 @@ function useCharacters() {
     error,
     removeCharacter,
     removeCondition,
+    recordDiceRoll,
     saveCharacter,
     saveError,
     savingCharacterId,
