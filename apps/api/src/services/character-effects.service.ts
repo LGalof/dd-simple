@@ -43,6 +43,7 @@ async function findCharacterDerivedStateForUser(
       classIndex: true,
       level: true,
       speciesIndex: true,
+      subclassIndex: true,
       choices: {
         select: {
           choiceType: true,
@@ -145,7 +146,7 @@ async function findCharacterDerivedStateForUser(
   const selectedSubclassIndex = resolveSelectedSubclassIndex(
     classSubclassIndexes,
     character.choices,
-    overrides.subclassIndex,
+    overrides.subclassIndex ?? character.subclassIndex ?? undefined,
   );
 
   const selectedSubspeciesIndex = resolveSelectedSubspeciesIndex(

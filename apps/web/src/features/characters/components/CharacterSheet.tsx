@@ -493,8 +493,13 @@ function CharacterSheet({
     attackActionRows.length > 0;
   const hasVisibleActionContent = attackActionRows.length > 0 || detailActionRows.length > 0;
   const selectedSubclassIndex = useMemo(
-    () => getSelectedSubclassIndex(selectedClass, featureChoices),
-    [featureChoices, selectedClass],
+    () =>
+      getSelectedSubclassIndex(
+        selectedClass,
+        featureChoices,
+        character.subclassIndex ?? null,
+      ),
+    [character.subclassIndex, featureChoices, selectedClass],
   );
   const visibleClassFeatures = useMemo(
     () =>
@@ -1639,8 +1644,13 @@ function formatDerivedSourceSubtitle(source: CharacterDerivedSource) {
 function getSelectedSubclassIndex(
   classOption: ClassOption,
   selectedChoices: FeatureChoiceSelections,
+  persistedSubclassIndex: string | null,
 ) {
   const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  if (persistedSubclassIndex && subclassIndexes.has(persistedSubclassIndex)) {
+    return persistedSubclassIndex;
+  }
 
   for (const feature of classOption.features) {
     if (!feature.id.includes("subclass") || !feature.choiceFields?.length) {

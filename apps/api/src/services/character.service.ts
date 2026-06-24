@@ -1300,10 +1300,13 @@ function isAbilityScoreImprovementChoiceKey(choiceKey: string | null | undefined
   const normalizedChoicePath = choicePath.toLowerCase();
 
   return (
+    normalizedChoiceKey === "asi-score" ||
     normalizedChoiceKey === "asi-score-1" ||
     normalizedChoiceKey === "asi-score-2" ||
     normalizedChoicePath.endsWith("asi-score-1") ||
-    normalizedChoicePath.endsWith("asi-score-2")
+    normalizedChoicePath.endsWith("asi-score-2") ||
+    normalizedChoicePath.endsWith("ability_scores.slot1") ||
+    normalizedChoicePath.endsWith("ability_scores.slot2")
   );
 }
 

@@ -724,6 +724,11 @@ function getSavedGenericFeatureChoices(
     hydratedCount += 1;
   }
 
+  if (hydrateSavedSubclassChoice(character, classOption, featureChoices)) {
+    savedCount += 1;
+    hydratedCount += 1;
+  }
+
   return {
     featureChoices,
     hydratedCount,
@@ -731,10 +736,66 @@ function getSavedGenericFeatureChoices(
   };
 }
 
+function hydrateSavedSubclassChoice(
+  character: Character,
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+) {
+  const subclassIndex = character.subclassIndex;
+
+  if (!subclassIndex) {
+    return false;
+  }
+
+  const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
+
+  if (!subclassIndexes.has(subclassIndex)) {
+    return false;
+  }
+
+  for (const feature of classOption.features) {
+    for (const field of feature.choiceFields ?? []) {
+      if (field.choiceKind !== "subclass" && !feature.id.includes("subclass")) {
+        continue;
+      }
+
+      const choiceKey = `${feature.id}:${field.id}`;
+
+      if (featureChoices[choiceKey]) {
+        return false;
+      }
+
+      const option = field.options.find((candidate) =>
+        subclassOptionMatches(candidate, subclassIndex),
+      );
+
+      if (!option) {
+        continue;
+      }
+
+      featureChoices[choiceKey] = option.value;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function subclassOptionMatches(option: FeatureChoiceOption, subclassIndex: string) {
+  return option.value === subclassIndex || option.selectedOptionIndex === subclassIndex;
+}
+
 function findGenericFeatureChoiceField(
   classOption: ClassOption,
   choice: NonNullable<Character["featureChoices"]>[number],
 ) {
+  let abilityScoreImprovementFallback:
+    | {
+        featureId: string;
+        field: NonNullable<ClassOption["features"][number]["choiceFields"]>[number];
+      }
+    | null = null;
+
   for (const feature of classOption.features) {
     for (const field of feature.choiceFields ?? []) {
       if (
@@ -747,10 +808,23 @@ function findGenericFeatureChoiceField(
           field,
         };
       }
+
+      if (
+        !abilityScoreImprovementFallback &&
+        field.sourceType === choice.sourceType &&
+        field.sourceIndex === choice.sourceIndex &&
+        isAbilityScoreImprovementChoice(choice) &&
+        abilityScoreImprovementFieldMatchesSavedChoice(field, choice)
+      ) {
+        abilityScoreImprovementFallback = {
+          featureId: feature.id,
+          field,
+        };
+      }
     }
   }
 
-  return null;
+  return abilityScoreImprovementFallback;
 }
 
 function savedFeatureChoiceOptionMatches(
@@ -773,7 +847,62 @@ function savedFeatureChoiceOptionMatches(
     return true;
   }
 
+  const optionAbilityIndex =
+    canonicalAbilityScoreIndex(option.value) ??
+    canonicalAbilityScoreIndex(option.selectedOptionIndex ?? undefined) ??
+    canonicalAbilityScoreIndex(option.selectedOptionName ?? undefined);
+  const selectedAbilityIndex =
+    canonicalAbilityScoreIndex(choice.selectedOptionIndex ?? undefined) ??
+    canonicalAbilityScoreIndex(choice.selectedOptionName ?? undefined);
+
+  if (optionAbilityIndex && selectedAbilityIndex && optionAbilityIndex === selectedAbilityIndex) {
+    return true;
+  }
+
   return stableJsonString(option.selectedRawJson) === stableJsonString(choice.selectedRawJson);
+}
+
+function isAbilityScoreImprovementChoice(
+  choice: NonNullable<Character["featureChoices"]>[number],
+) {
+  const normalizedChoiceKey = choice.choiceKey?.toLowerCase() ?? "";
+  const normalizedChoicePath = choice.choicePath.toLowerCase();
+
+  return (
+    normalizedChoiceKey === "asi-score" ||
+    normalizedChoiceKey === "asi-score-1" ||
+    normalizedChoiceKey === "asi-score-2" ||
+    normalizedChoicePath.endsWith("asi-score-1") ||
+    normalizedChoicePath.endsWith("asi-score-2") ||
+    normalizedChoicePath.endsWith("ability_scores.slot1") ||
+    normalizedChoicePath.endsWith("ability_scores.slot2")
+  );
+}
+
+function abilityScoreImprovementFieldMatchesSavedChoice(
+  field: NonNullable<ClassOption["features"][number]["choiceFields"]>[number],
+  choice: NonNullable<Character["featureChoices"]>[number],
+) {
+  const savedChoiceKey = choice.choiceKey?.toLowerCase() ?? "";
+  const fieldChoiceKeys = new Set(
+    [field.choiceKey, field.id]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase()),
+  );
+
+  if (savedChoiceKey && fieldChoiceKeys.has(savedChoiceKey)) {
+    return true;
+  }
+
+  const savedPathChoiceKey = choice.choicePath.toLowerCase().match(/(?:^|\.)(asi-score-[12])$/)?.[1];
+
+  if (savedPathChoiceKey && fieldChoiceKeys.has(savedPathChoiceKey)) {
+    return true;
+  }
+
+  const savedSlot = choice.choicePath.toLowerCase().match(/\.slot([12])$/)?.[1];
+
+  return Boolean(savedSlot && fieldChoiceKeys.has(`asi-score-${savedSlot}`));
 }
 
 function hasMatchingGenericFeatureChoices(
@@ -985,6 +1114,7 @@ function useCharacterBuilder(character: Character | undefined) {
     }
   }, [
     character?.id,
+    character?.subclassIndex,
     getClassSkillChoiceSignature(character),
     getFeatureChoiceSelectionSignature(character),
     referenceOptions,
