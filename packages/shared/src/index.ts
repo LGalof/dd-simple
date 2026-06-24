@@ -108,10 +108,19 @@ export type InventoryItem = {
 
 export type DiceRoll = {
   id: string;
+  characterId?: string;
+  rolledByUserId?: string;
   rollType: string;
+  targetType?: string | null;
+  targetIndex?: string | null;
   formula: string;
+  rollMode?: string;
+  rollValues?: unknown;
+  modifier?: number;
   total: number;
   reason: string | null;
+  visibility?: string;
+  rolledAt?: string;
 };
 
 export type SpeciesDefinition = {

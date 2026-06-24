@@ -284,6 +284,21 @@ h1 {
   grid-template-columns: minmax(320px, 388px) minmax(0, 1fr) 304px;
 }
 
+.dashboard-utility-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  align-self: stretch;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.dashboard-utility-rail > .inventory-side-rail {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .dashboard-builder-shell {
   position: relative;
   min-width: 0;
@@ -2320,6 +2335,203 @@ h1 {
   margin-bottom: 0.72rem;
 }
 
+.rollable-value {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: inherit;
+  padding: 0;
+}
+
+.rollable-value:hover,
+.rollable-value:focus-visible {
+  outline: none;
+  filter: brightness(1.12);
+}
+
+.rollable-value:focus-visible {
+  box-shadow: 0 0 0 2px rgba(212, 176, 106, 0.42);
+}
+
+.rollable-value:disabled {
+  cursor: default;
+  filter: none;
+}
+
+.local-rolls-panel {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.62rem;
+  border: 1px solid rgba(212, 176, 106, 0.2);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.075), rgba(17, 24, 39, 0.94)),
+    rgba(17, 24, 39, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 176, 106, 0.04),
+    0 18px 46px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  z-index: 3;
+}
+
+.local-rolls-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(212, 176, 106, 0.14);
+}
+
+.local-rolls-panel__header span {
+  color: #f9fafb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.local-rolls-sync-message {
+  margin: 0;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid rgba(248, 113, 113, 0.18);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.18);
+  color: #fecaca;
+  font-size: 0.66rem;
+  line-height: 1.3;
+}
+
+.local-rolls-list {
+  display: grid;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.local-roll-item {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+  padding: 0.48rem 0.52rem;
+  border: 1px solid rgba(212, 176, 106, 0.16);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(31, 41, 55, 0.78), rgba(15, 23, 42, 0.88)),
+    rgba(31, 41, 55, 0.72);
+}
+
+.local-roll-item--critical {
+  border-color: rgba(74, 222, 128, 0.34);
+}
+
+.local-roll-item--fumble {
+  border-color: rgba(248, 113, 113, 0.34);
+}
+
+.local-roll-item__title,
+.local-roll-item__result,
+.local-roll-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.local-roll-item__title {
+  justify-content: space-between;
+}
+
+.local-roll-item__title > div {
+  display: grid;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.local-roll-item__title strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #fff7ed;
+  font-size: 0.76rem;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.local-roll-item__title span,
+.local-roll-item__breakdown {
+  color: #d1d5db;
+  font-size: 0.66rem;
+  line-height: 1.2;
+}
+
+.local-roll-item__result {
+  justify-content: space-between;
+}
+
+.local-roll-item__breakdown {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-style: normal;
+}
+
+.local-roll-item__total {
+  color: #fef3c7;
+  font-size: 1rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.local-roll-item__meta {
+  flex-wrap: wrap;
+}
+
+.local-roll-item__meta span {
+  padding: 0.1rem 0.32rem;
+  border: 1px solid rgba(212, 176, 106, 0.22);
+  border-radius: 999px;
+  color: #fef3c7;
+  font-size: 0.56rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.local-roll-item--fumble .local-roll-item__meta span:first-child {
+  border-color: rgba(248, 113, 113, 0.28);
+  color: #fecaca;
+}
+
+.local-roll-item__dismiss {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 1px solid rgba(212, 176, 106, 0.18);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.5);
+  color: #fef3c7;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1;
+}
+
+.local-roll-item__dismiss:hover,
+.local-roll-item__dismiss:focus-visible {
+  outline: none;
+  border-color: rgba(212, 176, 106, 0.38);
+  background: rgba(212, 176, 106, 0.12);
+}
+
 .character-hit-points-panel {
   display: grid;
   gap: 0.25rem;
@@ -2801,6 +3013,7 @@ h1 {
   background:
     linear-gradient(180deg, rgba(212, 176, 106, 0.08), rgba(17, 24, 39, 0.9)),
     rgba(31, 41, 55, 0.92);
+  color: #f9fafb;
   font-size: 0.74rem;
   box-shadow: inset 0 0 0 1px rgba(212, 176, 106, 0.04);
 }
@@ -3117,6 +3330,24 @@ h1 {
   background:
     linear-gradient(180deg, rgba(212, 176, 106, 0.06), rgba(17, 24, 39, 0.9)),
     rgba(31, 41, 55, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(212, 176, 106, 0.04);
+}
+
+.character-actions-roll-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 0.34rem;
+  border: 1px solid rgba(212, 176, 106, 0.22);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.06), rgba(17, 24, 39, 0.9)),
+    rgba(31, 41, 55, 0.92);
+  color: #f9fafb;
+  font-size: 0.78rem;
+  font-weight: 700;
+  justify-self: start;
   box-shadow: inset 0 0 0 1px rgba(212, 176, 106, 0.04);
 }
 
@@ -6699,6 +6930,14 @@ h1 {
     grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
   }
 
+  .local-rolls-panel {
+    position: fixed;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    width: min(22rem, calc(100vw - 1.5rem));
+    z-index: 42;
+  }
+
   .inventory-workbench-embedded .inventory-layout {
     grid-template-columns: 1fr;
   }
@@ -6913,6 +7152,17 @@ h1 {
   .dashboard-layout,
   .selection-panel {
     grid-template-columns: 1fr;
+  }
+
+  .local-rolls-panel {
+    right: 0.65rem;
+    bottom: 0.65rem;
+    width: min(21rem, calc(100vw - 1.3rem));
+  }
+
+  .local-roll-item__result {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .dashboard-layout-sidebar-hidden {

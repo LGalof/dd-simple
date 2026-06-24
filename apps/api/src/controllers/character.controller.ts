@@ -4,6 +4,7 @@ import {
   addConditionToCharacterForUser,
   CharacterReferenceNotFoundError,
   createCharacterForUser,
+  createDiceRollForCharacterForUser,
   deleteCharacterForUser,
   findAllCharactersForUser,
   findCharacterByIdForUser,
@@ -20,8 +21,23 @@ import { findCharacterDefensesForUser } from "../services/character-defenses.ser
 import { findCharacterDerivedStateForUser } from "../services/character-effects.service.js";
 
 const ABILITY_SCORE_KEYS = ["str", "dex", "con", "int", "wis", "cha"] as const;
+const DICE_ROLL_TYPES = [
+  "ability",
+  "saving_throw",
+  "skill",
+  "initiative",
+  "attack",
+  "damage",
+  "healing",
+  "custom",
+] as const;
+const DICE_ROLL_MODES = ["normal", "advantage", "disadvantage"] as const;
+const DICE_ROLL_VISIBILITIES = ["private", "public"] as const;
 
 type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
+type DiceRollMode = (typeof DICE_ROLL_MODES)[number];
+type DiceRollType = (typeof DICE_ROLL_TYPES)[number];
+type DiceRollVisibility = (typeof DICE_ROLL_VISIBILITIES)[number];
 type AbilityScoreRequestBody = Record<AbilityScoreKey, number>;
 
 type CharacterMutationRequestBody = {
@@ -94,6 +110,38 @@ type HitPointStateRequestBody = {
   overrideMaxHp?: unknown;
   rolledHitPoints?: unknown;
   tempHp?: unknown;
+};
+
+type DiceRollRequestBody = {
+  formula?: unknown;
+  modifier?: unknown;
+  reason?: unknown;
+  rollMode?: unknown;
+  rollType?: unknown;
+  rollValues?: unknown;
+  targetIndex?: unknown;
+  targetType?: unknown;
+  total?: unknown;
+  visibility?: unknown;
+};
+
+type DiceRollValue = {
+  discarded?: boolean;
+  sides: number;
+  value: number;
+};
+
+type ValidDiceRollRequestBody = {
+  formula: string;
+  modifier: number;
+  reason: string | null;
+  rollMode: DiceRollMode;
+  rollType: DiceRollType;
+  rollValues: DiceRollValue[];
+  targetIndex: string | null;
+  targetType: string | null;
+  total: number;
+  visibility: DiceRollVisibility;
 };
 
 type ValidHitPointStateRequestBody = {
@@ -414,6 +462,112 @@ function normalizeFeatureChoiceSelections(
     selectedRawJson: choice.selectedRawJson,
     grantsRawJson: choice.grantsRawJson ?? null,
   }));
+}
+
+function parseDiceRollRequestBody(body: unknown): ValidDiceRollRequestBody | null {
+  if (!body || typeof body !== "object") {
+    return null;
+  }
+
+  const candidate = body as DiceRollRequestBody;
+  const formula = typeof candidate.formula === "string" ? candidate.formula.trim() : "";
+  const reason = normalizeBoundedOptionalString(candidate.reason, 160);
+  const targetIndex = normalizeBoundedOptionalString(candidate.targetIndex, 80);
+  const targetType = normalizeBoundedOptionalString(candidate.targetType, 60);
+  const modifier = candidate.modifier === undefined ? 0 : candidate.modifier;
+  const rollMode = candidate.rollMode === undefined ? "normal" : candidate.rollMode;
+  const visibility = candidate.visibility === undefined ? "private" : candidate.visibility;
+
+  if (
+    formula.length === 0 ||
+    formula.length > 120 ||
+    !isDiceRollType(candidate.rollType) ||
+    !isDiceRollMode(rollMode) ||
+    !isDiceRollVisibility(visibility) ||
+    !isReasonableInteger(modifier, -10_000, 10_000) ||
+    !isReasonableInteger(candidate.total, -100_000, 100_000) ||
+    reason === undefined ||
+    targetIndex === undefined ||
+    targetType === undefined ||
+    !isDiceRollValues(candidate.rollValues)
+  ) {
+    return null;
+  }
+
+  return {
+    formula,
+    modifier,
+    reason,
+    rollMode,
+    rollType: candidate.rollType,
+    rollValues: candidate.rollValues,
+    targetIndex,
+    targetType,
+    total: candidate.total,
+    visibility,
+  };
+}
+
+function normalizeBoundedOptionalString(value: unknown, maxLength: number) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length > maxLength) {
+    return undefined;
+  }
+
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isDiceRollType(value: unknown): value is DiceRollType {
+  return typeof value === "string" && DICE_ROLL_TYPES.includes(value as DiceRollType);
+}
+
+function isDiceRollMode(value: unknown): value is DiceRollMode {
+  return typeof value === "string" && DICE_ROLL_MODES.includes(value as DiceRollMode);
+}
+
+function isDiceRollVisibility(value: unknown): value is DiceRollVisibility {
+  return (
+    typeof value === "string" &&
+    DICE_ROLL_VISIBILITIES.includes(value as DiceRollVisibility)
+  );
+}
+
+function isReasonableInteger(value: unknown, minimum: number, maximum: number): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+  );
+}
+
+function isDiceRollValues(value: unknown): value is DiceRollValue[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= 100 &&
+    value.every((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return false;
+      }
+
+      const candidate = entry as Partial<Record<keyof DiceRollValue, unknown>>;
+
+      return (
+        isReasonableInteger(candidate.sides, 2, 1000) &&
+        isReasonableInteger(candidate.value, 1, candidate.sides) &&
+        (candidate.discarded === undefined || typeof candidate.discarded === "boolean")
+      );
+    })
+  );
 }
 
 function normalizeOptionalString(value: string | null | undefined) {
@@ -1019,6 +1173,50 @@ async function updateCharacter(req: Request, res: Response) {
   }
 }
 
+async function createCharacterDiceRoll(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const body = parseDiceRollRequestBody(req.body);
+
+    if (!body) {
+      res.status(400).json({
+        error:
+          "Request body must include a valid rollType, formula, rollValues, total, and optional dice roll metadata",
+      });
+      return;
+    }
+
+    const diceRoll = await createDiceRollForCharacterForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      body,
+    );
+
+    if (!diceRoll) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.status(201).json(diceRoll);
+  } catch (error) {
+    console.error("Failed to create dice roll:", error);
+
+    res.status(500).json({
+      error: "Failed to create dice roll",
+    });
+  }
+}
+
 async function addCharacterCondition(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -1143,6 +1341,7 @@ async function deleteCharacter(req: Request, res: Response) {
 export {
   addCharacterCondition,
   createCharacter,
+  createCharacterDiceRoll,
   deleteCharacter,
   getCharacterActions,
   getCharacterDerivedState,
