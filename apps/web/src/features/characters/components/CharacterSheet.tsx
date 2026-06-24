@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import {
   InventoryWorkbench,
@@ -127,6 +127,8 @@ type SpellcastingSummary = {
   saveDc: number;
   slotRows: Array<{
     label: string;
+    level: number;
+    slots: number;
     value: string;
   }>;
   slotsAvailable: boolean;
@@ -245,6 +247,7 @@ function CharacterSheet({
   const [activeActionFilter, setActiveActionFilter] = useState<ActionFilter>("all");
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
   const [tempHpInput, setTempHpInput] = useState("");
+  const [spentSpellSlots, setSpentSpellSlots] = useState<Record<string, number>>({});
   const equippedItems = character.inventory.filter((item) => item.equipped);
   const liveEquippedInventoryItems = useMemo(
     () => inventoryController.items.filter((item) => item.location === "equipped"),
@@ -275,18 +278,25 @@ function CharacterSheet({
   const constitutionModifier = abilityModifier(constitutionScore);
   const wisdomModifier = abilityModifier(wisdomScore);
   const equippedArmorClassBonus = useMemo(
-    () => liveEquippedInventoryItems.reduce((total, item) => total + item.armorClassBonus, 0),
+    () =>
+      liveEquippedInventoryItems
+        .filter(itemGrantsAttunementBenefits)
+        .reduce((total, item) => total + item.armorClassBonus, 0),
     [liveEquippedInventoryItems],
   );
   const nonBodyArmorClassBonus = useMemo(
     () =>
       liveEquippedInventoryItems
+        .filter(itemGrantsAttunementBenefits)
         .filter((item) => item.equippedSlot !== "body")
         .reduce((total, item) => total + item.armorClassBonus, 0),
     [liveEquippedInventoryItems],
   );
   const equippedSpeedPenalty = useMemo(
-    () => liveEquippedInventoryItems.reduce((total, item) => total + item.speedPenalty, 0),
+    () =>
+      liveEquippedInventoryItems
+        .filter(itemGrantsAttunementBenefits)
+        .reduce((total, item) => total + item.speedPenalty, 0),
     [liveEquippedInventoryItems],
   );
   const isBodyArmorEquipped = useMemo(
@@ -405,6 +415,20 @@ function CharacterSheet({
     ],
   );
   const spellEntries = derivedState?.spells ?? [];
+  const spellSlotRows = spellcastingSummary?.slotRows ?? [];
+  const spellSlotKeyPrefix = `character:${character.id}:slot`;
+  const spellSlotTotalsKey = spellSlotRows
+    .map((slot) => `${slot.level}:${slot.slots}`)
+    .join("|");
+  const totalPreparedOrKnownSpells =
+    spellcastingSummary?.knownPrepared.reduce((total, entry) => {
+      if (entry.label === "Cantrips Known") {
+        return total;
+      }
+
+      return total + Number.parseInt(entry.value, 10);
+    }, 0) ?? 0;
+  const hasPreparedOrKnownLimit = totalPreparedOrKnownSpells > 0;
   const normalizedActions = derivedState?.actions ?? [];
   const training = getTrainingProfile(
     character,
@@ -592,6 +616,69 @@ function CharacterSheet({
     { id: "notes", label: "Notes" },
     { id: "extras", label: "Extras" },
   ];
+
+  useEffect(() => {
+    setSpentSpellSlots((currentSlots) => {
+      const nextSlots: Record<string, number> = {};
+
+      for (const slot of spellSlotRows) {
+        const key = getSpellSlotStateKey(spellSlotKeyPrefix, slot.level);
+        const spent = Math.min(currentSlots[key] ?? 0, slot.slots);
+
+        if (spent > 0) {
+          nextSlots[key] = spent;
+        }
+      }
+
+      return areNumberRecordsEqual(currentSlots, nextSlots) ? currentSlots : nextSlots;
+    });
+  }, [spellSlotKeyPrefix, spellSlotTotalsKey, spellSlotRows]);
+
+  function setSpentSpellSlotCount(slotLevel: number, nextSpentCount: number) {
+    const slot = spellSlotRows.find((entry) => entry.level === slotLevel);
+
+    if (!slot) {
+      return;
+    }
+
+    setSpentSpellSlots((currentSlots) => {
+      const key = getSpellSlotStateKey(spellSlotKeyPrefix, slotLevel);
+      const clampedCount = Math.max(0, Math.min(slot.slots, nextSpentCount));
+
+      if (clampedCount === 0) {
+        const remainingSlots = { ...currentSlots };
+        delete remainingSlots[key];
+        return remainingSlots;
+      }
+
+      return {
+        ...currentSlots,
+        [key]: clampedCount,
+      };
+    });
+  }
+
+  function spendSpellSlot(slotLevel: number) {
+    const key = getSpellSlotStateKey(spellSlotKeyPrefix, slotLevel);
+    setSpentSpellSlotCount(slotLevel, (spentSpellSlots[key] ?? 0) + 1);
+  }
+
+  function restoreSpellSlot(slotLevel: number) {
+    const key = getSpellSlotStateKey(spellSlotKeyPrefix, slotLevel);
+    setSpentSpellSlotCount(slotLevel, (spentSpellSlots[key] ?? 0) - 1);
+  }
+
+  function resetSpellSlots() {
+    setSpentSpellSlots((currentSlots) => {
+      const nextSlots = { ...currentSlots };
+
+      for (const slot of spellSlotRows) {
+        delete nextSlots[getSpellSlotStateKey(spellSlotKeyPrefix, slot.level)];
+      }
+
+      return nextSlots;
+    });
+  }
 
   function openCurrentHpModal() {
     setHitPointAmountInput("");
@@ -1010,33 +1097,150 @@ function CharacterSheet({
 
               {activeTab === "spells" && (
                 <div className="character-tab-scroll-stage">
-                  <Card title="Spells">
+                  <Card title="Spellcasting">
                     {spellcastingSummary ? (
-                      <div className="list">
-                        <div className="list-row">
-                          <span>Spellcasting Ability</span>
-                          <strong>{spellcastingSummary.abilityLabel}</strong>
+                      <>
+                        <div className="spellcasting-hero">
+                          <div className="spellcasting-score-card">
+                            <span>Spell Save DC</span>
+                            <strong>{spellcastingSummary.saveDc}</strong>
+                          </div>
+                          <div className="spellcasting-score-card">
+                            <span>Spell Attack</span>
+                            <strong>{formatModifier(spellcastingSummary.attackBonus)}</strong>
+                          </div>
+                          <div className="spellcasting-score-card">
+                            <span>Ability</span>
+                            <strong>{spellcastingSummary.abilityLabel}</strong>
+                          </div>
+                          <div className="spellcasting-score-card">
+                            <span>Caster Type</span>
+                            <strong>{spellcastingSummary.castingType}</strong>
+                          </div>
                         </div>
-                        <div className="list-row">
-                          <span>Spell Save DC</span>
-                          <strong>{spellcastingSummary.saveDc}</strong>
+                        <div className="spellcasting-rule-strip">
+                          <span>Proficiency {formatModifier(spellcastingSummary.proficiencyBonus)}</span>
+                          <span>Concentration: one spell</span>
+                          <span>Cantrips: no slots</span>
                         </div>
-                        <div className="list-row">
-                          <span>Spell Attack</span>
-                          <strong>{formatModifier(spellcastingSummary.attackBonus)}</strong>
-                        </div>
-                        <div className="list-row">
-                          <span>Casting Type</span>
-                          <strong>{spellcastingSummary.castingType}</strong>
-                        </div>
-                        <div className="list-row">
-                          <span>Proficiency Used</span>
-                          <strong>{formatModifier(spellcastingSummary.proficiencyBonus)}</strong>
-                        </div>
-                      </div>
+                      </>
                     ) : (
                       <p className="muted">This class has no class spellcasting summary yet.</p>
                     )}
+                  </Card>
+
+                  {spellcastingSummary ? (
+                    <Card title="Spell Slots">
+                      {spellcastingSummary.slotsAvailable ? (
+                        <div className="spell-slot-list">
+                          {spellSlotRows.map((slot) => {
+                            const stateKey = getSpellSlotStateKey(spellSlotKeyPrefix, slot.level);
+                            const spent = spentSpellSlots[stateKey] ?? 0;
+                            const remaining = Math.max(0, slot.slots - spent);
+
+                            return (
+                              <div key={slot.label} className="spell-slot-row">
+                                <div className="spell-slot-row-main">
+                                  <strong>{formatSpellLevel(slot.level)}</strong>
+                                  <span>
+                                    {remaining} / {slot.slots} remaining
+                                  </span>
+                                </div>
+                                <div className="spell-slot-bubbles" aria-label={`${slot.label} spell slots`}>
+                                  {Array.from({ length: slot.slots }, (_, index) => (
+                                    <button
+                                      key={`${slot.label}-${index}`}
+                                      type="button"
+                                      className={
+                                        index < spent
+                                          ? "spell-slot-bubble spell-slot-bubble-spent"
+                                          : "spell-slot-bubble"
+                                      }
+                                      aria-label={`${index < spent ? "Restore" : "Spend"} ${slot.label} slot ${index + 1}`}
+                                      onClick={() =>
+                                        setSpentSpellSlotCount(
+                                          slot.level,
+                                          index < spent ? index : index + 1,
+                                        )
+                                      }
+                                    />
+                                  ))}
+                                </div>
+                                <div className="spell-slot-actions">
+                                  <button
+                                    type="button"
+                                    className="spell-action-button"
+                                    onClick={() => spendSpellSlot(slot.level)}
+                                    disabled={remaining <= 0}
+                                  >
+                                    Cast
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="spell-action-button"
+                                    onClick={() => restoreSpellSlot(slot.level)}
+                                    disabled={spent <= 0}
+                                  >
+                                    Restore
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          <button
+                            type="button"
+                            className="spell-long-rest-button"
+                            onClick={resetSpellSlots}
+                          >
+                            Long Rest
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="muted">{spellcastingSummary.slotsUnavailableReason}</p>
+                      )}
+                    </Card>
+                  ) : null}
+
+                  {spellcastingSummary?.knownPrepared.length ? (
+                    <Card title="Prepared & Known">
+                      <div className="spell-prep-grid">
+                        {spellcastingSummary.knownPrepared.map((entry) => (
+                          <div key={entry.label} className="spell-prep-card">
+                            <span>{entry.label}</span>
+                            <strong>{entry.value}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="muted">
+                        {hasPreparedOrKnownLimit
+                          ? "Use this as the D&D limit for prepared or known spells. Individual spell choices can live in notes until spellbook persistence is added."
+                          : "This class has spell features, but no prepared or known spell count in the current reference data."}
+                      </p>
+                    </Card>
+                  ) : null}
+
+                  <Card title="Casting Rules">
+                    <div className="spell-rule-grid">
+                      <div className="spell-rule-card">
+                        <strong>Cast a Spell</strong>
+                        <p>Use the spell's casting time. Most leveled spells spend one slot of that spell level or higher.</p>
+                      </div>
+                      <div className="spell-rule-card">
+                        <strong>Concentration</strong>
+                        <p>You can concentrate on one spell. Damage can force a Constitution save to keep it active.</p>
+                      </div>
+                      <div className="spell-rule-card">
+                        <strong>Rituals</strong>
+                        <p>Ritual casting adds 10 minutes and does not spend a spell slot when the character can cast it as a ritual.</p>
+                      </div>
+                      <div className="spell-rule-card">
+                        <strong>Upcasting</strong>
+                        <p>Use a higher-level slot when a spell's text grants extra damage, targets, or duration.</p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  <Card title="Spell Features">
                     {derivedStateLoading ? (
                       <p className="muted">Loading spell features...</p>
                     ) : null}
@@ -1049,11 +1253,13 @@ function CharacterSheet({
                       </p>
                     ) : null}
                     {!derivedStateLoading && !derivedStateError && spellEntries.length > 0 ? (
-                      <div className="list">
+                      <div className="spell-feature-list">
                         {spellEntries.map((entry) => (
-                          <div key={entry.id} className="character-feature-entry">
-                            <strong>{entry.title}</strong>
-                            <p>{getSpellEntrySubtitle(entry)}</p>
+                          <div key={entry.id} className="spell-feature-card">
+                            <div>
+                              <strong>{entry.title}</strong>
+                              <span>{getSpellEntrySubtitle(entry)}</span>
+                            </div>
                             <p>{entry.description}</p>
                           </div>
                         ))}
@@ -1061,41 +1267,11 @@ function CharacterSheet({
                     ) : null}
                   </Card>
 
-                  {spellcastingSummary ? (
-                    <Card title="Spell Slots">
-                      {spellcastingSummary.slotsAvailable ? (
-                        <div className="list">
-                          {spellcastingSummary.slotRows.map((slot) => (
-                            <div key={slot.label} className="list-row">
-                              <span>{slot.label}</span>
-                              <strong>{slot.value}</strong>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="muted">{spellcastingSummary.slotsUnavailableReason}</p>
-                      )}
-                    </Card>
-                  ) : null}
-
-                  {spellcastingSummary?.knownPrepared.length ? (
-                    <Card title="Known & Prepared">
-                      <div className="list">
-                        {spellcastingSummary.knownPrepared.map((entry) => (
-                          <div key={entry.label} className="list-row">
-                            <span>{entry.label}</span>
-                            <strong>{entry.value}</strong>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  ) : null}
-
                   {spellcastingSummary?.notes.length ? (
-                    <Card title="Spellcasting Notes">
-                      <div className="list">
-                        {spellcastingSummary.notes.slice(0, 4).map((note) => (
-                          <p key={note} className="muted">{note}</p>
+                    <Card title="Class Notes">
+                      <div className="spell-note-list">
+                        {spellcastingSummary.notes.slice(0, 5).map((note) => (
+                          <p key={note}>{note}</p>
                         ))}
                       </div>
                     </Card>
@@ -1930,6 +2106,44 @@ function getSpellEntrySubtitle(entry: CharacterSpellEntry) {
   return [kindLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
 }
 
+function itemGrantsAttunementBenefits(item: LiveInventoryItem) {
+  return !item.requiresAttunement || item.attuned;
+}
+
+function getSpellSlotStateKey(prefix: string, slotLevel: number) {
+  return `${prefix}:${slotLevel}`;
+}
+
+function formatSpellLevel(slotLevel: number) {
+  if (slotLevel === 1) {
+    return "1st Level";
+  }
+
+  if (slotLevel === 2) {
+    return "2nd Level";
+  }
+
+  if (slotLevel === 3) {
+    return "3rd Level";
+  }
+
+  return `${slotLevel}th Level`;
+}
+
+function areNumberRecordsEqual(
+  left: Record<string, number>,
+  right: Record<string, number>,
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => left[key] === right[key]);
+}
+
 function calculateDisplayedArmorClass({
   baseArmorClass,
   constitutionModifier,
@@ -2709,7 +2923,8 @@ function getWeaponActions(
           weaponProficiencies,
           hasDueling && meleeWeaponCount === 1,
         );
-        const attackBonus = profile.attackBonus + item.attackBonus;
+        const attackBonus =
+          profile.attackBonus + (itemGrantsAttunementBenefits(item) ? item.attackBonus : 0);
         const damage = formatInventoryDamage(
           item.damage,
           profile.damageModifier,

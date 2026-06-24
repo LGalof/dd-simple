@@ -3360,6 +3360,176 @@ h1 {
   padding-bottom: 0.5rem;
 }
 
+.spellcasting-hero,
+.spell-prep-grid,
+.spell-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 0.6rem;
+}
+
+.spellcasting-score-card,
+.spell-prep-card,
+.spell-rule-card,
+.spell-feature-card {
+  border: 1px solid rgba(212, 176, 106, 0.16);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.05), rgba(15, 23, 42, 0.88)),
+    rgba(17, 24, 39, 0.76);
+}
+
+.spellcasting-score-card,
+.spell-prep-card {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+  padding: 0.7rem;
+}
+
+.spellcasting-score-card span,
+.spell-prep-card span,
+.spell-slot-row-main span,
+.spell-feature-card span {
+  color: #a8a29e;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.spellcasting-score-card strong {
+  color: #f8fafc;
+  font-size: 1.05rem;
+}
+
+.spellcasting-rule-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+}
+
+.spellcasting-rule-strip span {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 999px;
+  padding: 0.24rem 0.55rem;
+  background: rgba(15, 23, 42, 0.72);
+  color: #d6d3d1;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.spell-slot-list,
+.spell-feature-list,
+.spell-note-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.spell-slot-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.9fr) minmax(150px, 1.4fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.65rem;
+}
+
+.spell-slot-row-main {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.spell-slot-row-main strong,
+.spell-feature-card strong,
+.spell-rule-card strong {
+  color: #f8fafc;
+  font-size: 0.78rem;
+}
+
+.spell-slot-bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.spell-slot-bubble {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  border: 1px solid rgba(212, 176, 106, 0.55);
+  border-radius: 50%;
+  background: rgba(212, 176, 106, 0.24);
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.9);
+  cursor: pointer;
+}
+
+.spell-slot-bubble-spent {
+  border-color: rgba(148, 163, 184, 0.34);
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.spell-slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.spell-action-button,
+.spell-long-rest-button {
+  border: 1px solid rgba(212, 176, 106, 0.26);
+  border-radius: 8px;
+  background: rgba(31, 41, 55, 0.76);
+  color: #f4ead0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 800;
+  min-height: 28px;
+  padding: 0 0.6rem;
+  text-transform: uppercase;
+}
+
+.spell-action-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.spell-long-rest-button {
+  justify-self: end;
+  background: linear-gradient(180deg, rgba(212, 176, 106, 0.16), rgba(31, 41, 55, 0.84));
+}
+
+.spell-prep-card strong {
+  color: #f8fafc;
+  font-size: 1.2rem;
+}
+
+.spell-rule-card,
+.spell-feature-card {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.7rem;
+}
+
+.spell-rule-card p,
+.spell-feature-card p,
+.spell-note-list p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.spell-feature-card > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  justify-content: space-between;
+}
+
 .muted {
   color: #9ca3af;
 }
@@ -4696,6 +4866,52 @@ h1 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
+}
+
+.attunement-meter,
+.attunement-panel {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(56, 189, 248, 0.08), rgba(15, 23, 42, 0.72)),
+    rgba(8, 47, 73, 0.2);
+}
+
+.attunement-meter {
+  margin-bottom: 0.65rem;
+}
+
+.attunement-meter > div,
+.attunement-panel > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.attunement-meter span,
+.attunement-panel span {
+  color: #7dd3fc;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.attunement-meter strong,
+.attunement-panel strong {
+  color: #e0f2fe;
+}
+
+.attunement-meter p,
+.attunement-panel p {
+  margin: 0;
+  color: #bae6fd;
+  font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .equipment-slot {

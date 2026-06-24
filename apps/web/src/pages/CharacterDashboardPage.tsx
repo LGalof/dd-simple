@@ -73,6 +73,55 @@ const spellcastingTypeFallbacks: Record<string, SpellcastingSummary["castingType
   warlock: "Pact Magic",
   wizard: "Full caster",
 };
+const fullCasterSlotProgression: Array<{ cantripsKnown: number; spellSlots: number[] }> = [
+  { cantripsKnown: 3, spellSlots: [2] },
+  { cantripsKnown: 3, spellSlots: [3] },
+  { cantripsKnown: 3, spellSlots: [4, 2] },
+  { cantripsKnown: 4, spellSlots: [4, 3] },
+  { cantripsKnown: 4, spellSlots: [4, 3, 2] },
+  { cantripsKnown: 4, spellSlots: [4, 3, 3] },
+  { cantripsKnown: 4, spellSlots: [4, 3, 3, 1] },
+  { cantripsKnown: 4, spellSlots: [4, 3, 3, 2] },
+  { cantripsKnown: 4, spellSlots: [4, 3, 3, 3, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 1, 1, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 2, 1, 1, 1] },
+  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 2, 2, 1, 1] },
+];
+const halfCasterSlotProgression: number[][] = [
+  [2],
+  [2],
+  [3],
+  [3],
+  [4, 2],
+  [4, 2],
+  [4, 3],
+  [4, 3],
+  [4, 3, 2],
+  [4, 3, 2],
+  [4, 3, 3],
+  [4, 3, 3],
+  [4, 3, 3, 1],
+  [4, 3, 3, 1],
+  [4, 3, 3, 2],
+  [4, 3, 3, 2],
+  [4, 3, 3, 3, 1],
+  [4, 3, 3, 3, 1],
+  [4, 3, 3, 3, 2],
+  [4, 3, 3, 3, 2],
+];
+const knownSpellFallbacks: Record<string, number[]> = {
+  bard: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
+  sorcerer: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
+  warlock: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
+};
 const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
   str: "str",
   strength: "str",
@@ -563,6 +612,8 @@ function getSpellcastingSummary(
   const levelSummary = getCurrentSpellcastingLevel(classOption, character.level);
   const slotRows = (levelSummary?.spellSlots ?? []).map((slot) => ({
     label: `Level ${slot.level}`,
+    level: slot.level,
+    slots: slot.slots,
     value: String(slot.slots),
   }));
   const knownPrepared = [
@@ -664,8 +715,77 @@ function getCurrentSpellcastingLevel(
   characterLevel: number,
 ): ClassSpellcastingLevelSummary | null {
   const levels = classOption.spellcasting?.levels ?? [];
+  const referenceLevel = [...levels].reverse().find((level) => level.level <= characterLevel);
 
-  return [...levels].reverse().find((level) => level.level <= characterLevel) ?? null;
+  if (referenceLevel) {
+    return referenceLevel;
+  }
+
+  return getFallbackSpellcastingLevel(classOption.index, characterLevel);
+}
+
+function getFallbackSpellcastingLevel(
+  classIndex: string,
+  characterLevel: number,
+): ClassSpellcastingLevelSummary | null {
+  const normalizedLevel = Math.max(1, Math.min(20, characterLevel));
+  const castingType = spellcastingTypeFallbacks[classIndex];
+
+  if (castingType === "Full caster") {
+    const progression = fullCasterSlotProgression[normalizedLevel - 1];
+
+    return {
+      cantripsKnown: progression.cantripsKnown,
+      level: normalizedLevel,
+      preparedSpells: getPreparedSpellFallback(classIndex, normalizedLevel),
+      spellSlots: progression.spellSlots.map((slots, index) => ({
+        level: index + 1,
+        slots,
+      })),
+      spellsKnown: getKnownSpellFallback(classIndex, normalizedLevel),
+    };
+  }
+
+  if (castingType === "Half caster") {
+    const progression = halfCasterSlotProgression[normalizedLevel - 1] ?? [];
+
+    return {
+      level: normalizedLevel,
+      preparedSpells: Math.max(1, Math.floor(normalizedLevel / 2) + 1),
+      spellSlots: progression.map((slots, index) => ({
+        level: index + 1,
+        slots,
+      })),
+    };
+  }
+
+  if (castingType === "Pact Magic") {
+    return {
+      cantripsKnown: normalizedLevel < 4 ? 2 : normalizedLevel < 10 ? 3 : 4,
+      level: normalizedLevel,
+      spellSlots: [
+        {
+          level: normalizedLevel < 3 ? 1 : normalizedLevel < 5 ? 2 : normalizedLevel < 7 ? 3 : normalizedLevel < 9 ? 4 : 5,
+          slots: normalizedLevel < 11 ? 2 : normalizedLevel < 17 ? 3 : 4,
+        },
+      ],
+      spellsKnown: getKnownSpellFallback(classIndex, normalizedLevel),
+    };
+  }
+
+  return null;
+}
+
+function getPreparedSpellFallback(classIndex: string, characterLevel: number) {
+  if (["cleric", "druid", "wizard"].includes(classIndex)) {
+    return Math.max(1, characterLevel + 3);
+  }
+
+  return undefined;
+}
+
+function getKnownSpellFallback(classIndex: string, characterLevel: number) {
+  return knownSpellFallbacks[classIndex]?.[characterLevel - 1];
 }
 
 function uniqueStrings(values: string[]) {

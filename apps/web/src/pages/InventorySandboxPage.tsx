@@ -60,6 +60,8 @@ type InventoryItem = {
   damage: string;
   speedPenalty: number;
   notes: string;
+  requiresAttunement?: boolean;
+  attuned?: boolean;
   equipmentSlot?: EquipmentSlotId;
   equippedSlot?: EquipmentSlotId;
   referenceEquipmentIndex?: string;
@@ -93,6 +95,7 @@ type NewItemForm = {
   location: ContainerId;
   name: string;
   quantity: number;
+  requiresAttunement: boolean;
   stackable: boolean;
   maxStack: number;
   width: number;
@@ -104,12 +107,13 @@ type SavedInventoryState = {
   selectedItemId: string;
 };
 
-type ItemTemplate = Omit<NewItemForm, "location"> & {
+type ItemTemplate = Omit<NewItemForm, "location" | "requiresAttunement"> & {
   id: string;
   armorClassBonus: number;
   attackBonus: number;
   damage: string;
   notes: string;
+  requiresAttunement?: boolean;
   rarity: string;
   speedPenalty: number;
   value: number;
@@ -520,6 +524,27 @@ const itemTemplates: ItemTemplate[] = [
     speedPenalty: 0,
     notes: "A prepared spell written onto a scroll.",
   },
+  {
+    id: "ring-of-protection",
+    name: "Ring of Protection",
+    kind: "treasure",
+    width: 1,
+    height: 1,
+    color: "#38bdf8",
+    equipmentSlot: "none",
+    quantity: 1,
+    stackable: false,
+    maxStack: 1,
+    weight: 0,
+    value: 3500,
+    rarity: "Rare",
+    armorClassBonus: 1,
+    attackBonus: 0,
+    damage: "",
+    requiresAttunement: true,
+    speedPenalty: 0,
+    notes: "Requires attunement. Grants a protective magical bonus while worn.",
+  },
 ];
 
 function useInventorySandboxController(storageScope = "sandbox", backendCharacterId?: string) {
@@ -549,6 +574,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     location: "inventory",
     name: "Custom Relic",
     quantity: 1,
+    requiresAttunement: false,
     stackable: false,
     maxStack: 1,
     width: 2,
@@ -558,6 +584,11 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
   const [message, setMessage] = useState("Drag items between grids, rotate them, or drop gear on equipment slots.");
   const [backendSaving, setBackendSaving] = useState(false);
   const selectedItem = items.find((item) => item.id === selectedItemId) ?? null;
+  const attunedItems = useMemo(
+    () => items.filter((item) => item.requiresAttunement && item.attuned),
+    [items],
+  );
+  const attunementLimit = 3;
   const equippedItems = useMemo(
     () => new Map(items.filter((item) => item.location === "equipped").map((item) => [item.equippedSlot, item])),
     [items],
@@ -667,16 +698,28 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
       return;
     }
 
+    if (
+      patch.attuned &&
+      !selectedItem.attuned &&
+      attunedItems.length >= attunementLimit
+    ) {
+      setMessage(`Attunement limit reached. A character can attune to ${attunementLimit} items.`);
+      return;
+    }
+
     const nextItem = {
       ...selectedItem,
       ...patch,
     };
     const nextMaxStack = nextItem.stackable ? Math.max(1, nextItem.maxStack) : 1;
+    const requiresAttunement = Boolean(nextItem.requiresAttunement);
 
     updateItem({
       ...nextItem,
+      attuned: requiresAttunement ? Boolean(nextItem.attuned) : false,
       maxStack: nextMaxStack,
       quantity: clampNumber(nextItem.quantity, 1, nextMaxStack),
+      requiresAttunement,
     });
   }
 
@@ -1002,6 +1045,8 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
       damage: newItemForm.kind === "weapon" ? "1d6" : "",
       speedPenalty: 0,
       notes: "",
+      requiresAttunement: newItemForm.requiresAttunement,
+      attuned: false,
       equipmentSlot: newItemForm.equipmentSlot === "none" ? undefined : newItemForm.equipmentSlot,
     };
     const position = findFirstAvailableSlot(item, container, items);
@@ -1055,6 +1100,8 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
       damage: kind === "weapon" ? "1d6" : "",
       speedPenalty: 0,
       notes: extractReferenceDescription(referenceItem),
+      requiresAttunement: inferReferenceRequiresAttunement(referenceItem),
+      attuned: false,
       equipmentSlot,
       referenceEquipmentIndex: referenceItem.index,
     };
@@ -1166,6 +1213,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
       maxStack: template.maxStack,
       name: template.name,
       quantity: template.quantity,
+      requiresAttunement: Boolean(template.requiresAttunement),
       stackable: template.stackable,
       width: template.width,
     }));
@@ -1293,6 +1341,8 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
 
   return {
     applyItemTemplate,
+    attunedItems,
+    attunementLimit,
     backendEnabled,
     backendSaving,
     clearContainer,
@@ -1370,6 +1420,8 @@ function InventoryDetailsContent({
   const {
     addReferenceEquipment,
     applyItemTemplate,
+    attunedItems,
+    attunementLimit,
     backendEnabled,
     backendSaving,
     clearContainer,
@@ -1582,6 +1634,9 @@ function InventoryDetailsContent({
           <div className="selected-item-kind">
             <ItemIcon item={selectedItem} />
             <span>{selectedItem.kind}</span>
+            {selectedItem.requiresAttunement ? (
+              <span>{selectedItem.attuned ? "Attuned" : "Needs Attunement"}</span>
+            ) : null}
           </div>
         </div>
 
@@ -1680,6 +1735,37 @@ function InventoryDetailsContent({
                 onChange={(event) => updateSelectedItem({ rarity: event.target.value })}
               />
             </label>
+          </div>
+          <div className="attunement-panel">
+            <div>
+              <strong>Attunement</strong>
+              <span>
+                {attunedItems.length} / {attunementLimit} attuned
+              </span>
+            </div>
+            <label className="inventory-tool-check">
+              <input
+                checked={Boolean(selectedItem.requiresAttunement)}
+                type="checkbox"
+                onChange={(event) =>
+                  updateSelectedItem({ requiresAttunement: event.target.checked })
+                }
+              />
+              Requires attunement
+            </label>
+            <label className="inventory-tool-check">
+              <input
+                checked={Boolean(selectedItem.attuned)}
+                disabled={!selectedItem.requiresAttunement}
+                type="checkbox"
+                onChange={(event) => updateSelectedItem({ attuned: event.target.checked })}
+              />
+              Attuned by this character
+            </label>
+            <p>
+              Magic items that require attunement only grant their special benefits while attuned.
+              A character can normally maintain three attuned items.
+            </p>
           </div>
           <div className="inventory-tool-row">
             <label className="inventory-tool-field">
@@ -2079,6 +2165,19 @@ function InventoryDetailsContent({
             ))}
           </select>
         </label>
+        <label className="inventory-tool-check">
+          <input
+            checked={newItemForm.requiresAttunement}
+            type="checkbox"
+            onChange={(event) =>
+              setNewItemForm((currentForm) => ({
+                ...currentForm,
+                requiresAttunement: event.target.checked,
+              }))
+            }
+          />
+          Requires attunement
+        </label>
         <div className="inventory-modal-actions">
           <button type="button" className="inventory-tool-button" onClick={createItem}>
             Add Item
@@ -2440,6 +2539,8 @@ function InventoryWorkbench({
   hideDetailsPanel = false,
 }: InventoryWorkbenchProps) {
   const {
+    attunedItems,
+    attunementLimit,
     containers,
     equippedItems,
     handleDragEnd,
@@ -2500,6 +2601,20 @@ function InventoryWorkbench({
             <div className="inventory-panel-heading">
               <span>Character</span>
               <strong>Equipped Gear</strong>
+            </div>
+
+            <div className="attunement-meter">
+              <div>
+                <span>Attunement</span>
+                <strong>
+                  {attunedItems.length} / {attunementLimit}
+                </strong>
+              </div>
+              <p>
+                {attunedItems.length > 0
+                  ? attunedItems.map((item) => item.name).join(", ")
+                  : "No attuned items"}
+              </p>
             </div>
 
             <div className="equipment-slot-grid">
@@ -3064,6 +3179,19 @@ function inferReferenceItemColor(referenceItem: ReferenceEquipment) {
     default:
       return "#38bdf8";
   }
+}
+
+function inferReferenceRequiresAttunement(referenceItem: ReferenceEquipment) {
+  const text = [
+    referenceItem.name,
+    referenceItem.equipmentCategory ?? "",
+    referenceItem.itemType ?? "",
+    extractReferenceDescription(referenceItem),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return text.includes("requires attunement") || text.includes("attunement");
 }
 
 function inferReferenceLibraryType(referenceItem: ReferenceEquipment): InventoryLibraryType {
