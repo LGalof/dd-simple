@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../../../types/character";
+import { applyHitPointAdjustment } from "@dd-simple/shared";
 import {
   backgroundOptions,
   classOptions,
@@ -1427,15 +1428,18 @@ function useCharacterBuilder(character: Character | undefined) {
         level: currentState.level,
         settings: currentState.hitPointSettings,
       });
-      const currentHp = Math.max(0, Math.min(nextHitPointPreview.maxHp, currentState.currentHp));
-      const nextCurrentHp =
-        mode === "heal"
-          ? Math.min(nextHitPointPreview.maxHp, currentHp + amount)
-          : Math.max(0, currentHp - amount);
+      const nextHitPoints = applyHitPointAdjustment({
+        amount,
+        currentHp: currentState.currentHp,
+        maxHp: nextHitPointPreview.maxHp,
+        mode,
+        tempHp: currentState.tempHp,
+      });
 
       return {
         ...currentState,
-        currentHp: nextCurrentHp,
+        currentHp: nextHitPoints.currentHp,
+        tempHp: nextHitPoints.tempHp,
       };
     });
   }

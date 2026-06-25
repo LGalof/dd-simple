@@ -84,6 +84,52 @@ export type CharacterHitPointState = {
   tempHp: number;
 };
 
+export type HitPointAdjustmentMode = "heal" | "damage";
+
+export type HitPointAdjustmentInput = {
+  amount: number;
+  currentHp: number;
+  maxHp: number;
+  mode: HitPointAdjustmentMode;
+  tempHp: number;
+};
+
+export type HitPointAdjustmentResult = {
+  currentHp: number;
+  tempHp: number;
+};
+
+export function applyHitPointAdjustment({
+  amount,
+  currentHp,
+  maxHp,
+  mode,
+  tempHp,
+}: HitPointAdjustmentInput): HitPointAdjustmentResult {
+  const normalizedAmount = Math.max(0, Math.floor(Number.isFinite(amount) ? amount : 0));
+  const normalizedMaxHp = Math.max(0, Math.floor(Number.isFinite(maxHp) ? maxHp : 0));
+  const normalizedCurrentHp = Math.max(
+    0,
+    Math.min(normalizedMaxHp, Math.floor(Number.isFinite(currentHp) ? currentHp : 0)),
+  );
+  const normalizedTempHp = Math.max(0, Math.floor(Number.isFinite(tempHp) ? tempHp : 0));
+
+  if (mode === "heal") {
+    return {
+      currentHp: Math.min(normalizedMaxHp, normalizedCurrentHp + normalizedAmount),
+      tempHp: normalizedTempHp,
+    };
+  }
+
+  const absorbedByTempHp = Math.min(normalizedTempHp, normalizedAmount);
+  const remainingDamage = normalizedAmount - absorbedByTempHp;
+
+  return {
+    currentHp: Math.max(0, normalizedCurrentHp - remainingDamage),
+    tempHp: normalizedTempHp - absorbedByTempHp,
+  };
+}
+
 export type InventoryItem = {
   id: string;
   characterId?: string;
