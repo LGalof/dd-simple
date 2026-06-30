@@ -9,7 +9,6 @@ import { MyCharactersPage } from "./pages/MyCharactersPage";
 import { TacticalBoardPage } from "./pages/TacticalBoardPage";
 import { CreateRoomPage } from "./pages/CreateRoomPage";
 import { JoinRoomPage } from "./pages/JoinRoomPage";
-import { RoomPage } from "./pages/RoomPage";
 
 function App() {
   return (
@@ -64,7 +63,7 @@ function App() {
             path="/room/:roomCode"
             element={
               <ProtectedRoute>
-                <RoomPage />
+                <TacticalBoardPage roomMode />
               </ProtectedRoute>
             }
           />

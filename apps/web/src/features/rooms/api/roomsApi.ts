@@ -1,15 +1,26 @@
 import { api } from "../../../lib/api";
+import type { SavedBoardState } from "../../tactical-board/types/board";
+
+type RoomDetails = {
+  code: string;
+  createdAt: number;
+  updatedAt: number;
+  boardState: SavedBoardState | null;
+  players: Array<{
+    userId: string;
+    characterId: string;
+    characterName: string;
+    joinedAt: number;
+  }>;
+};
 
 type CreateRoomResponse = {
   room: {
     code: string;
     createdAt: number;
-    players: Array<{
-      userId: string;
-      characterId: string;
-      characterName: string;
-      joinedAt: number;
-    }>;
+    updatedAt: number;
+    boardState: SavedBoardState | null;
+    players: RoomDetails["players"];
   };
 };
 
@@ -28,3 +39,4 @@ async function getRoom(roomCode: string, token: string) {
 }
 
 export { createRoom, getRoom, joinRoom };
+export type { RoomDetails };

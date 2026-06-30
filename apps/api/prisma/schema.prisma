@@ -13,8 +13,10 @@ model User {
   displayName  String?
   passwordHash String?
 
-  characters Character[]
-  diceRolls  DiceRoll[]  @relation("DiceRollUser")
+  characters  Character[]
+  diceRolls   DiceRoll[]   @relation("DiceRollUser")
+  hostedRooms Room[]       @relation("RoomCreator")
+  roomPlayers RoomPlayer[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -57,12 +59,48 @@ model Character {
   conditions     CharacterCondition[]
   hitPointState  CharacterHitPointState?
   diceRolls      DiceRoll[]
+  roomPlayers    RoomPlayer[]
+  hostedRooms    Room[]                    @relation("RoomCreatorCharacter")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([userId, name])
   @@map("characters")
+}
+
+model Room {
+  id                 String @id @default(uuid()) @db.Uuid
+  code               String @unique
+  creatorUserId      String @db.Uuid
+  creatorCharacterId String @db.Uuid
+  boardState         Json?
+
+  creator          User       @relation("RoomCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
+  creatorCharacter Character  @relation("RoomCreatorCharacter", fields: [creatorCharacterId], references: [id], onDelete: Cascade)
+  players          RoomPlayer[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rooms")
+}
+
+model RoomPlayer {
+  id          String @id @default(uuid()) @db.Uuid
+  roomId      String @db.Uuid
+  userId      String @db.Uuid
+  characterId String @db.Uuid
+
+  characterName String
+  joinedAt      DateTime @default(now())
+
+  room      Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId, characterId])
+  @@map("room_players")
 }
 
 model RefAbilityScore {

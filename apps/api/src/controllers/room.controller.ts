@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { getAuthenticatedUser } from "../middleware/auth.js";
 import { createRoom, getRoom, joinRoom } from "../services/room.service.js";
 import { findCharacterByIdForUser } from "../services/character.service.js";
+import { eventBus } from "../lib/events.js";
 
 async function createRoomController(req: Request, res: Response) {
   const body = req.body as { characterId?: unknown };
@@ -23,13 +24,15 @@ async function createRoomController(req: Request, res: Response) {
     return;
   }
 
-  const room = createRoom(user.id, character.id, character.name);
+  const room = await createRoom(user.id, character);
 
   res.status(201).json({
     room: {
       code: room.code,
       createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
       players: room.players,
+      boardState: room.boardState,
     },
   });
 }
@@ -53,7 +56,7 @@ async function joinRoomController(req: Request, res: Response) {
     return;
   }
 
-  const room = getRoom(roomCode);
+  const room = await getRoom(roomCode);
 
   if (!room) {
     res.status(404).json({
@@ -71,7 +74,7 @@ async function joinRoomController(req: Request, res: Response) {
     return;
   }
 
-  const nextRoom = joinRoom(roomCode, user.id, character.id, character.name);
+  const nextRoom = await joinRoom(roomCode, user.id, character);
 
   if (!nextRoom) {
     res.status(500).json({
@@ -80,16 +83,20 @@ async function joinRoomController(req: Request, res: Response) {
     return;
   }
 
+  eventBus.emit("room:update", roomCode);
+
   res.json({
     room: {
       code: nextRoom.code,
       createdAt: nextRoom.createdAt,
+      updatedAt: nextRoom.updatedAt,
       players: nextRoom.players,
+      boardState: nextRoom.boardState,
     },
   });
 }
 
-function getRoomController(req: Request, res: Response) {
+async function getRoomController(req: Request, res: Response) {
   const { roomCode } = req.params;
 
   if (!roomCode || typeof roomCode !== "string") {
@@ -99,7 +106,7 @@ function getRoomController(req: Request, res: Response) {
     return;
   }
 
-  const room = getRoom(roomCode);
+  const room = await getRoom(roomCode);
 
   if (!room) {
     res.status(404).json({
@@ -112,7 +119,9 @@ function getRoomController(req: Request, res: Response) {
     room: {
       code: room.code,
       createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
       players: room.players,
+      boardState: room.boardState,
     },
   });
 }

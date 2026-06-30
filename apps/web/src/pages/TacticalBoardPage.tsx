@@ -19,9 +19,13 @@ import {
   Upload,
   Waves,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
+import { useAuth } from "../features/auth/AuthContext";
+import { getRoom } from "../features/rooms/api/roomsApi";
+import { useRoomSocket } from "../features/rooms/hooks/useRoomSocket";
 import { TacticalBoardGrid } from "../features/tactical-board/components/TacticalBoardGrid";
 import {
   aoeShapeLabels,
@@ -81,6 +85,7 @@ import {
   formatSavedBoardDate,
   loadSavedBoardEntries,
   loadSavedBoardState,
+  normalizeBoardState,
   normalizePins,
   parseBoardState,
 } from "../features/tactical-board/utils/boardStorage";
@@ -132,6 +137,9 @@ const boardLegendItems = [
 
 type TurnResourceKey = "actionUsed" | "bonusActionUsed" | "reactionUsed";
 type SpellResource = TurnResourceKey | "free";
+type TacticalBoardPageProps = {
+  roomMode?: boolean;
+};
 
 const turnResourceLabels: Record<TurnResourceKey, string> = {
   actionUsed: "Action",
@@ -139,29 +147,43 @@ const turnResourceLabels: Record<TurnResourceKey, string> = {
   reactionUsed: "Reaction",
 };
 
-function TacticalBoardPage() {
-  const savedBoardState = useMemo(() => loadSavedBoardState(), []);
-  const initialSavedBoards = useMemo(() => loadSavedBoardEntries(), []);
-  const [tokens, setTokens] = useState(savedBoardState?.tokens ?? initialTokens);
+function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
+  const { roomCode } = useParams();
+  const [searchParams] = useSearchParams();
+  const { token } = useAuth();
+  const roomCharacterId = searchParams.get("characterId");
+  const {
+    boardState: socketBoardState,
+    connected: socketConnected,
+    error: socketError,
+    room: socketRoom,
+    sendBoardState,
+  } = useRoomSocket(roomMode ? roomCode : undefined, roomCharacterId, token);
+  const savedBoardState = useMemo(() => (roomMode ? null : loadSavedBoardState()), [roomMode]);
+  const initialSavedBoards = useMemo(() => (roomMode ? [] : loadSavedBoardEntries()), [roomMode]);
+  const initialBoardState = socketBoardState ?? savedBoardState;
+  const [loadedRoomBoardState, setLoadedRoomBoardState] = useState<SavedBoardState | null>(null);
+  const [roomLoadError, setRoomLoadError] = useState<string | null>(null);
+  const [tokens, setTokens] = useState(initialBoardState?.tokens ?? (roomMode ? [] : initialTokens));
   const [terrain, setTerrain] = useState<Record<string, BoardTerrain>>(
-    savedBoardState?.terrain ?? initialTerrain,
+    initialBoardState?.terrain ?? initialTerrain,
   );
-  const [fog, setFog] = useState<Record<string, boolean>>(savedBoardState?.fog ?? {});
-  const [pins, setPins] = useState<Record<string, MapPin>>(normalizePins(savedBoardState?.pins ?? {}));
-  const [placedTemplates, setPlacedTemplates] = useState<PlacedTemplate[]>(savedBoardState?.templates ?? []);
-  const [layers, setLayers] = useState<LayerState>({ ...defaultLayers, ...(savedBoardState?.layers ?? {}) });
+  const [fog, setFog] = useState<Record<string, boolean>>(initialBoardState?.fog ?? {});
+  const [pins, setPins] = useState<Record<string, MapPin>>(normalizePins(initialBoardState?.pins ?? {}));
+  const [placedTemplates, setPlacedTemplates] = useState<PlacedTemplate[]>(initialBoardState?.templates ?? []);
+  const [layers, setLayers] = useState<LayerState>({ ...defaultLayers, ...(initialBoardState?.layers ?? {}) });
   const [boardSettings, setBoardSettings] = useState<BoardSettings>({
     ...defaultSettings,
-    ...(savedBoardState?.settings ?? {}),
+    ...(initialBoardState?.settings ?? {}),
   });
   const [selectedTokenId, setSelectedTokenId] = useState(
-    savedBoardState?.selectedTokenId ?? initialTokens[0].id,
+    initialBoardState?.selectedTokenId ?? (roomMode ? "" : initialTokens[0].id),
   );
   const [initiativeOrder, setInitiativeOrder] = useState(
-    savedBoardState?.initiativeOrder ?? initialTokens.map((token) => token.id),
+    initialBoardState?.initiativeOrder ?? (roomMode ? [] : initialTokens.map((token) => token.id)),
   );
   const [activeInitiativeIndex, setActiveInitiativeIndex] = useState(
-    savedBoardState?.activeInitiativeIndex ?? 0,
+    initialBoardState?.activeInitiativeIndex ?? 0,
   );
   const [dragTokenId, setDragTokenId] = useState<string | null>(null);
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number; valid: boolean } | null>(
@@ -194,6 +216,9 @@ function TacticalBoardPage() {
   const [selectedSavedBoardId, setSelectedSavedBoardId] = useState(initialSavedBoards[0]?.id ?? "");
   const [ruleOverride, setRuleOverride] = useState(false);
   const [message, setMessage] = useState("Drag tokens on the board or paint terrain.");
+  const lastAppliedRemoteStateRef = useRef("");
+  const lastSentRoomStateRef = useRef("");
+  const activeRoom = socketRoom;
 
   const selectedToken = tokens.find((token) => token.id === selectedTokenId) ?? null;
   const validInitiativeOrder = useMemo(
@@ -282,6 +307,69 @@ function TacticalBoardPage() {
   );
 
   useEffect(() => {
+    if (!roomMode || !roomCode || !token) {
+      return;
+    }
+
+    let cancelled = false;
+    const currentRoomCode = roomCode;
+    const currentToken = token;
+
+    async function loadRoomBoard() {
+      setRoomLoadError(null);
+
+      try {
+        const response = await getRoom(currentRoomCode, currentToken);
+        const normalizedState = response.room.boardState
+          ? normalizeBoardState(response.room.boardState)
+          : null;
+
+        if (!cancelled) {
+          setLoadedRoomBoardState(normalizedState);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRoomLoadError(error instanceof Error ? error.message : "Failed to load room board.");
+        }
+      }
+    }
+
+    void loadRoomBoard();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomCode, roomCharacterId, roomMode, token]);
+
+  useEffect(() => {
+    if (!roomMode) {
+      return;
+    }
+
+    const nextState = socketBoardState ?? loadedRoomBoardState;
+
+    if (!nextState) {
+      return;
+    }
+
+    const normalizedState = normalizeBoardState(nextState);
+
+    if (!normalizedState) {
+      return;
+    }
+
+    const serializedState = JSON.stringify(normalizedState);
+
+    if (serializedState === lastAppliedRemoteStateRef.current) {
+      return;
+    }
+
+    lastAppliedRemoteStateRef.current = serializedState;
+    lastSentRoomStateRef.current = serializedState;
+    applyBoardState(normalizedState, socketBoardState ? "Board synced from room." : "Room board loaded.");
+  }, [loadedRoomBoardState, roomMode, socketBoardState]);
+
+  useEffect(() => {
     const state: SavedBoardState = {
       tokens,
       terrain,
@@ -295,14 +383,43 @@ function TacticalBoardPage() {
       activeInitiativeIndex,
     };
 
-    localStorage.setItem(boardStorageKey, JSON.stringify(state));
-  }, [activeInitiativeIndex, boardSettings, fog, layers, pins, placedTemplates, selectedTokenId, terrain, tokens, validInitiativeOrder]);
+    const serializedState = JSON.stringify(state);
+
+    if (roomMode) {
+      const hasLoadedRoomState = Boolean(socketBoardState ?? loadedRoomBoardState);
+
+      if (!hasLoadedRoomState) {
+        return;
+      }
+
+      if (!socketConnected || serializedState === lastSentRoomStateRef.current) {
+        return;
+      }
+
+      const timeoutId = window.setTimeout(() => {
+        lastSentRoomStateRef.current = serializedState;
+        sendBoardState(state);
+      }, 250);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    localStorage.setItem(boardStorageKey, serializedState);
+  }, [activeInitiativeIndex, boardSettings, fog, layers, loadedRoomBoardState, pins, placedTemplates, roomMode, selectedTokenId, sendBoardState, socketBoardState, socketConnected, terrain, tokens, validInitiativeOrder]);
 
   useEffect(() => {
+    if (roomMode) {
+      return;
+    }
+
     localStorage.setItem(savedBoardsStorageKey, JSON.stringify(savedBoards));
-  }, [savedBoards]);
+  }, [roomMode, savedBoards]);
 
   useEffect(() => {
+    if (roomMode) {
+      return undefined;
+    }
+
     function handleStorage(event: StorageEvent) {
       if (event.key !== boardStorageKey || !event.newValue) {
         return;
@@ -1096,10 +1213,26 @@ function TacticalBoardPage() {
       <section className="battle-board-workbench">
         <header className="battle-board-header">
           <div>
-            <p className="eyebrow">Battle Map Prototype</p>
-            <h1>Tactical Encounter Board</h1>
+            <p className="eyebrow">{roomMode ? `Room ${roomCode ?? ""}` : "Battle Map Prototype"}</p>
+            <h1>{roomMode ? "Room Encounter Board" : "Tactical Encounter Board"}</h1>
+            {roomMode && activeRoom && (
+              <p className="muted">
+                {activeRoom.players.length} player{activeRoom.players.length === 1 ? "" : "s"} joined -{" "}
+                <Link to={`/rooms/join?roomCode=${activeRoom.code}`}>Invite link</Link>
+              </p>
+            )}
+            {roomMode && !roomCharacterId && (
+              <p className="error-message">
+                Join this room with a character to enable live board sync.
+              </p>
+            )}
+            {roomMode && (socketError || roomLoadError) && (
+              <p className="error-message">{socketError ?? roomLoadError}</p>
+            )}
           </div>
-          <span className="battle-board-status">{message}</span>
+          <span className="battle-board-status">
+            {roomMode ? (socketConnected ? "Live sync on" : "Loading room sync") : message}
+          </span>
         </header>
 
         <div className="battle-board-layout">

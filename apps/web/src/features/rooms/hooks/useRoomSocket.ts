@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL } from "../../../lib/api";
+import type { SavedBoardState } from "../../tactical-board/types/board";
 
 type RoomPlayer = {
   userId: string;
@@ -12,6 +13,8 @@ type RoomPlayer = {
 type RoomDetails = {
   code: string;
   createdAt: number;
+  updatedAt: number;
+  boardState: SavedBoardState | null;
   players: RoomPlayer[];
 };
 
@@ -28,6 +31,8 @@ function useRoomSocket(
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomDetails | null>(null);
+  const [boardState, setBoardState] = useState<SavedBoardState | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     if (!roomCode || !characterId || !token) {
@@ -41,6 +46,7 @@ function useRoomSocket(
       autoConnect: false,
       transports: ["websocket"],
     });
+    socketRef.current = socket;
 
     socket.on("connect", () => {
       setConnected(true);
@@ -57,6 +63,11 @@ function useRoomSocket(
 
     socket.on("room:update", (payload: { room: RoomDetails }) => {
       setRoom(payload.room);
+      setBoardState(payload.room.boardState);
+    });
+
+    socket.on("board:update", (payload: { boardState: SavedBoardState }) => {
+      setBoardState(payload.boardState);
     });
 
     socket.open();
@@ -69,19 +80,28 @@ function useRoomSocket(
 
       if (response.room) {
         setRoom(response.room);
+        setBoardState(response.room.boardState);
       }
     });
 
     return () => {
+      socketRef.current = null;
       socket.disconnect();
     };
   }, [characterId, roomCode, token]);
 
+  const sendBoardState = useCallback((nextBoardState: SavedBoardState) => {
+    socketRef.current?.emit("board:state", { boardState: nextBoardState });
+  }, []);
+
   return {
+    boardState,
     connected,
     error,
     room,
+    sendBoardState,
   };
 }
 
 export { useRoomSocket };
+export type { RoomDetails };
