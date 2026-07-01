@@ -58,6 +58,7 @@ type CharacterSheetProps = {
   spellcastingSummary: SpellcastingSummary | null;
   tempHp: number;
   onApplyCurrentHpAdjustment: (mode: "heal" | "damage", amount: number) => void;
+  onApplyLongRest: () => void;
   onSetTempHp: (amount: number) => void;
 };
 
@@ -247,6 +248,7 @@ function CharacterSheet({
   spellcastingSummary,
   tempHp,
   onApplyCurrentHpAdjustment,
+  onApplyLongRest,
   onSetTempHp,
 }: CharacterSheetProps) {
   const [isCurrentHpModalOpen, setIsCurrentHpModalOpen] = useState(false);
@@ -687,6 +689,11 @@ function CharacterSheet({
     });
   }
 
+  function applyLongRest() {
+    onApplyLongRest();
+    resetSpellSlots();
+  }
+
   function openCurrentHpModal() {
     setHitPointAmountInput("");
     setIsCurrentHpModalOpen(true);
@@ -748,8 +755,12 @@ function CharacterSheet({
         </div>
 
         <div className="character-dashboard-toolbar-actions">
-          <button type="button" className="character-hit-points-action">
-            Rest
+          <button
+            type="button"
+            className="character-hit-points-action"
+            onClick={applyLongRest}
+          >
+            Long Rest
           </button>
           <button
             type="button"
@@ -1691,6 +1702,7 @@ function CharacterSheet({
                   type="number"
                   min="1"
                   className="character-hp-modal-input"
+                  data-testid="dashboard-current-hp-input"
                   value={hitPointAmountInput}
                   onChange={(event) => setHitPointAmountInput(event.target.value)}
                   placeholder="Enter HP amount"
@@ -1751,6 +1763,7 @@ function CharacterSheet({
                   type="number"
                   min="0"
                   className="character-hp-modal-input"
+                  data-testid="dashboard-temp-hp-input"
                   value={tempHpInput}
                   onChange={(event) => setTempHpInput(event.target.value)}
                   placeholder="Enter temp HP"

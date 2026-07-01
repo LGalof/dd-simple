@@ -181,6 +181,7 @@ function useCharacters() {
     removeCharacter,
     removeCondition,
     recordDiceRoll,
+    replaceCharacter,
     saveCharacter,
     saveError,
     savingCharacterId,

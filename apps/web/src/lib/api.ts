@@ -1,6 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:4000";
 
 type RequestOptions = {
+  keepalive?: boolean;
   token?: string | null;
 };
 
@@ -38,6 +39,7 @@ async function get<T>(path: string, options: RequestOptions = {}) {
 
 async function post<T>(path: string, body: unknown, options: RequestOptions = {}) {
   const response = await fetchApi(path, {
+    keepalive: options.keepalive,
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -55,6 +57,7 @@ async function post<T>(path: string, body: unknown, options: RequestOptions = {}
 
 async function patch<T>(path: string, body: unknown, options: RequestOptions = {}) {
   const response = await fetchApi(path, {
+    keepalive: options.keepalive,
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -72,6 +75,7 @@ async function patch<T>(path: string, body: unknown, options: RequestOptions = {
 
 async function put<T>(path: string, body: unknown, options: RequestOptions = {}) {
   const response = await fetchApi(path, {
+    keepalive: options.keepalive,
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
