@@ -18,7 +18,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../features/auth/AuthContext";
@@ -149,6 +149,7 @@ type BackendCharacterInventoryItem = Awaited<ReturnType<typeof fetchCharacterInv
 
 const inventoryStorageKey = "dd-simple.inventory-sandbox.v1";
 const inventoryDashboardStoragePrefix = "dd-simple.character-inventory.v1";
+const inventoryBackendAutosaveDelayMs = 1200;
 
 const inventoryLibraryTypeOptions: Array<{ id: InventoryLibraryType; label: string }> = [
   { id: "armor", label: "Armor" },
@@ -552,6 +553,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
   const storageKey = useMemo(() => getInventoryStorageKey(storageScope), [storageScope]);
   const savedInventoryState = useMemo(() => loadSavedInventoryState(storageKey), [storageKey]);
   const skipNextPersistRef = useRef(false);
+  const skipNextBackendPersistRef = useRef(true);
   const backendEnabled = Boolean(backendCharacterId && token);
   const [containers, setContainers] = useState(
     savedInventoryState?.containers ?? initialContainers,
@@ -634,6 +636,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
           const decodedState = decodeInventoryState(stateResponse.stateCode);
 
           if (decodedState) {
+            skipNextBackendPersistRef.current = true;
             setContainers(decodedState.containers);
             setItems(decodedState.items);
             setSelectedItemId(decodedState.selectedItemId);
@@ -646,6 +649,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
         const nextItems = backendItems.map(mapBackendInventoryItemToGridItem);
 
         if (nextItems.length > 0) {
+          skipNextBackendPersistRef.current = true;
           setContainers(initialContainers);
           setItems(nextItems);
           setSelectedItemId(nextItems[0].id);
@@ -659,7 +663,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     void loadBackendInventory();
   }, [backendCharacterId, token]);
 
-  async function saveToBackend() {
+  const saveToBackend = useCallback(async (source: "autosave" | "manual" = "manual") => {
     if (!backendCharacterId || !token) {
       setMessage("Login and select a character before saving inventory to the database.");
       return;
@@ -679,13 +683,46 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     try {
       await saveCharacterInventoryState(backendCharacterId, fullStateCode, token);
       await saveCharacterInventory(backendCharacterId, backendItems, token);
-      setMessage("Saved full inventory layout to the character database.");
+      setMessage(
+        source === "autosave"
+          ? "Inventory autosaved to the character database."
+          : "Saved full inventory layout to the character database.",
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to save inventory.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : source === "autosave"
+            ? "Inventory autosave failed."
+            : "Failed to save inventory.",
+      );
     } finally {
       setBackendSaving(false);
     }
-  }
+  }, [backendCharacterId, containers, items, selectedItemId, token]);
+
+  useEffect(() => {
+    skipNextBackendPersistRef.current = true;
+  }, [backendCharacterId, token]);
+
+  useEffect(() => {
+    if (!backendEnabled) {
+      return;
+    }
+
+    if (skipNextBackendPersistRef.current) {
+      skipNextBackendPersistRef.current = false;
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void saveToBackend("autosave");
+    }, inventoryBackendAutosaveDelayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [backendEnabled, containers, items, saveToBackend, selectedItemId]);
 
   function updateItem(nextItem: InventoryItem) {
     setItems((currentItems) =>

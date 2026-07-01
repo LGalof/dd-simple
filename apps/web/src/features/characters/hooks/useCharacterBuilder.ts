@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Character } from "../../../types/character";
+import { applyHitPointAdjustment } from "@dd-simple/shared";
 import {
   backgroundOptions,
   classOptions,
@@ -92,18 +93,21 @@ function createBuilderStateFromOptions(
     options.classOptions.find((classOption) => classOption.name === character.class.name) ??
     options.classOptions[0];
   const initialSpeciesIndex =
+    character.speciesIndex ??
     options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
     options.speciesOptions[0].index;
   const initialBackgroundIndex =
+    character.backgroundIndex ??
     options.backgroundOptions.find(
       (background) => background.name === character.background.name,
     )?.index ?? options.backgroundOptions[0].index;
+  const initialClassIndex = character.classIndex ?? initialClass.index;
   const hitPointSettings = getSavedHitPointSettings(character, initialClass.hitDie);
 
   return {
     speciesIndex: initialSpeciesIndex,
     backgroundIndex: initialBackgroundIndex,
-    classIndex: initialClass.index,
+    classIndex: initialClassIndex,
     subclassIndex: getSavedSubclassIndex(character, initialClass),
     level: character.level,
     currentHp: character.currentHp,
@@ -199,9 +203,7 @@ function getSavedBackgroundAbilityChoices(
         choice.selectedIndex,
       );
 
-      if (fieldValue) {
-        backgroundChoices[choiceKey] = fieldValue;
-      }
+      backgroundChoices[choiceKey] = fieldValue ?? choice.selectedIndex;
     }
   }
 
@@ -263,32 +265,74 @@ function getSavedGenericBackgroundChoices(
   const backgroundChoices: Record<string, string> = {};
 
   for (const choice of character.featureChoices ?? []) {
-    if (choice.sourceType !== "BACKGROUND" || choice.sourceIndex !== backgroundIndex) {
+    if (choice.sourceType.toUpperCase() !== "BACKGROUND" || choice.sourceIndex !== backgroundIndex) {
       continue;
     }
 
-    for (const section of backgroundOption.previewSections) {
-      for (const field of section.choiceFields ?? []) {
-        if (
-          field.sourceType !== choice.sourceType ||
-          field.sourceIndex !== choice.sourceIndex ||
-          field.choicePath !== choice.choicePath
-        ) {
-          continue;
-        }
+    const fieldMatch = findSavedBackgroundChoiceField(backgroundOption, choice);
 
-        const option = field.options.find((candidate) =>
-          savedFeatureChoiceOptionMatches(candidate, choice),
-        );
-
-        if (option) {
-          backgroundChoices[`${backgroundIndex}:${section.id}:${field.id}`] = option.value;
-        }
-      }
+    if (fieldMatch) {
+      backgroundChoices[`${backgroundIndex}:${fieldMatch.sectionId}:${fieldMatch.field.id}`] =
+        fieldMatch.option.value;
     }
   }
 
   return backgroundChoices;
+}
+
+function findSavedBackgroundChoiceField(
+  backgroundOption: BackgroundOption,
+  choice: NonNullable<Character["featureChoices"]>[number],
+) {
+  let fallbackMatch:
+    | {
+        field: NonNullable<BackgroundOption["previewSections"][number]["choiceFields"]>[number];
+        option: FeatureChoiceOption;
+        sectionId: string;
+      }
+    | null = null;
+
+  for (const section of backgroundOption.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      if (
+        field.sourceType?.toUpperCase() !== choice.sourceType.toUpperCase() ||
+        field.sourceIndex !== choice.sourceIndex
+      ) {
+        continue;
+      }
+
+      const option = field.options.find((candidate) =>
+        savedFeatureChoiceOptionMatches(candidate, choice),
+      );
+
+      if (!option) {
+        continue;
+      }
+
+      if (field.choicePath === choice.choicePath) {
+        return {
+          field,
+          option,
+          sectionId: section.id,
+        };
+      }
+
+      const savedChoiceKey = choice.choiceKey?.toLowerCase();
+      const fieldChoiceKeys = [field.choiceKey, field.id]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => value.toLowerCase());
+
+      if (savedChoiceKey && fieldChoiceKeys.includes(savedChoiceKey)) {
+        fallbackMatch = {
+          field,
+          option,
+          sectionId: section.id,
+        };
+      }
+    }
+  }
+
+  return fallbackMatch;
 }
 
 function canonicalAbilityScoreIndex(value: string | undefined) {
@@ -371,7 +415,10 @@ function getSavedSpeciesChoices(
 
       if (remappedChoiceKey) {
         speciesChoices[remappedChoiceKey] = choice.selectedIndex;
+        continue;
       }
+
+      speciesChoices[choiceKey] = choice.selectedIndex;
 
       continue;
     }
@@ -393,7 +440,10 @@ function getSavedSpeciesChoices(
 
     if (remappedChoiceKey) {
       speciesChoices[remappedChoiceKey] = choice.selectedIndex;
+      continue;
     }
+
+    speciesChoices[choiceKey] = choice.selectedIndex;
   }
 
   return speciesChoices;
@@ -1028,6 +1078,7 @@ function getPersistedFeatureChoices(character: Character) {
 
 function useCharacterBuilder(character: Character | undefined) {
   const previousCharacterIdRef = useRef<string | null>(null);
+  const previousHydratedBuilderStateRef = useRef<CharacterBuilderState | null>(null);
   const previousClassSkillChoiceSignatureRef = useRef("");
   const previousFeatureChoiceSignatureRef = useRef("");
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
@@ -1049,11 +1100,14 @@ function useCharacterBuilder(character: Character | undefined) {
       setFeatureChoices({});
       setPersistedSkillIndexes([]);
       previousCharacterIdRef.current = null;
+      previousHydratedBuilderStateRef.current = null;
       previousClassSkillChoiceSignatureRef.current = "";
       previousFeatureChoiceSignatureRef.current = "";
       return;
     }
 
+    const isNewCharacter = previousCharacterIdRef.current !== character.id;
+    const nextHydratedBuilderState = createBuilderStateFromOptions(character, referenceOptions);
     const selectedClassOption = getClassOptionForCharacter(
       character,
       referenceOptions.classOptions,
@@ -1073,11 +1127,32 @@ function useCharacterBuilder(character: Character | undefined) {
     const canMarkSavedChoicesProcessed =
       savedCount === 0 || hydratedCount === savedCount;
     const savedChoicesChanged =
-      previousCharacterIdRef.current !== character.id ||
+      isNewCharacter ||
       previousClassSkillChoiceSignatureRef.current !== classSkillChoiceSignature ||
       previousFeatureChoiceSignatureRef.current !== featureChoiceSignature;
+    const previousHydratedBuilderState = previousHydratedBuilderStateRef.current;
+    const shouldAcceptHydratedBuilderState =
+      isNewCharacter ||
+      !builderState ||
+      Boolean(
+        previousHydratedBuilderState &&
+          areBuilderStatesEquivalent(builderState, previousHydratedBuilderState),
+      );
 
-    setBuilderState(createBuilderStateFromOptions(character, referenceOptions));
+    setBuilderState((currentState) => {
+      if (isNewCharacter || !currentState) {
+        return nextHydratedBuilderState;
+      }
+
+      if (
+        previousHydratedBuilderState &&
+        areBuilderStatesEquivalent(currentState, previousHydratedBuilderState)
+      ) {
+        return nextHydratedBuilderState;
+      }
+
+      return currentState;
+    });
     setFeatureChoices((currentChoices) => {
       const hasCurrentClassSkillChoices =
         classSkillFeatureChoiceCount(currentChoices, selectedClassOption) > 0;
@@ -1103,11 +1178,14 @@ function useCharacterBuilder(character: Character | undefined) {
       return currentChoices;
     });
 
-    if (previousCharacterIdRef.current !== character.id) {
+    if (isNewCharacter) {
       setPersistedSkillIndexes(getPersistedSkillIndexes(character));
     }
 
     previousCharacterIdRef.current = character.id;
+    if (shouldAcceptHydratedBuilderState) {
+      previousHydratedBuilderStateRef.current = nextHydratedBuilderState;
+    }
     if (canMarkSavedChoicesProcessed) {
       previousClassSkillChoiceSignatureRef.current = classSkillChoiceSignature;
       previousFeatureChoiceSignatureRef.current = featureChoiceSignature;
@@ -1427,15 +1505,50 @@ function useCharacterBuilder(character: Character | undefined) {
         level: currentState.level,
         settings: currentState.hitPointSettings,
       });
-      const currentHp = Math.max(0, Math.min(nextHitPointPreview.maxHp, currentState.currentHp));
-      const nextCurrentHp =
-        mode === "heal"
-          ? Math.min(nextHitPointPreview.maxHp, currentHp + amount)
-          : Math.max(0, currentHp - amount);
+      const nextHitPoints = applyHitPointAdjustment({
+        amount,
+        currentHp: currentState.currentHp,
+        maxHp: nextHitPointPreview.maxHp,
+        mode,
+        tempHp: currentState.tempHp,
+      });
 
       return {
         ...currentState,
-        currentHp: nextCurrentHp,
+        currentHp: nextHitPoints.currentHp,
+        tempHp: nextHitPoints.tempHp,
+      };
+    });
+  }
+
+  function applyLongRest() {
+    setBuilderState((currentState) => {
+      if (!currentState) {
+        return currentState;
+      }
+
+      const constitutionScore = getAssignedAbilityScore(
+        currentState.abilityAssignments,
+        "con",
+        10,
+      );
+      const featureBonusHp = getFeatureChoiceHitPointBonus(
+        selectedClass,
+        featureChoices,
+        currentState.level,
+      );
+      const nextHitPointPreview = calculateHitPointPreview({
+        constitutionScore,
+        featureBonusHp,
+        hitDie: selectedClass.hitDie,
+        level: currentState.level,
+        settings: currentState.hitPointSettings,
+      });
+
+      return {
+        ...currentState,
+        currentHp: nextHitPointPreview.maxHp,
+        tempHp: 0,
       };
     });
   }
@@ -1632,11 +1745,19 @@ function useCharacterBuilder(character: Character | undefined) {
     updateAbilityAssignment,
     applyHitPointConfiguration,
     applyCurrentHpAdjustment,
+    applyLongRest,
     setTempHp,
     updateHitPointSettings,
     updateLevel,
     handleRollAllAbilities,
   };
+}
+
+function areBuilderStatesEquivalent(
+  left: CharacterBuilderState,
+  right: CharacterBuilderState,
+) {
+  return stableJsonString(left) === stableJsonString(right);
 }
 
 function getResolvedSubclassIndex(

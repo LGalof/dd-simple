@@ -24,6 +24,13 @@ import type {
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
 import { useCharacterDerivedState } from "../features/characters/hooks/useCharacterDerivedState";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
+import {
+  formatDashboardSaveStatus,
+  useDashboardAutosave,
+  type DashboardAutosaveSaveOptions,
+} from "../features/characters/hooks/useDashboardAutosave";
+import { updateCharacter } from "../features/characters/api/updateCharacter";
+import { useAuth } from "../features/auth/AuthContext";
 import type {
   BackgroundOption,
   ClassFeature,
@@ -47,6 +54,7 @@ import {
 import type {
   AbilityScores,
   Character,
+  CharacterFeatureChoiceSelection,
   CharacterFeatureSelection,
   CharacterSavePayload,
 } from "../types/character";
@@ -144,13 +152,13 @@ const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
 };
 
 function CharacterDashboardPage() {
+  const { token } = useAuth();
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | null>(null);
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
   const [diceRollSaveError, setDiceRollSaveError] = useState<string | null>(null);
   const [localRolls, setLocalRolls] = useState<LocalRollEntry[]>([]);
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const {
     addCondition,
     characters,
@@ -158,9 +166,9 @@ function CharacterDashboardPage() {
     loading,
     removeCondition,
     recordDiceRoll,
-    saveCharacter,
     saveError,
     savingCharacterId,
+    replaceCharacter,
   } = useCharacters();
   const selectedCharacterId = getSelectedCharacterId();
   const selectedCharacter = useMemo(
@@ -186,6 +194,7 @@ function CharacterDashboardPage() {
     activePanel,
     applyCurrentHpAdjustment,
     applyHitPointConfiguration,
+    applyLongRest,
     backgroundChoices,
     backgroundOptions,
     builderState,
@@ -309,6 +318,82 @@ function CharacterDashboardPage() {
     [conditionState],
   );
   const isSavingBuild = Boolean(character && savingCharacterId === character.id);
+  const dashboardSavePayload = useMemo(
+    () =>
+      character && builderState
+        ? buildCharacterSavePayload(
+            character,
+            builderState,
+            selectedClass,
+            selectedBackground,
+            persistedSkillIndexes,
+            selectedSkillIndexes,
+            featureChoices,
+            backgroundChoices,
+            speciesChoices,
+          )
+        : null,
+    [
+      backgroundChoices,
+      builderState,
+      character,
+      featureChoices,
+      persistedSkillIndexes,
+      selectedBackground,
+      selectedClass,
+      selectedSkillIndexes,
+      speciesChoices,
+    ],
+  );
+  const saveDashboardCharacter = useCallback(
+    async (
+      characterId: string,
+      payload: CharacterSavePayload,
+      options: DashboardAutosaveSaveOptions,
+    ) => {
+      if (!token) {
+        throw new Error("You must be signed in to save a character.");
+      }
+
+      return updateCharacter(characterId, payload, token, {
+        keepalive: options.keepalive && isKeepaliveSafePayload(payload),
+      });
+    },
+    [token],
+  );
+  const getSavedDashboardPayload = useCallback(
+    (updatedCharacter: Character, requestPayload: CharacterSavePayload) =>
+      builderState
+        ? buildCharacterSavePayload(
+            updatedCharacter,
+            builderState,
+            selectedClass,
+            selectedBackground,
+            persistedSkillIndexes,
+            selectedSkillIndexes,
+            featureChoices,
+            backgroundChoices,
+            speciesChoices,
+          )
+        : requestPayload,
+    [
+      backgroundChoices,
+      builderState,
+      featureChoices,
+      persistedSkillIndexes,
+      selectedBackground,
+      selectedClass,
+      selectedSkillIndexes,
+      speciesChoices,
+    ],
+  );
+  const dashboardAutosave = useDashboardAutosave({
+    characterId: character?.id ?? null,
+    getSavedPayload: getSavedDashboardPayload,
+    onSaved: replaceCharacter,
+    payload: dashboardSavePayload,
+    saveCharacter: saveDashboardCharacter,
+  });
 
   useEffect(() => {
     if (activeWorkspaceTab === "inventory") {
@@ -323,31 +408,8 @@ function CharacterDashboardPage() {
     setConditionState(buildConditionStateFromCharacter(character));
   }, [character]);
 
-  async function handleSaveBuild() {
-    if (!character || !builderState) {
-      return;
-    }
-
-    setSaveSuccessMessage(null);
-
-    const updatedCharacter = await saveCharacter(
-      character.id,
-      buildCharacterSavePayload(
-        character,
-        builderState,
-        selectedClass,
-        selectedBackground,
-        persistedSkillIndexes,
-        selectedSkillIndexes,
-        featureChoices,
-        backgroundChoices,
-        speciesChoices,
-      ),
-    );
-
-    if (updatedCharacter) {
-      setSaveSuccessMessage("Build saved.");
-    }
+  function handleSaveBuild() {
+    void dashboardAutosave.flushSave();
   }
 
   async function toggleCondition(conditionId: ConditionId) {
@@ -445,15 +507,29 @@ function CharacterDashboardPage() {
               </button>
 
               <div className="dashboard-builder-panel">
-                <button
-                  type="button"
-                  className="primary-button primary-button-uppercase"
-                  disabled={isSavingBuild}
-                  onClick={handleSaveBuild}
+                <p
+                  className={dashboardAutosave.saveStatus === "error" ? "error-message" : "muted"}
+                  data-testid="dashboard-autosave-status"
                 >
-                  {isSavingBuild ? "Saving..." : "Save Build"}
-                </button>
-                {saveSuccessMessage ? <p className="muted">{saveSuccessMessage}</p> : null}
+                  {formatDashboardSaveStatus(
+                    dashboardAutosave.saveStatus,
+                    dashboardAutosave.lastSavedAt,
+                  )}
+                </p>
+                {dashboardAutosave.saveError ? (
+                  <p className="error-message">{dashboardAutosave.saveError}</p>
+                ) : null}
+                {dashboardAutosave.saveStatus === "error" ? (
+                  <button
+                    type="button"
+                    className="primary-button primary-button-uppercase"
+                    data-testid="dashboard-retry-save"
+                    disabled={isSavingBuild}
+                    onClick={handleSaveBuild}
+                  >
+                    Retry save
+                  </button>
+                ) : null}
                 {saveError ? <p className="error-message">{saveError}</p> : null}
 
                 <CharacterBuilderSidebar
@@ -498,6 +574,7 @@ function CharacterDashboardPage() {
               selectedSubclassName={selectedSubclass?.name ?? null}
               spellcastingSummary={spellcastingSummary}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
+              onApplyLongRest={applyLongRest}
               onOpenConditions={() => setRightRailMode("conditions")}
               onSetTempHp={setTempHp}
               selectedBackground={selectedBackground}
@@ -558,7 +635,7 @@ function CharacterDashboardPage() {
   );
 }
 
-function buildCharacterSavePayload(
+export function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   classOption: ClassOption,
@@ -587,20 +664,177 @@ function buildCharacterSavePayload(
       tempHp: builderState.tempHp,
     },
     skillIndexes: [...new Set([...persistedSkillIndexes, ...selectedSkillIndexes])],
-    choices: [
-      ...buildClassSkillChoices(builderState.classIndex, classOption, featureChoices),
-      ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
-      ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
-      ...buildBackgroundAbilityChoices(builderState.backgroundIndex, backgroundChoices),
-    ],
-    featureChoices: buildGenericClassFeatureChoices(
-      builderState.classIndex,
-      classOption,
-      builderState.level,
-      featureChoices,
-    ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
+    choices: mergeCharacterChoices(
+      character.choices,
+      [
+        ...buildClassSkillChoices(builderState.classIndex, classOption, featureChoices),
+        ...buildSpeciesLanguageChoices(builderState.speciesIndex, speciesChoices),
+        ...buildSpeciesHeritageChoices(builderState.speciesIndex, speciesChoices),
+        ...buildBackgroundAbilityChoices(builderState.backgroundIndex, backgroundChoices),
+      ],
+      builderState,
+    ),
+    featureChoices: mergeCurrentBuildFeatureChoices(
+      getCurrentBuildFeatureChoices(character.featureChoices, builderState),
+      buildGenericClassFeatureChoices(
+        builderState.classIndex,
+        classOption,
+        builderState.level,
+        featureChoices,
+      ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
+    ),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
+}
+
+function mergeCharacterChoices(
+  persistedChoices: Character["choices"] | undefined,
+  nextChoices: CharacterFeatureSelection[],
+  builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+) {
+  const choicesByKey = new Map<string, CharacterFeatureSelection>();
+
+  for (const choice of persistedChoices ?? []) {
+    if (isCurrentBuildCharacterChoice(choice, builderState)) {
+      choicesByKey.set(getCharacterChoiceKey(choice), choice);
+    }
+  }
+
+  for (const choice of nextChoices) {
+    choicesByKey.set(getCharacterChoiceKey(choice), choice);
+  }
+
+  return [...choicesByKey.values()];
+}
+
+function isCurrentBuildCharacterChoice(
+  choice: CharacterFeatureSelection,
+  builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+) {
+  if (!choice.sourceType || !choice.choiceType || !choice.sourceIndex) {
+    return false;
+  }
+
+  const [sourceIndex] = choice.sourceIndex.split(":");
+
+  if (
+    choice.sourceType === "class" &&
+    choice.choiceType === "class-skill-choice"
+  ) {
+    return sourceIndex === builderState.classIndex;
+  }
+
+  if (
+    choice.sourceType === "species" &&
+    (choice.choiceType === "species-language-choice" ||
+      choice.choiceType === "species-heritage-choice")
+  ) {
+    return sourceIndex === builderState.speciesIndex;
+  }
+
+  if (
+    choice.sourceType === "background" &&
+    (choice.choiceType === "background-ability-plan" ||
+      choice.choiceType === "background-ability-score-choice")
+  ) {
+    return sourceIndex === builderState.backgroundIndex;
+  }
+
+  return false;
+}
+
+function getCharacterChoiceKey(choice: CharacterFeatureSelection) {
+  return [
+    choice.sourceType ?? "",
+    choice.choiceType ?? "",
+    choice.sourceIndex ?? "",
+    choice.selectedType ?? "",
+  ].join(":");
+}
+
+function getCurrentBuildFeatureChoices(
+  featureChoices: Character["featureChoices"] | undefined,
+  builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+) {
+  return (featureChoices ?? []).filter((choice) =>
+    isCurrentBuildFeatureChoice(choice, builderState),
+  );
+}
+
+function mergeCurrentBuildFeatureChoices(
+  persistedSelections: CharacterFeatureChoiceSelection[],
+  nextSelections: CharacterFeatureChoiceSelection[],
+) {
+  const replacedFeatureKeys = new Set(nextSelections.map(getFeatureChoiceFeatureKey));
+  const mergedSelections = new Map<string, CharacterFeatureChoiceSelection>();
+
+  for (const selection of persistedSelections) {
+    if (!replacedFeatureKeys.has(getFeatureChoiceFeatureKey(selection))) {
+      mergedSelections.set(getFeatureChoiceSelectionKey(selection), selection);
+    }
+  }
+
+  for (const selection of nextSelections) {
+    mergedSelections.set(getFeatureChoiceSelectionKey(selection), selection);
+  }
+
+  return [...mergedSelections.values()];
+}
+
+function getFeatureChoiceFeatureKey(
+  selection: Pick<
+    CharacterFeatureChoiceSelection,
+    "featureIndex" | "sourceIndex" | "sourceType"
+  >,
+) {
+  return [
+    selection.sourceType,
+    selection.sourceIndex,
+    selection.featureIndex ?? selection.sourceIndex,
+  ].join(":");
+}
+
+function getFeatureChoiceSelectionKey(
+  selection: Pick<CharacterFeatureChoiceSelection, "choicePath" | "sourceIndex" | "sourceType">,
+) {
+  return `${selection.sourceType}:${selection.sourceIndex}:${selection.choicePath}`;
+}
+
+function isCurrentBuildFeatureChoice(
+  choice: CharacterFeatureChoiceSelection,
+  builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
+) {
+  if (typeof choice.level === "number" && choice.level > builderState.level) {
+    return false;
+  }
+
+  if (choice.subclassIndex && choice.subclassIndex !== builderState.subclassIndex) {
+    return false;
+  }
+
+  const sourceType = choice.sourceType.toUpperCase();
+
+  if (sourceType === "CLASS") {
+    return choice.sourceIndex === builderState.classIndex;
+  }
+
+  if (sourceType === "FEATURE") {
+    return choice.classIndex === builderState.classIndex;
+  }
+
+  if (sourceType === "BACKGROUND") {
+    return choice.sourceIndex === builderState.backgroundIndex;
+  }
+
+  if (sourceType === "SPECIES") {
+    return choice.sourceIndex === builderState.speciesIndex;
+  }
+
+  return false;
+}
+
+function isKeepaliveSafePayload(payload: CharacterSavePayload) {
+  return JSON.stringify(payload).length <= 60_000;
 }
 
 function buildDiceRollReason(result: RollableResult) {
@@ -942,7 +1176,7 @@ function getResourceActionSummary(
       category: "resource",
       maxUses: "Uses follow class progression",
       name: "Channel Divinity",
-      recharge: "Short or Long Rest",
+      recharge: "Feature-based recovery",
     };
   }
 
@@ -953,7 +1187,7 @@ function getResourceActionSummary(
       category: "resource",
       maxUses: "Uses follow class progression",
       name: "Wild Shape",
-      recharge: "Short or Long Rest",
+      recharge: "Feature-based recovery",
     };
   }
 
@@ -975,7 +1209,7 @@ function getResourceActionSummary(
       category: "resource",
       maxUses: key.includes("2-use") ? "2 uses" : "1 use",
       name: "Action Surge",
-      recharge: "Short or Long Rest",
+      recharge: "Feature-based recovery",
     };
   }
 
@@ -986,7 +1220,7 @@ function getResourceActionSummary(
       category: "resource",
       maxUses: `${characterLevel} Focus Points`,
       name: "Monk's Focus",
-      recharge: "Short or Long Rest",
+      recharge: "Feature-based recovery",
     };
   }
 
@@ -1037,7 +1271,7 @@ function getResourceActionSummary(
       automationNote: "Spell slot details appear in the Spells tab when reference data provides them.",
       category: "resource",
       name: "Pact Magic",
-      recharge: "Short or Long Rest",
+      recharge: "Feature-based recovery",
     };
   }
 
