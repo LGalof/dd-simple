@@ -8,6 +8,7 @@ import type {
   ClassFeature,
   ClassOption,
   ClassSubclassOption,
+  FeatureChoiceOption,
   FeatureChoiceSelections,
   HitPointSettings,
   SpeciesOption,
@@ -16,6 +17,10 @@ import {
   rollHitDie,
   synchronizeHitPointRolls,
 } from "../utils/buildCharacterPreview";
+import {
+  getVisibleFeatureChoiceFields,
+  pruneHiddenFeatureChoices,
+} from "../utils/featureChoiceVisibility";
 import type { HitPointPreview } from "../utils/buildCharacterPreview";
 
 type CharacterBuilderSidebarProps = {
@@ -26,10 +31,11 @@ type CharacterBuilderSidebarProps = {
   classOption: ClassOption;
   hitPointPreview: HitPointPreview | null;
   onAbilityAssignmentChange: (slotId: string, nextAbilityIndex: string) => void;
-  onApplyHitPointSettings: (nextLevel: number, nextSettings: HitPointSettings) => void;
+  onApplyHitPointSettings: (nextSettings: HitPointSettings) => void;
   onFeatureChoicesChange: (
     updater: (currentChoices: FeatureChoiceSelections) => FeatureChoiceSelections,
   ) => void;
+  onLevelChange: (nextLevel: number) => void;
   onOpenPanel: (kind: BuilderSelectionKind) => void;
   onRollAbility: (slotId: string) => void;
   onRollAllAbilities: () => void;
@@ -51,6 +57,7 @@ function CharacterBuilderSidebar({
   onAbilityAssignmentChange,
   onApplyHitPointSettings,
   onFeatureChoicesChange,
+  onLevelChange,
   onOpenPanel,
   onRollAbility,
   onRollAllAbilities,
@@ -59,27 +66,21 @@ function CharacterBuilderSidebar({
   selectedSubclassIndex: persistedSubclassIndex,
   species,
 }: CharacterBuilderSidebarProps) {
-  const [expandedFeatureId, setExpandedFeatureId] = useState<string | null>(null);
+  const [expandedFeatureIds, setExpandedFeatureIds] = useState<Record<string, boolean>>({});
   const [manuallyCompletedFeatureIds, setManuallyCompletedFeatureIds] = useState<
     Record<string, boolean>
   >({});
   const [isHitPointPanelOpen, setIsHitPointPanelOpen] = useState(false);
-  const [draftLevel, setDraftLevel] = useState(1);
   const [draftBonusHp, setDraftBonusHp] = useState("0");
   const [draftCalculationMode, setDraftCalculationMode] = useState<"fixed" | "rolled" | "override">("fixed");
   const [draftOverrideMaxHp, setDraftOverrideMaxHp] = useState("");
   const [draftRolledHitPoints, setDraftRolledHitPoints] = useState<number[]>([]);
 
   useEffect(() => {
-    setExpandedFeatureId(classOption.features[0]?.id ?? null);
-  }, [classOption.features, classOption.index]);
-
-  useEffect(() => {
     if (!hitPointPreview || !hitPointSettings || isHitPointPanelOpen) {
       return;
     }
 
-    setDraftLevel(characterLevel);
     setDraftBonusHp(String(hitPointPreview.bonusHp));
     setDraftCalculationMode(hitPointSettings.calculationMode === "override" ? "fixed" : hitPointSettings.calculationMode);
     setDraftOverrideMaxHp(
@@ -111,16 +112,41 @@ function CharacterBuilderSidebar({
   );
 
   const selectedSubclassIndex = useMemo(
-    () => getSelectedSubclassIndex(classOption, selectedChoices, persistedSubclassIndex),
-    [classOption, persistedSubclassIndex, selectedChoices],
+    () => getSelectedSubclassIndex(classOption, selectedChoices, persistedSubclassIndex, characterLevel),
+    [characterLevel, classOption, persistedSubclassIndex, selectedChoices],
   );
 
   const visibleFeatures = useMemo(
     () =>
       classOption.features.flatMap((feature) =>
         getVisibleClassFeatures(feature, classOption.subclasses ?? [], selectedSubclassIndex),
-      ).sort(compareVisibleFeatures),
-    [classOption.features, classOption.subclasses, selectedSubclassIndex],
+      )
+        .filter((feature) => !isCantripFeature(feature))
+        .filter((feature) => feature.level <= characterLevel)
+        .sort(compareVisibleFeatures),
+    [characterLevel, classOption.features, classOption.subclasses, selectedSubclassIndex],
+  );
+
+  useEffect(() => {
+    setExpandedFeatureIds((currentState) => {
+      const visibleFeatureIds = new Set(visibleFeatures.map((feature) => feature.id));
+      const nextStateEntries = Object.entries(currentState).filter(([featureId, isExpanded]) =>
+        isExpanded && visibleFeatureIds.has(featureId)
+      );
+
+      if (nextStateEntries.length > 0) {
+        return Object.fromEntries(nextStateEntries);
+      }
+
+      const firstFeatureId = visibleFeatures[0]?.id;
+
+      return firstFeatureId ? { [firstFeatureId]: true } : {};
+    });
+  }, [visibleFeatures]);
+
+  const selectedSkillProficiencyLabels = useMemo(
+    () => getSelectedSkillProficiencyLabels(background, visibleFeatures, selectedChoices),
+    [background, selectedChoices, visibleFeatures],
   );
 
   useEffect(() => {
@@ -137,6 +163,45 @@ function CharacterBuilderSidebar({
       return Object.fromEntries(nextStateEntries);
     });
   }, [visibleFeatures]);
+
+  useEffect(() => {
+    onFeatureChoicesChange((currentChoices) => {
+      let changed = false;
+      const nextChoices = { ...currentChoices };
+
+      for (const feature of visibleFeatures) {
+        for (const field of feature.choiceFields ?? []) {
+          if (field.choiceKind !== "eldritch-invocation") {
+            continue;
+          }
+
+          const choiceKey = `${feature.id}:${field.id}`;
+          const selectedValue = currentChoices[choiceKey];
+
+          if (!selectedValue) {
+            continue;
+          }
+
+          const availableValues = new Set(
+            getSelectableChoiceOptions(
+              feature,
+              field,
+              visibleFeatures,
+              currentChoices,
+              selectedSkillProficiencyLabels,
+            ).map((option) => option.value),
+          );
+
+          if (!availableValues.has(selectedValue)) {
+            delete nextChoices[choiceKey];
+            changed = true;
+          }
+        }
+      }
+
+      return changed ? nextChoices : currentChoices;
+    });
+  }, [onFeatureChoicesChange, selectedChoices, selectedSkillProficiencyLabels, visibleFeatures]);
 
   const highestCompletedRequiredFeatureLevel = useMemo(
     () =>
@@ -157,13 +222,14 @@ function CharacterBuilderSidebar({
       isFeatureMarkedComplete(feature, selectedChoices, highestCompletedRequiredFeatureLevel),
     ).length;
 
-    return `${completedCount} completed - levels 1-20`;
-  }, [highestCompletedRequiredFeatureLevel, selectedChoices, visibleFeatures]);
+    return `${completedCount} completed - levels 1-${characterLevel}`;
+  }, [characterLevel, highestCompletedRequiredFeatureLevel, selectedChoices, visibleFeatures]);
 
   function toggleFeature(featureId: string) {
-    setExpandedFeatureId((currentFeatureId) =>
-      currentFeatureId === featureId ? null : featureId,
-    );
+    setExpandedFeatureIds((currentState) => ({
+      ...currentState,
+      [featureId]: !currentState[featureId],
+    }));
   }
 
   function toggleManualFeatureCompletion(featureId: string) {
@@ -186,14 +252,16 @@ function CharacterBuilderSidebar({
     }
 
     onFeatureChoicesChange((currentChoices) => {
-      const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
+      const visibleChoiceFieldsBeforeUpdate = getVisibleChoiceFieldsForSelection(
         featureId,
         choiceFields,
         currentChoices,
       );
-      const groupFields = field ? getChoiceGroupFields(visibleChoiceFields, field) : [];
+      const groupFields = field ? getChoiceGroupFields(visibleChoiceFieldsBeforeUpdate, field) : [];
+      const allowDuplicateSelection = field?.choiceGroupId === "asi-score";
       const isDuplicateSelection = Boolean(
-        value &&
+        !allowDuplicateSelection &&
+          value &&
           groupFields.some(
             (groupField) =>
               groupField.id !== fieldId &&
@@ -214,7 +282,43 @@ function CharacterBuilderSidebar({
         delete nextChoices[`${featureId}:${fieldId}`];
       }
 
-      return pruneHiddenFeatureChoices(featureId, choiceFields, nextChoices);
+      const prunedChoices = pruneHiddenFeatureChoices(featureId, choiceFields, nextChoices);
+      const choiceKey = `${featureId}:${fieldId}`;
+      const visibleChoiceFieldsAfterUpdate = getVisibleChoiceFieldsForSelection(
+        featureId,
+        choiceFields,
+        nextChoices,
+      );
+      const groupFieldsAfterUpdate = field
+        ? getChoiceGroupFields(visibleChoiceFieldsAfterUpdate, field)
+        : [];
+      const visibleGroupFieldIdsAfterUpdate = new Set(
+        groupFieldsAfterUpdate.map((groupField) => groupField.id),
+      );
+
+      if (
+        value &&
+        field?.dependsOnFieldId &&
+        nextChoices[choiceKey] &&
+        !(choiceKey in prunedChoices)
+      ) {
+        prunedChoices[choiceKey] = nextChoices[choiceKey];
+      }
+
+      for (const groupField of groupFieldsAfterUpdate) {
+        const groupChoiceKey = `${featureId}:${groupField.id}`;
+
+        if (
+          groupField.id !== fieldId &&
+          visibleGroupFieldIdsAfterUpdate.has(groupField.id) &&
+          currentChoices[groupChoiceKey] &&
+          !(groupChoiceKey in prunedChoices)
+        ) {
+          prunedChoices[groupChoiceKey] = currentChoices[groupChoiceKey];
+        }
+      }
+
+      return prunedChoices;
     });
   }
 
@@ -223,7 +327,6 @@ function CharacterBuilderSidebar({
       return;
     }
 
-    setDraftLevel(characterLevel);
     setDraftBonusHp(String(hitPointPreview.bonusHp));
     setDraftCalculationMode(hitPointSettings.calculationMode === "override" ? "fixed" : hitPointSettings.calculationMode);
     setDraftOverrideMaxHp(
@@ -248,28 +351,18 @@ function CharacterBuilderSidebar({
         ? null
         : Math.max(1, nextOverrideMaxHp);
 
-    onApplyHitPointSettings(draftLevel, {
+    onApplyHitPointSettings({
       bonusHp: Number.isFinite(nextBonusHp) ? nextBonusHp : 0,
       calculationMode: overrideMaxHp === null ? draftCalculationMode : "override",
       overrideMaxHp,
       rolledHitPoints: synchronizeHitPointRolls(
-        draftLevel,
+        characterLevel,
         hitPointPreview?.hitDie ?? classOption.hitDie,
         draftRolledHitPoints,
       ),
     });
 
     closeHitPointPanel();
-  }
-
-  function updateDraftLevel(nextValue: string) {
-    const parsedLevel = Number.parseInt(nextValue, 10);
-    const nextLevel = Number.isFinite(parsedLevel) ? Math.max(1, Math.min(20, parsedLevel)) : 1;
-
-    setDraftLevel(nextLevel);
-    setDraftRolledHitPoints((currentRolls) =>
-      synchronizeHitPointRolls(nextLevel, classOption.hitDie, currentRolls),
-    );
   }
 
   function rerollHitPointDieAtIndex(index: number) {
@@ -290,9 +383,9 @@ function CharacterBuilderSidebar({
 
     return {
       constitutionScore,
-      normalized: synchronizeHitPointRolls(draftLevel, classOption.hitDie, draftRolledHitPoints),
+      normalized: synchronizeHitPointRolls(characterLevel, classOption.hitDie, draftRolledHitPoints),
     };
-  }, [abilityAssignments, classOption.hitDie, draftLevel, draftRolledHitPoints, hitPointPreview]);
+  }, [abilityAssignments, characterLevel, classOption.hitDie, draftRolledHitPoints, hitPointPreview]);
 
   const draftHitPointTotals = useMemo(() => {
     if (!draftHitPointPreview) {
@@ -303,7 +396,7 @@ function CharacterBuilderSidebar({
       bonusHp: draftBonusHp,
       constitutionScore: draftHitPointPreview.constitutionScore,
       hitDie: classOption.hitDie,
-      level: draftLevel,
+      level: characterLevel,
       mode: draftCalculationMode,
       overrideMaxHp: draftOverrideMaxHp,
       rolledHitPoints: draftHitPointPreview.normalized,
@@ -315,8 +408,8 @@ function CharacterBuilderSidebar({
     draftBonusHp,
     draftCalculationMode,
     draftHitPointPreview,
-    draftLevel,
     draftOverrideMaxHp,
+    characterLevel,
   ]);
 
   return (
@@ -430,6 +523,29 @@ function CharacterBuilderSidebar({
           </div>
         </div>
 
+        <div className="builder-sidebar-section">
+          <label className="builder-feature-choice-field">
+            <span>Character Level</span>
+            <select
+              className="builder-feature-select"
+              value={String(characterLevel)}
+              onChange={(event) => {
+                const parsedLevel = Number.parseInt(event.target.value, 10);
+
+                if (Number.isFinite(parsedLevel)) {
+                  onLevelChange(parsedLevel);
+                }
+              }}
+            >
+              {Array.from({ length: 20 }, (_, index) => index + 1).map((levelOption) => (
+                <option key={levelOption} value={levelOption}>
+                  Level {levelOption}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="builder-sidebar-section builder-sidebar-scroll-section">
           <div className="builder-section-header">
             <div>
@@ -441,7 +557,7 @@ function CharacterBuilderSidebar({
 
           <div className="builder-feature-accordion">
             {visibleFeatures.map((feature) => {
-              const isExpanded = expandedFeatureId === feature.id;
+              const isExpanded = Boolean(expandedFeatureIds[feature.id]);
               const isAutoComplete = isFeatureMarkedComplete(
                 feature,
                 selectedChoices,
@@ -520,6 +636,16 @@ function CharacterBuilderSidebar({
                               feature.choiceFields,
                               selectedChoices,
                             );
+                            const selectableOptions = getSelectableChoiceOptions(
+                              feature,
+                              field,
+                              visibleFeatures,
+                              selectedChoices,
+                              selectedSkillProficiencyLabels,
+                            );
+                            const selectedOption =
+                              selectableOptions.find((option) => option.value === selectedValue) ??
+                              null;
                             const groupFields = getChoiceGroupFields(visibleChoiceFields, field);
                             const groupSelectedValues = getChoiceGroupSelectedValues(
                               feature.id,
@@ -553,21 +679,33 @@ function CharacterBuilderSidebar({
                                     <option value="">
                                       {`Choose ${field.label.toLowerCase()}`}
                                     </option>
-                                    {field.options.map((option) => (
+                                    {selectableOptions.map((option) => (
                                       <option
                                         key={option.value}
                                         value={option.value}
-                                        disabled={isChoiceOptionSelectedElsewhere(
-                                          option.value,
-                                          selectedValue,
-                                          groupSelectedValues,
-                                        )}
+                                        disabled={
+                                          field.choiceGroupId === "asi-score"
+                                            ? false
+                                            : isChoiceOptionSelectedElsewhere(
+                                                option.value,
+                                                selectedValue,
+                                                groupSelectedValues,
+                                              )
+                                        }
                                       >
                                         {option.label}
                                       </option>
                                     ))}
                                   </select>
                                 </label>
+                                {selectedOption && hasFeatureChoiceOptionDescription(selectedOption) ? (
+                                  <div className="builder-feature-option-help-list">
+                                    <div className="builder-feature-option-help builder-feature-option-help-selected">
+                                      <strong>{selectedOption.label}</strong>
+                                      <p>{selectedOption.description}</p>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}
@@ -635,20 +773,10 @@ function CharacterBuilderSidebar({
               </div>
 
               <div className="builder-hp-input-grid">
-                <label className="builder-hp-input-field">
+                <div className="builder-hp-stat">
                   <span>Character Level</span>
-                  <select
-                    className="builder-hp-input"
-                    value={String(draftLevel)}
-                    onChange={(event) => updateDraftLevel(event.target.value)}
-                  >
-                    {Array.from({ length: 20 }, (_, index) => index + 1).map((levelOption) => (
-                      <option key={levelOption} value={levelOption}>
-                        Level {levelOption}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <strong>{characterLevel}</strong>
+                </div>
 
                 <div className="builder-hp-stat">
                   <span>{draftCalculationMode === "rolled" ? "Rolled HP" : "Fixed HP"}</span>
@@ -747,7 +875,7 @@ function CharacterBuilderSidebar({
                     {classOption.name}: d{draftHitPointTotals.hitDie}
                   </p>
                   <p>
-                    Pool: {draftLevel}d{draftHitPointTotals.hitDie}
+                    Pool: {characterLevel}d{draftHitPointTotals.hitDie}
                   </p>
                 </div>
 
@@ -882,52 +1010,14 @@ function isFeatureMarkedComplete(
     feature.level <= highestCompletedRequiredFeatureLevel;
 }
 
-function isChoiceFieldVisible(
-  featureId: string,
-  field: NonNullable<ClassFeature["choiceFields"]>[number],
-  selectedChoices: Record<string, string>,
-) {
-  if (!field.dependsOnFieldId || !field.dependsOnValues?.length) {
-    return true;
-  }
-
-  const dependencyValue = selectedChoices[`${featureId}:${field.dependsOnFieldId}`];
-
-  return Boolean(dependencyValue && field.dependsOnValues.includes(dependencyValue));
-}
-
 function getVisibleChoiceFieldsForSelection(
   featureId: string,
   choiceFields: ClassFeature["choiceFields"],
   selectedChoices: Record<string, string>,
 ) {
-  return (choiceFields ?? []).filter((field) =>
-    isChoiceFieldVisible(featureId, field, selectedChoices),
+  return getVisibleFeatureChoiceFields(featureId, choiceFields, selectedChoices).filter(
+    (field) => !isCantripChoiceField(field),
   );
-}
-
-function pruneHiddenFeatureChoices(
-  featureId: string,
-  choiceFields: ClassFeature["choiceFields"],
-  selectedChoices: Record<string, string>,
-) {
-  const nextChoices = { ...selectedChoices };
-  let changed = true;
-
-  while (changed) {
-    changed = false;
-
-    for (const field of choiceFields ?? []) {
-      const choiceKey = `${featureId}:${field.id}`;
-
-      if (!isChoiceFieldVisible(featureId, field, nextChoices) && choiceKey in nextChoices) {
-        delete nextChoices[choiceKey];
-        changed = true;
-      }
-    }
-  }
-
-  return nextChoices;
 }
 
 function getFeatureChoiceSummaries(
@@ -950,17 +1040,283 @@ function getFeatureChoiceSummaries(
     });
 }
 
+function getSelectableChoiceOptions(
+  feature: ClassFeature,
+  field: NonNullable<ClassFeature["choiceFields"]>[number],
+  visibleFeatures: ClassFeature[],
+  selectedChoices: Record<string, string>,
+  selectedSkillProficiencyLabels: Set<string>,
+) {
+  const choiceKey = `${feature.id}:${field.id}`;
+  const containsSpellOptions = field.options.some((option) =>
+    option.selectedOptionUrl?.includes("/spells/"),
+  );
+
+  if (field.choiceKind === "expertise") {
+    return field.options.filter((option) =>
+      selectedSkillProficiencyLabels.has(normalizeSkillLabel(option.label)),
+    );
+  }
+
+  if (field.choiceKind === "eldritch-invocation") {
+    const selectedPactBoonIndex = getSelectedPactBoonIndex(visibleFeatures, selectedChoices);
+    const selectedSpellIndexes = getSelectedSpellIndexes(
+      visibleFeatures,
+      selectedChoices,
+      choiceKey,
+    );
+
+    return field.options.filter((option) =>
+      invocationOptionMeetsRequirements(
+        option,
+        feature.level,
+        selectedPactBoonIndex,
+        selectedSpellIndexes,
+      ),
+    );
+  }
+
+  if (!containsSpellOptions) {
+    return field.options;
+  }
+
+  const selectedSpellIndexes = getSelectedSpellIndexes(
+    visibleFeatures,
+    selectedChoices,
+    choiceKey,
+  );
+
+  return field.options.filter((option) => {
+    const spellIndex = getSpellIndexFromOption(option);
+
+    return !spellIndex || !selectedSpellIndexes.has(spellIndex);
+  });
+}
+
+function getSelectedSkillProficiencyLabels(
+  background: BackgroundOption,
+  visibleFeatures: ClassFeature[],
+  selectedChoices: Record<string, string>,
+) {
+  const labels = new Set(
+    background.skillProficiencies.map((skillName) => normalizeSkillLabel(skillName)),
+  );
+
+  for (const feature of visibleFeatures) {
+    for (const field of getVisibleChoiceFieldsForSelection(
+      feature.id,
+      feature.choiceFields,
+      selectedChoices,
+    )) {
+      if (field.choiceKind !== "skill-proficiency") {
+        continue;
+      }
+
+      const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (selectedOption) {
+        labels.add(normalizeSkillLabel(selectedOption.label));
+      }
+    }
+  }
+
+  return labels;
+}
+
+function normalizeSkillLabel(value: string) {
+  return value.replace(/^Skill:\s*/i, "").trim().toLowerCase();
+}
+
+function isCantripFeature(feature: ClassFeature) {
+  const featureIdentity = `${feature.id} ${feature.title}`.toLowerCase();
+
+  if (featureIdentity.includes("cantrip")) {
+    return true;
+  }
+
+  const choiceFields = feature.choiceFields ?? [];
+
+  return (
+    choiceFields.length > 0 &&
+    choiceFields.every((field) =>
+      `${field.id} ${field.label} ${field.choiceKind ?? ""}`.toLowerCase().includes("cantrip"),
+    )
+  );
+}
+
+function isCantripChoiceField(field: NonNullable<ClassFeature["choiceFields"]>[number]) {
+  if (field.id.startsWith("feat-magic-initiate-")) {
+    return false;
+  }
+
+  return `${field.id} ${field.label} ${field.choiceKind ?? ""}`.toLowerCase().includes("cantrip");
+}
+
+function getSelectedPactBoonIndex(
+  visibleFeatures: ClassFeature[],
+  selectedChoices: Record<string, string>,
+) {
+  const pactBoonFeature = visibleFeatures.find((feature) => feature.id === "pact-boon");
+
+  if (!pactBoonFeature) {
+    return null;
+  }
+
+  const pactBoonField = getVisibleChoiceFieldsForSelection(
+    pactBoonFeature.id,
+    pactBoonFeature.choiceFields,
+    selectedChoices,
+  )[0];
+
+  if (!pactBoonField) {
+    return null;
+  }
+
+  return selectedChoices[`${pactBoonFeature.id}:${pactBoonField.id}`] ?? null;
+}
+
+function hasFeatureChoiceOptionDescription(option: FeatureChoiceOption) {
+  return typeof option.description === "string" && option.description.trim().length > 0;
+}
+
+function invocationOptionMeetsRequirements(
+  option: FeatureChoiceOption,
+  featureLevel: number,
+  selectedPactBoonIndex: string | null,
+  selectedSpellIndexes: Set<string>,
+) {
+  const prerequisites = getInvocationPrerequisites(option.selectedRawJson);
+
+  if (!prerequisites) {
+    return true;
+  }
+
+  if (
+    typeof prerequisites.minimumLevel === "number" &&
+    featureLevel < prerequisites.minimumLevel
+  ) {
+    return false;
+  }
+
+  if (
+    typeof prerequisites.requiredPactBoonIndex === "string" &&
+    prerequisites.requiredPactBoonIndex.length > 0 &&
+    selectedPactBoonIndex !== prerequisites.requiredPactBoonIndex
+  ) {
+    return false;
+  }
+
+  if (
+    typeof prerequisites.requiredSpellIndex === "string" &&
+    prerequisites.requiredSpellIndex.length > 0 &&
+    !selectedSpellIndexes.has(prerequisites.requiredSpellIndex)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function getSelectedSpellIndexes(
+  visibleFeatures: ClassFeature[],
+  selectedChoices: Record<string, string>,
+  excludedChoiceKey?: string,
+) {
+  const spellIndexes = new Set<string>();
+
+  for (const feature of visibleFeatures) {
+    for (const field of getVisibleChoiceFieldsForSelection(
+      feature.id,
+      feature.choiceFields,
+      selectedChoices,
+    )) {
+      const choiceKey = `${feature.id}:${field.id}`;
+
+      if (excludedChoiceKey && choiceKey === excludedChoiceKey) {
+        continue;
+      }
+
+      const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        continue;
+      }
+
+      const spellIndex = getSpellIndexFromOption(selectedOption);
+
+      if (spellIndex) {
+        spellIndexes.add(spellIndex);
+      }
+    }
+  }
+
+  return spellIndexes;
+}
+
+function getSpellIndexFromOption(option: FeatureChoiceOption) {
+  const selectedIndex = option.selectedOptionIndex?.trim().toLowerCase();
+  const selectedUrl = option.selectedOptionUrl?.trim().toLowerCase();
+
+  if (selectedIndex && selectedUrl?.includes("/spells/")) {
+    return selectedIndex;
+  }
+
+  const spellMatch = selectedUrl?.match(/\/spells\/([^/?#]+)$/);
+
+  return spellMatch?.[1] ?? null;
+}
+
+function getInvocationPrerequisites(selectedRawJson: unknown) {
+  if (!selectedRawJson || typeof selectedRawJson !== "object" || Array.isArray(selectedRawJson)) {
+    return null;
+  }
+
+  const prerequisites =
+    "prerequisites" in selectedRawJson
+      ? (selectedRawJson as { prerequisites?: unknown }).prerequisites
+      : null;
+
+  if (!prerequisites || typeof prerequisites !== "object" || Array.isArray(prerequisites)) {
+    return null;
+  }
+
+  return prerequisites as {
+    minimumLevel?: number;
+    requiredPactBoonIndex?: string | null;
+    requiredSpellIndex?: string | null;
+  };
+}
+
 function isSummaryChoiceField(field: NonNullable<ClassFeature["choiceFields"]>[number]) {
+  const containsSpellOptions = field.options.some((option) =>
+    option.selectedOptionUrl?.includes("/spells/"),
+  );
+
   return (
     field.choiceKind === "subclass" ||
+    field.choiceKind === "skill-proficiency" ||
+    field.choiceKind === "tool-proficiency" ||
+    field.choiceKind === "armor-proficiency" ||
+    field.choiceKind === "weapon-proficiency" ||
     field.choiceKind === "asi-feat" ||
     field.choiceKind === "epic-boon" ||
     field.choiceKind === "expertise" ||
+    field.choiceKind === "scholar" ||
+    field.choiceKind === "elemental-fury" ||
     field.choiceKind === "fighting-style" ||
     field.choiceKind === "metamagic" ||
     field.choiceKind === "pact-boon" ||
     field.choiceKind === "eldritch-invocation" ||
-    field.choiceKind === "weapon-mastery"
+    field.choiceKind === "mystic-arcanum" ||
+    field.choiceKind === "weapon-mastery" ||
+    containsSpellOptions
   );
 }
 
@@ -1001,15 +1357,32 @@ function getSelectedSubclassIndex(
   classOption: ClassOption,
   selectedChoices: FeatureChoiceSelections,
   persistedSubclassIndex: string | null,
+  characterLevel: number,
 ) {
   const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
 
-  if (persistedSubclassIndex && subclassIndexes.has(persistedSubclassIndex)) {
+  if (
+    persistedSubclassIndex &&
+    subclassIndexes.has(persistedSubclassIndex) &&
+    classOption.features.every(
+      (feature) =>
+        feature.level <= characterLevel ||
+        !(feature.choiceFields ?? []).some(
+          (field) =>
+            field.choiceKind === "subclass" &&
+            field.options.some(
+              (option) =>
+                option.value === persistedSubclassIndex ||
+                option.selectedOptionIndex === persistedSubclassIndex,
+            ),
+        ),
+    )
+  ) {
     return persistedSubclassIndex;
   }
 
   for (const feature of classOption.features) {
-    if (!feature.choiceFields?.length) {
+    if (feature.level > characterLevel || !feature.choiceFields?.length) {
       continue;
     }
 
@@ -1034,6 +1407,10 @@ function getVisibleClassFeatures(
   subclasses: ClassSubclassOption[],
   selectedSubclassIndex: string | null,
 ) : ClassFeature[] {
+  if (feature.subclassIndex) {
+    return feature.subclassIndex === selectedSubclassIndex ? [feature] : [];
+  }
+
   if (!feature.id.includes("subclass-feature")) {
     return [feature];
   }
@@ -1054,6 +1431,7 @@ function getVisibleClassFeatures(
 
   if (subclassFeaturesAtLevel.length > 0) {
     return subclassFeaturesAtLevel.map((subclassFeature) => ({
+      choiceFields: subclassFeature.choiceFields,
       id: `${feature.id}:${slugifyFeatureName(subclassFeature.name)}`,
       level: feature.level,
       title: subclassFeature.name,
@@ -1114,11 +1492,15 @@ function visibleFeaturePriority(feature: ClassFeature) {
     return 0;
   }
 
-  if (feature.id.includes("subclass-feature")) {
+  if (feature.subclassIndex) {
     return 1;
   }
 
-  return 2;
+  if (feature.id.includes("subclass-feature")) {
+    return 2;
+  }
+
+  return 3;
 }
 
 function formatOrdinal(value: number) {

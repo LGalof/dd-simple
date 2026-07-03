@@ -5,6 +5,24 @@ import {
   getFeatAbilityRule,
 } from "@dd-simple/shared";
 import { prisma } from "../lib/prisma.js";
+import {
+  attachResourceStateToCharacter,
+  attachResourceStateToCharacters,
+  findResourceStateForCharacter,
+  normalizeResourceStateInput,
+  upsertCharacterResourceState,
+  type ResourceStateInput,
+  type ResourceStateModel,
+} from "./character-resource-state.service.js";
+import {
+  attachSpellcastingStateToCharacter,
+  attachSpellcastingStateToCharacters,
+  findSpellcastingStateForCharacter,
+  normalizeSpellcastingStateInput,
+  upsertCharacterSpellcastingState,
+  type SpellcastingStateInput,
+  type SpellcastingStateModel,
+} from "./character-spellcasting-state.service.js";
 
 type ReferenceIndexRecord = {
   index: string;
@@ -39,6 +57,10 @@ type ClassProficiencyGrantIndex = {
   proficiencyIndex: string;
 };
 
+type BackgroundProficiencyGrantIndex = {
+  proficiencyIndex: string;
+};
+
 type ReferenceIndexOnly = {
   index: string;
 };
@@ -47,11 +69,6 @@ type ClassSkillChoiceWithOptions = {
   options: Array<{
     proficiencyIndex: string;
   }>;
-};
-
-type CharacterProficiencySourceRecord = {
-  proficiencyIndex: string;
-  sourceType: string | null;
 };
 
 type CharacterChoiceInput = {
@@ -100,6 +117,8 @@ type CharacterMutationData = {
   level?: number;
   currentHp?: number;
   hitPointState?: HitPointStateInput;
+  spellcastingState?: SpellcastingStateInput;
+  resourceState?: ResourceStateInput;
   skillIndexes: string[];
   choices?: CharacterChoiceInput[];
   featureChoices?: CharacterFeatureChoiceSelectionInput[];
@@ -114,6 +133,11 @@ type CharacterMutationData = {
 };
 
 type CreateCharacterData = CharacterMutationData;
+
+type RuntimeStateCharacter<T extends { id: string }> = T & {
+  resourceState: ResourceStateModel | null;
+  spellcastingState: SpellcastingStateModel | null;
+};
 
 type CharacterInventoryMutationItem = {
   equipmentIndex: string;
@@ -180,6 +204,30 @@ const fallbackSpeciesLanguageIndexes: Record<string, string[]> = {
   orc: ["common", "orc"],
   tiefling: ["common", "infernal"],
 };
+
+async function attachCharacterRuntimeState<T extends { id: string }>(
+  executor: Prisma.TransactionClient | typeof prisma,
+  character: T | null,
+): Promise<RuntimeStateCharacter<T> | null> {
+  const withSpellcastingState = await attachSpellcastingStateToCharacter(
+    executor,
+    character,
+  );
+
+  return attachResourceStateToCharacter(executor, withSpellcastingState);
+}
+
+async function attachCharacterRuntimeStates<T extends { id: string }>(
+  executor: Prisma.TransactionClient | typeof prisma,
+  characters: T[],
+): Promise<Array<RuntimeStateCharacter<T>>> {
+  const withSpellcastingStates = await attachSpellcastingStateToCharacters(
+    executor,
+    characters,
+  );
+
+  return attachResourceStateToCharacters(executor, withSpellcastingStates);
+}
 
 class CharacterReferenceNotFoundError extends Error {
   constructor(message: string) {
@@ -918,22 +966,12 @@ function isSyntheticFeatureChoiceSelection(choice: CharacterFeatureChoiceSelecti
     );
   }
 
-  if (normalizedChoiceKey === "feat-save-resilient") {
-    return Boolean(
-      normalizeSavingThrowAbilityIndex(selectedOptionIndex) ??
-        normalizeSavingThrowAbilityIndex(selectedOptionName),
-    );
-  }
-
   if (
-    normalizedChoiceKey === "feat-skill-skill-expert" ||
-    normalizedChoiceKey === "feat-expertise-skill-expert"
+    normalizedChoiceKey.startsWith("feat-magic-initiate-") ||
+    normalizedChoiceKey.startsWith("feat-tool-") ||
+    normalizedChoiceKey.startsWith("feat-proficiency-")
   ) {
-    return isSyntheticSkillReference(selectedOptionIndex, selectedOptionName);
-  }
-
-  if (normalizedChoiceKey === "feat-weapon-weapon-master") {
-    return isSyntheticWeaponReference(selectedOptionIndex, selectedOptionName);
+    return Boolean(selectedOptionIndex || selectedOptionName);
   }
 
   return false;
@@ -1198,40 +1236,72 @@ function abilityScoreRows(
   const totalBonuses = mergeAbilityBonuses(
     bonuses,
     getFeatureChoiceAbilityBonuses(data.featureChoices),
+    getClassFeatureAbilityBonuses(data.classIndex, data.level ?? 1),
   );
+  const abilityMaximums = getClassFeatureAbilityMaximums(data.classIndex, data.level ?? 1);
 
   return [
     {
       abilityIndex: "str",
       baseScore: data.abilityScores.str,
-      score: data.abilityScores.str + (totalBonuses.get("str") ?? 0),
+      score: capAbilityScore("str", data.abilityScores.str + (totalBonuses.get("str") ?? 0), abilityMaximums),
     },
     {
       abilityIndex: "dex",
       baseScore: data.abilityScores.dex,
-      score: data.abilityScores.dex + (totalBonuses.get("dex") ?? 0),
+      score: capAbilityScore("dex", data.abilityScores.dex + (totalBonuses.get("dex") ?? 0), abilityMaximums),
     },
     {
       abilityIndex: "con",
       baseScore: data.abilityScores.con,
-      score: data.abilityScores.con + (totalBonuses.get("con") ?? 0),
+      score: capAbilityScore("con", data.abilityScores.con + (totalBonuses.get("con") ?? 0), abilityMaximums),
     },
     {
       abilityIndex: "int",
       baseScore: data.abilityScores.int,
-      score: data.abilityScores.int + (totalBonuses.get("int") ?? 0),
+      score: capAbilityScore("int", data.abilityScores.int + (totalBonuses.get("int") ?? 0), abilityMaximums),
     },
     {
       abilityIndex: "wis",
       baseScore: data.abilityScores.wis,
-      score: data.abilityScores.wis + (totalBonuses.get("wis") ?? 0),
+      score: capAbilityScore("wis", data.abilityScores.wis + (totalBonuses.get("wis") ?? 0), abilityMaximums),
     },
     {
       abilityIndex: "cha",
       baseScore: data.abilityScores.cha,
-      score: data.abilityScores.cha + (totalBonuses.get("cha") ?? 0),
+      score: capAbilityScore("cha", data.abilityScores.cha + (totalBonuses.get("cha") ?? 0), abilityMaximums),
     },
   ];
+}
+
+function getClassFeatureAbilityBonuses(classIndex: string, level: number) {
+  const bonuses = new Map<string, number>();
+
+  if (classIndex === "barbarian" && level >= 20) {
+    bonuses.set("str", 4);
+    bonuses.set("con", 4);
+  }
+
+  return bonuses;
+}
+
+function getClassFeatureAbilityMaximums(classIndex: string, level: number) {
+  const maximums = new Map<string, number>();
+
+  if (classIndex === "barbarian" && level >= 20) {
+    maximums.set("str", 25);
+    maximums.set("con", 25);
+  }
+
+  return maximums;
+}
+
+function capAbilityScore(
+  abilityIndex: string,
+  value: number,
+  maximums: Map<string, number>,
+) {
+  return Math.min(maximums.get(abilityIndex) ?? 20, value);
 }
 
 function mergeAbilityBonuses(...bonusMaps: Array<Map<string, number>>) {
@@ -1334,39 +1404,6 @@ function isFeatSelectionChoice(choice: CharacterFeatureChoiceSelectionInput) {
   );
 }
 
-function normalizeSavingThrowAbilityIndex(value: string | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const normalizedValue = value
-    .toLowerCase()
-    .replace(/^saving throw:\s*/, "")
-    .replace(/^saving-throw-/, "");
-
-  return abilityScoreIndexAliases[normalizedValue] ?? null;
-}
-
-function isSyntheticSkillReference(
-  selectedOptionIndex: string | undefined,
-  selectedOptionName: string | undefined,
-) {
-  const normalizedIndex = selectedOptionIndex?.toLowerCase() ?? "";
-  const normalizedName = selectedOptionName?.toLowerCase() ?? "";
-
-  return normalizedIndex.startsWith("skill-") || normalizedName.startsWith("skill:");
-}
-
-function isSyntheticWeaponReference(
-  selectedOptionIndex: string | undefined,
-  selectedOptionName: string | undefined,
-) {
-  const normalizedIndex = selectedOptionIndex?.toLowerCase() ?? "";
-  const normalizedName = selectedOptionName?.toLowerCase() ?? "";
-
-  return normalizedIndex.startsWith("weapon-") || normalizedName.startsWith("weapon:");
-}
-
 function getClassSavingThrowProficiencyIndexes(sourceJson: unknown) {
   if (!sourceJson || typeof sourceJson !== "object") {
     return [];
@@ -1411,6 +1448,129 @@ function normalizeClassSkillChoices(
       selectedType: CLASS_SKILL_CHOICE_SELECTED_TYPE,
       selectedIndex: choice.selectedIndex,
     }));
+}
+
+function getClassChoiceFeatureProficiencyIndexes(
+  featureChoices: CharacterFeatureChoiceSelectionInput[] | undefined,
+  classIndex: string,
+) {
+  return [
+    ...new Set(
+      [
+        ...(featureChoices ?? [])
+          .filter((choice) =>
+            isClassChoiceFeatureProficiencySelection(choice, classIndex),
+          )
+          .map((choice) =>
+            normalizeClassChoiceProficiencyIndex(
+              choice.selectedOptionIndex ?? undefined,
+              choice.selectedOptionName ?? undefined,
+              choice.selectedOptionUrl ?? undefined,
+            ),
+          )
+          .filter((proficiencyIndex): proficiencyIndex is string => Boolean(proficiencyIndex)),
+        ...getFeatureChoiceGrantedProficiencyIndexes(featureChoices),
+      ],
+    ),
+  ];
+}
+
+function getFeatureChoiceGrantedProficiencyIndexes(
+  featureChoices: CharacterFeatureChoiceSelectionInput[] | undefined,
+) {
+  return (featureChoices ?? []).flatMap((choice) => {
+    const grants = asFeatureChoiceGrantRecord(choice.grantsRawJson);
+    const skillIndexes = Array.isArray(grants?.skillProficiencyIndexes)
+      ? grants.skillProficiencyIndexes
+      : [];
+    const savingThrowIndexes = Array.isArray(grants?.savingThrowProficiencyIndexes)
+      ? grants.savingThrowProficiencyIndexes
+      : [];
+
+    return [...skillIndexes, ...savingThrowIndexes]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map((proficiencyIndex) => normalizeChoiceGrantedProficiencyIndex(proficiencyIndex));
+  });
+}
+
+function asFeatureChoiceGrantRecord(value: unknown) {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as {
+        savingThrowProficiencyIndexes?: unknown;
+        skillProficiencyIndexes?: unknown;
+      }
+    : null;
+}
+
+function normalizeChoiceGrantedProficiencyIndex(proficiencyIndex: string) {
+  const normalizedIndex = proficiencyIndex.trim().toLowerCase();
+
+  if (normalizedIndex.startsWith("saving-throw-")) {
+    return normalizedIndex;
+  }
+
+  return normalizedIndex.startsWith("skill-")
+    ? normalizedIndex
+    : `skill-${normalizedIndex}`;
+}
+
+function isClassChoiceFeatureProficiencySelection(
+  choice: CharacterFeatureChoiceSelectionInput,
+  classIndex: string,
+) {
+  return (
+    choice.sourceType.toUpperCase() === "CLASS" &&
+    choice.sourceIndex === classIndex &&
+    !isClassEquipmentChoicePath(choice.choicePath) &&
+    Boolean(
+      normalizeClassChoiceProficiencyIndex(
+        choice.selectedOptionIndex ?? undefined,
+        choice.selectedOptionName ?? undefined,
+        choice.selectedOptionUrl ?? undefined,
+      ),
+    )
+  );
+}
+
+function isClassEquipmentChoicePath(choicePath: string) {
+  return choicePath.toLowerCase().includes("starting_equipment");
+}
+
+function normalizeClassChoiceProficiencyIndex(
+  selectedOptionIndex: string | undefined,
+  selectedOptionName: string | undefined,
+  selectedOptionUrl: string | undefined,
+) {
+  const normalizedIndex = selectedOptionIndex?.trim().toLowerCase() ?? "";
+  const normalizedUrl = selectedOptionUrl?.trim().toLowerCase() ?? "";
+  const proficiencyUrlMatch = normalizedUrl.match(/\/proficiencies\/([^/?#]+)$/);
+
+  if (proficiencyUrlMatch?.[1]) {
+    return proficiencyUrlMatch[1];
+  }
+
+  if (
+    normalizedIndex.startsWith("skill-") ||
+    normalizedIndex.startsWith("tool-") ||
+    normalizedIndex.endsWith("-tools") ||
+    normalizedIndex.endsWith("-armor") ||
+    normalizedIndex.endsWith("-weapons") ||
+    normalizedIndex === "shields"
+  ) {
+    return normalizedIndex;
+  }
+
+  const normalizedName = selectedOptionName?.trim().toLowerCase() ?? "";
+
+  if (normalizedName.startsWith("skill: ")) {
+    return `skill-${normalizedName.replace(/^skill:\s*/, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+  }
+
+  if (normalizedName.startsWith("tool: ")) {
+    return `tool-${normalizedName.replace(/^tool:\s*/, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+  }
+
+  return null;
 }
 
 function normalizeClassChoiceSourceIndex(sourceIndex: string | undefined, classIndex: string) {
@@ -1704,8 +1864,31 @@ async function getClassProficiencyGrantIndexes(
   return getClassSavingThrowProficiencyIndexes(sourceJson);
 }
 
+async function getBackgroundProficiencyGrantIndexes(
+  tx: Prisma.TransactionClient,
+  backgroundIndex: string,
+) {
+  const backgroundProficiencyGrants: BackgroundProficiencyGrantIndex[] =
+    await tx.refBackgroundProficiencyGrant.findMany({
+      where: {
+        backgroundIndex,
+      },
+      select: {
+        proficiencyIndex: true,
+      },
+    });
+
+  return [
+    ...new Set(
+      backgroundProficiencyGrants.map(
+        (grant: BackgroundProficiencyGrantIndex) => grant.proficiencyIndex,
+      ),
+    ),
+  ];
+}
+
 async function findAllCharactersForUser(userId: string) {
-  return prisma.character.findMany({
+  const characters = await prisma.character.findMany({
     where: {
       userId,
     },
@@ -1803,6 +1986,8 @@ async function findAllCharactersForUser(userId: string) {
       },
     },
   });
+
+  return attachCharacterRuntimeStates(prisma, characters);
 }
 
 async function createCharacterForUser(userId: string, data: CreateCharacterData) {
@@ -1858,6 +2043,10 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
     }
 
     const classSkillChoices = normalizeClassSkillChoices(data.choices, characterClass.index);
+    const classChoiceFeatureProficiencyIndexes = getClassChoiceFeatureProficiencyIndexes(
+      data.featureChoices,
+      characterClass.index,
+    );
     const allowedClassSkillChoiceProficiencyIndexes =
       await findAllowedClassSkillChoiceProficiencyIndexes(tx, characterClass.index);
     const invalidClassSkillChoices = classSkillChoices.filter(
@@ -1869,7 +2058,10 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
     }
 
     const classSkillChoiceProficiencyIndexes = [
-      ...new Set(classSkillChoices.map((choice) => choice.selectedIndex)),
+      ...new Set([
+        ...classSkillChoices.map((choice) => choice.selectedIndex),
+        ...classChoiceFeatureProficiencyIndexes,
+      ]),
     ];
     const classSkillChoiceProficiencies = await tx.refProficiency.findMany({
       where: {
@@ -1909,12 +2101,24 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         },
       },
     });
+    const backgroundProficiencyGrantIndexes = await getBackgroundProficiencyGrantIndexes(
+      tx,
+      background.index,
+    );
+    const backgroundGrantedProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: backgroundProficiencyGrantIndexes,
+        },
+      },
+    });
     const selectedManualProficiencies = selectedProficiencies.filter(
       (proficiency: ReferenceIndexRecord) =>
         !classSkillChoiceProficiencyIndexes.includes(proficiency.index),
     );
     const finalSkillIndexes = new Set([
       ...data.skillIndexes,
+      ...getSkillIndexesFromProficiencyIndexes(backgroundProficiencyGrantIndexes),
       ...getSkillIndexesFromProficiencyIndexes(classProficiencyGrantIndexes),
       ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
     ]);
@@ -1932,6 +2136,12 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       featureBonusHp,
       hitDie: characterClass.hitDie,
       level,
+    });
+    const spellcastingState = normalizeSpellcastingStateInput({
+      data: data.spellcastingState,
+    });
+    const resourceState = normalizeResourceStateInput({
+      data: data.resourceState,
     });
     const currentHp =
       data.currentHp === undefined
@@ -1984,6 +2194,12 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
                 sourceType: "class",
               }),
             ),
+            ...backgroundGrantedProficiencies.map(
+              (proficiency: ReferenceIndexRecord) => ({
+                proficiencyIndex: proficiency.index,
+                sourceType: "background",
+              }),
+            ),
             ...classSkillChoiceProficiencies.map(
               (proficiency: ReferenceIndexRecord) => ({
                 proficiencyIndex: proficiency.index,
@@ -2003,6 +2219,9 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
         },
       },
     });
+
+    await upsertCharacterSpellcastingState(tx, character.id, spellcastingState);
+    await upsertCharacterResourceState(tx, character.id, resourceState);
 
     await replaceSpeciesLanguageChoicesAndRows(
       tx,
@@ -2040,12 +2259,14 @@ async function createCharacterForUser(userId: string, data: CreateCharacterData)
       data.featureChoices,
     );
 
-    return tx.character.findUnique({
+    const savedCharacter = await tx.character.findUnique({
       where: {
         id: character.id,
       },
       include: characterInclude,
     });
+
+    return attachCharacterRuntimeState(tx, savedCharacter);
   });
 }
 
@@ -2069,13 +2290,15 @@ async function updateCharacterForUser(
       return null;
     }
 
+    const existingSpellcastingState = await findSpellcastingStateForCharacter(tx, characterId);
+    const existingResourceState = await findResourceStateForCharacter(tx, characterId);
+
     const [
       species,
       characterClass,
       background,
       skills,
       selectedProficiencies,
-      existingProficiencies,
     ] =
       await Promise.all([
         tx.refSpecies.findUnique({
@@ -2099,15 +2322,6 @@ async function updateCharacterForUser(
             index: {
               in: data.skillIndexes.map((skillIndex) => `skill-${skillIndex}`),
             },
-          },
-        }),
-        tx.characterProficiency.findMany({
-          where: {
-            characterId,
-          },
-          select: {
-            proficiencyIndex: true,
-            sourceType: true,
           },
         }),
       ]);
@@ -2155,6 +2369,10 @@ async function updateCharacterForUser(
     const dexModifier = getAbilityModifier(abilityScoreByIndex.get("dex") ?? data.abilityScores.dex);
     const constitutionScore = abilityScoreByIndex.get("con") ?? data.abilityScores.con;
     const classSkillChoices = normalizeClassSkillChoices(data.choices, characterClass.index);
+    const classChoiceFeatureProficiencyIndexes = getClassChoiceFeatureProficiencyIndexes(
+      data.featureChoices,
+      characterClass.index,
+    );
     const allowedClassSkillChoiceProficiencyIndexes =
       await findAllowedClassSkillChoiceProficiencyIndexes(tx, characterClass.index);
     const invalidClassSkillChoices = classSkillChoices.filter(
@@ -2166,7 +2384,10 @@ async function updateCharacterForUser(
     }
 
     const classSkillChoiceProficiencyIndexes = [
-      ...new Set(classSkillChoices.map((choice) => choice.selectedIndex)),
+      ...new Set([
+        ...classSkillChoices.map((choice) => choice.selectedIndex),
+        ...classChoiceFeatureProficiencyIndexes,
+      ]),
     ];
     const classSkillChoiceProficiencies = await tx.refProficiency.findMany({
       where: {
@@ -2187,21 +2408,20 @@ async function updateCharacterForUser(
         },
       },
     });
-    const preservedExistingSkillProficiencyIndexes = existingProficiencies
-      .filter((proficiency: CharacterProficiencySourceRecord) => {
-        if (
-          proficiency.sourceType === "class" ||
-          proficiency.sourceType === CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE
-        ) {
-          return false;
-        }
-
-        return isSkillProficiencyIndex(proficiency.proficiencyIndex);
-      })
-      .map((proficiency: CharacterProficiencySourceRecord) => proficiency.proficiencyIndex);
+    const backgroundProficiencyGrantIndexes = await getBackgroundProficiencyGrantIndexes(
+      tx,
+      background.index,
+    );
+    const backgroundGrantedProficiencies = await tx.refProficiency.findMany({
+      where: {
+        index: {
+          in: backgroundProficiencyGrantIndexes,
+        },
+      },
+    });
     const finalSkillIndexes = new Set([
       ...data.skillIndexes,
-      ...getSkillIndexesFromProficiencyIndexes(preservedExistingSkillProficiencyIndexes),
+      ...getSkillIndexesFromProficiencyIndexes(backgroundProficiencyGrantIndexes),
       ...getSkillIndexesFromProficiencyIndexes(classProficiencyGrantIndexes),
       ...getSkillIndexesFromProficiencyIndexes(classSkillChoiceProficiencyIndexes),
     ]);
@@ -2224,6 +2444,14 @@ async function updateCharacterForUser(
       fallback: existingCharacter.hitPointState,
       hitDie: characterClass.hitDie,
       level,
+    });
+    const spellcastingState = normalizeSpellcastingStateInput({
+      data: data.spellcastingState,
+      fallback: existingSpellcastingState,
+    });
+    const resourceState = normalizeResourceStateInput({
+      data: data.resourceState,
+      fallback: existingResourceState,
     });
     const requestedCurrentHp = data.currentHp ?? existingCharacter.currentHp;
     const currentHp = Math.max(
@@ -2270,6 +2498,9 @@ async function updateCharacterForUser(
         tempHp: hitPointState.tempHp,
       },
     });
+
+    await upsertCharacterSpellcastingState(tx, characterId, spellcastingState);
+    await upsertCharacterResourceState(tx, characterId, resourceState);
 
     await Promise.all(
       abilityScores.map((abilityScore) =>
@@ -2381,7 +2612,16 @@ async function updateCharacterForUser(
             sourceType: "class",
           },
           {
+            sourceType: "background",
+          },
+          {
             sourceType: CLASS_CHOICE_PROFICIENCY_SOURCE_TYPE,
+          },
+          {
+            sourceType: "manual",
+            proficiencyIndex: {
+              startsWith: "skill-",
+            },
           },
         ],
       },
@@ -2424,6 +2664,19 @@ async function updateCharacterForUser(
       });
     }
 
+    if (backgroundGrantedProficiencies.length > 0) {
+      await tx.characterProficiency.createMany({
+        data: backgroundGrantedProficiencies.map(
+          (proficiency: ReferenceIndexRecord) => ({
+            characterId,
+            proficiencyIndex: proficiency.index,
+            sourceType: "background",
+          }),
+        ),
+        skipDuplicates: true,
+      });
+    }
+
     await tx.characterChoice.deleteMany({
       where: {
         characterId,
@@ -2431,12 +2684,14 @@ async function updateCharacterForUser(
       },
     });
 
-    return tx.character.findUnique({
+    const updatedCharacter = await tx.character.findUnique({
       where: {
         id: characterId,
       },
       include: characterInclude,
     });
+
+    return attachCharacterRuntimeState(tx, updatedCharacter);
   });
 }
 
@@ -2452,13 +2707,15 @@ async function deleteCharacterForUser(userId: string, id: string) {
 }
 
 async function findCharacterByIdForUser(userId: string, characterId: string) {
-  return prisma.character.findFirst({
+  const character = await prisma.character.findFirst({
     where: {
       id: characterId,
       userId,
     },
     include: characterInclude,
   });
+
+  return attachCharacterRuntimeState(prisma, character);
 }
 
 async function createDiceRollForCharacterForUser(
@@ -2546,12 +2803,14 @@ async function addConditionToCharacterForUser(
       },
     });
 
-    return tx.character.findUnique({
+    const updatedCharacter = await tx.character.findUnique({
       where: {
         id: characterId,
       },
       include: characterInclude,
     });
+
+    return attachCharacterRuntimeState(tx, updatedCharacter);
   });
 }
 
@@ -2582,12 +2841,14 @@ async function removeConditionFromCharacterForUser(
       },
     });
 
-    return tx.character.findUnique({
+    const updatedCharacter = await tx.character.findUnique({
       where: {
         id: characterId,
       },
       include: characterInclude,
     });
+
+    return attachCharacterRuntimeState(tx, updatedCharacter);
   });
 }
 

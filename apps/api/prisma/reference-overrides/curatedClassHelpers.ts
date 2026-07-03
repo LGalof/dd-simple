@@ -6,6 +6,11 @@ type CuratedFeatureReference = {
   name: string;
   desc: string[];
   feature_specific?: unknown;
+  subclass?: {
+    index: string;
+    name: string;
+    url: string;
+  };
 };
 
 type CuratedLevelReference = {
@@ -240,6 +245,7 @@ function createFeatureRuleDocuments(
       name: featureReference.name,
       desc: featureReference.desc,
       feature_specific: featureReference.feature_specific,
+      subclass: featureReference.subclass,
       url: `/api/2024/features/${featureReference.index}`,
     },
   }));

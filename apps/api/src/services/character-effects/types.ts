@@ -1,6 +1,6 @@
 type ActionActivationType = "attack" | "action" | "bonus_action" | "reaction" | "other";
 
-type CharacterFeatureSourceType = "class_feature" | "species_trait" | "subclass_feature";
+type CharacterFeatureSourceType = "class_feature" | "species_trait" | "subclass_feature" | "item";
 
 type CharacterActionCombatSummary = {
   damage?: string | null;
@@ -23,6 +23,7 @@ type CharacterActionEntry = {
 
 type CharacterDefenseKind =
   | "condition_immunity"
+  | "damage_reduction"
   | "immunity"
   | "resistance"
   | "vulnerability";
@@ -42,13 +43,21 @@ type CharacterFeatureEffectsOverrides = {
   backgroundIndex?: string;
   classIndex?: string;
   featIndexes?: string[];
+  featureChoices?: CharacterFeatureChoiceRecord[];
   level?: number;
+  resourceState?: {
+    activeByResourceKey?: Record<string, boolean>;
+  };
   speciesIndex?: string;
   subclassIndex?: string;
   subspeciesIndex?: string;
 };
 
-type DerivedArmorClassMode = "base" | "barbarian_unarmored" | "monk_unarmored";
+type DerivedArmorClassMode =
+  | "base"
+  | "barbarian_unarmored"
+  | "bard_dance_unarmored"
+  | "monk_unarmored";
 
 type CharacterDerivedStats = {
   armorClassBonus: number;
@@ -58,23 +67,48 @@ type CharacterDerivedStats = {
   passiveInvestigationBonus: number;
   passivePerceptionBonus: number;
   proficiencyBonus: number;
+  rangedAttackBonus: number;
+  savingThrowBonus: number;
+  skillCheckHalfProficiencyBonusMultiplier: number;
   speedBonus: number;
+  strengthMinimum: number | null;
+  oneHandedMeleeDamageBonus: number;
 };
 
 type CharacterSpellEntry = {
   description: string;
   id: string;
+  isCantrip: boolean;
   kind: "always_prepared" | "spell_feature" | "spellcasting";
   level: number | null;
+  preparationMode: "always_prepared" | "feature" | "known" | "prepared" | "spellcasting";
+  spellLevel: number | null;
   sourceIndex: string;
   sourceType: CharacterFeatureSourceType;
   title: string;
+};
+
+type CharacterResourceEntry = {
+  automationNote: string;
+  category: "action" | "bonus action" | "reaction" | "passive" | "resource";
+  id: string;
+  level: number | null;
+  maxUses?: string;
+  maxUsesValue?: number | null;
+  name: string;
+  recharge?: string;
+  resourceKey: string;
+  sourceFeature: string;
+  sourceIndex: string;
+  sourceType: CharacterFeatureSourceType;
+  trackingMode: "none" | "pool" | "uses";
 };
 
 type DerivedCharacterState = {
   actions: CharacterActionEntry[];
   activeSources: ResolvedFeatureSource[];
   defenses: CharacterDefenseEntry[];
+  resources: CharacterResourceEntry[];
   selectedSubclassIndex: string | null;
   selectedSubspeciesIndex: string | null;
   spells: CharacterSpellEntry[];
@@ -90,13 +124,21 @@ type CharacterChoiceRecord = {
 };
 
 type CharacterFeatureChoiceRecord = {
+  classIndex: string | null;
   choiceKey: string | null;
   choiceLabel: string | null;
   choicePath: string;
+  featureIndex: string | null;
+  grantsRawJson: unknown | null;
+  level: number | null;
   selectedOptionIndex: string | null;
   selectedOptionName: string | null;
   selectedOptionType: string;
   selectedOptionUrl: string | null;
+  selectedRawJson?: unknown;
+  sourceIndex: string;
+  sourceType: string;
+  subclassIndex: string | null;
 };
 
 type RuleDocumentRecord = {
@@ -141,6 +183,9 @@ type FeatureSourceJson = {
   };
   level?: unknown;
   name?: unknown;
+  subclass?: {
+    index?: unknown;
+  };
 };
 
 type TraitSourceJson = {
@@ -187,13 +232,25 @@ type ResolvedFeatureSource = {
 
 type PassiveEffect = {
   armorClassBonus?: number;
+  armorClassBase?: number;
   armorClassMode?: DerivedArmorClassMode;
+  initiativeHalfProficiencyBonusMultiplier?: number;
   initiativeBonus?: number;
   initiativeProficiencyBonusMultiplier?: number;
+  oneHandedMeleeDamageBonus?: number;
   passiveInsightBonus?: number;
   passiveInvestigationBonus?: number;
   passivePerceptionBonus?: number;
+  rangedAttackBonus?: number;
+  savingThrowAbilityModifier?: "str" | "dex" | "con" | "int" | "wis" | "cha";
+  skillCheckHalfProficiencyBonusMultiplier?: number;
   speedBonus?: number;
+};
+
+type PassiveEffectContext = {
+  abilityScoresByIndex?: Record<string, number>;
+  hasArmorEquipped?: boolean;
+  hasHeavyArmorEquipped?: boolean;
 };
 
 export type {
@@ -207,6 +264,7 @@ export type {
   CharacterFeatureChoiceRecord,
   CharacterFeatureEffectsOverrides,
   CharacterFeatureSourceType,
+  CharacterResourceEntry,
   CharacterSpellEntry,
   ClassSourceJson,
   DerivedArmorClassMode,
@@ -215,6 +273,7 @@ export type {
   FeatureSourceJson,
   LevelSourceJson,
   PassiveEffect,
+  PassiveEffectContext,
   ResolvedFeatureSource,
   RuleDocumentRecord,
   SubclassSourceJson,

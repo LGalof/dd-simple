@@ -1,5 +1,6 @@
 type CharacterDefenseKind =
   | "condition_immunity"
+  | "damage_reduction"
   | "immunity"
   | "resistance"
   | "vulnerability";
@@ -10,7 +11,7 @@ type CharacterDefenseEntry = {
   kind: CharacterDefenseKind;
   level: number | null;
   sourceIndex: string;
-  sourceType: "class_feature" | "species_trait" | "subclass_feature";
+  sourceType: "class_feature" | "species_trait" | "subclass_feature" | "item";
   target: string;
   title: string;
 };

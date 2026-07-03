@@ -26,23 +26,19 @@ const EXPERT_FEAT_OPTIONS = CORE_FEAT_OPTIONS satisfies readonly CuratedReferenc
 
 const FIGHTING_STYLE_OPTIONS = [
   ["archery", "Archery"],
-  ["blind-fighting", "Blind Fighting"],
   ["defense", "Defense"],
   ["dueling", "Dueling"],
   ["great-weapon-fighting", "Great Weapon Fighting"],
-  ["interception", "Interception"],
   ["protection", "Protection"],
-  ["thrown-weapon-fighting", "Thrown Weapon Fighting"],
   ["two-weapon-fighting", "Two-Weapon Fighting"],
-  ["unarmed-fighting", "Unarmed Fighting"],
 ] as const satisfies readonly CuratedReferenceTuple[];
 
 const RANGER_FIGHTING_STYLE_OPTIONS = [
   ["archery", "Archery"],
-  ["blind-fighting", "Blind Fighting"],
   ["defense", "Defense"],
   ["dueling", "Dueling"],
-  ["thrown-weapon-fighting", "Thrown Weapon Fighting"],
+  ["great-weapon-fighting", "Great Weapon Fighting"],
+  ["protection", "Protection"],
   ["two-weapon-fighting", "Two-Weapon Fighting"],
 ] as const satisfies readonly CuratedReferenceTuple[];
 
@@ -78,6 +74,805 @@ const METAMAGIC_OPTIONS = [
   ["subtle-spell", "Subtle Spell"],
   ["twinned-spell", "Twinned Spell"],
 ] as const satisfies readonly CuratedReferenceTuple[];
+
+const RANGER_SKILL_OPTIONS = [
+  ["skill-animal-handling", "Skill: Animal Handling"],
+  ["skill-athletics", "Skill: Athletics"],
+  ["skill-insight", "Skill: Insight"],
+  ["skill-investigation", "Skill: Investigation"],
+  ["skill-nature", "Skill: Nature"],
+  ["skill-perception", "Skill: Perception"],
+  ["skill-stealth", "Skill: Stealth"],
+  ["skill-survival", "Skill: Survival"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_SCHOLAR_OPTIONS = [
+  ["skill-arcana", "Skill: Arcana"],
+  ["skill-history", "Skill: History"],
+  ["skill-investigation", "Skill: Investigation"],
+  ["skill-medicine", "Skill: Medicine"],
+  ["skill-nature", "Skill: Nature"],
+  ["skill-religion", "Skill: Religion"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WARLOCK_CANTRIP_OPTIONS = [
+  ["chill-touch", "Chill Touch"],
+  ["eldritch-blast", "Eldritch Blast"],
+  ["friends", "Friends"],
+  ["mage-hand", "Mage Hand"],
+  ["minor-illusion", "Minor Illusion"],
+  ["poison-spray", "Poison Spray"],
+  ["prestidigitation", "Prestidigitation"],
+  ["true-strike", "True Strike"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WARLOCK_LEVEL_1_SPELL_OPTIONS = [
+  ["armor-of-agathys", "Armor of Agathys"],
+  ["charm-person", "Charm Person"],
+  ["comprehend-languages", "Comprehend Languages"],
+  ["hellish-rebuke", "Hellish Rebuke"],
+  ["hex", "Hex"],
+  ["illusory-script", "Illusory Script"],
+  ["protection-from-evil-and-good", "Protection from Evil and Good"],
+  ["unseen-servant", "Unseen Servant"],
+  ["witch-bolt", "Witch Bolt"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WARLOCK_LEVEL_2_SPELL_OPTIONS = [
+  ...WARLOCK_LEVEL_1_SPELL_OPTIONS,
+  ["cloud-of-daggers", "Cloud of Daggers"],
+  ["darkness", "Darkness"],
+  ["enthrall", "Enthrall"],
+  ["hold-person", "Hold Person"],
+  ["invisibility", "Invisibility"],
+  ["misty-step", "Misty Step"],
+  ["ray-of-enfeeblement", "Ray of Enfeeblement"],
+  ["shatter", "Shatter"],
+  ["spider-climb", "Spider Climb"],
+  ["suggestion", "Suggestion"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WARLOCK_LEVEL_3_SPELL_OPTIONS = [
+  ...WARLOCK_LEVEL_2_SPELL_OPTIONS,
+  ["counterspell", "Counterspell"],
+  ["dispel-magic", "Dispel Magic"],
+  ["fear", "Fear"],
+  ["fly", "Fly"],
+  ["gaseous-form", "Gaseous Form"],
+  ["hunger-of-hadar", "Hunger of Hadar"],
+  ["magic-circle", "Magic Circle"],
+  ["major-image", "Major Image"],
+  ["remove-curse", "Remove Curse"],
+  ["tongues", "Tongues"],
+  ["vampiric-touch", "Vampiric Touch"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WARLOCK_LEVEL_4_SPELL_OPTIONS = [
+  ...WARLOCK_LEVEL_3_SPELL_OPTIONS,
+  ["banishment", "Banishment"],
+  ["blight", "Blight"],
+  ["dimension-door", "Dimension Door"],
+  ["hallucinatory-terrain", "Hallucinatory Terrain"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WARLOCK_LEVEL_5_SPELL_OPTIONS = [
+  ...WARLOCK_LEVEL_4_SPELL_OPTIONS,
+  ["contact-other-plane", "Contact Other Plane"],
+  ["dream", "Dream"],
+  ["hold-monster", "Hold Monster"],
+  ["scrying", "Scrying"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const PACT_OF_THE_TOME_CANTRIP_OPTIONS = [
+  ["acid-splash", "Acid Splash"],
+  ["chill-touch", "Chill Touch"],
+  ["dancing-lights", "Dancing Lights"],
+  ["druidcraft", "Druidcraft"],
+  ["eldritch-blast", "Eldritch Blast"],
+  ["fire-bolt", "Fire Bolt"],
+  ["friends", "Friends"],
+  ["guidance", "Guidance"],
+  ["light", "Light"],
+  ["mage-hand", "Mage Hand"],
+  ["mending", "Mending"],
+  ["message", "Message"],
+  ["minor-illusion", "Minor Illusion"],
+  ["poison-spray", "Poison Spray"],
+  ["prestidigitation", "Prestidigitation"],
+  ["ray-of-frost", "Ray of Frost"],
+  ["resistance", "Resistance"],
+  ["sacred-flame", "Sacred Flame"],
+  ["shocking-grasp", "Shocking Grasp"],
+  ["thaumaturgy", "Thaumaturgy"],
+  ["true-strike", "True Strike"],
+  ["vicious-mockery", "Vicious Mockery"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const BOOK_OF_ANCIENT_SECRETS_RITUAL_OPTIONS = [
+  ["alarm", "Alarm"],
+  ["comprehend-languages", "Comprehend Languages"],
+  ["detect-magic", "Detect Magic"],
+  ["find-familiar", "Find Familiar"],
+  ["identify", "Identify"],
+  ["illusory-script", "Illusory Script"],
+  ["purify-food-and-drink", "Purify Food and Drink"],
+  ["speak-with-animals", "Speak with Animals"],
+  ["tensers-floating-disk", "Tenser's Floating Disk"],
+  ["unseen-servant", "Unseen Servant"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const SORCERER_CANTRIP_OPTIONS = [
+  ["acid-splash", "Acid Splash"],
+  ["blade-ward", "Blade Ward"],
+  ["chill-touch", "Chill Touch"],
+  ["dancing-lights", "Dancing Lights"],
+  ["fire-bolt", "Fire Bolt"],
+  ["light", "Light"],
+  ["mage-hand", "Mage Hand"],
+  ["mending", "Mending"],
+  ["message", "Message"],
+  ["minor-illusion", "Minor Illusion"],
+  ["poison-spray", "Poison Spray"],
+  ["prestidigitation", "Prestidigitation"],
+  ["ray-of-frost", "Ray of Frost"],
+  ["shocking-grasp", "Shocking Grasp"],
+  ["sorcerous-burst", "Sorcerous Burst"],
+  ["true-strike", "True Strike"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const SORCERER_LEVEL_1_SPELL_OPTIONS = [
+  ["burning-hands", "Burning Hands"],
+  ["charm-person", "Charm Person"],
+  ["chromatic-orb", "Chromatic Orb"],
+  ["color-spray", "Color Spray"],
+  ["disguise-self", "Disguise Self"],
+  ["expeditious-retreat", "Expeditious Retreat"],
+  ["false-life", "False Life"],
+  ["feather-fall", "Feather Fall"],
+  ["fog-cloud", "Fog Cloud"],
+  ["jump", "Jump"],
+  ["mage-armor", "Mage Armor"],
+  ["magic-missile", "Magic Missile"],
+  ["shield", "Shield"],
+  ["sleep", "Sleep"],
+  ["thunderwave", "Thunderwave"],
+  ["witch-bolt", "Witch Bolt"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const SORCERER_LEVEL_2_SPELL_OPTIONS = [
+  ...SORCERER_LEVEL_1_SPELL_OPTIONS,
+  ["alter-self", "Alter Self"],
+  ["blur", "Blur"],
+  ["darkness", "Darkness"],
+  ["darkvision", "Darkvision"],
+  ["detect-thoughts", "Detect Thoughts"],
+  ["dragon-s-breath", "Dragon's Breath"],
+  ["gust-of-wind", "Gust of Wind"],
+  ["hold-person", "Hold Person"],
+  ["invisibility", "Invisibility"],
+  ["knock", "Knock"],
+  ["levitate", "Levitate"],
+  ["mirror-image", "Mirror Image"],
+  ["misty-step", "Misty Step"],
+  ["scorching-ray", "Scorching Ray"],
+  ["see-invisibility", "See Invisibility"],
+  ["shatter", "Shatter"],
+  ["spider-climb", "Spider Climb"],
+  ["suggestion", "Suggestion"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const SORCERER_LEVEL_3_SPELL_OPTIONS = [
+  ...SORCERER_LEVEL_2_SPELL_OPTIONS,
+  ["blink", "Blink"],
+  ["counterspell", "Counterspell"],
+  ["daylight", "Daylight"],
+  ["dispel-magic", "Dispel Magic"],
+  ["fear", "Fear"],
+  ["fireball", "Fireball"],
+  ["fly", "Fly"],
+  ["gaseous-form", "Gaseous Form"],
+  ["haste", "Haste"],
+  ["lightning-bolt", "Lightning Bolt"],
+  ["major-image", "Major Image"],
+  ["slow", "Slow"],
+  ["stinking-cloud", "Stinking Cloud"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const SORCERER_LEVEL_4_SPELL_OPTIONS = [
+  ...SORCERER_LEVEL_3_SPELL_OPTIONS,
+  ["banishment", "Banishment"],
+  ["blight", "Blight"],
+  ["confusion", "Confusion"],
+  ["dimension-door", "Dimension Door"],
+  ["greater-invisibility", "Greater Invisibility"],
+  ["ice-storm", "Ice Storm"],
+  ["polymorph", "Polymorph"],
+  ["stoneskin", "Stoneskin"],
+  ["wall-of-fire", "Wall of Fire"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const SORCERER_LEVEL_5_SPELL_OPTIONS = [
+  ...SORCERER_LEVEL_4_SPELL_OPTIONS,
+  ["animate-objects", "Animate Objects"],
+  ["cloudkill", "Cloudkill"],
+  ["cone-of-cold", "Cone of Cold"],
+  ["creation", "Creation"],
+  ["dominate-person", "Dominate Person"],
+  ["hold-monster", "Hold Monster"],
+  ["immolation", "Immolation"],
+  ["insect-plague", "Insect Plague"],
+  ["seeming", "Seeming"],
+  ["telekinesis", "Telekinesis"],
+  ["wall-of-stone", "Wall of Stone"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const DRACONIC_ANCESTRY_OPTIONS = [
+  ["black-dragon", "Black Dragon (Acid)"],
+  ["blue-dragon", "Blue Dragon (Lightning)"],
+  ["brass-dragon", "Brass Dragon (Fire)"],
+  ["bronze-dragon", "Bronze Dragon (Lightning)"],
+  ["copper-dragon", "Copper Dragon (Acid)"],
+  ["gold-dragon", "Gold Dragon (Fire)"],
+  ["green-dragon", "Green Dragon (Poison)"],
+  ["red-dragon", "Red Dragon (Fire)"],
+  ["silver-dragon", "Silver Dragon (Cold)"],
+  ["white-dragon", "White Dragon (Cold)"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_CANTRIP_OPTIONS = [
+  ["acid-splash", "Acid Splash"],
+  ["blade-ward", "Blade Ward"],
+  ["chill-touch", "Chill Touch"],
+  ["dancing-lights", "Dancing Lights"],
+  ["fire-bolt", "Fire Bolt"],
+  ["light", "Light"],
+  ["mage-hand", "Mage Hand"],
+  ["mending", "Mending"],
+  ["message", "Message"],
+  ["minor-illusion", "Minor Illusion"],
+  ["poison-spray", "Poison Spray"],
+  ["prestidigitation", "Prestidigitation"],
+  ["ray-of-frost", "Ray of Frost"],
+  ["shocking-grasp", "Shocking Grasp"],
+  ["true-strike", "True Strike"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_1_SPELL_OPTIONS = [
+  ["alarm", "Alarm"],
+  ["burning-hands", "Burning Hands"],
+  ["charm-person", "Charm Person"],
+  ["chromatic-orb", "Chromatic Orb"],
+  ["comprehend-languages", "Comprehend Languages"],
+  ["detect-magic", "Detect Magic"],
+  ["disguise-self", "Disguise Self"],
+  ["false-life", "False Life"],
+  ["feather-fall", "Feather Fall"],
+  ["find-familiar", "Find Familiar"],
+  ["fog-cloud", "Fog Cloud"],
+  ["grease", "Grease"],
+  ["jump", "Jump"],
+  ["longstrider", "Longstrider"],
+  ["mage-armor", "Mage Armor"],
+  ["magic-missile", "Magic Missile"],
+  ["protection-from-evil-and-good", "Protection from Evil and Good"],
+  ["shield", "Shield"],
+  ["sleep", "Sleep"],
+  ["tasha-s-hideous-laughter", "Tasha's Hideous Laughter"],
+  ["thunderwave", "Thunderwave"],
+  ["unseen-servant", "Unseen Servant"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_2_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_1_SPELL_OPTIONS,
+  ["arcane-lock", "Arcane Lock"],
+  ["blur", "Blur"],
+  ["darkvision", "Darkvision"],
+  ["detect-thoughts", "Detect Thoughts"],
+  ["enlarge-reduce", "Enlarge/Reduce"],
+  ["flaming-sphere", "Flaming Sphere"],
+  ["hold-person", "Hold Person"],
+  ["invisibility", "Invisibility"],
+  ["knock", "Knock"],
+  ["levitate", "Levitate"],
+  ["mirror-image", "Mirror Image"],
+  ["misty-step", "Misty Step"],
+  ["rope-trick", "Rope Trick"],
+  ["scorching-ray", "Scorching Ray"],
+  ["see-invisibility", "See Invisibility"],
+  ["shatter", "Shatter"],
+  ["spider-climb", "Spider Climb"],
+  ["web", "Web"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_3_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_2_SPELL_OPTIONS,
+  ["counterspell", "Counterspell"],
+  ["dispel-magic", "Dispel Magic"],
+  ["fear", "Fear"],
+  ["fireball", "Fireball"],
+  ["fly", "Fly"],
+  ["gaseous-form", "Gaseous Form"],
+  ["haste", "Haste"],
+  ["hypnotic-pattern", "Hypnotic Pattern"],
+  ["lightning-bolt", "Lightning Bolt"],
+  ["major-image", "Major Image"],
+  ["sending", "Sending"],
+  ["slow", "Slow"],
+  ["tiny-hut", "Tiny Hut"],
+  ["tongues", "Tongues"],
+  ["water-breathing", "Water Breathing"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_4_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_3_SPELL_OPTIONS,
+  ["arcane-eye", "Arcane Eye"],
+  ["banishment", "Banishment"],
+  ["blight", "Blight"],
+  ["confusion", "Confusion"],
+  ["dimension-door", "Dimension Door"],
+  ["fabricate", "Fabricate"],
+  ["greater-invisibility", "Greater Invisibility"],
+  ["ice-storm", "Ice Storm"],
+  ["polymorph", "Polymorph"],
+  ["stoneskin", "Stoneskin"],
+  ["wall-of-fire", "Wall of Fire"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_5_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_4_SPELL_OPTIONS,
+  ["animate-objects", "Animate Objects"],
+  ["bigby-s-hand", "Bigby's Hand"],
+  ["cloudkill", "Cloudkill"],
+  ["cone-of-cold", "Cone of Cold"],
+  ["contact-other-plane", "Contact Other Plane"],
+  ["dominate-person", "Dominate Person"],
+  ["hold-monster", "Hold Monster"],
+  ["legend-lore", "Legend Lore"],
+  ["scrying", "Scrying"],
+  ["telekinesis", "Telekinesis"],
+  ["wall-of-force", "Wall of Force"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const DRUID_CANTRIP_OPTIONS = [
+  ["druidcraft", "Druidcraft"],
+  ["elementalism", "Elementalism"],
+  ["guidance", "Guidance"],
+  ["mending", "Mending"],
+  ["message", "Message"],
+  ["poison-spray", "Poison Spray"],
+  ["produce-flame", "Produce Flame"],
+  ["resistance", "Resistance"],
+  ["shillelagh", "Shillelagh"],
+  ["starry-wisp", "Starry Wisp"],
+  ["thorn-whip", "Thorn Whip"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const CIRCLE_OF_THE_LAND_TERRAIN_OPTIONS = [
+  ["arid-land", "Arid Land"],
+  ["polar-land", "Polar Land"],
+  ["temperate-land", "Temperate Land"],
+  ["tropical-land", "Tropical Land"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const DRUID_ELEMENTAL_FURY_OPTIONS = [
+  {
+    option_type: "reference",
+    item: {
+      index: "potent-spellcasting",
+      name: "Potent Spellcasting",
+      url: "/api/2024/features/druid-elemental-fury#potent-spellcasting",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "primal-strike",
+      name: "Primal Strike",
+      url: "/api/2024/features/druid-elemental-fury#primal-strike",
+    },
+  },
+] as const;
+
+const WEAPON_MASTERY_PROPERTY_OPTIONS = [
+  {
+    option_type: "reference",
+    item: {
+      index: "cleave",
+      name: "Cleave",
+      url: "/api/2024/weapon-mastery-properties/cleave",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "graze",
+      name: "Graze",
+      url: "/api/2024/weapon-mastery-properties/graze",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "nick",
+      name: "Nick",
+      url: "/api/2024/weapon-mastery-properties/nick",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "push",
+      name: "Push",
+      url: "/api/2024/weapon-mastery-properties/push",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "sap",
+      name: "Sap",
+      url: "/api/2024/weapon-mastery-properties/sap",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "slow",
+      name: "Slow",
+      url: "/api/2024/weapon-mastery-properties/slow",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "topple",
+      name: "Topple",
+      url: "/api/2024/weapon-mastery-properties/topple",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "vex",
+      name: "Vex",
+      url: "/api/2024/weapon-mastery-properties/vex",
+    },
+  },
+] as const;
+
+function toSpellOptions(entries: readonly CuratedReferenceTuple[]) {
+  return entries.map(([index, name]) => ({
+    option_type: "reference",
+    item: {
+      index,
+      name,
+      url: `/api/2024/spells/${index}`,
+    },
+  }));
+}
+
+function createWarlockSpellChoiceFeature(
+  index: string,
+  level: number,
+  name: string,
+  description: string,
+  choose: number,
+  spellOptions: readonly CuratedReferenceTuple[],
+  type: "warlock cantrip" | "warlock spell" | "sorcerer cantrip" | "sorcerer spell",
+): CuratedFeatureReference {
+  return {
+    index,
+    level,
+    name,
+    desc: [description],
+    feature_specific: {
+      choose,
+      type,
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(spellOptions),
+      },
+    },
+  };
+}
+
+function createSorcererSpellChoiceFeature(
+  index: string,
+  level: number,
+  name: string,
+  description: string,
+  choose: number,
+  spellOptions: readonly CuratedReferenceTuple[],
+  type: "sorcerer cantrip" | "sorcerer spell",
+): CuratedFeatureReference {
+  return {
+    index,
+    level,
+    name,
+    desc: [description],
+    feature_specific: {
+      choose,
+      type,
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(spellOptions),
+      },
+    },
+  };
+}
+
+function createWizardSpellChoiceFeature(
+  index: string,
+  level: number,
+  name: string,
+  description: string,
+  choose: number,
+  spellOptions: readonly CuratedReferenceTuple[],
+  type: "wizard cantrip" | "wizard spell",
+): CuratedFeatureReference {
+  return {
+    index,
+    level,
+    name,
+    desc: [description],
+    feature_specific: {
+      choose,
+      type,
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(spellOptions),
+      },
+    },
+  };
+}
+
+function createDruidSpellChoiceFeature(
+  index: string,
+  level: number,
+  name: string,
+  description: string,
+  choose: number,
+  spellOptions: readonly CuratedReferenceTuple[],
+  type: "druid cantrip",
+): CuratedFeatureReference {
+  return {
+    index,
+    level,
+    name,
+    desc: [description],
+    feature_specific: {
+      choose,
+      type,
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(spellOptions),
+      },
+    },
+  };
+}
+
+const WARLOCK_MYSTIC_ARCANUM_6_OPTIONS = [
+  {
+    option_type: "reference",
+    item: { index: "arcane-gate", name: "Arcane Gate", url: "/api/2024/features/mystic-arcanum-6th-level#arcane-gate" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "circle-of-death", name: "Circle of Death", url: "/api/2024/features/mystic-arcanum-6th-level#circle-of-death" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "conjure-fey", name: "Conjure Fey", url: "/api/2024/features/mystic-arcanum-6th-level#conjure-fey" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "create-undead", name: "Create Undead", url: "/api/2024/features/mystic-arcanum-6th-level#create-undead" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "eyebite", name: "Eyebite", url: "/api/2024/features/mystic-arcanum-6th-level#eyebite" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "flesh-to-stone", name: "Flesh to Stone", url: "/api/2024/features/mystic-arcanum-6th-level#flesh-to-stone" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "mass-suggestion", name: "Mass Suggestion", url: "/api/2024/features/mystic-arcanum-6th-level#mass-suggestion" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "true-seeing", name: "True Seeing", url: "/api/2024/features/mystic-arcanum-6th-level#true-seeing" },
+  },
+] as const;
+
+const WARLOCK_PACT_BOON_OPTIONS = [
+  {
+    option_type: "reference",
+    item: {
+      index: "pact-of-the-blade",
+      name: "Pact of the Blade",
+      url: "/api/2024/features/pact-boon#pact-of-the-blade",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "pact-of-the-chain",
+      name: "Pact of the Chain",
+      url: "/api/2024/features/pact-boon#pact-of-the-chain",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "pact-of-the-tome",
+      name: "Pact of the Tome",
+      url: "/api/2024/features/pact-boon#pact-of-the-tome",
+    },
+    choice: {
+      choose: 3,
+      type: "warlock cantrip",
+      desc: "Choose three additional cantrips for your Book of Shadows",
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(PACT_OF_THE_TOME_CANTRIP_OPTIONS),
+      },
+    },
+  },
+] as const;
+
+const WARLOCK_ELDRITCH_INVOCATION_OPTIONS = [
+  { index: "eldritch-invocation-agonizing-blast", name: "Agonizing Blast", minimumLevel: 2, requiredSpellIndex: "eldritch-blast" },
+  { index: "eldritch-invocation-armor-of-shadows", name: "Armor of Shadows", minimumLevel: 2 },
+  { index: "eldritch-invocation-ascendant-step", name: "Ascendant Step", minimumLevel: 9 },
+  { index: "eldritch-invocation-beast-speech", name: "Beast Speech", minimumLevel: 2 },
+  { index: "eldritch-invocation-beguiling-influence", name: "Beguiling Influence", minimumLevel: 2 },
+  { index: "eldritch-invocation-bewitching-whispers", name: "Bewitching Whispers", minimumLevel: 7 },
+  {
+    index: "eldritch-invocation-book-of-ancient-secrets",
+    name: "Book of Ancient Secrets",
+    minimumLevel: 2,
+    requiredPactBoonIndex: "pact-of-the-tome",
+    choice: {
+      choose: 2,
+      type: "ritual spell",
+      desc: "Choose two 1st-level ritual spells for your Book of Ancient Secrets",
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(BOOK_OF_ANCIENT_SECRETS_RITUAL_OPTIONS),
+      },
+    },
+  },
+  { index: "eldritch-invocation-chains-of-carceri", name: "Chains of Carceri", minimumLevel: 15, requiredPactBoonIndex: "pact-of-the-chain" },
+  { index: "eldritch-invocation-devils-sight", name: "Devil's Sight", minimumLevel: 2 },
+  { index: "eldritch-invocation-dreadful-word", name: "Dreadful Word", minimumLevel: 7 },
+  { index: "eldritch-invocation-eldritch-sight", name: "Eldritch Sight", minimumLevel: 2 },
+  { index: "eldritch-invocation-eldritch-spear", name: "Eldritch Spear", minimumLevel: 2, requiredSpellIndex: "eldritch-blast" },
+  { index: "eldritch-invocation-eyes-of-the-rune-keeper", name: "Eyes of the Rune Keeper", minimumLevel: 2 },
+  { index: "eldritch-invocation-fiendish-vigor", name: "Fiendish Vigor", minimumLevel: 2 },
+  { index: "eldritch-invocation-gaze-of-two-minds", name: "Gaze of Two Minds", minimumLevel: 2 },
+  { index: "eldritch-invocation-lifedrinker", name: "Lifedrinker", minimumLevel: 12, requiredPactBoonIndex: "pact-of-the-blade" },
+  { index: "eldritch-invocation-mask-of-many-faces", name: "Mask of Many Faces", minimumLevel: 2 },
+  { index: "eldritch-invocation-master-of-myriad-forms", name: "Master of Myriad Forms", minimumLevel: 15 },
+  { index: "eldritch-invocation-minions-of-chaos", name: "Minions of Chaos", minimumLevel: 9 },
+  { index: "eldritch-invocation-mire-the-mind", name: "Mire the Mind", minimumLevel: 5 },
+  { index: "eldritch-invocation-misty-visions", name: "Misty Visions", minimumLevel: 2 },
+  { index: "eldritch-invocation-one-with-shadows", name: "One with Shadows", minimumLevel: 5 },
+  { index: "eldritch-invocation-otherworldly-leap", name: "Otherworldly Leap", minimumLevel: 9 },
+  { index: "eldritch-invocation-repelling-blast", name: "Repelling Blast", minimumLevel: 2, requiredSpellIndex: "eldritch-blast" },
+  { index: "eldritch-invocation-sculptor-of-flesh", name: "Sculptor of Flesh", minimumLevel: 7 },
+  { index: "eldritch-invocation-sign-of-ill-omen", name: "Sign of Ill Omen", minimumLevel: 5 },
+  { index: "eldritch-invocation-thief-of-five-fates", name: "Thief of Five Fates", minimumLevel: 2 },
+  { index: "eldritch-invocation-thirsting-blade", name: "Thirsting Blade", minimumLevel: 5, requiredPactBoonIndex: "pact-of-the-blade" },
+  { index: "eldritch-invocation-visions-of-distant-realms", name: "Visions of Distant Realms", minimumLevel: 15 },
+  { index: "eldritch-invocation-voice-of-the-chain-master", name: "Voice of the Chain Master", minimumLevel: 2, requiredPactBoonIndex: "pact-of-the-chain" },
+  { index: "eldritch-invocation-whispers-of-the-grave", name: "Whispers of the Grave", minimumLevel: 9 },
+  { index: "eldritch-invocation-witch-sight", name: "Witch Sight", minimumLevel: 15 },
+] as const;
+
+const WARLOCK_MYSTIC_ARCANUM_7_OPTIONS = [
+  {
+    option_type: "reference",
+    item: { index: "etherealness", name: "Etherealness", url: "/api/2024/features/mystic-arcanum-7th-level#etherealness" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "finger-of-death", name: "Finger of Death", url: "/api/2024/features/mystic-arcanum-7th-level#finger-of-death" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "forcecage", name: "Forcecage", url: "/api/2024/features/mystic-arcanum-7th-level#forcecage" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "plane-shift", name: "Plane Shift", url: "/api/2024/features/mystic-arcanum-7th-level#plane-shift" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "power-word-pain", name: "Power Word Pain", url: "/api/2024/features/mystic-arcanum-7th-level#power-word-pain" },
+  },
+] as const;
+
+const WARLOCK_MYSTIC_ARCANUM_8_OPTIONS = [
+  {
+    option_type: "reference",
+    item: { index: "demiplane", name: "Demiplane", url: "/api/2024/features/mystic-arcanum-8th-level#demiplane" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "dominate-monster", name: "Dominate Monster", url: "/api/2024/features/mystic-arcanum-8th-level#dominate-monster" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "feeblemind", name: "Feeblemind", url: "/api/2024/features/mystic-arcanum-8th-level#feeblemind" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "glibness", name: "Glibness", url: "/api/2024/features/mystic-arcanum-8th-level#glibness" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "power-word-stun", name: "Power Word Stun", url: "/api/2024/features/mystic-arcanum-8th-level#power-word-stun" },
+  },
+] as const;
+
+const WARLOCK_MYSTIC_ARCANUM_9_OPTIONS = [
+  {
+    option_type: "reference",
+    item: { index: "astral-projection", name: "Astral Projection", url: "/api/2024/features/mystic-arcanum-9th-level#astral-projection" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "foresight", name: "Foresight", url: "/api/2024/features/mystic-arcanum-9th-level#foresight" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "imprisonment", name: "Imprisonment", url: "/api/2024/features/mystic-arcanum-9th-level#imprisonment" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "power-word-kill", name: "Power Word Kill", url: "/api/2024/features/mystic-arcanum-9th-level#power-word-kill" },
+  },
+  {
+    option_type: "reference",
+    item: { index: "true-polymorph", name: "True Polymorph", url: "/api/2024/features/mystic-arcanum-9th-level#true-polymorph" },
+  },
+] as const;
+
+function createWarlockEldritchInvocationFeature(
+  index: string,
+  level: number,
+  description: string,
+): CuratedFeatureReference {
+  return {
+    index,
+    level,
+    name: "Eldritch Invocations",
+    desc: [description],
+    feature_specific: {
+      choose: 1,
+      type: "eldritch invocation",
+      from: {
+        option_set_type: "options_array",
+        options: WARLOCK_ELDRITCH_INVOCATION_OPTIONS.map((invocation) => ({
+          option_type: "reference",
+          item: {
+            index: invocation.index,
+            name: invocation.name,
+            url: `/api/2024/features/${invocation.index}`,
+          },
+          choice: "choice" in invocation ? invocation.choice : undefined,
+          prerequisites: {
+            minimumLevel: invocation.minimumLevel,
+            requiredPactBoonIndex: invocation.requiredPactBoonIndex ?? null,
+            requiredSpellIndex: invocation.requiredSpellIndex ?? null,
+          },
+        })),
+      },
+    },
+  };
+}
 
 const DRUID_SUBCLASSES = [
   ["circle-of-the-land", "Circle of the Land"],
@@ -157,6 +952,15 @@ function createSimpleFeature(
 }
 
 const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
+  createDruidSpellChoiceFeature(
+    "druid-cantrips-1",
+    1,
+    "Cantrips",
+    "Choose two Druid cantrips that reflect the first natural magic you learn to shape.",
+    2,
+    DRUID_CANTRIP_OPTIONS,
+    "druid cantrip",
+  ),
   createSimpleFeature(
     "druid-spellcasting",
     1,
@@ -196,7 +1000,7 @@ const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     "druid-wild-shape",
     2,
     "Wild Shape",
-    "You can Channel Nature to assume animal forms, using transformation as exploration, utility, and survival magic.",
+    "As a Bonus Action, you can expend a use of Channel Nature to assume an animal form. Wild Shape supports exploration, utility, and survival magic.",
   ),
   createSimpleFeature(
     "druid-wild-companion",
@@ -212,6 +1016,110 @@ const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     "Choose the circle that shapes your bond to the natural world and your later subclass features.",
   ),
   {
+    index: "circle-spells",
+    level: 3,
+    name: "Circle Spells",
+    desc: [
+      "Your chosen land grants always-prepared spells that reflect its terrain and magical character.",
+    ],
+    subclass: {
+      index: "circle-of-the-land",
+      name: "Circle of the Land",
+      url: "/api/2024/subclasses/circle-of-the-land",
+    },
+  },
+  {
+    index: "lands-aid",
+    level: 3,
+    name: "Land's Aid",
+    desc: [
+      "You channel restorative or bolstering terrain magic to support allies while shaping the battlefield.",
+    ],
+    subclass: {
+      index: "circle-of-the-land",
+      name: "Circle of the Land",
+      url: "/api/2024/subclasses/circle-of-the-land",
+    },
+  },
+  {
+    index: "circle-forms",
+    level: 3,
+    name: "Circle Forms",
+    desc: [
+      "Your Wild Shape becomes sturdier, deadlier, and better suited for combat.",
+    ],
+    subclass: {
+      index: "circle-of-the-moon",
+      name: "Circle of the Moon",
+      url: "/api/2024/subclasses/circle-of-the-moon",
+    },
+  },
+  {
+    index: "moonlight-step",
+    level: 3,
+    name: "Moonlight Step",
+    desc: [
+      "Lunar magic helps you reposition with sudden radiant mobility.",
+    ],
+    subclass: {
+      index: "circle-of-the-moon",
+      name: "Circle of the Moon",
+      url: "/api/2024/subclasses/circle-of-the-moon",
+    },
+  },
+  {
+    index: "wrath-of-the-sea",
+    level: 3,
+    name: "Wrath of the Sea",
+    desc: [
+      "Sea magic lashes nearby foes with moving water, force, or lightning-like pressure.",
+    ],
+    subclass: {
+      index: "circle-of-the-sea",
+      name: "Circle of the Sea",
+      url: "/api/2024/subclasses/circle-of-the-sea",
+    },
+  },
+  {
+    index: "watery-aegis",
+    level: 3,
+    name: "Watery Aegis",
+    desc: [
+      "You can sheath yourself or allies in moving sea-born protection.",
+    ],
+    subclass: {
+      index: "circle-of-the-sea",
+      name: "Circle of the Sea",
+      url: "/api/2024/subclasses/circle-of-the-sea",
+    },
+  },
+  {
+    index: "star-map",
+    level: 3,
+    name: "Star Map",
+    desc: [
+      "A celestial focus helps you cast guiding magic and draw on astrological insight.",
+    ],
+    subclass: {
+      index: "circle-of-the-stars",
+      name: "Circle of the Stars",
+      url: "/api/2024/subclasses/circle-of-the-stars",
+    },
+  },
+  {
+    index: "starry-form",
+    level: 3,
+    name: "Starry Form",
+    desc: [
+      "You take on a luminous constellation form that changes how your magic expresses itself.",
+    ],
+    subclass: {
+      index: "circle-of-the-stars",
+      name: "Circle of the Stars",
+      url: "/api/2024/subclasses/circle-of-the-stars",
+    },
+  },
+  {
     index: "druid-subclass-feature-3",
     level: 3,
     name: "Subclass Feature",
@@ -223,6 +1131,36 @@ const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Circle of the Stars: a Star Map and Starry Form connect your magic to celestial patterns.",
     ],
   },
+  {
+    index: "circle-of-the-land-terrain",
+    level: 3,
+    name: "Circle of the Land Terrain",
+    desc: [
+      "Choose the kind of land your circle is bound to. This terrain shapes the flavor and spell identity of your Circle of the Land features.",
+    ],
+    subclass: {
+      index: "circle-of-the-land",
+      name: "Circle of the Land",
+      url: "/api/2024/subclasses/circle-of-the-land",
+    },
+    feature_specific: {
+      choose: 1,
+      type: "land terrain",
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(CIRCLE_OF_THE_LAND_TERRAIN_OPTIONS, "subclasses"),
+      },
+    },
+  },
+  createDruidSpellChoiceFeature(
+    "druid-cantrips-2",
+    4,
+    "Cantrip",
+    "Choose one additional Druid cantrip.",
+    1,
+    DRUID_CANTRIP_OPTIONS,
+    "druid cantrip",
+  ),
   createAbilityScoreImprovementFeature("druid-ability-score-improvement-1", 4, CASTER_FEAT_OPTIONS),
   createSimpleFeature(
     "druid-wild-resurgence",
@@ -242,13 +1180,85 @@ const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Circle of the Stars: Cosmic Omen lets you weave favorable or unfavorable celestial signs.",
     ],
   },
-  createSimpleFeature(
-    "druid-elemental-fury",
-    7,
-    "Elemental Fury",
-    "Choose a path for your nature magic to hit harder, either enhancing your cantrips or empowering your weapon strikes with primal force.",
-  ),
+  {
+    index: "natural-recovery",
+    level: 6,
+    name: "Natural Recovery",
+    desc: [
+      "You recover magical power more efficiently through communion with the natural world.",
+    ],
+    subclass: {
+      index: "circle-of-the-land",
+      name: "Circle of the Land",
+      url: "/api/2024/subclasses/circle-of-the-land",
+    },
+  },
+  {
+    index: "improved-circle-forms",
+    level: 6,
+    name: "Improved Circle Forms",
+    desc: [
+      "Your transformed shapes gain stronger combat presence and more reliable staying power.",
+    ],
+    subclass: {
+      index: "circle-of-the-moon",
+      name: "Circle of the Moon",
+      url: "/api/2024/subclasses/circle-of-the-moon",
+    },
+  },
+  {
+    index: "oceanic-gift",
+    level: 6,
+    name: "Oceanic Gift",
+    desc: [
+      "Your control over water and storm deepens, enhancing movement and environmental command.",
+    ],
+    subclass: {
+      index: "circle-of-the-sea",
+      name: "Circle of the Sea",
+      url: "/api/2024/subclasses/circle-of-the-sea",
+    },
+  },
+  {
+    index: "cosmic-omen",
+    level: 6,
+    name: "Cosmic Omen",
+    desc: [
+      "The stars whisper favorable and unfavorable signs that can bend key rolls.",
+    ],
+    subclass: {
+      index: "circle-of-the-stars",
+      name: "Circle of the Stars",
+      url: "/api/2024/subclasses/circle-of-the-stars",
+    },
+  },
+  {
+    index: "druid-elemental-fury",
+    level: 7,
+    name: "Elemental Fury",
+    desc: [
+      "Choose a path for your nature magic to hit harder, either enhancing your cantrips or empowering your weapon strikes with primal force.",
+      "Potent Spellcasting improves the damage of your Druid cantrips, while Primal Strike empowers weapon attacks with elemental force.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "elemental fury",
+      from: {
+        option_set_type: "options_array",
+        options: DRUID_ELEMENTAL_FURY_OPTIONS,
+      },
+    },
+  },
   createAbilityScoreImprovementFeature("druid-ability-score-improvement-2", 8, CASTER_FEAT_OPTIONS),
+  createDruidSpellChoiceFeature(
+    "druid-cantrips-3",
+    10,
+    "Cantrip",
+    "Choose one additional Druid cantrip.",
+    1,
+    DRUID_CANTRIP_OPTIONS,
+    "druid cantrip",
+  ),
   {
     index: "druid-subclass-feature-10",
     level: 10,
@@ -260,6 +1270,58 @@ const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Circle of the Sea: storm-soaked power turns you into a mobile force of sea and wind.",
       "Circle of the Stars: your constellations shine brighter and last with greater reliability.",
     ],
+  },
+  {
+    index: "natures-ward",
+    level: 10,
+    name: "Nature's Ward",
+    desc: [
+      "The wild protects you from certain elemental, environmental, or natural hazards.",
+    ],
+    subclass: {
+      index: "circle-of-the-land",
+      name: "Circle of the Land",
+      url: "/api/2024/subclasses/circle-of-the-land",
+    },
+  },
+  {
+    index: "moonlit-passage",
+    level: 10,
+    name: "Moonlit Passage",
+    desc: [
+      "You move through battle with supernatural lunar grace and improved transformational flexibility.",
+    ],
+    subclass: {
+      index: "circle-of-the-moon",
+      name: "Circle of the Moon",
+      url: "/api/2024/subclasses/circle-of-the-moon",
+    },
+  },
+  {
+    index: "stormborn",
+    level: 10,
+    name: "Stormborn",
+    desc: [
+      "You gain exceptional mobility and battlefield presence through sea and storm magic.",
+    ],
+    subclass: {
+      index: "circle-of-the-sea",
+      name: "Circle of the Sea",
+      url: "/api/2024/subclasses/circle-of-the-sea",
+    },
+  },
+  {
+    index: "twinkling-constellations",
+    level: 10,
+    name: "Twinkling Constellations",
+    desc: [
+      "Your Starry Form becomes more stable, flexible, and powerful.",
+    ],
+    subclass: {
+      index: "circle-of-the-stars",
+      name: "Circle of the Stars",
+      url: "/api/2024/subclasses/circle-of-the-stars",
+    },
   },
   createSimpleFeature(
     "druid-improved-elemental-fury",
@@ -279,6 +1341,58 @@ const DRUID_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Circle of the Sea: you become a devastating living current of storm and surf.",
       "Circle of the Stars: Full of Stars cloaks you in resilient celestial light.",
     ],
+  },
+  {
+    index: "natures-sanctuary",
+    level: 14,
+    name: "Nature's Sanctuary",
+    desc: [
+      "Creatures of the natural world become less willing or less able to strike you directly.",
+    ],
+    subclass: {
+      index: "circle-of-the-land",
+      name: "Circle of the Land",
+      url: "/api/2024/subclasses/circle-of-the-land",
+    },
+  },
+  {
+    index: "lunar-form",
+    level: 14,
+    name: "Lunar Form",
+    desc: [
+      "At your peak, moon-charged transformation becomes a defining and overwhelming expression of your magic.",
+    ],
+    subclass: {
+      index: "circle-of-the-moon",
+      name: "Circle of the Moon",
+      url: "/api/2024/subclasses/circle-of-the-moon",
+    },
+  },
+  {
+    index: "seas-fury",
+    level: 14,
+    name: "Sea's Fury",
+    desc: [
+      "You become a devastating vessel of oceanic power, overwhelming foes with relentless elemental force.",
+    ],
+    subclass: {
+      index: "circle-of-the-sea",
+      name: "Circle of the Sea",
+      url: "/api/2024/subclasses/circle-of-the-sea",
+    },
+  },
+  {
+    index: "full-of-stars",
+    level: 14,
+    name: "Full of Stars",
+    desc: [
+      "At your peak, celestial light wraps you in remarkable resilience.",
+    ],
+    subclass: {
+      index: "circle-of-the-stars",
+      name: "Circle of the Stars",
+      url: "/api/2024/subclasses/circle-of-the-stars",
+    },
   },
   createAbilityScoreImprovementFeature("druid-ability-score-improvement-4", 16, CASTER_FEAT_OPTIONS),
   createSimpleFeature(
@@ -319,7 +1433,16 @@ const FIGHTER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     name: "Weapon Mastery",
     desc: [
       "You learn mastery properties that unlock special tactical benefits on weapons you know how to use.",
+      "Choose three mastery properties to represent the weapons you currently understand best.",
     ],
+    feature_specific: {
+      choose: 3,
+      type: "weapon mastery",
+      from: {
+        option_set_type: "options_array",
+        options: WEAPON_MASTERY_PROPERTY_OPTIONS,
+      },
+    },
   },
   {
     index: "fighter-tactical-mind",
@@ -348,6 +1471,97 @@ const FIGHTER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Psi Warrior channels psionic force into defense, movement, and offense.",
     ],
   },
+  {
+    index: "combat-superiority",
+    level: 3,
+    name: "Combat Superiority",
+    desc: [
+      "You learn maneuvers fueled by superiority dice that let you push, trip, threaten, and control the field with tactical precision.",
+    ],
+    subclass: {
+      index: "battle-master",
+      name: "Battle Master",
+      url: "/api/2024/subclasses/battle-master",
+    },
+  },
+  {
+    index: "student-of-war",
+    level: 3,
+    name: "Student of War",
+    desc: [
+      "Your martial studies grant a scholar-warrior edge outside direct attacks, reinforcing the Battle Master's analytical discipline.",
+    ],
+    subclass: {
+      index: "battle-master",
+      name: "Battle Master",
+      url: "/api/2024/subclasses/battle-master",
+    },
+  },
+  {
+    index: "improved-critical",
+    level: 3,
+    name: "Improved Critical",
+    desc: [
+      "Your weapon attacks score a critical hit on a roll of 19 or 20 on the d20.",
+    ],
+    subclass: {
+      index: "champion",
+      name: "Champion",
+      url: "/api/2024/subclasses/champion",
+    },
+  },
+  {
+    index: "eldritch-knight-spellcasting",
+    level: 3,
+    name: "Spellcasting",
+    desc: [
+      "You learn wizard spells that complement your martial role, adding protective magic and control to your fighting discipline.",
+    ],
+    subclass: {
+      index: "eldritch-knight",
+      name: "Eldritch Knight",
+      url: "/api/2024/subclasses/eldritch-knight",
+    },
+  },
+  {
+    index: "war-bond",
+    level: 3,
+    name: "War Bond",
+    desc: [
+      "A bonded weapon remains part of your fighting identity and returns to your command when battle or distance would separate you.",
+    ],
+    subclass: {
+      index: "eldritch-knight",
+      name: "Eldritch Knight",
+      url: "/api/2024/subclasses/eldritch-knight",
+    },
+  },
+  {
+    index: "fighter-psi-warrior-psionic-power",
+    level: 3,
+    name: "Psionic Power",
+    desc: [
+      "You gain a pool of psionic energy for protective bursts, forceful strikes, and subtle movement driven by disciplined will.",
+    ],
+    subclass: {
+      index: "psi-warrior",
+      name: "Psi Warrior",
+      url: "/api/2024/subclasses/psi-warrior",
+    },
+  },
+  {
+    index: "telekinetic-adept",
+    level: 3,
+    name: "Telekinetic Adept",
+    desc: [
+      "Your control over movement and force sharpens into a defining combat tool, making telekinesis part of your martial style.",
+    ],
+    subclass: {
+      index: "psi-warrior",
+      name: "Psi Warrior",
+      url: "/api/2024/subclasses/psi-warrior",
+    },
+  },
   createAbilityScoreImprovementFeature("fighter-ability-score-improvement-1", 4, MARTIAL_FEAT_OPTIONS),
   {
     index: "fighter-tactical-shift",
@@ -370,6 +1584,58 @@ const FIGHTER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Psi Warrior strengthens mental resilience and telekinetic control.",
     ],
   },
+  {
+    index: "know-your-enemy",
+    level: 7,
+    name: "Know Your Enemy",
+    desc: [
+      "You assess opposing combatants with a veteran's eye for strengths and weaknesses, helping you size up threats before committing.",
+    ],
+    subclass: {
+      index: "battle-master",
+      name: "Battle Master",
+      url: "/api/2024/subclasses/battle-master",
+    },
+  },
+  {
+    index: "remarkable-athlete",
+    level: 7,
+    name: "Remarkable Athlete",
+    desc: [
+      "You develop broad athletic excellence that improves physical feats and mobility, reinforcing the Champion's mastery of fundamentals.",
+    ],
+    subclass: {
+      index: "champion",
+      name: "Champion",
+      url: "/api/2024/subclasses/champion",
+    },
+  },
+  {
+    index: "war-magic",
+    level: 7,
+    name: "War Magic",
+    desc: [
+      "You weave spells and weapon attacks together in the same combat rhythm, tightening the Eldritch Knight's spell-and-steel cadence.",
+    ],
+    subclass: {
+      index: "eldritch-knight",
+      name: "Eldritch Knight",
+      url: "/api/2024/subclasses/eldritch-knight",
+    },
+  },
+  {
+    index: "guarded-mind",
+    level: 7,
+    name: "Guarded Mind",
+    desc: [
+      "Your disciplined psyche resists hostile mental influence, helping your psionic focus remain intact under pressure.",
+    ],
+    subclass: {
+      index: "psi-warrior",
+      name: "Psi Warrior",
+      url: "/api/2024/subclasses/psi-warrior",
+    },
+  },
   createAbilityScoreImprovementFeature("fighter-ability-score-improvement-3", 8, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
     "fighter-tactical-master",
@@ -388,6 +1654,58 @@ const FIGHTER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Eldritch Knight punishes foes opened up by spell-and-steel pressure.",
       "Psi Warrior gains a more forceful protective presence.",
     ],
+  },
+  {
+    index: "improved-combat-superiority",
+    level: 10,
+    name: "Improved Combat Superiority",
+    desc: [
+      "Your superiority techniques become broader and more potent, pushing Battle Master control toward elite tactical mastery.",
+    ],
+    subclass: {
+      index: "battle-master",
+      name: "Battle Master",
+      url: "/api/2024/subclasses/battle-master",
+    },
+  },
+  {
+    index: "heroic-warrior",
+    level: 10,
+    name: "Heroic Warrior",
+    desc: [
+      "You embody the ideal battle hero and gain stronger staying power or momentum in a fight through pure martial excellence.",
+    ],
+    subclass: {
+      index: "champion",
+      name: "Champion",
+      url: "/api/2024/subclasses/champion",
+    },
+  },
+  {
+    index: "eldritch-strike",
+    level: 10,
+    name: "Eldritch Strike",
+    desc: [
+      "Your weapon pressure helps open enemies up to your magic, tightening the interaction between swordplay and spellcasting.",
+    ],
+    subclass: {
+      index: "eldritch-knight",
+      name: "Eldritch Knight",
+      url: "/api/2024/subclasses/eldritch-knight",
+    },
+  },
+  {
+    index: "bulwark-of-force",
+    level: 10,
+    name: "Bulwark of Force",
+    desc: [
+      "You project a shield of psionic power to defend the party, making your discipline feel protective as well as offensive.",
+    ],
+    subclass: {
+      index: "psi-warrior",
+      name: "Psi Warrior",
+      url: "/api/2024/subclasses/psi-warrior",
+    },
   },
   createSimpleFeature(
     "fighter-two-extra-attacks",
@@ -417,6 +1735,58 @@ const FIGHTER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Psi Warrior masters higher-order psionic technique.",
     ],
   },
+  {
+    index: "relentless",
+    level: 15,
+    name: "Relentless",
+    desc: [
+      "When the battle runs long, you regain enough focus to keep maneuvering, sustaining the Battle Master's control under pressure.",
+    ],
+    subclass: {
+      index: "battle-master",
+      name: "Battle Master",
+      url: "/api/2024/subclasses/battle-master",
+    },
+  },
+  {
+    index: "superior-critical",
+    level: 15,
+    name: "Superior Critical",
+    desc: [
+      "Your weapon attacks score a critical hit on a roll of 18, 19, or 20 on the d20.",
+    ],
+    subclass: {
+      index: "champion",
+      name: "Champion",
+      url: "/api/2024/subclasses/champion",
+    },
+  },
+  {
+    index: "arcane-charge",
+    level: 15,
+    name: "Arcane Charge",
+    desc: [
+      "You reposition through battle with forceful magical movement, making your offense and mobility feel increasingly arcane.",
+    ],
+    subclass: {
+      index: "eldritch-knight",
+      name: "Eldritch Knight",
+      url: "/api/2024/subclasses/eldritch-knight",
+    },
+  },
+  {
+    index: "psi-powered-leap",
+    level: 15,
+    name: "Psi-Powered Leap",
+    desc: [
+      "You move through the field with startling telekinetic control and presence, turning mental force into mobility.",
+    ],
+    subclass: {
+      index: "psi-warrior",
+      name: "Psi Warrior",
+      url: "/api/2024/subclasses/psi-warrior",
+    },
+  },
   createAbilityScoreImprovementFeature("fighter-ability-score-improvement-6", 16, MARTIAL_FEAT_OPTIONS),
   {
     index: "fighter-subclass-feature-18",
@@ -429,6 +1799,58 @@ const FIGHTER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Eldritch Knight fully fuses arcane and martial mastery.",
       "Psi Warrior manifests its most powerful telekinetic force.",
     ],
+  },
+  {
+    index: "supreme-combat-superiority",
+    level: 18,
+    name: "Supreme Combat Superiority",
+    desc: [
+      "Your maneuvers reach a capstone level of elite tactical mastery, letting the Battle Master dominate complex fights.",
+    ],
+    subclass: {
+      index: "battle-master",
+      name: "Battle Master",
+      url: "/api/2024/subclasses/battle-master",
+    },
+  },
+  {
+    index: "survivor",
+    level: 18,
+    name: "Survivor",
+    desc: [
+      "At your peak, you recover from punishment with exceptional battlefield endurance, becoming very hard to wear down.",
+    ],
+    subclass: {
+      index: "champion",
+      name: "Champion",
+      url: "/api/2024/subclasses/champion",
+    },
+  },
+  {
+    index: "improved-war-magic",
+    level: 18,
+    name: "Improved War Magic",
+    desc: [
+      "Your spell-and-steel engine reaches its capstone state, letting the Eldritch Knight blend arcane power and weapon pressure seamlessly.",
+    ],
+    subclass: {
+      index: "eldritch-knight",
+      name: "Eldritch Knight",
+      url: "/api/2024/subclasses/eldritch-knight",
+    },
+  },
+  {
+    index: "telekinetic-master",
+    level: 18,
+    name: "Telekinetic Master",
+    desc: [
+      "Your psionic combat style reaches a capstone of overwhelming force and control, shaping the battlefield through sheer disciplined will.",
+    ],
+    subclass: {
+      index: "psi-warrior",
+      name: "Psi Warrior",
+      url: "/api/2024/subclasses/psi-warrior",
+    },
   },
   createEpicBoonFeature("fighter-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat; Boon of Combat Prowess is a natural fit for many fighters."),
   createSimpleFeature(
@@ -477,6 +1899,84 @@ const MONK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Warrior of Shadow turns stealth and darkness into combat tools.",
     ],
   },
+  {
+    index: "mercy-hand-of-healing",
+    level: 3,
+    name: "Hand of Healing",
+    desc: [
+      "Your Warrior of Mercy training lets you turn restorative technique into swift battlefield aid, channeling healing through a disciplined touch.",
+    ],
+    subclass: {
+      index: "warrior-of-mercy",
+      name: "Warrior of Mercy",
+      url: "/api/2024/subclasses/warrior-of-mercy",
+    },
+  },
+  {
+    index: "mercy-hand-of-harm",
+    level: 3,
+    name: "Hand of Harm",
+    desc: [
+      "Your Warrior of Mercy discipline also teaches lethal precision, letting you inflict extra necrotic pain when your strikes land cleanly.",
+    ],
+    subclass: {
+      index: "warrior-of-mercy",
+      name: "Warrior of Mercy",
+      url: "/api/2024/subclasses/warrior-of-mercy",
+    },
+  },
+  {
+    index: "elements-elemental-attunement",
+    level: 3,
+    name: "Elemental Attunement",
+    desc: [
+      "As a Warrior of the Elements, you attune your Focus to elemental force, preparing your body to shape wind, flame, stone, water, and thunder through martial technique.",
+    ],
+    subclass: {
+      index: "warrior-of-the-elements",
+      name: "Warrior of the Elements",
+      url: "/api/2024/subclasses/warrior-of-the-elements",
+    },
+  },
+  {
+    index: "elements-elemental-expression",
+    level: 3,
+    name: "Elemental Expression",
+    desc: [
+      "Your elemental discipline gives your strikes and movement a supernatural expression, extending your reach and letting your martial arts carry elemental pressure.",
+    ],
+    subclass: {
+      index: "warrior-of-the-elements",
+      name: "Warrior of the Elements",
+      url: "/api/2024/subclasses/warrior-of-the-elements",
+    },
+  },
+  {
+    index: "open-hand-technique",
+    level: 3,
+    name: "Open Hand Technique",
+    desc: [
+      "Your Warrior of the Open Hand training lets your flurry manipulate balance and positioning, pushing, staggering, or denying reactions through precise strikes.",
+    ],
+    subclass: {
+      index: "warrior-of-the-hand",
+      name: "Warrior of the Open Hand",
+      url: "/api/2024/subclasses/warrior-of-the-hand",
+    },
+  },
+  {
+    index: "shadow-arts",
+    level: 3,
+    name: "Shadow Arts",
+    desc: [
+      "Your Warrior of Shadow discipline grants magical techniques for darkness, silence, and concealment, turning stealth into a direct combat tool.",
+    ],
+    subclass: {
+      index: "warrior-of-shadow",
+      name: "Warrior of Shadow",
+      url: "/api/2024/subclasses/warrior-of-shadow",
+    },
+  },
   createSimpleFeature(
     "deflect-attacks",
     3,
@@ -502,6 +2002,58 @@ const MONK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Shadow refines movement through darkness and concealment.",
     ],
   },
+  {
+    index: "mercy-physicians-touch",
+    level: 6,
+    name: "Physician's Touch",
+    desc: [
+      "Your Warrior of Mercy techniques sharpen so that your healing and harming touch can also steady allies or debilitate enemies with precise pressure-point mastery.",
+    ],
+    subclass: {
+      index: "warrior-of-mercy",
+      name: "Warrior of Mercy",
+      url: "/api/2024/subclasses/warrior-of-mercy",
+    },
+  },
+  {
+    index: "reach-of-the-elements",
+    level: 6,
+    name: "Reach of the Elements",
+    desc: [
+      "Your Warrior of the Elements discipline stretches farther across the battlefield, increasing the range and force with which elemental technique shapes a fight.",
+    ],
+    subclass: {
+      index: "warrior-of-the-elements",
+      name: "Warrior of the Elements",
+      url: "/api/2024/subclasses/warrior-of-the-elements",
+    },
+  },
+  {
+    index: "wholeness-of-body",
+    level: 6,
+    name: "Wholeness of Body",
+    desc: [
+      "Your Warrior of the Open Hand training lets you restore yourself through disciplined focus, turning inner balance into practical endurance.",
+    ],
+    subclass: {
+      index: "warrior-of-the-hand",
+      name: "Warrior of the Open Hand",
+      url: "/api/2024/subclasses/warrior-of-the-hand",
+    },
+  },
+  {
+    index: "shadow-step",
+    level: 6,
+    name: "Shadow Step",
+    desc: [
+      "Your Warrior of Shadow technique lets you move between dim light and darkness with startling speed, repositioning before enemies can answer.",
+    ],
+    subclass: {
+      index: "warrior-of-shadow",
+      name: "Warrior of Shadow",
+      url: "/api/2024/subclasses/warrior-of-shadow",
+    },
+  },
   createSimpleFeature(
     "monk-acrobatic-movement",
     9,
@@ -526,6 +2078,58 @@ const MONK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Open Hand reaches a high expression of speed, poise, and pressure.",
       "Shadow becomes far more elusive and threatening from concealment.",
     ],
+  },
+  {
+    index: "mercy-flurry-of-healing-and-harm",
+    level: 11,
+    name: "Flurry of Healing and Harm",
+    desc: [
+      "Your Warrior of Mercy flurries can blend restoration and devastation in a single flowing sequence, making your signature techniques faster and more efficient.",
+    ],
+    subclass: {
+      index: "warrior-of-mercy",
+      name: "Warrior of Mercy",
+      url: "/api/2024/subclasses/warrior-of-mercy",
+    },
+  },
+  {
+    index: "stride-of-the-elements",
+    level: 11,
+    name: "Stride of the Elements",
+    desc: [
+      "Your Warrior of the Elements movement becomes more supernatural, letting you cut through the battlefield with elemental speed and presence.",
+    ],
+    subclass: {
+      index: "warrior-of-the-elements",
+      name: "Warrior of the Elements",
+      url: "/api/2024/subclasses/warrior-of-the-elements",
+    },
+  },
+  {
+    index: "fleet-step",
+    level: 11,
+    name: "Fleet Step",
+    desc: [
+      "Your Warrior of the Open Hand footwork reaches a new level of poise, making it even easier to control tempo and positioning in battle.",
+    ],
+    subclass: {
+      index: "warrior-of-the-hand",
+      name: "Warrior of the Open Hand",
+      url: "/api/2024/subclasses/warrior-of-the-hand",
+    },
+  },
+  {
+    index: "cloak-of-shadows",
+    level: 11,
+    name: "Cloak of Shadows",
+    desc: [
+      "Your Warrior of Shadow discipline lets you fade from easy sight, controlling the engagement through concealment and perfect timing.",
+    ],
+    subclass: {
+      index: "warrior-of-shadow",
+      name: "Warrior of Shadow",
+      url: "/api/2024/subclasses/warrior-of-shadow",
+    },
   },
   createAbilityScoreImprovementFeature("monk-ability-score-improvement-3", 12, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
@@ -559,6 +2163,58 @@ const MONK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Shadow reaches apex stealth and lethal timing.",
     ],
   },
+  {
+    index: "hand-of-ultimate-mercy",
+    level: 17,
+    name: "Hand of Ultimate Mercy",
+    desc: [
+      "Your Warrior of Mercy mastery reaches a miraculous peak, allowing your healing touch to pull an ally back from death with extraordinary restorative force.",
+    ],
+    subclass: {
+      index: "warrior-of-mercy",
+      name: "Warrior of Mercy",
+      url: "/api/2024/subclasses/warrior-of-mercy",
+    },
+  },
+  {
+    index: "elemental-epitome",
+    level: 17,
+    name: "Elemental Epitome",
+    desc: [
+      "Your Warrior of the Elements training culminates in a near-perfect union of body and elemental power, dramatically increasing your battlefield presence.",
+    ],
+    subclass: {
+      index: "warrior-of-the-elements",
+      name: "Warrior of the Elements",
+      url: "/api/2024/subclasses/warrior-of-the-elements",
+    },
+  },
+  {
+    index: "quivering-palm",
+    level: 17,
+    name: "Quivering Palm",
+    desc: [
+      "Your Warrior of the Open Hand training grants a legendary finishing technique that can leave a foe reeling or bring them down with a single precise touch.",
+    ],
+    subclass: {
+      index: "warrior-of-the-hand",
+      name: "Warrior of the Open Hand",
+      url: "/api/2024/subclasses/warrior-of-the-hand",
+    },
+  },
+  {
+    index: "opportunist",
+    level: 17,
+    name: "Opportunist",
+    desc: [
+      "Your Warrior of Shadow mastery lets you punish enemy openings with sudden strikes, turning distraction and poor positioning into immediate harm.",
+    ],
+    subclass: {
+      index: "warrior-of-shadow",
+      name: "Warrior of Shadow",
+      url: "/api/2024/subclasses/warrior-of-shadow",
+    },
+  },
   createSimpleFeature(
     "monk-superior-defense",
     18,
@@ -581,12 +2237,23 @@ const PALADIN_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     "Spellcasting",
     "You prepare and cast Paladin spells through devotion and conviction, using Charisma as your spellcasting ability.",
   ),
-  createSimpleFeature(
-    "paladin-weapon-mastery",
-    1,
-    "Weapon Mastery",
-    "You learn mastery properties that let your chosen weapons express more control, pressure, or battlefield utility.",
-  ),
+  {
+    index: "paladin-weapon-mastery",
+    level: 1,
+    name: "Weapon Mastery",
+    desc: [
+      "You learn mastery properties that let your chosen weapons express more control, pressure, or battlefield utility.",
+      "Choose two mastery properties to represent the weapons you currently understand best.",
+    ],
+    feature_specific: {
+      choose: 2,
+      type: "weapon mastery",
+      from: {
+        option_set_type: "options_array",
+        options: WEAPON_MASTERY_PROPERTY_OPTIONS,
+      },
+    },
+  },
   {
     index: "paladin-fighting-style",
     level: 2,
@@ -634,6 +2301,162 @@ const PALADIN_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Vengeance hunts down dangerous foes with relentless purpose.",
     ],
   },
+  {
+    index: "devotion-oath-spells",
+    level: 3,
+    name: "Oath Spells",
+    desc: [
+      "Your Oath of Devotion always prepares a set of radiant and protective spells that reinforce honesty, courage, and holy resolve.",
+    ],
+    subclass: {
+      index: "oath-of-devotion",
+      name: "Oath of Devotion",
+      url: "/api/2024/subclasses/oath-of-devotion",
+    },
+  },
+  {
+    index: "devotion-sacred-weapon",
+    level: 3,
+    name: "Sacred Weapon",
+    desc: [
+      "Your Channel Divinity can turn your weapon into a beacon of holy accuracy, letting devotion guide your blows with divine certainty.",
+    ],
+    subclass: {
+      index: "oath-of-devotion",
+      name: "Oath of Devotion",
+      url: "/api/2024/subclasses/oath-of-devotion",
+    },
+  },
+  {
+    index: "devotion-turn-the-unholy",
+    level: 3,
+    name: "Turn the Unholy",
+    desc: [
+      "Your faith can repel fiends and undead, forcing impure foes to yield before the strength of your devotion.",
+    ],
+    subclass: {
+      index: "oath-of-devotion",
+      name: "Oath of Devotion",
+      url: "/api/2024/subclasses/oath-of-devotion",
+    },
+  },
+  {
+    index: "glory-oath-spells",
+    level: 3,
+    name: "Oath Spells",
+    desc: [
+      "Your Oath of Glory always prepares heroic, momentum-driven spells that support athletic excellence and legendary exploits.",
+    ],
+    subclass: {
+      index: "oath-of-glory",
+      name: "Oath of Glory",
+      url: "/api/2024/subclasses/oath-of-glory",
+    },
+  },
+  {
+    index: "glory-inspiring-smite",
+    level: 3,
+    name: "Inspiring Smite",
+    desc: [
+      "Your smites can be transformed into bursts of encouragement, turning divine offense into a source of resilience for allies.",
+    ],
+    subclass: {
+      index: "oath-of-glory",
+      name: "Oath of Glory",
+      url: "/api/2024/subclasses/oath-of-glory",
+    },
+  },
+  {
+    index: "glory-peerless-athlete",
+    level: 3,
+    name: "Peerless Athlete",
+    desc: [
+      "Your Channel Divinity heightens athletic greatness beyond ordinary mortal limits, making heroic movement and force feel effortless.",
+    ],
+    subclass: {
+      index: "oath-of-glory",
+      name: "Oath of Glory",
+      url: "/api/2024/subclasses/oath-of-glory",
+    },
+  },
+  {
+    index: "ancients-oath-spells",
+    level: 3,
+    name: "Oath Spells",
+    desc: [
+      "Your Oath of the Ancients always prepares nature- and light-themed spells that defend life, beauty, and hope.",
+    ],
+    subclass: {
+      index: "oath-of-the-ancients",
+      name: "Oath of the Ancients",
+      url: "/api/2024/subclasses/oath-of-the-ancients",
+    },
+  },
+  {
+    index: "ancients-natures-wrath",
+    level: 3,
+    name: "Nature's Wrath",
+    desc: [
+      "Your Channel Divinity can bind an enemy in restraining natural force, turning the living world itself against those who threaten it.",
+    ],
+    subclass: {
+      index: "oath-of-the-ancients",
+      name: "Oath of the Ancients",
+      url: "/api/2024/subclasses/oath-of-the-ancients",
+    },
+  },
+  {
+    index: "ancients-turn-the-faithless",
+    level: 3,
+    name: "Turn the Faithless",
+    desc: [
+      "Your oath can drive away certain fey and fiends, forcing hostile supernatural creatures to recoil from your ancient light.",
+    ],
+    subclass: {
+      index: "oath-of-the-ancients",
+      name: "Oath of the Ancients",
+      url: "/api/2024/subclasses/oath-of-the-ancients",
+    },
+  },
+  {
+    index: "vengeance-oath-spells",
+    level: 3,
+    name: "Oath Spells",
+    desc: [
+      "Your Oath of Vengeance always prepares pursuit, control, and punishing strike spells that keep dangerous foes under pressure.",
+    ],
+    subclass: {
+      index: "oath-of-vengeance",
+      name: "Oath of Vengeance",
+      url: "/api/2024/subclasses/oath-of-vengeance",
+    },
+  },
+  {
+    index: "vengeance-abjure-enemy",
+    level: 3,
+    name: "Abjure Enemy",
+    desc: [
+      "Your Channel Divinity can terrify or pin down a chosen foe, helping you control the enemy you are sworn to hunt.",
+    ],
+    subclass: {
+      index: "oath-of-vengeance",
+      name: "Oath of Vengeance",
+      url: "/api/2024/subclasses/oath-of-vengeance",
+    },
+  },
+  {
+    index: "vengeance-vow-of-enmity",
+    level: 3,
+    name: "Vow of Enmity",
+    desc: [
+      "You focus your wrath on a chosen enemy with relentless accuracy, making it far harder for that target to escape your judgment.",
+    ],
+    subclass: {
+      index: "oath-of-vengeance",
+      name: "Oath of Vengeance",
+      url: "/api/2024/subclasses/oath-of-vengeance",
+    },
+  },
   createAbilityScoreImprovementFeature("paladin-ability-score-improvement-1", 4, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
     "faithful-steed",
@@ -653,12 +2476,70 @@ const PALADIN_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Vengeance turns pursuit into tactical pressure.",
     ],
   },
+  {
+    index: "devotion-aura-of-devotion",
+    level: 7,
+    name: "Aura of Devotion",
+    desc: [
+      "Your holy presence helps shield nearby allies from charm and corruption. While in your aura, you and allies can't be Charmed.",
+    ],
+    subclass: {
+      index: "oath-of-devotion",
+      name: "Oath of Devotion",
+      url: "/api/2024/subclasses/oath-of-devotion",
+    },
+  },
+  {
+    index: "glory-aura-of-alacrity",
+    level: 7,
+    name: "Aura of Alacrity",
+    desc: [
+      "Your heroic momentum spills outward, helping allies near you move with greater urgency and confidence.",
+    ],
+    subclass: {
+      index: "oath-of-glory",
+      name: "Oath of Glory",
+      url: "/api/2024/subclasses/oath-of-glory",
+    },
+  },
+  {
+    index: "ancients-aura-of-warding",
+    level: 7,
+    name: "Aura of Warding",
+    desc: [
+      "Your ancient light helps shield allies from hostile spell damage. While in your aura, you and allies have resistance to all damage from spells.",
+    ],
+    subclass: {
+      index: "oath-of-the-ancients",
+      name: "Oath of the Ancients",
+      url: "/api/2024/subclasses/oath-of-the-ancients",
+    },
+  },
+  {
+    index: "vengeance-relentless-avenger",
+    level: 7,
+    name: "Relentless Avenger",
+    desc: [
+      "You pursue enemies with supernatural tenacity after striking them, staying on the heels of the foe you mean to end.",
+    ],
+    subclass: {
+      index: "oath-of-vengeance",
+      name: "Oath of Vengeance",
+      url: "/api/2024/subclasses/oath-of-vengeance",
+    },
+  },
   createAbilityScoreImprovementFeature("paladin-ability-score-improvement-2", 8, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
     "abjure-foes",
     9,
     "Abjure Foes",
     "Your divine authority can restrain enemy movement and confidence, forcing hostile creatures to contend with sacred pressure.",
+  ),
+  createSimpleFeature(
+    "aura-of-courage",
+    10,
+    "Aura of Courage",
+    "Your courage radiates outward. While in your aura, you and allies can't be Frightened.",
   ),
   createSimpleFeature(
     "radiant-strikes",
@@ -685,6 +2566,58 @@ const PALADIN_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Vengeance becomes harder to escape and deadlier to oppose.",
     ],
   },
+  {
+    index: "devotion-smite-of-protection",
+    level: 15,
+    name: "Smite of Protection",
+    desc: [
+      "Your smites can wrap you or an ally in extra divine safety, blending offense and guardianship in a single holy answer.",
+    ],
+    subclass: {
+      index: "oath-of-devotion",
+      name: "Oath of Devotion",
+      url: "/api/2024/subclasses/oath-of-devotion",
+    },
+  },
+  {
+    index: "glory-glorious-defense",
+    level: 15,
+    name: "Glorious Defense",
+    desc: [
+      "You answer enemy attacks with a heroic protective flourish, turning danger into a moment for legendary intervention.",
+    ],
+    subclass: {
+      index: "oath-of-glory",
+      name: "Oath of Glory",
+      url: "/api/2024/subclasses/oath-of-glory",
+    },
+  },
+  {
+    index: "ancients-undying-sentinel",
+    level: 15,
+    name: "Undying Sentinel",
+    desc: [
+      "Your oath makes you exceptionally hard to kill, helping you remain standing when others would fall.",
+    ],
+    subclass: {
+      index: "oath-of-the-ancients",
+      name: "Oath of the Ancients",
+      url: "/api/2024/subclasses/oath-of-the-ancients",
+    },
+  },
+  {
+    index: "vengeance-soul-of-vengeance",
+    level: 15,
+    name: "Soul of Vengeance",
+    desc: [
+      "Your vow lets you answer the sworn enemy's actions with punishing follow-through, tightening your grip on the hunt.",
+    ],
+    subclass: {
+      index: "oath-of-vengeance",
+      name: "Oath of Vengeance",
+      url: "/api/2024/subclasses/oath-of-vengeance",
+    },
+  },
   createAbilityScoreImprovementFeature("paladin-ability-score-improvement-4", 16, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
     "aura-expansion",
@@ -703,6 +2636,58 @@ const PALADIN_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "The Ancients manifests primal ancient power.",
       "Vengeance becomes an unstoppable angel of pursuit.",
     ],
+  },
+  {
+    index: "devotion-holy-nimbus",
+    level: 20,
+    name: "Holy Nimbus",
+    desc: [
+      "You blaze with divine radiance that burns enemies and magnifies your sacred presence at the height of your devotion.",
+    ],
+    subclass: {
+      index: "oath-of-devotion",
+      name: "Oath of Devotion",
+      url: "/api/2024/subclasses/oath-of-devotion",
+    },
+  },
+  {
+    index: "glory-living-legend",
+    level: 20,
+    name: "Living Legend",
+    desc: [
+      "You become a near-mythic champion whose deeds inspire allies and overwhelm opposition.",
+    ],
+    subclass: {
+      index: "oath-of-glory",
+      name: "Oath of Glory",
+      url: "/api/2024/subclasses/oath-of-glory",
+    },
+  },
+  {
+    index: "ancients-elder-champion",
+    level: 20,
+    name: "Elder Champion",
+    desc: [
+      "Ancient primal light transforms you into a radiant guardian whose endurance and presence embody the old ways of life and hope.",
+    ],
+    subclass: {
+      index: "oath-of-the-ancients",
+      name: "Oath of the Ancients",
+      url: "/api/2024/subclasses/oath-of-the-ancients",
+    },
+  },
+  {
+    index: "vengeance-avenging-angel",
+    level: 20,
+    name: "Avenging Angel",
+    desc: [
+      "You become a terrifying winged instrument of divine judgment, making escape and resistance far harder for your quarry.",
+    ],
+    subclass: {
+      index: "oath-of-vengeance",
+      name: "Oath of Vengeance",
+      url: "/api/2024/subclasses/oath-of-vengeance",
+    },
   },
   createEpicBoonFeature("paladin-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat; Boon of Fate and Boon of Combat Prowess are especially paladin-like choices."),
 ];
@@ -726,12 +2711,23 @@ const RANGER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     "Spellcasting",
     "You prepare and cast Ranger spells tied to primal skill, awareness, and pursuit, using Wisdom as your spellcasting ability.",
   ),
-  createSimpleFeature(
-    "ranger-weapon-mastery",
-    1,
-    "Weapon Mastery",
-    "You learn weapon mastery properties that enhance your practical hunting and skirmishing tactics.",
-  ),
+  {
+    index: "ranger-weapon-mastery",
+    level: 1,
+    name: "Weapon Mastery",
+    desc: [
+      "You learn weapon mastery properties that enhance your practical hunting and skirmishing tactics.",
+      "Choose two mastery properties to reflect the weapons you rely on most in the field.",
+    ],
+    feature_specific: {
+      choose: 2,
+      type: "weapon mastery",
+      from: {
+        option_set_type: "options_array",
+        options: WEAPON_MASTERY_PROPERTY_OPTIONS,
+      },
+    },
+  },
   {
     index: "ranger-fighting-style",
     level: 2,
@@ -773,13 +2769,140 @@ const RANGER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Hunter perfects practical battlefield techniques against prey.",
     ],
   },
+  {
+    index: "beast-master-rangers-companion",
+    level: 3,
+    name: "Ranger's Companion",
+    desc: [
+      "You gain a trusted beast ally that fights, scouts, and survives beside you as a core part of your hunting style.",
+    ],
+    subclass: {
+      index: "beast-master",
+      name: "Beast Master",
+      url: "/api/2024/subclasses/beast-master",
+    },
+  },
+  {
+    index: "beast-master-primal-bond",
+    level: 3,
+    name: "Primal Bond",
+    desc: [
+      "Your teamwork with the companion shapes how you command and support it, making the bond itself a tactical advantage.",
+    ],
+    subclass: {
+      index: "beast-master",
+      name: "Beast Master",
+      url: "/api/2024/subclasses/beast-master",
+    },
+  },
+  {
+    index: "fey-wanderer-dreadful-strikes",
+    level: 3,
+    name: "Dreadful Strikes",
+    desc: [
+      "Your attacks carry a sting of otherworldly force, letting your weapon pressure feel distinctly fey and unsettling.",
+    ],
+    subclass: {
+      index: "fey-wanderer",
+      name: "Fey Wanderer",
+      url: "/api/2024/subclasses/fey-wanderer",
+    },
+  },
+  {
+    index: "fey-wanderer-magic",
+    level: 3,
+    name: "Fey Wanderer Magic",
+    desc: [
+      "You always have a suite of fey-themed spells prepared, reinforcing your identity as a ranger touched by the Feywild.",
+    ],
+    subclass: {
+      index: "fey-wanderer",
+      name: "Fey Wanderer",
+      url: "/api/2024/subclasses/fey-wanderer",
+    },
+  },
+  {
+    index: "fey-wanderer-otherworldly-glamour",
+    level: 3,
+    name: "Otherworldly Glamour",
+    desc: [
+      "Your presence gains a compelling supernatural edge, helping your charm and confidence feel unmistakably fey.",
+    ],
+    subclass: {
+      index: "fey-wanderer",
+      name: "Fey Wanderer",
+      url: "/api/2024/subclasses/fey-wanderer",
+    },
+  },
+  {
+    index: "gloom-stalker-dread-ambusher",
+    level: 3,
+    name: "Dread Ambusher",
+    desc: [
+      "You dominate the opening moments of combat with speed, damage, and initiative pressure from the shadows.",
+    ],
+    subclass: {
+      index: "gloom-stalker",
+      name: "Gloom Stalker",
+      url: "/api/2024/subclasses/gloom-stalker",
+    },
+  },
+  {
+    index: "gloom-stalker-umbral-sight",
+    level: 3,
+    name: "Umbral Sight",
+    desc: [
+      "Darkness becomes an ally rather than an obstacle, supporting your role as a hunter who thrives where others lose certainty.",
+    ],
+    subclass: {
+      index: "gloom-stalker",
+      name: "Gloom Stalker",
+      url: "/api/2024/subclasses/gloom-stalker",
+    },
+  },
+  {
+    index: "hunters-lore",
+    level: 3,
+    name: "Hunter's Lore",
+    desc: [
+      "Your knowledge of quarry helps you pick the right tactic at the right time, making you a practical expert against dangerous prey.",
+    ],
+    subclass: {
+      index: "hunter",
+      name: "Hunter",
+      url: "/api/2024/subclasses/hunter",
+    },
+  },
+  {
+    index: "hunters-prey",
+    level: 3,
+    name: "Hunter's Prey",
+    desc: [
+      "You choose a signature offensive technique tailored to wearing prey down and punishing the enemies you study best.",
+    ],
+    subclass: {
+      index: "hunter",
+      name: "Hunter",
+      url: "/api/2024/subclasses/hunter",
+    },
+  },
   createAbilityScoreImprovementFeature("ranger-ability-score-improvement-1", 4, MARTIAL_FEAT_OPTIONS),
-  createSimpleFeature(
-    "ranger-expertise",
-    6,
-    "Expertise",
-    "Choose one of your proficient skills and double your Proficiency Bonus for checks that use it.",
-  ),
+  {
+    index: "ranger-expertise",
+    level: 6,
+    name: "Expertise",
+    desc: [
+      "Choose one of your proficient Ranger skills and double your Proficiency Bonus for checks that use it.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "expertise",
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(RANGER_SKILL_OPTIONS, "proficiencies"),
+      },
+    },
+  },
   {
     index: "ranger-subclass-feature-7",
     level: 7,
@@ -791,6 +2914,58 @@ const RANGER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Gloom Stalker fortifies the mind against magical pressure.",
       "Hunter gains stronger defensive hunting technique.",
     ],
+  },
+  {
+    index: "beast-master-exceptional-training",
+    level: 7,
+    name: "Exceptional Training",
+    desc: [
+      "Your companion becomes better trained, more responsive, and more useful in complex situations, reflecting the depth of your bond.",
+    ],
+    subclass: {
+      index: "beast-master",
+      name: "Beast Master",
+      url: "/api/2024/subclasses/beast-master",
+    },
+  },
+  {
+    index: "fey-wanderer-beguiling-twist",
+    level: 7,
+    name: "Beguiling Twist",
+    desc: [
+      "You can redirect failed charm and fear effects back through fey mischief, turning enemy control into your own advantage.",
+    ],
+    subclass: {
+      index: "fey-wanderer",
+      name: "Fey Wanderer",
+      url: "/api/2024/subclasses/fey-wanderer",
+    },
+  },
+  {
+    index: "gloom-stalker-iron-mind",
+    level: 7,
+    name: "Iron Mind",
+    desc: [
+      "Your resolve hardens against mental interference, making you far harder to bend or distract in dangerous darkness.",
+    ],
+    subclass: {
+      index: "gloom-stalker",
+      name: "Gloom Stalker",
+      url: "/api/2024/subclasses/gloom-stalker",
+    },
+  },
+  {
+    index: "hunter-defensive-tactics",
+    level: 7,
+    name: "Defensive Tactics",
+    desc: [
+      "Experience in dangerous hunts teaches you how to survive brutal counterattacks and stay alive against stronger prey.",
+    ],
+    subclass: {
+      index: "hunter",
+      name: "Hunter",
+      url: "/api/2024/subclasses/hunter",
+    },
   },
   createAbilityScoreImprovementFeature("ranger-ability-score-improvement-2", 8, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
@@ -817,6 +2992,58 @@ const RANGER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Hunter refines its most dangerous prey-specific offense.",
     ],
   },
+  {
+    index: "beast-master-bestial-fury",
+    level: 11,
+    name: "Bestial Fury",
+    desc: [
+      "Your companion's offensive pressure improves dramatically, letting your two-creature teamwork hit much harder in battle.",
+    ],
+    subclass: {
+      index: "beast-master",
+      name: "Beast Master",
+      url: "/api/2024/subclasses/beast-master",
+    },
+  },
+  {
+    index: "fey-wanderer-fey-reinforcements",
+    level: 11,
+    name: "Fey Reinforcements",
+    desc: [
+      "You can call on stronger fey aid and magical companionship, deepening the support your subclass brings to the field.",
+    ],
+    subclass: {
+      index: "fey-wanderer",
+      name: "Fey Wanderer",
+      url: "/api/2024/subclasses/fey-wanderer",
+    },
+  },
+  {
+    index: "gloom-stalker-stalkers-flurry",
+    level: 11,
+    name: "Stalker's Flurry",
+    desc: [
+      "Missed attacks become harder for your prey to escape, letting you keep pressure high even when a strike goes astray.",
+    ],
+    subclass: {
+      index: "gloom-stalker",
+      name: "Gloom Stalker",
+      url: "/api/2024/subclasses/gloom-stalker",
+    },
+  },
+  {
+    index: "hunter-superior-hunters-prey",
+    level: 11,
+    name: "Superior Hunter's Prey",
+    desc: [
+      "Your preferred offensive hunting technique becomes deadlier and more flexible, sharpening the identity of your chosen prey answer.",
+    ],
+    subclass: {
+      index: "hunter",
+      name: "Hunter",
+      url: "/api/2024/subclasses/hunter",
+    },
+  },
   createAbilityScoreImprovementFeature("ranger-ability-score-improvement-3", 12, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
     "ranger-relentless-hunter",
@@ -841,6 +3068,58 @@ const RANGER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Gloom Stalker becomes extremely difficult to pin down in battle.",
       "Hunter perfects its top-end defensive response to enemy attacks.",
     ],
+  },
+  {
+    index: "beast-master-share-spells",
+    level: 15,
+    name: "Share Spells",
+    desc: [
+      "Your magic and your companion's presence become tightly intertwined, letting spells and bond work as one seamless hunting tool.",
+    ],
+    subclass: {
+      index: "beast-master",
+      name: "Beast Master",
+      url: "/api/2024/subclasses/beast-master",
+    },
+  },
+  {
+    index: "fey-wanderer-misty-wanderer",
+    level: 15,
+    name: "Misty Wanderer",
+    desc: [
+      "You reposition with effortless fey motion and protect allies through that movement, bringing Feywild grace directly into combat.",
+    ],
+    subclass: {
+      index: "fey-wanderer",
+      name: "Fey Wanderer",
+      url: "/api/2024/subclasses/fey-wanderer",
+    },
+  },
+  {
+    index: "gloom-stalker-shadowy-dodge",
+    level: 15,
+    name: "Shadowy Dodge",
+    desc: [
+      "At your peak, incoming attacks falter against your darkness-shrouded reflexes, making you extremely difficult to pin down.",
+    ],
+    subclass: {
+      index: "gloom-stalker",
+      name: "Gloom Stalker",
+      url: "/api/2024/subclasses/gloom-stalker",
+    },
+  },
+  {
+    index: "hunter-superior-hunters-defense",
+    level: 15,
+    name: "Superior Hunter's Defense",
+    desc: [
+      "You culminate in a top-end defensive answer to the deadliest threats, turning hard-won experience into survival instinct.",
+    ],
+    subclass: {
+      index: "hunter",
+      name: "Hunter",
+      url: "/api/2024/subclasses/hunter",
+    },
   },
   createAbilityScoreImprovementFeature("ranger-ability-score-improvement-4", 16, MARTIAL_FEAT_OPTIONS),
   createSimpleFeature(
@@ -875,17 +3154,28 @@ const ROGUE_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       },
     },
   },
-  createSimpleFeature(
-    "rogue-weapon-mastery",
-    1,
-    "Weapon Mastery",
-    "You learn mastery properties that help your favored weapons create cleaner openings for rogue tactics and precision damage.",
-  ),
+  {
+    index: "rogue-weapon-mastery",
+    level: 1,
+    name: "Weapon Mastery",
+    desc: [
+      "You learn mastery properties that help your favored weapons create cleaner openings for rogue tactics and precision damage.",
+      "Choose two mastery properties to reflect the weapons you have practiced most extensively.",
+    ],
+    feature_specific: {
+      choose: 2,
+      type: "weapon mastery",
+      from: {
+        option_set_type: "options_array",
+        options: WEAPON_MASTERY_PROPERTY_OPTIONS,
+      },
+    },
+  },
   createSimpleFeature(
     "rogue-steady-aim",
     2,
     "Steady Aim",
-    "By sacrificing movement, you can line up an especially reliable attack and improve the odds that Sneak Attack lands when it matters.",
+    "As a Bonus Action, you can give yourself Advantage on your next attack roll on the current turn if you haven't moved during the turn. After you use this Bonus Action, your Speed is 0 until the end of the current turn.",
   ),
   createSubclassChoiceFeature(
     "rogue-subclass",
@@ -905,6 +3195,110 @@ const ROGUE_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Soulknife manifests psionic blades and telepathic utility.",
       "Thief thrives on speed, utility, and impossible opportunism.",
     ],
+  },
+  {
+    index: "arcane-trickster-spellcasting",
+    level: 3,
+    name: "Spellcasting",
+    desc: [
+      "You learn wizard spells tailored toward trickery, deception, and control, adding selective arcane tools to your rogue kit.",
+    ],
+    subclass: {
+      index: "arcane-trickster",
+      name: "Arcane Trickster",
+      url: "/api/2024/subclasses/arcane-trickster",
+    },
+  },
+  {
+    index: "arcane-trickster-mage-hand-legerdemain",
+    level: 3,
+    name: "Mage Hand Legerdemain",
+    desc: [
+      "Your mage hand becomes a refined tool for roguish manipulation, making sleight-of-hand trickery feel magical and precise.",
+    ],
+    subclass: {
+      index: "arcane-trickster",
+      name: "Arcane Trickster",
+      url: "/api/2024/subclasses/arcane-trickster",
+    },
+  },
+  {
+    index: "assassinate",
+    level: 3,
+    name: "Assassinate",
+    desc: [
+      "You excel at the opening strike against creatures that are off balance, surprised, or not yet ready for your attack.",
+    ],
+    subclass: {
+      index: "assassin",
+      name: "Assassin",
+      url: "/api/2024/subclasses/assassin",
+    },
+  },
+  {
+    index: "envenom-weapons",
+    level: 3,
+    name: "Envenom Weapons",
+    desc: [
+      "You learn to prepare your tools for especially dangerous finishing pressure, sharpening the assassin's identity as a decisive eliminator.",
+    ],
+    subclass: {
+      index: "assassin",
+      name: "Assassin",
+      url: "/api/2024/subclasses/assassin",
+    },
+  },
+  {
+    index: "psychic-blades",
+    level: 3,
+    name: "Psychic Blades",
+    desc: [
+      "You can conjure psionic weapons directly from thought, giving your attacks an eerie and unmistakably supernatural edge.",
+    ],
+    subclass: {
+      index: "soulknife",
+      name: "Soulknife",
+      url: "/api/2024/subclasses/soulknife",
+    },
+  },
+  {
+    index: "psionic-power",
+    level: 3,
+    name: "Psionic Power",
+    desc: [
+      "Your discipline grants a pool of subtle mental talents for skill, mobility, and precision, turning psionics into practical rogue utility.",
+    ],
+    subclass: {
+      index: "soulknife",
+      name: "Soulknife",
+      url: "/api/2024/subclasses/soulknife",
+    },
+  },
+  {
+    index: "fast-hands",
+    level: 3,
+    name: "Fast Hands",
+    desc: [
+      "You use objects, tools, and opportunistic movement with exceptional speed, making your turns feel faster and more flexible than most rogues.",
+    ],
+    subclass: {
+      index: "thief",
+      name: "Thief",
+      url: "/api/2024/subclasses/thief",
+    },
+  },
+  {
+    index: "second-story-work",
+    level: 3,
+    name: "Second-Story Work",
+    desc: [
+      "Climbing, jumping, and urban movement all become part of your professional toolkit, reinforcing the thief's mobility and nerve.",
+    ],
+    subclass: {
+      index: "thief",
+      name: "Thief",
+      url: "/api/2024/subclasses/thief",
+    },
   },
   createSimpleFeature(
     "rogue-cunning-strike",
@@ -948,6 +3342,58 @@ const ROGUE_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Thief becomes even stealthier and more efficient at opportunistic movement.",
     ],
   },
+  {
+    index: "magical-ambush",
+    level: 9,
+    name: "Magical Ambush",
+    desc: [
+      "Hidden spellcasting becomes especially hard for enemies to resist, rewarding the arcane trickster for striking from deception.",
+    ],
+    subclass: {
+      index: "arcane-trickster",
+      name: "Arcane Trickster",
+      url: "/api/2024/subclasses/arcane-trickster",
+    },
+  },
+  {
+    index: "infiltration-expertise",
+    level: 9,
+    name: "Infiltration Expertise",
+    desc: [
+      "You become exceptionally skilled at entering dangerous places under false identities or subtle covers.",
+    ],
+    subclass: {
+      index: "assassin",
+      name: "Assassin",
+      url: "/api/2024/subclasses/assassin",
+    },
+  },
+  {
+    index: "soul-blades",
+    level: 9,
+    name: "Soul Blades",
+    desc: [
+      "Your psychic weapons and psionic tools become more reliable and more dangerous, reinforcing the soulknife's mental precision.",
+    ],
+    subclass: {
+      index: "soulknife",
+      name: "Soulknife",
+      url: "/api/2024/subclasses/soulknife",
+    },
+  },
+  {
+    index: "supreme-sneak",
+    level: 9,
+    name: "Supreme Sneak",
+    desc: [
+      "You become even better at slipping unseen through dangerous territory, making your stealth feel almost effortless.",
+    ],
+    subclass: {
+      index: "thief",
+      name: "Thief",
+      url: "/api/2024/subclasses/thief",
+    },
+  },
   createAbilityScoreImprovementFeature("rogue-ability-score-improvement-3", 10, EXPERT_FEAT_OPTIONS),
   createSimpleFeature(
     "rogue-improved-cunning-strike",
@@ -968,6 +3414,58 @@ const ROGUE_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Thief bends magic items and improvised tools to its will.",
     ],
   },
+  {
+    index: "versatile-trickster",
+    level: 13,
+    name: "Versatile Trickster",
+    desc: [
+      "Your magical misdirection turns your spectral helper into a setup tool for advantage, deepening the trickster's control over positioning.",
+    ],
+    subclass: {
+      index: "arcane-trickster",
+      name: "Arcane Trickster",
+      url: "/api/2024/subclasses/arcane-trickster",
+    },
+  },
+  {
+    index: "impostor",
+    level: 13,
+    name: "Impostor",
+    desc: [
+      "Your ability to mimic and replace others reaches a frightening level of precision, making infiltration far more believable.",
+    ],
+    subclass: {
+      index: "assassin",
+      name: "Assassin",
+      url: "/api/2024/subclasses/assassin",
+    },
+  },
+  {
+    index: "psychic-veil",
+    level: 13,
+    name: "Psychic Veil",
+    desc: [
+      "You can vanish behind psionic concealment when timing matters most, turning thought itself into stealth.",
+    ],
+    subclass: {
+      index: "soulknife",
+      name: "Soulknife",
+      url: "/api/2024/subclasses/soulknife",
+    },
+  },
+  {
+    index: "use-magic-device",
+    level: 13,
+    name: "Use Magic Device",
+    desc: [
+      "You can coax value out of magic items others cannot easily exploit, making your opportunism extend even to enchanted tools.",
+    ],
+    subclass: {
+      index: "thief",
+      name: "Thief",
+      url: "/api/2024/subclasses/thief",
+    },
+  },
   createSimpleFeature(
     "rogue-devious-strikes",
     14,
@@ -987,10 +3485,80 @@ const ROGUE_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Thief acts with incredible speed at the opening of battle.",
     ],
   },
+  {
+    index: "spell-thief",
+    level: 17,
+    name: "Spell Thief",
+    desc: [
+      "At your peak, hostile magic itself can become part of your arsenal, letting the arcane trickster repurpose enemy spellcraft.",
+    ],
+    subclass: {
+      index: "arcane-trickster",
+      name: "Arcane Trickster",
+      url: "/api/2024/subclasses/arcane-trickster",
+    },
+  },
+  {
+    index: "death-strike",
+    level: 17,
+    name: "Death Strike",
+    desc: [
+      "When the setup is perfect, your opening attack becomes devastating, rewarding the assassin's patience with lethal payoff.",
+    ],
+    subclass: {
+      index: "assassin",
+      name: "Assassin",
+      url: "/api/2024/subclasses/assassin",
+    },
+  },
+  {
+    index: "rend-mind",
+    level: 17,
+    name: "Rend Mind",
+    desc: [
+      "A successful psychic assault can leave an enemy mentally shattered, turning the soulknife's psionic offense into a terrifying finisher.",
+    ],
+    subclass: {
+      index: "soulknife",
+      name: "Soulknife",
+      url: "/api/2024/subclasses/soulknife",
+    },
+  },
+  {
+    index: "thiefs-reflexes",
+    level: 17,
+    name: "Thief's Reflexes",
+    desc: [
+      "At the start of a fight, your speed and readiness can feel supernatural, letting the thief seize momentum before others react.",
+    ],
+    subclass: {
+      index: "thief",
+      name: "Thief",
+      url: "/api/2024/subclasses/thief",
+    },
+  },
   createEpicBoonFeature("rogue-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat; Boon of the Night Spirit is especially thematic for many rogues."),
 ];
 
 const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
+  createSorcererSpellChoiceFeature(
+    "sorcerer-cantrips-1",
+    1,
+    "Cantrips",
+    "Choose four Sorcerer cantrips to reflect the shape of your innate magic at the start of your career.",
+    4,
+    SORCERER_CANTRIP_OPTIONS,
+    "sorcerer cantrip",
+  ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-1",
+    1,
+    "Sorcerer Spells",
+    "Choose two 1st-level Sorcerer spells.",
+    2,
+    SORCERER_LEVEL_1_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   createSimpleFeature(
     "sorcerer-spellcasting",
     1,
@@ -1010,6 +3578,15 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     2,
     "Font of Magic",
     "Sorcery Points become the flexible fuel for many of your class features, letting you reshape how and when your magic is expressed.",
+  ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-2",
+    2,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell. At this level your available spell choices still come from 1st-level Sorcerer spells.",
+    1,
+    SORCERER_LEVEL_1_SPELL_OPTIONS,
+    "sorcerer spell",
   ),
   {
     index: "metamagic-1",
@@ -1046,12 +3623,161 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Wild Magic Sorcery bends reality through chaos and surges.",
     ],
   },
+  {
+    index: "aberrant-psionic-spells",
+    level: 3,
+    name: "Psionic Spells",
+    desc: [
+      "You always have unsettling psionic-themed spells prepared, reinforcing the alien character of your aberrant magic.",
+    ],
+    subclass: {
+      index: "aberrant-sorcery",
+      name: "Aberrant Sorcery",
+      url: "/api/2024/subclasses/aberrant-sorcery",
+    },
+  },
+  {
+    index: "telepathic-speech",
+    level: 3,
+    name: "Telepathic Speech",
+    desc: [
+      "Your mind reaches outward in wordless communication, making psychic contact part of your everyday magical presence.",
+    ],
+    subclass: {
+      index: "aberrant-sorcery",
+      name: "Aberrant Sorcery",
+      url: "/api/2024/subclasses/aberrant-sorcery",
+    },
+  },
+  {
+    index: "clockwork-spells",
+    level: 3,
+    name: "Clockwork Spells",
+    desc: [
+      "You always have ordered, protective, and balancing spells prepared, reflecting the precise logic of cosmic law.",
+    ],
+    subclass: {
+      index: "clockwork-sorcery",
+      name: "Clockwork Sorcery",
+      url: "/api/2024/subclasses/clockwork-sorcery",
+    },
+  },
+  {
+    index: "restore-balance",
+    level: 3,
+    name: "Restore Balance",
+    desc: [
+      "You can cancel key advantages or disadvantages when precise balance is needed, imposing order on a chaotic moment.",
+    ],
+    subclass: {
+      index: "clockwork-sorcery",
+      name: "Clockwork Sorcery",
+      url: "/api/2024/subclasses/clockwork-sorcery",
+    },
+  },
+  {
+    index: "draconic-resilience",
+    level: 3,
+    name: "Draconic Resilience",
+    desc: [
+      "Your body hardens with draconic toughness and improved natural protection, making your magic feel physically inherited.",
+    ],
+    subclass: {
+      index: "draconic-sorcery",
+      name: "Draconic Sorcery",
+      url: "/api/2024/subclasses/draconic-sorcery",
+    },
+  },
+  {
+    index: "wild-magic-surge",
+    level: 3,
+    name: "Wild Magic Surge",
+    desc: [
+      "Unstable power can erupt around your spells in dramatic and surprising ways, making each cast feel charged with possibility.",
+    ],
+    subclass: {
+      index: "wild-magic-sorcery",
+      name: "Wild Magic Sorcery",
+      url: "/api/2024/subclasses/wild-magic-sorcery",
+    },
+  },
+  {
+    index: "tides-of-chaos",
+    level: 3,
+    name: "Tides of Chaos",
+    desc: [
+      "You manipulate luck and invite volatility in return, turning chaos itself into a tactical resource.",
+    ],
+    subclass: {
+      index: "wild-magic-sorcery",
+      name: "Wild Magic Sorcery",
+      url: "/api/2024/subclasses/wild-magic-sorcery",
+    },
+  },
+  {
+    index: "draconic-ancestor",
+    level: 3,
+    name: "Dragon Ancestor",
+    desc: [
+      "Choose the dragon ancestor that defines the elemental theme of your Draconic Sorcery.",
+      "This ancestry informs the flavor of your subclass and the damage type tied to later Draconic Sorcery features.",
+    ],
+    subclass: {
+      index: "draconic-sorcery",
+      name: "Draconic Sorcery",
+      url: "/api/2024/subclasses/draconic-sorcery",
+    },
+    feature_specific: {
+      choose: 1,
+      type: "draconic ancestry",
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(DRACONIC_ANCESTRY_OPTIONS, "subclasses"),
+      },
+    },
+  },
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-3",
+    3,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell. You can now choose from 1st- or 2nd-level Sorcerer spells.",
+    1,
+    SORCERER_LEVEL_2_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-cantrips-2",
+    4,
+    "Cantrip",
+    "Choose one additional Sorcerer cantrip.",
+    1,
+    SORCERER_CANTRIP_OPTIONS,
+    "sorcerer cantrip",
+  ),
   createAbilityScoreImprovementFeature("sorcerer-ability-score-improvement-1", 4, CASTER_FEAT_OPTIONS),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-4",
+    4,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_2_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   createSimpleFeature(
     "sorcerer-sorcerous-restoration",
     5,
     "Sorcerous Restoration",
     "A short period of rest lets you regain a portion of your Sorcery Points, helping your magic stay online across longer adventuring days.",
+  ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-5",
+    5,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell. You can now choose from 1st- through 3rd-level Sorcerer spells.",
+    1,
+    SORCERER_LEVEL_3_SPELL_OPTIONS,
+    "sorcerer spell",
   ),
   {
     index: "sorcerer-subclass-feature-6",
@@ -1065,13 +3791,101 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Wild Magic Sorcery turns chance into a sharper tactical resource.",
     ],
   },
+  {
+    index: "psionic-sorcery",
+    level: 6,
+    name: "Psionic Sorcery",
+    desc: [
+      "You can cast certain spells through sorcery rather than ordinary spellcasting methods, deepening the psychic identity of your magic.",
+    ],
+    subclass: {
+      index: "aberrant-sorcery",
+      name: "Aberrant Sorcery",
+      url: "/api/2024/subclasses/aberrant-sorcery",
+    },
+  },
+  {
+    index: "bastion-of-law",
+    level: 6,
+    name: "Bastion of Law",
+    desc: [
+      "You shape protective order into a ward that absorbs harm, turning clockwork precision into practical defense.",
+    ],
+    subclass: {
+      index: "clockwork-sorcery",
+      name: "Clockwork Sorcery",
+      url: "/api/2024/subclasses/clockwork-sorcery",
+    },
+  },
+  {
+    index: "elemental-affinity",
+    level: 6,
+    name: "Elemental Affinity",
+    desc: [
+      "Spells tied to your draconic element grow stronger and more resonant, letting your ancestry push through your spell damage.",
+    ],
+    subclass: {
+      index: "draconic-sorcery",
+      name: "Draconic Sorcery",
+      url: "/api/2024/subclasses/draconic-sorcery",
+    },
+  },
+  {
+    index: "bend-luck",
+    level: 6,
+    name: "Bend Luck",
+    desc: [
+      "Your sorcery can tilt a key roll toward success or failure, sharpening wild magic into a direct influence on outcomes.",
+    ],
+    subclass: {
+      index: "wild-magic-sorcery",
+      name: "Wild Magic Sorcery",
+      url: "/api/2024/subclasses/wild-magic-sorcery",
+    },
+  },
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-6",
+    6,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_3_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   createSimpleFeature(
     "sorcerer-sorcery-incarnate",
     7,
     "Sorcery Incarnate",
     "Your Innate Sorcery becomes easier to access and maintain, pushing you closer to a state where spellcraft and self are almost indistinguishable.",
   ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-7",
+    7,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell. You can now choose from 1st- through 4th-level Sorcerer spells.",
+    1,
+    SORCERER_LEVEL_4_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   createAbilityScoreImprovementFeature("sorcerer-ability-score-improvement-2", 8, CASTER_FEAT_OPTIONS),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-8",
+    8,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_4_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-9",
+    9,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell. You can now choose from 1st- through 5th-level Sorcerer spells.",
+    1,
+    SORCERER_LEVEL_5_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   {
     index: "metamagic-2",
     level: 10,
@@ -1088,7 +3902,34 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       },
     },
   },
+  createSorcererSpellChoiceFeature(
+    "sorcerer-cantrips-3",
+    10,
+    "Cantrip",
+    "Choose one additional Sorcerer cantrip.",
+    1,
+    SORCERER_CANTRIP_OPTIONS,
+    "sorcerer cantrip",
+  ),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-10",
+    10,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_5_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   createAbilityScoreImprovementFeature("sorcerer-ability-score-improvement-3", 12, CASTER_FEAT_OPTIONS),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-11",
+    11,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_5_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   {
     index: "sorcerer-subclass-feature-14",
     level: 14,
@@ -1101,7 +3942,77 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Wild Magic Sorcery becomes even harder to predict or contain.",
     ],
   },
+  {
+    index: "revelation-in-flesh",
+    level: 14,
+    name: "Revelation in Flesh",
+    desc: [
+      "Your body twists into useful alien adaptations, letting aberrant power reshape you for the moment at hand.",
+    ],
+    subclass: {
+      index: "aberrant-sorcery",
+      name: "Aberrant Sorcery",
+      url: "/api/2024/subclasses/aberrant-sorcery",
+    },
+  },
+  {
+    index: "trance-of-order",
+    level: 14,
+    name: "Trance of Order",
+    desc: [
+      "For a brief time, your spellcasting and focus become exceptionally consistent, as cosmic order suppresses instability.",
+    ],
+    subclass: {
+      index: "clockwork-sorcery",
+      name: "Clockwork Sorcery",
+      url: "/api/2024/subclasses/clockwork-sorcery",
+    },
+  },
+  {
+    index: "dragon-wings",
+    level: 14,
+    name: "Dragon Wings",
+    desc: [
+      "You manifest draconic wings and command the air directly, making your ancestry physically undeniable.",
+    ],
+    subclass: {
+      index: "draconic-sorcery",
+      name: "Draconic Sorcery",
+      url: "/api/2024/subclasses/draconic-sorcery",
+    },
+  },
+  {
+    index: "controlled-chaos",
+    level: 14,
+    name: "Controlled Chaos",
+    desc: [
+      "You gain better leverage over the strange currents of wild magic, making chaos more useful without fully taming it.",
+    ],
+    subclass: {
+      index: "wild-magic-sorcery",
+      name: "Wild Magic Sorcery",
+      url: "/api/2024/subclasses/wild-magic-sorcery",
+    },
+  },
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-12",
+    13,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_5_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   createAbilityScoreImprovementFeature("sorcerer-ability-score-improvement-4", 16, CASTER_FEAT_OPTIONS),
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-13",
+    15,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_5_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   {
     index: "metamagic-3",
     level: 17,
@@ -1118,6 +4029,15 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       },
     },
   },
+  createSorcererSpellChoiceFeature(
+    "sorcerer-spells-14",
+    17,
+    "Sorcerer Spells",
+    "Choose one additional Sorcerer spell.",
+    1,
+    SORCERER_LEVEL_5_SPELL_OPTIONS,
+    "sorcerer spell",
+  ),
   {
     index: "sorcerer-subclass-feature-18",
     level: 18,
@@ -1130,6 +4050,58 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Wild Magic Sorcery bends chaos into spectacular endgame power.",
     ],
   },
+  {
+    index: "warping-implosion",
+    level: 18,
+    name: "Warping Implosion",
+    desc: [
+      "Warped psychic gravity lets you collapse foes toward a chosen point, culminating in a dramatic aberrant battlefield effect.",
+    ],
+    subclass: {
+      index: "aberrant-sorcery",
+      name: "Aberrant Sorcery",
+      url: "/api/2024/subclasses/aberrant-sorcery",
+    },
+  },
+  {
+    index: "clockwork-cavalcade",
+    level: 18,
+    name: "Clockwork Cavalcade",
+    desc: [
+      "Ordered magic sweeps the battlefield and restores structure around you, expressing cosmic law on a grand scale.",
+    ],
+    subclass: {
+      index: "clockwork-sorcery",
+      name: "Clockwork Sorcery",
+      url: "/api/2024/subclasses/clockwork-sorcery",
+    },
+  },
+  {
+    index: "draconic-presence",
+    level: 18,
+    name: "Draconic Presence",
+    desc: [
+      "You overwhelm the battlefield with a dragon's terrifying majesty, making your presence itself part of the attack.",
+    ],
+    subclass: {
+      index: "draconic-sorcery",
+      name: "Draconic Sorcery",
+      url: "/api/2024/subclasses/draconic-sorcery",
+    },
+  },
+  {
+    index: "spell-bombardment",
+    level: 18,
+    name: "Spell Bombardment",
+    desc: [
+      "Wild power adds explosive extra force when your spells strike hard, turning peak chaos into devastating payoff.",
+    ],
+    subclass: {
+      index: "wild-magic-sorcery",
+      name: "Wild Magic Sorcery",
+      url: "/api/2024/subclasses/wild-magic-sorcery",
+    },
+  },
   createEpicBoonFeature("sorcerer-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat; Boon of Spell Recall is a natural fit for many sorcerers."),
   createSimpleFeature(
     "arcane-apotheosis",
@@ -1140,11 +4112,80 @@ const SORCERER_FEATURE_REFERENCES: CuratedFeatureReference[] = [
 ];
 
 const WARLOCK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
+  createWarlockSpellChoiceFeature(
+    "warlock-cantrips-1",
+    1,
+    "Cantrips",
+    "Choose two Warlock cantrips you know at 1st level. Eldritch Blast and Prestidigitation are common starting picks, but any option here can define your early pact magic.",
+    2,
+    WARLOCK_CANTRIP_OPTIONS,
+    "warlock cantrip",
+  ),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-1",
+    1,
+    "Prepared Spells",
+    "Choose two 1st-level Warlock spells to begin your Pact Magic preparation.",
+    2,
+    WARLOCK_LEVEL_1_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-1",
+    1,
+    "Choose one Eldritch Invocation to define your first supernatural pact trick.",
+  ),
+  createSimpleFeature(
+    "pact-magic",
+    1,
+    "Pact Magic",
+    "Your patron grants you a compact spellcasting system fueled by Pact Magic slots that recharge on a Short Rest.",
+  ),
   createSimpleFeature(
     "warlock-magical-cunning",
     2,
     "Magical Cunning",
     "You can recover magical power through a brief, focused rite, helping Pact Magic stay relevant across multiple encounters.",
+  ),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-2",
+    2,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. At this level your spell list is still limited to 1st-level options.",
+    1,
+    WARLOCK_LEVEL_1_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-2",
+    2,
+    "Choose one additional Eldritch Invocation.",
+  ),
+  {
+    index: "pact-boon",
+    level: 3,
+    name: "Pact Boon",
+    desc: [
+      "Your patron grants a supernatural gift that shapes how your pact expresses itself in play.",
+      "Pact of the Blade turns your bargain toward summoned or bonded weapons, Pact of the Chain deepens familiar magic, and Pact of the Tome grants a Book of Shadows filled with extra magical study.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "pact boon",
+      from: {
+        option_set_type: "options_array",
+        options: WARLOCK_PACT_BOON_OPTIONS,
+      },
+    },
+  },
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-3",
+    3,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. You can now pick from 1st- and 2nd-level Warlock spells.",
+    1,
+    WARLOCK_LEVEL_2_SPELL_OPTIONS,
+    "warlock spell",
   ),
   createSubclassChoiceFeature(
     "warlock-subclass",
@@ -1165,7 +4206,91 @@ const WARLOCK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Great Old One Patron twists perception, minds, and psychic influence.",
     ],
   },
+  {
+    index: "fey-presence",
+    level: 3,
+    name: "Fey Presence",
+    desc: [
+      "A flash of fey glamour can charm or frighten those around you, making the Archfey pact feel theatrical and dangerous.",
+    ],
+    subclass: {
+      index: "archfey-patron",
+      name: "Archfey Patron",
+      url: "/api/2024/subclasses/archfey-patron",
+    },
+  },
+  {
+    index: "healing-light",
+    level: 3,
+    name: "Healing Light",
+    desc: [
+      "Your patron grants a reservoir of radiant healing to aid allies in need, giving your pact a direct restorative outlet.",
+    ],
+    subclass: {
+      index: "celestial-patron",
+      name: "Celestial Patron",
+      url: "/api/2024/subclasses/celestial-patron",
+    },
+  },
+  {
+    index: "dark-ones-blessing",
+    level: 3,
+    name: "Dark One's Blessing",
+    desc: [
+      "Defeating enemies rewards you with infernal vitality, turning fiendish aggression into immediate staying power.",
+    ],
+    subclass: {
+      index: "fiend-patron",
+      name: "Fiend Patron",
+      url: "/api/2024/subclasses/fiend-patron",
+    },
+  },
+  {
+    index: "awakened-mind",
+    level: 3,
+    name: "Awakened Mind",
+    desc: [
+      "Your thoughts can reach outward in unsettling telepathic contact, making the Great Old One's influence impossible to mistake.",
+    ],
+    subclass: {
+      index: "great-old-one-patron",
+      name: "Great Old One Patron",
+      url: "/api/2024/subclasses/great-old-one-patron",
+    },
+  },
+  createWarlockSpellChoiceFeature(
+    "warlock-cantrips-2",
+    4,
+    "Cantrip",
+    "Choose one additional Warlock cantrip at 4th level.",
+    1,
+    WARLOCK_CANTRIP_OPTIONS,
+    "warlock cantrip",
+  ),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-4",
+    4,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. Your available spell levels remain capped by your Pact Magic progression.",
+    1,
+    WARLOCK_LEVEL_2_SPELL_OPTIONS,
+    "warlock spell",
+  ),
   createAbilityScoreImprovementFeature("warlock-ability-score-improvement-1", 4, CASTER_FEAT_OPTIONS),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-5",
+    5,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. You can now select 3rd-level Warlock spells.",
+    1,
+    WARLOCK_LEVEL_3_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-3",
+    5,
+    "Choose one additional Eldritch Invocation.",
+  ),
   {
     index: "warlock-subclass-feature-6",
     level: 6,
@@ -1178,12 +4303,110 @@ const WARLOCK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Great Old One deepens telepathic, deceptive, or mind-bending influence.",
     ],
   },
+  {
+    index: "misty-escape",
+    level: 6,
+    name: "Misty Escape",
+    desc: [
+      "Danger can trigger a sudden vanishing step into protective fey motion, making escape itself part of your pact defense.",
+    ],
+    subclass: {
+      index: "archfey-patron",
+      name: "Archfey Patron",
+      url: "/api/2024/subclasses/archfey-patron",
+    },
+  },
+  {
+    index: "radiant-soul",
+    level: 6,
+    name: "Radiant Soul",
+    desc: [
+      "Your radiant and fire magic carries stronger celestial force, making your pact's holy power hit harder.",
+    ],
+    subclass: {
+      index: "celestial-patron",
+      name: "Celestial Patron",
+      url: "/api/2024/subclasses/celestial-patron",
+    },
+  },
+  {
+    index: "dark-ones-own-luck",
+    level: 6,
+    name: "Dark One's Own Luck",
+    desc: [
+      "Your patron's favor can rescue a crucial failed roll, turning infernal fortune into a practical survival tool.",
+    ],
+    subclass: {
+      index: "fiend-patron",
+      name: "Fiend Patron",
+      url: "/api/2024/subclasses/fiend-patron",
+    },
+  },
+  {
+    index: "entropic-ward",
+    level: 6,
+    name: "Entropic Ward",
+    desc: [
+      "Alien distortion can foil an attack and create an opening for you, translating incomprehensible influence into defense.",
+    ],
+    subclass: {
+      index: "great-old-one-patron",
+      name: "Great Old One Patron",
+      url: "/api/2024/subclasses/great-old-one-patron",
+    },
+  },
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-6",
+    6,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. At this level, your Pact Magic lets you learn from the 1st- through 3rd-level Warlock list.",
+    1,
+    WARLOCK_LEVEL_3_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-4",
+    7,
+    "Choose one additional Eldritch Invocation.",
+  ),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-7",
+    7,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. You can now include 4th-level Warlock spells in your preparation options.",
+    1,
+    WARLOCK_LEVEL_4_SPELL_OPTIONS,
+    "warlock spell",
+  ),
   createAbilityScoreImprovementFeature("warlock-ability-score-improvement-2", 8, CASTER_FEAT_OPTIONS),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-8",
+    8,
+    "Prepared Spells",
+    "Choose one additional Warlock spell from the spells your Pact Magic can currently support.",
+    1,
+    WARLOCK_LEVEL_4_SPELL_OPTIONS,
+    "warlock spell",
+  ),
   createSimpleFeature(
     "contact-patron",
     9,
     "Contact Patron",
     "Your bond with your patron deepens, allowing direct guidance or support that reflects the supernatural relationship at the core of the class.",
+  ),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-9",
+    9,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. 5th-level Warlock spells are now available to you.",
+    1,
+    WARLOCK_LEVEL_5_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-5",
+    9,
+    "Choose one additional Eldritch Invocation.",
   ),
   {
     index: "warlock-subclass-feature-10",
@@ -1197,7 +4420,123 @@ const WARLOCK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Great Old One gains stronger control over perception and reality distortions.",
     ],
   },
+  {
+    index: "beguiling-defenses",
+    level: 10,
+    name: "Beguiling Defenses",
+    desc: [
+      "Your pact hardens you against enchantment and helps turn such magic against others, deepening your fey glamour defenses.",
+    ],
+    subclass: {
+      index: "archfey-patron",
+      name: "Archfey Patron",
+      url: "/api/2024/subclasses/archfey-patron",
+    },
+  },
+  {
+    index: "celestial-resilience",
+    level: 10,
+    name: "Celestial Resilience",
+    desc: [
+      "You and your allies can gain protective endurance from your patron's favor, making your pact feel actively sustaining.",
+    ],
+    subclass: {
+      index: "celestial-patron",
+      name: "Celestial Patron",
+      url: "/api/2024/subclasses/celestial-patron",
+    },
+  },
+  {
+    index: "fiendish-resilience",
+    level: 10,
+    name: "Fiendish Resilience",
+    desc: [
+      "You adapt to punishment through infernal hardiness, becoming much harder to put down with repeated damage.",
+    ],
+    subclass: {
+      index: "fiend-patron",
+      name: "Fiend Patron",
+      url: "/api/2024/subclasses/fiend-patron",
+    },
+  },
+  {
+    index: "thought-shield",
+    level: 10,
+    name: "Thought Shield",
+    desc: [
+      "Your mind becomes a hostile and resistant place for outside influence, reflecting the strange defenses of alien patronage.",
+    ],
+    subclass: {
+      index: "great-old-one-patron",
+      name: "Great Old One Patron",
+      url: "/api/2024/subclasses/great-old-one-patron",
+    },
+  },
+  createWarlockSpellChoiceFeature(
+    "warlock-cantrips-3",
+    10,
+    "Cantrip",
+    "Choose one additional Warlock cantrip at 10th level.",
+    1,
+    WARLOCK_CANTRIP_OPTIONS,
+    "warlock cantrip",
+  ),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-10",
+    11,
+    "Prepared Spells",
+    "Choose one additional Warlock spell to keep your Pact Magic list growing alongside Mystic Arcanum.",
+    1,
+    WARLOCK_LEVEL_5_SPELL_OPTIONS,
+    "warlock spell",
+  ),
   createAbilityScoreImprovementFeature("warlock-ability-score-improvement-3", 12, CASTER_FEAT_OPTIONS),
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-6",
+    12,
+    "Choose one additional Eldritch Invocation.",
+  ),
+  {
+    index: "mystic-arcanum-6th-level",
+    level: 11,
+    name: "Mystic Arcanum (6th-Level Spell)",
+    desc: [
+      "Choose one 6th-level Warlock spell as your Mystic Arcanum so you can cast it once without expending a Pact Magic slot, regaining that use after a Long Rest.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "mystic arcanum",
+      from: {
+        option_set_type: "options_array",
+        options: WARLOCK_MYSTIC_ARCANUM_6_OPTIONS,
+      },
+    },
+  },
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-11",
+    13,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. Your Pact Magic list still caps at 5th-level spells, while Mystic Arcanum covers your higher-circle magic.",
+    1,
+    WARLOCK_LEVEL_5_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  {
+    index: "mystic-arcanum-7th-level",
+    level: 13,
+    name: "Mystic Arcanum (7th-Level Spell)",
+    desc: [
+      "Choose one 7th-level Warlock spell as your Mystic Arcanum so you can cast it once without expending a Pact Magic slot, regaining that use after a Long Rest.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "mystic arcanum",
+      from: {
+        option_set_type: "options_array",
+        options: WARLOCK_MYSTIC_ARCANUM_7_OPTIONS,
+      },
+    },
+  },
   {
     index: "warlock-subclass-feature-14",
     level: 14,
@@ -1210,11 +4549,147 @@ const WARLOCK_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Great Old One reaches an apex of psychic invasion and alien pressure.",
     ],
   },
+  {
+    index: "dark-delirium",
+    level: 14,
+    name: "Dark Delirium",
+    desc: [
+      "You trap a creature in a haunting fey unreality, making the Archfey pact culminate in bewildering isolation and fear.",
+    ],
+    subclass: {
+      index: "archfey-patron",
+      name: "Archfey Patron",
+      url: "/api/2024/subclasses/archfey-patron",
+    },
+  },
+  {
+    index: "searing-vengeance",
+    level: 14,
+    name: "Searing Vengeance",
+    desc: [
+      "Falling does not stop you from answering with blazing celestial reprisal, turning defeat into one last burst of holy fire.",
+    ],
+    subclass: {
+      index: "celestial-patron",
+      name: "Celestial Patron",
+      url: "/api/2024/subclasses/celestial-patron",
+    },
+  },
+  {
+    index: "hurl-through-hell",
+    level: 14,
+    name: "Hurl Through Hell",
+    desc: [
+      "You can briefly cast an enemy into a hellish nightmare, making the fiend's capstone as cruel as it is dramatic.",
+    ],
+    subclass: {
+      index: "fiend-patron",
+      name: "Fiend Patron",
+      url: "/api/2024/subclasses/fiend-patron",
+    },
+  },
+  {
+    index: "create-thrall",
+    level: 14,
+    name: "Create Thrall",
+    desc: [
+      "Your patron's influence can leave another creature mentally bound to your will, culminating the Great Old One's psychic control.",
+    ],
+    subclass: {
+      index: "great-old-one-patron",
+      name: "Great Old One Patron",
+      url: "/api/2024/subclasses/great-old-one-patron",
+    },
+  },
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-12",
+    15,
+    "Prepared Spells",
+    "Choose one additional Warlock spell to round out the 5th-level side of your pact list.",
+    1,
+    WARLOCK_LEVEL_5_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  {
+    index: "mystic-arcanum-8th-level",
+    level: 15,
+    name: "Mystic Arcanum (8th-Level Spell)",
+    desc: [
+      "Choose one 8th-level Warlock spell as your Mystic Arcanum so you can cast it once without expending a Pact Magic slot, regaining that use after a Long Rest.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "mystic arcanum",
+      from: {
+        option_set_type: "options_array",
+        options: WARLOCK_MYSTIC_ARCANUM_8_OPTIONS,
+      },
+    },
+  },
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-7",
+    15,
+    "Choose one additional Eldritch Invocation.",
+  ),
   createAbilityScoreImprovementFeature("warlock-ability-score-improvement-4", 16, CASTER_FEAT_OPTIONS),
+  createWarlockSpellChoiceFeature(
+    "warlock-prepared-spells-13",
+    17,
+    "Prepared Spells",
+    "Choose one additional Warlock spell. Your regular Pact Magic list remains separate from your 9th-level Mystic Arcanum choice.",
+    1,
+    WARLOCK_LEVEL_5_SPELL_OPTIONS,
+    "warlock spell",
+  ),
+  {
+    index: "mystic-arcanum-9th-level",
+    level: 17,
+    name: "Mystic Arcanum (9th-Level Spell)",
+    desc: [
+      "Choose one 9th-level Warlock spell as your Mystic Arcanum so you can cast it once without expending a Pact Magic slot, regaining that use after a Long Rest.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "mystic arcanum",
+      from: {
+        option_set_type: "options_array",
+        options: WARLOCK_MYSTIC_ARCANUM_9_OPTIONS,
+      },
+    },
+  },
+  createWarlockEldritchInvocationFeature(
+    "eldritch-invocations-8",
+    18,
+    "Choose one additional Eldritch Invocation.",
+  ),
   createEpicBoonFeature("warlock-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat; Boon of Spell Recall and Boon of Dimensional Travel both suit many warlocks."),
+  createSimpleFeature(
+    "eldritch-master",
+    20,
+    "Eldritch Master",
+    "Your command of pact magic reaches its peak, letting you draw on your patron's power with exceptional efficiency.",
+  ),
 ];
 
 const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
+  createWizardSpellChoiceFeature(
+    "wizard-cantrips-1",
+    1,
+    "Cantrips",
+    "Choose three Wizard cantrips to begin your arcane training.",
+    3,
+    WIZARD_CANTRIP_OPTIONS,
+    "wizard cantrip",
+  ),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-1",
+    1,
+    "Spellbook",
+    "Choose six 1st-level Wizard spells to place in your spellbook at 1st level.",
+    6,
+    WIZARD_LEVEL_1_SPELL_OPTIONS,
+    "wizard spell",
+  ),
   createSimpleFeature(
     "wizard-spellcasting",
     1,
@@ -1228,10 +4703,45 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
     "Your study of ritual magic lets you handle ritual spells with greater efficiency, reinforcing the wizard's identity as the prepared arcane scholar.",
   ),
   createSimpleFeature(
-    "scholar",
+    "arcane-recovery",
+    1,
+    "Arcane Recovery",
+    "You can recover some expended spell power during a short rest, reflecting disciplined arcane study and efficient magical pacing.",
+  ),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-2",
     2,
-    "Scholar",
-    "Choose an area of academic mastery that reflects the branch of knowledge your magical training leans on most heavily.",
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook. At this level you still choose from 1st-level Wizard spells.",
+    2,
+    WIZARD_LEVEL_1_SPELL_OPTIONS,
+    "wizard spell",
+  ),
+  {
+    index: "scholar",
+    level: 2,
+    name: "Scholar",
+    desc: [
+      "Choose an area of academic mastery that reflects the branch of knowledge your magical training leans on most heavily.",
+      "You gain Expertise in the scholarly skill you choose.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "scholar",
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(WIZARD_SCHOLAR_OPTIONS, "proficiencies"),
+      },
+    },
+  },
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-3",
+    3,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook. You can now include 2nd-level Wizard spells.",
+    2,
+    WIZARD_LEVEL_2_SPELL_OPTIONS,
+    "wizard spell",
   ),
   createSubclassChoiceFeature(
     "wizard-subclass",
@@ -1252,12 +4762,104 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Illusionist bends perception and false reality.",
     ],
   },
+  {
+    index: "arcane-ward",
+    level: 3,
+    name: "Arcane Ward",
+    desc: [
+      "Your abjurations create a protective ward that absorbs incoming harm, making your defensive study tangible in battle.",
+    ],
+    subclass: {
+      index: "abjurer",
+      name: "Abjurer",
+      url: "/api/2024/subclasses/abjurer",
+    },
+  },
+  {
+    index: "portent",
+    level: 3,
+    name: "Portent",
+    desc: [
+      "You prepare foretold dice that can replace later rolls at crucial moments, letting foresight reshape the most important outcomes.",
+    ],
+    subclass: {
+      index: "diviner",
+      name: "Diviner",
+      url: "/api/2024/subclasses/diviner",
+    },
+  },
+  {
+    index: "evocation-savant",
+    level: 3,
+    name: "Evocation Savant",
+    desc: [
+      "Your formal study makes evocation spells easier and more natural to master, sharpening the efficiency of your destructive magic.",
+    ],
+    subclass: {
+      index: "evoker",
+      name: "Evoker",
+      url: "/api/2024/subclasses/evoker",
+    },
+  },
+  {
+    index: "sculpt-spells",
+    level: 3,
+    name: "Sculpt Spells",
+    desc: [
+      "You can spare allies from the worst of your area effects, letting your biggest blasts remain practical in a crowded fight.",
+    ],
+    subclass: {
+      index: "evoker",
+      name: "Evoker",
+      url: "/api/2024/subclasses/evoker",
+    },
+  },
+  {
+    index: "improved-minor-illusion",
+    level: 3,
+    name: "Improved Minor Illusion",
+    desc: [
+      "Your simplest illusions become more useful and more convincing, giving falsehood an immediately practical edge.",
+    ],
+    subclass: {
+      index: "illusionist",
+      name: "Illusionist",
+      url: "/api/2024/subclasses/illusionist",
+    },
+  },
+  createWizardSpellChoiceFeature(
+    "wizard-cantrips-2",
+    4,
+    "Cantrip",
+    "Choose one additional Wizard cantrip.",
+    1,
+    WIZARD_CANTRIP_OPTIONS,
+    "wizard cantrip",
+  ),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-4",
+    4,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook.",
+    2,
+    WIZARD_LEVEL_2_SPELL_OPTIONS,
+    "wizard spell",
+  ),
   createAbilityScoreImprovementFeature("wizard-ability-score-improvement-1", 4, CASTER_FEAT_OPTIONS),
   createSimpleFeature(
     "memorize-spell",
     5,
     "Memorize Spell",
     "With focused study, you can swap a prepared spell more fluidly than other prepared casters, reflecting the wizard's command of spell theory.",
+  ),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-5",
+    5,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook. You can now include 3rd-level Wizard spells.",
+    2,
+    WIZARD_LEVEL_3_SPELL_OPTIONS,
+    "wizard spell",
   ),
   {
     index: "wizard-subclass-feature-6",
@@ -1271,7 +4873,95 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Illusionist gains deeper control over believable unreality.",
     ],
   },
+  {
+    index: "projected-ward",
+    level: 6,
+    name: "Projected Ward",
+    desc: [
+      "Your ward can extend outward to shield allies as well as yourself, turning abjuration study into party-wide protection.",
+    ],
+    subclass: {
+      index: "abjurer",
+      name: "Abjurer",
+      url: "/api/2024/subclasses/abjurer",
+    },
+  },
+  {
+    index: "expert-divination",
+    level: 6,
+    name: "Expert Divination",
+    desc: [
+      "Divination magic becomes a more efficient and sustainable part of your practice, rewarding a wizard who leans into foresight.",
+    ],
+    subclass: {
+      index: "diviner",
+      name: "Diviner",
+      url: "/api/2024/subclasses/diviner",
+    },
+  },
+  {
+    index: "potent-cantrip",
+    level: 6,
+    name: "Potent Cantrip",
+    desc: [
+      "Even partial spell resistance is not enough to fully blunt your basic offense, making your at-will damage more dependable.",
+    ],
+    subclass: {
+      index: "evoker",
+      name: "Evoker",
+      url: "/api/2024/subclasses/evoker",
+    },
+  },
+  {
+    index: "malleable-illusions",
+    level: 6,
+    name: "Malleable Illusions",
+    desc: [
+      "You can reshape your active illusions without starting from scratch, making your deception more adaptive and reactive.",
+    ],
+    subclass: {
+      index: "illusionist",
+      name: "Illusionist",
+      url: "/api/2024/subclasses/illusionist",
+    },
+  },
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-6",
+    6,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook.",
+    2,
+    WIZARD_LEVEL_3_SPELL_OPTIONS,
+    "wizard spell",
+  ),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-7",
+    7,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook. You can now include 4th-level Wizard spells.",
+    2,
+    WIZARD_LEVEL_4_SPELL_OPTIONS,
+    "wizard spell",
+  ),
   createAbilityScoreImprovementFeature("wizard-ability-score-improvement-2", 8, CASTER_FEAT_OPTIONS),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-8",
+    8,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook.",
+    2,
+    WIZARD_LEVEL_4_SPELL_OPTIONS,
+    "wizard spell",
+  ),
+  createWizardSpellChoiceFeature(
+    "wizard-spellbook-9",
+    9,
+    "Spellbook Additions",
+    "Add two more Wizard spells to your spellbook. You can now include 5th-level Wizard spells.",
+    2,
+    WIZARD_LEVEL_5_SPELL_OPTIONS,
+    "wizard spell",
+  ),
   {
     index: "wizard-subclass-feature-10",
     level: 10,
@@ -1283,6 +4973,58 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Evoker empowers destructive spells without losing control.",
       "Illusionist makes falsehood more flexible and convincing.",
     ],
+  },
+  {
+    index: "improved-abjuration",
+    level: 10,
+    name: "Improved Abjuration",
+    desc: [
+      "You are especially effective at breaking hostile magic and magical effects, reinforcing the abjurer's role as an arcane bulwark.",
+    ],
+    subclass: {
+      index: "abjurer",
+      name: "Abjurer",
+      url: "/api/2024/subclasses/abjurer",
+    },
+  },
+  {
+    index: "the-third-eye",
+    level: 10,
+    name: "The Third Eye",
+    desc: [
+      "Your senses sharpen through magical perception and supernatural sight, widening what you can notice before others do.",
+    ],
+    subclass: {
+      index: "diviner",
+      name: "Diviner",
+      url: "/api/2024/subclasses/diviner",
+    },
+  },
+  {
+    index: "empowered-evocation",
+    level: 10,
+    name: "Empowered Evocation",
+    desc: [
+      "Your Intelligence intensifies the damage of key evocation spells, squeezing even more value out of raw magical force.",
+    ],
+    subclass: {
+      index: "evoker",
+      name: "Evoker",
+      url: "/api/2024/subclasses/evoker",
+    },
+  },
+  {
+    index: "illusory-self",
+    level: 10,
+    name: "Illusory Self",
+    desc: [
+      "A false version of you can absorb a critical blow or turn an attack aside, making your deception directly defensive.",
+    ],
+    subclass: {
+      index: "illusionist",
+      name: "Illusionist",
+      url: "/api/2024/subclasses/illusionist",
+    },
   },
   createAbilityScoreImprovementFeature("wizard-ability-score-improvement-3", 12, CASTER_FEAT_OPTIONS),
   {
@@ -1297,6 +5039,58 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
       "Illusionist blurs the line between illusion and reality.",
     ],
   },
+  {
+    index: "spell-resistance",
+    level: 14,
+    name: "Spell Resistance",
+    desc: [
+      "At your peak, magic itself has a harder time harming you, making the abjurer exceptionally difficult to break through.",
+    ],
+    subclass: {
+      index: "abjurer",
+      name: "Abjurer",
+      url: "/api/2024/subclasses/abjurer",
+    },
+  },
+  {
+    index: "greater-portent",
+    level: 14,
+    name: "Greater Portent",
+    desc: [
+      "At your peak, you influence even more key moments through prepared omens, turning foresight into decisive certainty.",
+    ],
+    subclass: {
+      index: "diviner",
+      name: "Diviner",
+      url: "/api/2024/subclasses/diviner",
+    },
+  },
+  {
+    index: "overchannel",
+    level: 14,
+    name: "Overchannel",
+    desc: [
+      "You can force a spell beyond safe limits for devastating effect, pushing evocation power to its dangerous edge.",
+    ],
+    subclass: {
+      index: "evoker",
+      name: "Evoker",
+      url: "/api/2024/subclasses/evoker",
+    },
+  },
+  {
+    index: "illusory-reality",
+    level: 14,
+    name: "Illusory Reality",
+    desc: [
+      "Part of an illusion can briefly become tangibly real, blurring the line between deception and actual force.",
+    ],
+    subclass: {
+      index: "illusionist",
+      name: "Illusionist",
+      url: "/api/2024/subclasses/illusionist",
+    },
+  },
   createAbilityScoreImprovementFeature("wizard-ability-score-improvement-4", 16, CASTER_FEAT_OPTIONS),
   createEpicBoonFeature("wizard-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat; Boon of Spell Recall is especially appropriate for many wizards."),
   createSimpleFeature(
@@ -1308,18 +5102,65 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
 ];
 
 const DRUID_LEVEL_REFERENCES: CuratedLevelReference[] = [
-  { index: "druid-1", level: 1, features: ["druid-spellcasting", "druidic", "druid-primal-order"] },
+  { index: "druid-1", level: 1, features: ["druid-cantrips-1", "druid-spellcasting", "druidic", "druid-primal-order"] },
   { index: "druid-2", level: 2, features: ["druid-wild-shape", "druid-wild-companion"] },
-  { index: "druid-3", level: 3, features: ["druid-subclass", "druid-subclass-feature-3"] },
-  { index: "druid-4", level: 4, features: ["druid-ability-score-improvement-1"] },
+  {
+    index: "druid-3",
+    level: 3,
+    features: [
+      "druid-subclass",
+      "druid-subclass-feature-3",
+      "circle-spells",
+      "lands-aid",
+      "circle-forms",
+      "moonlight-step",
+      "wrath-of-the-sea",
+      "watery-aegis",
+      "star-map",
+      "starry-form",
+      "circle-of-the-land-terrain",
+    ],
+  },
+  { index: "druid-4", level: 4, features: ["druid-cantrips-2", "druid-ability-score-improvement-1"] },
   { index: "druid-5", level: 5, features: ["druid-wild-resurgence"] },
-  { index: "druid-6", level: 6, features: ["druid-subclass-feature-6"] },
+  {
+    index: "druid-6",
+    level: 6,
+    features: [
+      "druid-subclass-feature-6",
+      "natural-recovery",
+      "improved-circle-forms",
+      "oceanic-gift",
+      "cosmic-omen",
+    ],
+  },
   { index: "druid-7", level: 7, features: ["druid-elemental-fury"] },
   { index: "druid-8", level: 8, features: ["druid-ability-score-improvement-2"] },
-  { index: "druid-10", level: 10, features: ["druid-subclass-feature-10"] },
+  {
+    index: "druid-10",
+    level: 10,
+    features: [
+      "druid-cantrips-3",
+      "druid-subclass-feature-10",
+      "natures-ward",
+      "moonlit-passage",
+      "stormborn",
+      "twinkling-constellations",
+    ],
+  },
   { index: "druid-11", level: 11, features: ["druid-improved-elemental-fury"] },
   { index: "druid-12", level: 12, features: ["druid-ability-score-improvement-3"] },
-  { index: "druid-14", level: 14, features: ["druid-subclass-feature-14"] },
+  {
+    index: "druid-14",
+    level: 14,
+    features: [
+      "druid-subclass-feature-14",
+      "natures-sanctuary",
+      "lunar-form",
+      "seas-fury",
+      "full-of-stars",
+    ],
+  },
   { index: "druid-16", level: 16, features: ["druid-ability-score-improvement-4"] },
   { index: "druid-18", level: 18, features: ["druid-beast-spells"] },
   { index: "druid-19", level: 19, features: ["druid-epic-boon"] },
@@ -1329,22 +5170,76 @@ const DRUID_LEVEL_REFERENCES: CuratedLevelReference[] = [
 const FIGHTER_LEVEL_REFERENCES: CuratedLevelReference[] = [
   { index: "fighter-1", level: 1, features: ["fighter-fighting-style", "second-wind", "fighter-weapon-mastery"] },
   { index: "fighter-2", level: 2, features: ["action-surge-1-use", "fighter-tactical-mind"] },
-  { index: "fighter-3", level: 3, features: ["fighter-subclass", "fighter-subclass-feature-3"] },
+  {
+    index: "fighter-3",
+    level: 3,
+    features: [
+      "fighter-subclass",
+      "fighter-subclass-feature-3",
+      "combat-superiority",
+      "student-of-war",
+      "improved-critical",
+      "eldritch-knight-spellcasting",
+      "war-bond",
+      "fighter-psi-warrior-psionic-power",
+      "telekinetic-adept",
+    ],
+  },
   { index: "fighter-4", level: 4, features: ["fighter-ability-score-improvement-1"] },
   { index: "fighter-5", level: 5, features: ["extra-attack-1", "fighter-tactical-shift"] },
   { index: "fighter-6", level: 6, features: ["fighter-ability-score-improvement-2"] },
-  { index: "fighter-7", level: 7, features: ["fighter-subclass-feature-7"] },
+  {
+    index: "fighter-7",
+    level: 7,
+    features: [
+      "fighter-subclass-feature-7",
+      "know-your-enemy",
+      "remarkable-athlete",
+      "war-magic",
+      "guarded-mind",
+    ],
+  },
   { index: "fighter-8", level: 8, features: ["fighter-ability-score-improvement-3"] },
   { index: "fighter-9", level: 9, features: ["fighter-tactical-master", "indomitable-1-use"] },
-  { index: "fighter-10", level: 10, features: ["fighter-subclass-feature-10"] },
+  {
+    index: "fighter-10",
+    level: 10,
+    features: [
+      "fighter-subclass-feature-10",
+      "improved-combat-superiority",
+      "heroic-warrior",
+      "eldritch-strike",
+      "bulwark-of-force",
+    ],
+  },
   { index: "fighter-11", level: 11, features: ["fighter-two-extra-attacks"] },
   { index: "fighter-12", level: 12, features: ["fighter-ability-score-improvement-4"] },
   { index: "fighter-13", level: 13, features: ["indomitable-2-uses", "fighter-studied-attacks"] },
   { index: "fighter-14", level: 14, features: ["fighter-ability-score-improvement-5"] },
-  { index: "fighter-15", level: 15, features: ["fighter-subclass-feature-15"] },
+  {
+    index: "fighter-15",
+    level: 15,
+    features: [
+      "fighter-subclass-feature-15",
+      "relentless",
+      "superior-critical",
+      "arcane-charge",
+      "psi-powered-leap",
+    ],
+  },
   { index: "fighter-16", level: 16, features: ["fighter-ability-score-improvement-6"] },
   { index: "fighter-17", level: 17, features: ["action-surge-2-uses", "indomitable-3-uses"] },
-  { index: "fighter-18", level: 18, features: ["fighter-subclass-feature-18"] },
+  {
+    index: "fighter-18",
+    level: 18,
+    features: [
+      "fighter-subclass-feature-18",
+      "supreme-combat-superiority",
+      "survivor",
+      "improved-war-magic",
+      "telekinetic-master",
+    ],
+  },
   { index: "fighter-19", level: 19, features: ["fighter-epic-boon"] },
   { index: "fighter-20", level: 20, features: ["fighter-three-extra-attacks"] },
 ];
@@ -1352,21 +5247,66 @@ const FIGHTER_LEVEL_REFERENCES: CuratedLevelReference[] = [
 const MONK_LEVEL_REFERENCES: CuratedLevelReference[] = [
   { index: "monk-1", level: 1, features: ["monk-unarmored-defense", "martial-arts"] },
   { index: "monk-2", level: 2, features: ["monks-focus", "monk-unarmored-movement", "monk-uncanny-metabolism"] },
-  { index: "monk-3", level: 3, features: ["monk-subclass", "monk-subclass-feature-3", "deflect-attacks"] },
+  {
+    index: "monk-3",
+    level: 3,
+    features: [
+      "monk-subclass",
+      "monk-subclass-feature-3",
+      "mercy-hand-of-healing",
+      "mercy-hand-of-harm",
+      "elements-elemental-attunement",
+      "elements-elemental-expression",
+      "open-hand-technique",
+      "shadow-arts",
+      "deflect-attacks",
+    ],
+  },
   { index: "monk-4", level: 4, features: ["monk-ability-score-improvement-1", "slow-fall"] },
   { index: "monk-5", level: 5, features: ["monk-extra-attack", "stunning-strike"] },
-  { index: "monk-6", level: 6, features: ["monk-empowered-strikes", "monk-subclass-feature-6"] },
+  {
+    index: "monk-6",
+    level: 6,
+    features: [
+      "monk-empowered-strikes",
+      "monk-subclass-feature-6",
+      "mercy-physicians-touch",
+      "reach-of-the-elements",
+      "wholeness-of-body",
+      "shadow-step",
+    ],
+  },
   { index: "monk-7", level: 7, features: ["monk-evasion"] },
   { index: "monk-8", level: 8, features: ["monk-ability-score-improvement-2"] },
   { index: "monk-9", level: 9, features: ["monk-acrobatic-movement"] },
   { index: "monk-10", level: 10, features: ["monk-heightened-focus"] },
-  { index: "monk-11", level: 11, features: ["monk-subclass-feature-11"] },
+  {
+    index: "monk-11",
+    level: 11,
+    features: [
+      "monk-subclass-feature-11",
+      "mercy-flurry-of-healing-and-harm",
+      "stride-of-the-elements",
+      "fleet-step",
+      "cloak-of-shadows",
+    ],
+  },
   { index: "monk-12", level: 12, features: ["monk-ability-score-improvement-3"] },
   { index: "monk-13", level: 13, features: ["monk-self-restoration"] },
   { index: "monk-14", level: 14, features: ["monk-disciplined-survivor"] },
   { index: "monk-15", level: 15, features: ["monk-perfect-focus"] },
   { index: "monk-16", level: 16, features: ["monk-ability-score-improvement-4"] },
-  { index: "monk-17", level: 17, features: ["monk-subclass-feature-17"] },
+  {
+    index: "monk-17",
+    level: 17,
+    features: [
+      "monk-subclass-feature-17",
+      "hand-of-ultimate-mercy",
+      "elemental-epitome",
+      "quivering-palm",
+      "opportunist",
+    ],
+  },
   { index: "monk-18", level: 18, features: ["monk-superior-defense"] },
   { index: "monk-19", level: 19, features: ["monk-epic-boon"] },
   { index: "monk-20", level: 20, features: ["monk-body-and-mind"] },
@@ -1375,40 +5315,137 @@ const MONK_LEVEL_REFERENCES: CuratedLevelReference[] = [
 const PALADIN_LEVEL_REFERENCES: CuratedLevelReference[] = [
   { index: "paladin-1", level: 1, features: ["lay-on-hands", "paladin-spellcasting", "paladin-weapon-mastery"] },
   { index: "paladin-2", level: 2, features: ["paladin-fighting-style", "paladins-smite"] },
-  { index: "paladin-3", level: 3, features: ["paladin-channel-divinity", "paladin-subclass", "paladin-subclass-feature-3"] },
+  {
+    index: "paladin-3",
+    level: 3,
+    features: [
+      "paladin-channel-divinity",
+      "paladin-subclass",
+      "paladin-subclass-feature-3",
+      "devotion-oath-spells",
+      "devotion-sacred-weapon",
+      "devotion-turn-the-unholy",
+      "glory-oath-spells",
+      "glory-inspiring-smite",
+      "glory-peerless-athlete",
+      "ancients-oath-spells",
+      "ancients-natures-wrath",
+      "ancients-turn-the-faithless",
+      "vengeance-oath-spells",
+      "vengeance-abjure-enemy",
+      "vengeance-vow-of-enmity",
+    ],
+  },
   { index: "paladin-4", level: 4, features: ["paladin-ability-score-improvement-1"] },
   { index: "paladin-5", level: 5, features: ["paladin-extra-attack", "faithful-steed"] },
   { index: "paladin-6", level: 6, features: ["aura-of-protection"] },
-  { index: "paladin-7", level: 7, features: ["paladin-subclass-feature-7"] },
+  {
+    index: "paladin-7",
+    level: 7,
+    features: [
+      "paladin-subclass-feature-7",
+      "devotion-aura-of-devotion",
+      "glory-aura-of-alacrity",
+      "ancients-aura-of-warding",
+      "vengeance-relentless-avenger",
+    ],
+  },
   { index: "paladin-8", level: 8, features: ["paladin-ability-score-improvement-2"] },
   { index: "paladin-9", level: 9, features: ["abjure-foes"] },
   { index: "paladin-10", level: 10, features: ["aura-of-courage"] },
   { index: "paladin-11", level: 11, features: ["radiant-strikes"] },
   { index: "paladin-12", level: 12, features: ["paladin-ability-score-improvement-3"] },
   { index: "paladin-14", level: 14, features: ["restoring-touch"] },
-  { index: "paladin-15", level: 15, features: ["paladin-subclass-feature-15"] },
+  {
+    index: "paladin-15",
+    level: 15,
+    features: [
+      "paladin-subclass-feature-15",
+      "devotion-smite-of-protection",
+      "glory-glorious-defense",
+      "ancients-undying-sentinel",
+      "vengeance-soul-of-vengeance",
+    ],
+  },
   { index: "paladin-16", level: 16, features: ["paladin-ability-score-improvement-4"] },
   { index: "paladin-18", level: 18, features: ["aura-expansion"] },
   { index: "paladin-19", level: 19, features: ["paladin-epic-boon"] },
-  { index: "paladin-20", level: 20, features: ["paladin-subclass-feature-20"] },
+  {
+    index: "paladin-20",
+    level: 20,
+    features: [
+      "paladin-subclass-feature-20",
+      "devotion-holy-nimbus",
+      "glory-living-legend",
+      "ancients-elder-champion",
+      "vengeance-avenging-angel",
+    ],
+  },
 ];
 
 const RANGER_LEVEL_REFERENCES: CuratedLevelReference[] = [
   { index: "ranger-1", level: 1, features: ["ranger-deft-explorer", "ranger-favored-enemy", "ranger-spellcasting", "ranger-weapon-mastery"] },
   { index: "ranger-2", level: 2, features: ["ranger-fighting-style"] },
-  { index: "ranger-3", level: 3, features: ["ranger-roving", "ranger-subclass", "ranger-subclass-feature-3"] },
+  {
+    index: "ranger-3",
+    level: 3,
+    features: [
+      "ranger-roving",
+      "ranger-subclass",
+      "ranger-subclass-feature-3",
+      "beast-master-rangers-companion",
+      "beast-master-primal-bond",
+      "fey-wanderer-dreadful-strikes",
+      "fey-wanderer-magic",
+      "fey-wanderer-otherworldly-glamour",
+      "gloom-stalker-dread-ambusher",
+      "gloom-stalker-umbral-sight",
+      "hunters-lore",
+      "hunters-prey",
+    ],
+  },
   { index: "ranger-4", level: 4, features: ["ranger-ability-score-improvement-1"] },
   { index: "ranger-5", level: 5, features: ["ranger-extra-attack"] },
   { index: "ranger-6", level: 6, features: ["ranger-expertise"] },
-  { index: "ranger-7", level: 7, features: ["ranger-subclass-feature-7"] },
+  {
+    index: "ranger-7",
+    level: 7,
+    features: [
+      "ranger-subclass-feature-7",
+      "beast-master-exceptional-training",
+      "fey-wanderer-beguiling-twist",
+      "gloom-stalker-iron-mind",
+      "hunter-defensive-tactics",
+    ],
+  },
   { index: "ranger-8", level: 8, features: ["ranger-ability-score-improvement-2"] },
   { index: "ranger-9", level: 9, features: ["ranger-tireless"] },
   { index: "ranger-10", level: 10, features: ["ranger-natures-veil"] },
-  { index: "ranger-11", level: 11, features: ["ranger-subclass-feature-11"] },
+  {
+    index: "ranger-11",
+    level: 11,
+    features: [
+      "ranger-subclass-feature-11",
+      "beast-master-bestial-fury",
+      "fey-wanderer-fey-reinforcements",
+      "gloom-stalker-stalkers-flurry",
+      "hunter-superior-hunters-prey",
+    ],
+  },
   { index: "ranger-12", level: 12, features: ["ranger-ability-score-improvement-3"] },
   { index: "ranger-13", level: 13, features: ["ranger-relentless-hunter"] },
   { index: "ranger-14", level: 14, features: ["ranger-precise-hunter"] },
-  { index: "ranger-15", level: 15, features: ["ranger-subclass-feature-15"] },
+  {
+    index: "ranger-15",
+    level: 15,
+    features: [
+      "ranger-subclass-feature-15",
+      "beast-master-share-spells",
+      "fey-wanderer-misty-wanderer",
+      "gloom-stalker-shadowy-dodge",
+      "hunter-superior-hunters-defense",
+    ],
+  },
   { index: "ranger-16", level: 16, features: ["ranger-ability-score-improvement-4"] },
   { index: "ranger-18", level: 18, features: ["ranger-feral-senses"] },
   { index: "ranger-19", level: 19, features: ["ranger-epic-boon"] },
@@ -1418,76 +5455,267 @@ const RANGER_LEVEL_REFERENCES: CuratedLevelReference[] = [
 const ROGUE_LEVEL_REFERENCES: CuratedLevelReference[] = [
   { index: "rogue-1", level: 1, features: ["rogue-expertise-1", "sneak-attack", "thieves-cant", "rogue-weapon-mastery"] },
   { index: "rogue-2", level: 2, features: ["cunning-action", "rogue-steady-aim"] },
-  { index: "rogue-3", level: 3, features: ["rogue-subclass", "rogue-subclass-feature-3", "rogue-cunning-strike"] },
+  {
+    index: "rogue-3",
+    level: 3,
+    features: [
+      "rogue-subclass",
+      "rogue-subclass-feature-3",
+      "arcane-trickster-spellcasting",
+      "arcane-trickster-mage-hand-legerdemain",
+      "assassinate",
+      "envenom-weapons",
+      "psychic-blades",
+      "psionic-power",
+      "fast-hands",
+      "second-story-work",
+      "rogue-cunning-strike",
+    ],
+  },
   { index: "rogue-4", level: 4, features: ["rogue-ability-score-improvement-1"] },
   { index: "rogue-5", level: 5, features: ["uncanny-dodge"] },
   { index: "rogue-6", level: 6, features: ["rogue-expertise-2"] },
   { index: "rogue-7", level: 7, features: ["rogue-evasion", "rogue-reliable-talent"] },
   { index: "rogue-8", level: 8, features: ["rogue-ability-score-improvement-2"] },
-  { index: "rogue-9", level: 9, features: ["rogue-subclass-feature-9"] },
+  {
+    index: "rogue-9",
+    level: 9,
+    features: [
+      "rogue-subclass-feature-9",
+      "magical-ambush",
+      "infiltration-expertise",
+      "soul-blades",
+      "supreme-sneak",
+    ],
+  },
   { index: "rogue-10", level: 10, features: ["rogue-ability-score-improvement-3"] },
   { index: "rogue-11", level: 11, features: ["rogue-improved-cunning-strike"] },
   { index: "rogue-12", level: 12, features: ["rogue-ability-score-improvement-4"] },
-  { index: "rogue-13", level: 13, features: ["rogue-subclass-feature-13"] },
+  {
+    index: "rogue-13",
+    level: 13,
+    features: [
+      "rogue-subclass-feature-13",
+      "versatile-trickster",
+      "impostor",
+      "psychic-veil",
+      "use-magic-device",
+    ],
+  },
   { index: "rogue-14", level: 14, features: ["rogue-devious-strikes"] },
   { index: "rogue-15", level: 15, features: ["slippery-mind"] },
   { index: "rogue-16", level: 16, features: ["rogue-ability-score-improvement-5"] },
-  { index: "rogue-17", level: 17, features: ["rogue-subclass-feature-17"] },
+  {
+    index: "rogue-17",
+    level: 17,
+    features: [
+      "rogue-subclass-feature-17",
+      "spell-thief",
+      "death-strike",
+      "rend-mind",
+      "thiefs-reflexes",
+    ],
+  },
   { index: "rogue-18", level: 18, features: ["elusive"] },
   { index: "rogue-19", level: 19, features: ["rogue-epic-boon"] },
   { index: "rogue-20", level: 20, features: ["stroke-of-luck"] },
 ];
 
 const SORCERER_LEVEL_REFERENCES: CuratedLevelReference[] = [
-  { index: "sorcerer-1", level: 1, features: ["sorcerer-spellcasting", "sorcerer-innate-sorcery"] },
-  { index: "sorcerer-2", level: 2, features: ["sorcerer-font-of-magic", "metamagic-1"] },
-  { index: "sorcerer-3", level: 3, features: ["sorcerer-subclass", "sorcerer-subclass-feature-3"] },
-  { index: "sorcerer-4", level: 4, features: ["sorcerer-ability-score-improvement-1"] },
-  { index: "sorcerer-5", level: 5, features: ["sorcerer-sorcerous-restoration"] },
-  { index: "sorcerer-6", level: 6, features: ["sorcerer-subclass-feature-6"] },
-  { index: "sorcerer-7", level: 7, features: ["sorcerer-sorcery-incarnate"] },
-  { index: "sorcerer-8", level: 8, features: ["sorcerer-ability-score-improvement-2"] },
-  { index: "sorcerer-10", level: 10, features: ["metamagic-2"] },
+  { index: "sorcerer-1", level: 1, features: ["sorcerer-cantrips-1", "sorcerer-spellcasting", "sorcerer-spells-1", "sorcerer-innate-sorcery"] },
+  { index: "sorcerer-2", level: 2, features: ["sorcerer-font-of-magic", "sorcerer-spells-2", "metamagic-1"] },
+  {
+    index: "sorcerer-3",
+    level: 3,
+    features: [
+      "sorcerer-subclass",
+      "sorcerer-subclass-feature-3",
+      "aberrant-psionic-spells",
+      "telepathic-speech",
+      "clockwork-spells",
+      "restore-balance",
+      "draconic-resilience",
+      "draconic-ancestor",
+      "wild-magic-surge",
+      "tides-of-chaos",
+      "sorcerer-spells-3",
+    ],
+  },
+  { index: "sorcerer-4", level: 4, features: ["sorcerer-cantrips-2", "sorcerer-spells-4", "sorcerer-ability-score-improvement-1"] },
+  { index: "sorcerer-5", level: 5, features: ["sorcerer-sorcerous-restoration", "sorcerer-spells-5"] },
+  {
+    index: "sorcerer-6",
+    level: 6,
+    features: [
+      "sorcerer-subclass-feature-6",
+      "psionic-sorcery",
+      "bastion-of-law",
+      "elemental-affinity",
+      "bend-luck",
+      "sorcerer-spells-6",
+    ],
+  },
+  { index: "sorcerer-7", level: 7, features: ["sorcerer-sorcery-incarnate", "sorcerer-spells-7"] },
+  { index: "sorcerer-8", level: 8, features: ["sorcerer-spells-8", "sorcerer-ability-score-improvement-2"] },
+  { index: "sorcerer-9", level: 9, features: ["sorcerer-spells-9"] },
+  { index: "sorcerer-10", level: 10, features: ["sorcerer-cantrips-3", "sorcerer-spells-10", "metamagic-2"] },
+  { index: "sorcerer-11", level: 11, features: ["sorcerer-spells-11"] },
   { index: "sorcerer-12", level: 12, features: ["sorcerer-ability-score-improvement-3"] },
-  { index: "sorcerer-14", level: 14, features: ["sorcerer-subclass-feature-14"] },
+  { index: "sorcerer-13", level: 13, features: ["sorcerer-spells-12"] },
+  {
+    index: "sorcerer-14",
+    level: 14,
+    features: [
+      "sorcerer-subclass-feature-14",
+      "revelation-in-flesh",
+      "trance-of-order",
+      "dragon-wings",
+      "controlled-chaos",
+    ],
+  },
+  { index: "sorcerer-15", level: 15, features: ["sorcerer-spells-13"] },
   { index: "sorcerer-16", level: 16, features: ["sorcerer-ability-score-improvement-4"] },
-  { index: "sorcerer-17", level: 17, features: ["metamagic-3"] },
-  { index: "sorcerer-18", level: 18, features: ["sorcerer-subclass-feature-18"] },
+  { index: "sorcerer-17", level: 17, features: ["sorcerer-spells-14", "metamagic-3"] },
+  {
+    index: "sorcerer-18",
+    level: 18,
+    features: [
+      "sorcerer-subclass-feature-18",
+      "warping-implosion",
+      "clockwork-cavalcade",
+      "draconic-presence",
+      "spell-bombardment",
+    ],
+  },
   { index: "sorcerer-19", level: 19, features: ["sorcerer-epic-boon"] },
   { index: "sorcerer-20", level: 20, features: ["arcane-apotheosis"] },
 ];
 
 const WARLOCK_LEVEL_REFERENCES: CuratedLevelReference[] = [
-  { index: "warlock-1", level: 1, features: ["eldritch-invocations", "pact-magic"] },
-  { index: "warlock-2", level: 2, features: ["warlock-magical-cunning"] },
-  { index: "warlock-3", level: 3, features: ["warlock-subclass", "warlock-subclass-feature-3"] },
-  { index: "warlock-4", level: 4, features: ["warlock-ability-score-improvement-1"] },
-  { index: "warlock-6", level: 6, features: ["warlock-subclass-feature-6"] },
-  { index: "warlock-8", level: 8, features: ["warlock-ability-score-improvement-2"] },
-  { index: "warlock-9", level: 9, features: ["contact-patron"] },
-  { index: "warlock-10", level: 10, features: ["warlock-subclass-feature-10"] },
-  { index: "warlock-11", level: 11, features: ["mystic-arcanum-6th-level"] },
-  { index: "warlock-12", level: 12, features: ["warlock-ability-score-improvement-3"] },
-  { index: "warlock-13", level: 13, features: ["mystic-arcanum-7th-level"] },
-  { index: "warlock-14", level: 14, features: ["warlock-subclass-feature-14"] },
-  { index: "warlock-15", level: 15, features: ["mystic-arcanum-8th-level"] },
+  { index: "warlock-1", level: 1, features: ["warlock-cantrips-1", "warlock-prepared-spells-1", "eldritch-invocations-1", "pact-magic"] },
+  { index: "warlock-2", level: 2, features: ["warlock-magical-cunning", "warlock-prepared-spells-2", "eldritch-invocations-2"] },
+  {
+    index: "warlock-3",
+    level: 3,
+    features: [
+      "pact-boon",
+      "warlock-prepared-spells-3",
+      "warlock-subclass",
+      "warlock-subclass-feature-3",
+      "fey-presence",
+      "healing-light",
+      "dark-ones-blessing",
+      "awakened-mind",
+    ],
+  },
+  { index: "warlock-4", level: 4, features: ["warlock-cantrips-2", "warlock-prepared-spells-4", "warlock-ability-score-improvement-1"] },
+  { index: "warlock-5", level: 5, features: ["warlock-prepared-spells-5", "eldritch-invocations-3"] },
+  {
+    index: "warlock-6",
+    level: 6,
+    features: [
+      "warlock-prepared-spells-6",
+      "warlock-subclass-feature-6",
+      "misty-escape",
+      "radiant-soul",
+      "dark-ones-own-luck",
+      "entropic-ward",
+    ],
+  },
+  { index: "warlock-7", level: 7, features: ["warlock-prepared-spells-7", "eldritch-invocations-4"] },
+  { index: "warlock-8", level: 8, features: ["warlock-prepared-spells-8", "warlock-ability-score-improvement-2"] },
+  { index: "warlock-9", level: 9, features: ["contact-patron", "warlock-prepared-spells-9", "eldritch-invocations-5"] },
+  {
+    index: "warlock-10",
+    level: 10,
+    features: [
+      "warlock-cantrips-3",
+      "warlock-subclass-feature-10",
+      "beguiling-defenses",
+      "celestial-resilience",
+      "fiendish-resilience",
+      "thought-shield",
+    ],
+  },
+  { index: "warlock-11", level: 11, features: ["warlock-prepared-spells-10", "mystic-arcanum-6th-level"] },
+  { index: "warlock-12", level: 12, features: ["warlock-ability-score-improvement-3", "eldritch-invocations-6"] },
+  { index: "warlock-13", level: 13, features: ["warlock-prepared-spells-11", "mystic-arcanum-7th-level"] },
+  {
+    index: "warlock-14",
+    level: 14,
+    features: [
+      "warlock-subclass-feature-14",
+      "dark-delirium",
+      "searing-vengeance",
+      "hurl-through-hell",
+      "create-thrall",
+    ],
+  },
+  { index: "warlock-15", level: 15, features: ["warlock-prepared-spells-12", "mystic-arcanum-8th-level", "eldritch-invocations-7"] },
   { index: "warlock-16", level: 16, features: ["warlock-ability-score-improvement-4"] },
-  { index: "warlock-17", level: 17, features: ["mystic-arcanum-9th-level"] },
+  { index: "warlock-17", level: 17, features: ["warlock-prepared-spells-13", "mystic-arcanum-9th-level"] },
+  { index: "warlock-18", level: 18, features: ["eldritch-invocations-8"] },
   { index: "warlock-19", level: 19, features: ["warlock-epic-boon"] },
   { index: "warlock-20", level: 20, features: ["eldritch-master"] },
 ];
 
 const WIZARD_LEVEL_REFERENCES: CuratedLevelReference[] = [
-  { index: "wizard-1", level: 1, features: ["wizard-spellcasting", "ritual-adept", "arcane-recovery"] },
-  { index: "wizard-2", level: 2, features: ["scholar"] },
-  { index: "wizard-3", level: 3, features: ["wizard-subclass", "wizard-subclass-feature-3"] },
-  { index: "wizard-4", level: 4, features: ["wizard-ability-score-improvement-1"] },
-  { index: "wizard-5", level: 5, features: ["memorize-spell"] },
-  { index: "wizard-6", level: 6, features: ["wizard-subclass-feature-6"] },
-  { index: "wizard-8", level: 8, features: ["wizard-ability-score-improvement-2"] },
-  { index: "wizard-10", level: 10, features: ["wizard-subclass-feature-10"] },
+  { index: "wizard-1", level: 1, features: ["wizard-cantrips-1", "wizard-spellbook-1", "wizard-spellcasting", "ritual-adept", "arcane-recovery"] },
+  { index: "wizard-2", level: 2, features: ["wizard-spellbook-2", "scholar"] },
+  {
+    index: "wizard-3",
+    level: 3,
+    features: [
+      "wizard-spellbook-3",
+      "wizard-subclass",
+      "wizard-subclass-feature-3",
+      "arcane-ward",
+      "portent",
+      "evocation-savant",
+      "sculpt-spells",
+      "improved-minor-illusion",
+    ],
+  },
+  { index: "wizard-4", level: 4, features: ["wizard-cantrips-2", "wizard-spellbook-4", "wizard-ability-score-improvement-1"] },
+  { index: "wizard-5", level: 5, features: ["memorize-spell", "wizard-spellbook-5"] },
+  {
+    index: "wizard-6",
+    level: 6,
+    features: [
+      "wizard-subclass-feature-6",
+      "wizard-spellbook-6",
+      "projected-ward",
+      "expert-divination",
+      "potent-cantrip",
+      "malleable-illusions",
+    ],
+  },
+  { index: "wizard-7", level: 7, features: ["wizard-spellbook-7"] },
+  { index: "wizard-8", level: 8, features: ["wizard-spellbook-8", "wizard-ability-score-improvement-2"] },
+  { index: "wizard-9", level: 9, features: ["wizard-spellbook-9"] },
+  {
+    index: "wizard-10",
+    level: 10,
+    features: [
+      "wizard-subclass-feature-10",
+      "improved-abjuration",
+      "the-third-eye",
+      "empowered-evocation",
+      "illusory-self",
+    ],
+  },
   { index: "wizard-12", level: 12, features: ["wizard-ability-score-improvement-3"] },
-  { index: "wizard-14", level: 14, features: ["wizard-subclass-feature-14"] },
+  {
+    index: "wizard-14",
+    level: 14,
+    features: [
+      "wizard-subclass-feature-14",
+      "spell-resistance",
+      "greater-portent",
+      "overchannel",
+      "illusory-reality",
+    ],
+  },
   { index: "wizard-16", level: 16, features: ["wizard-ability-score-improvement-4"] },
   { index: "wizard-18", level: 18, features: ["spell-mastery"] },
   { index: "wizard-19", level: 19, features: ["wizard-epic-boon"] },

@@ -3,8 +3,13 @@ import type {
   BackgroundOption,
   BuilderSelectionKind,
   ClassOption,
+  FeatureChoiceField,
   SpeciesOption,
 } from "../types/characterBuilder";
+import {
+  getVisibleScopedChoiceFields,
+  pruneHiddenScopedChoices,
+} from "../utils/featureChoiceVisibility";
 
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
 const abilityScoreIndexAliases: Record<string, string> = {
@@ -265,10 +270,18 @@ function CharacterSelectionPanel({
                                         className="background-preview-choice-select"
                                         value={backgroundPreviewChoices[choiceKey] ?? ""}
                                         onChange={(event) =>
-                                          setBackgroundPreviewChoices((currentChoices) => ({
-                                            ...currentChoices,
-                                            [choiceKey]: event.target.value,
-                                          }))
+                                          setBackgroundPreviewChoices((currentChoices) =>
+                                            pruneHiddenScopedChoices(
+                                              backgroundPreviewOption.index,
+                                              section.id,
+                                              section.choiceFields ?? [],
+                                              {
+                                                ...currentChoices,
+                                                [choiceKey]: event.target.value,
+                                              },
+                                              getVisibleBackgroundChoiceFields,
+                                            ),
+                                          )
                                         }
                                       >
                                         <option value="">{field.label}</option>
@@ -369,7 +382,12 @@ function CharacterSelectionPanel({
 
                             {section.choiceFields?.length ? (
                               <div className="species-preview-choice-list">
-                                {section.choiceFields.map((field) => {
+                                {getVisibleScopedChoiceFields(
+                                  speciesPreviewOption.index,
+                                  section.id,
+                                  section.choiceFields,
+                                  speciesPreviewChoices,
+                                ).map((field) => {
                                   const choiceKey = `${speciesPreviewOption.index}:${section.id}:${field.id}`;
 
                                   return (
@@ -378,10 +396,17 @@ function CharacterSelectionPanel({
                                         className="species-preview-choice-select"
                                         value={speciesPreviewChoices[choiceKey] ?? ""}
                                         onChange={(event) =>
-                                          setSpeciesPreviewChoices((currentChoices) => ({
-                                            ...currentChoices,
-                                            [choiceKey]: event.target.value,
-                                          }))
+                                          setSpeciesPreviewChoices((currentChoices) =>
+                                            pruneHiddenScopedChoices(
+                                              speciesPreviewOption.index,
+                                              section.id,
+                                              section.choiceFields ?? [],
+                                              {
+                                                ...currentChoices,
+                                                [choiceKey]: event.target.value,
+                                              },
+                                            ),
+                                          )
                                         }
                                       >
                                         <option value="">{field.label}</option>
@@ -448,75 +473,81 @@ function CharacterSelectionPanel({
                 <div className="selection-panel-stack">
                   <h4>Levels 1-20</h4>
                   <div className="selection-feature-accordion">
-                    {selectedOption.features.map((feature) => (
-                      <article
-                        key={`${selectedOption.index}-${feature.id}`}
-                        className="selection-level-card selection-feature-card"
-                      >
-                        <button
-                          type="button"
-                          className="selection-feature-trigger"
-                          onClick={() =>
-                            setExpandedPreviewFeatureIds((currentFeatureIds) =>
-                              currentFeatureIds.includes(feature.id)
-                                ? currentFeatureIds.filter((featureId) => featureId !== feature.id)
-                                : [...currentFeatureIds, feature.id],
-                            )
-                          }
+                    {selectedOption.features.map((feature) => {
+                      const visiblePreviewFields = getVisiblePreviewFeatureChoiceFields(
+                        feature.choiceFields ?? [],
+                      );
+
+                      return (
+                        <article
+                          key={`${selectedOption.index}-${feature.id}`}
+                          className="selection-level-card selection-feature-card"
                         >
-                          <div className="selection-feature-trigger-copy">
-                            <strong>{feature.title}</strong>
-                            <div className="selection-level-card-header">
-                              <span>Level {feature.level}</span>
-                              {feature.choiceFields?.length ? (
-                                <em>{formatChoiceCount(feature.choiceFields.length)}</em>
-                              ) : null}
-                            </div>
-                          </div>
-                          <span
-                            aria-hidden="true"
-                            className={
-                              expandedPreviewFeatureIds.includes(feature.id)
-                                ? "selection-feature-chevron selection-feature-chevron-open"
-                                : "selection-feature-chevron"
+                          <button
+                            type="button"
+                            className="selection-feature-trigger"
+                            onClick={() =>
+                              setExpandedPreviewFeatureIds((currentFeatureIds) =>
+                                currentFeatureIds.includes(feature.id)
+                                  ? currentFeatureIds.filter((featureId) => featureId !== feature.id)
+                                  : [...currentFeatureIds, feature.id],
+                              )
                             }
                           >
-                            ^
-                          </span>
-                        </button>
-
-                        {expandedPreviewFeatureIds.includes(feature.id) ? (
-                          <div className="selection-feature-body">
-                            <p>{feature.summary}</p>
-
-                            {feature.details?.map((detail) => (
-                              <p
-                                key={`${feature.id}-${detail}`}
-                                className="selection-feature-detail"
-                              >
-                                {detail}
-                              </p>
-                            ))}
-
-                            {feature.choiceFields?.length ? (
-                              <div className="selection-feature-choice-preview-list">
-                                {feature.choiceFields.map((field) => (
-                                  <article
-                                    key={`${feature.id}-${field.id}`}
-                                    className="selection-feature-choice-preview"
-                                  >
-                                    <strong>{field.label}</strong>
-                                    <span>
-                                      {field.options.length} options available in the builder
-                                    </span>
-                                  </article>
-                                ))}
+                            <div className="selection-feature-trigger-copy">
+                              <strong>{feature.title}</strong>
+                              <div className="selection-level-card-header">
+                                <span>Level {feature.level}</span>
+                                {visiblePreviewFields.length ? (
+                                  <em>{formatChoiceCount(visiblePreviewFields.length)}</em>
+                                ) : null}
                               </div>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </article>
-                    ))}
+                            </div>
+                            <span
+                              aria-hidden="true"
+                              className={
+                                expandedPreviewFeatureIds.includes(feature.id)
+                                  ? "selection-feature-chevron selection-feature-chevron-open"
+                                  : "selection-feature-chevron"
+                              }
+                            >
+                              ^
+                            </span>
+                          </button>
+
+                          {expandedPreviewFeatureIds.includes(feature.id) ? (
+                            <div className="selection-feature-body">
+                              <p>{feature.summary}</p>
+
+                              {feature.details?.map((detail) => (
+                                <p
+                                  key={`${feature.id}-${detail}`}
+                                  className="selection-feature-detail"
+                                >
+                                  {detail}
+                                </p>
+                              ))}
+
+                              {visiblePreviewFields.length ? (
+                                <div className="selection-feature-choice-preview-list">
+                                  {visiblePreviewFields.map((field) => (
+                                    <article
+                                      key={`${feature.id}-${field.id}`}
+                                      className="selection-feature-choice-preview"
+                                    >
+                                      <strong>{field.label}</strong>
+                                      <span>
+                                        {field.options.length} options available in the builder
+                                      </span>
+                                    </article>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
                   </div>
                 </div>
               </>
@@ -565,26 +596,37 @@ function formatChoiceCount(count: number) {
   return `${count} ${count === 1 ? "choice" : "choices"}`;
 }
 
+function getVisiblePreviewFeatureChoiceFields(fields: NonNullable<FeatureChoiceField[]>) {
+  return fields.filter((field) => !field.dependsOnFieldId || !field.dependsOnValues?.length);
+}
+
 function getVisibleBackgroundChoiceFields(
   backgroundIndex: string,
   sectionId: string,
   fields: NonNullable<BackgroundOption["previewSections"][number]["choiceFields"]>,
   selectedChoices: Record<string, string>,
 ) {
+  const visibleFields = getVisibleScopedChoiceFields(
+    backgroundIndex,
+    sectionId,
+    fields,
+    selectedChoices,
+  );
+
   if (!sectionId.endsWith("ability-scores")) {
-    return fields;
+    return visibleFields;
   }
 
   const planKey = `${backgroundIndex}:${sectionId}:score-plan`;
   const selectedPlan = selectedChoices[planKey];
 
   if (selectedPlan === backgroundAbilityPlanThreeScores) {
-    const planField = fields.find((field) => field.id === "score-plan");
+    const planField = visibleFields.find((field) => field.id === "score-plan");
 
-    return planField ? [planField] : fields;
+    return planField ? [planField] : visibleFields;
   }
 
-  return fields.filter((field) => field.id !== "score-c");
+  return visibleFields.filter((field) => field.id !== "score-c");
 }
 
 function isDuplicateBackgroundAbilityOption(

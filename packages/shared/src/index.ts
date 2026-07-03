@@ -7,6 +7,15 @@ export {
   getFeatAbilityRule,
 } from "./featAbilityRules.js";
 export type { FeatAbilityRule } from "./featAbilityRules.js";
+export { sharedConditionDefinitions } from "./conditions.js";
+export type { SharedConditionDefinition, SharedConditionId } from "./conditions.js";
+export {
+  deriveReferenceEquipmentEffects,
+  extractEquipmentDescription,
+  itemRequiresAttunement,
+  summarizeReferenceEquipmentEffects,
+} from "./inventoryEffects.js";
+export type { SharedEquipmentLike, SharedReferenceEquipmentEffects } from "./inventoryEffects.js";
 
 export const APP_NAME: AppName = "dd-simple";
 
@@ -130,6 +139,22 @@ export function applyHitPointAdjustment({
   };
 }
 
+export type CharacterSpellcastingState = {
+  id?: string;
+  characterId?: string;
+  learnedSpellIds: string[];
+  preparedSpellIds: string[];
+  slotUsageByLevel: Record<string, number>;
+};
+
+export type CharacterResourceState = {
+  id?: string;
+  characterId?: string;
+  usageByResourceKey: Record<string, number>;
+  customMaxByResourceKey: Record<string, number>;
+  activeByResourceKey: Record<string, boolean>;
+};
+
 export type InventoryItem = {
   id: string;
   characterId?: string;
@@ -148,6 +173,7 @@ export type InventoryItem = {
     index?: string;
     itemType?: string | null;
     name: string;
+    sourceJson?: unknown;
     weight?: number | null;
   };
 };
@@ -284,6 +310,8 @@ export type Character = {
   languages?: CharacterLanguage[];
   conditions?: CharacterCondition[];
   hitPointState?: CharacterHitPointState | null;
+  spellcastingState?: CharacterSpellcastingState | null;
+  resourceState?: CharacterResourceState | null;
   featureChoices?: CharacterFeatureChoiceSelection[];
   inventory: InventoryItem[];
   diceRolls: DiceRoll[];
@@ -299,6 +327,8 @@ export type CharacterSavePayload = {
   level?: number;
   currentHp?: number;
   hitPointState?: CharacterHitPointState;
+  spellcastingState?: CharacterSpellcastingState;
+  resourceState?: CharacterResourceState;
   skillIndexes: string[];
   choices?: CharacterFeatureSelection[];
   featureChoices?: CharacterFeatureChoiceSelection[];

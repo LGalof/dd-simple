@@ -11,6 +11,7 @@ import {
   getCharacterInventory,
   getCharacterInventoryState,
   getCharacters,
+  previewCharacterDerivedState,
   removeCharacterCondition,
   updateCharacter,
   updateCharacterInventory,
@@ -28,6 +29,7 @@ charactersRouter.get("/characters", getCharacters);
 
 charactersRouter.get("/characters/:id/actions", getCharacterActions);
 charactersRouter.get("/characters/:id/derived", getCharacterDerivedState);
+charactersRouter.post("/characters/:id/derived", previewCharacterDerivedState);
 
 charactersRouter.post("/characters/:id/conditions", addCharacterCondition);
 

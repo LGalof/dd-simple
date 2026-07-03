@@ -15,22 +15,13 @@ import {
   Sparkles,
   UserRoundX,
 } from "lucide-react";
+import {
+  sharedConditionDefinitions,
+  type SharedConditionDefinition,
+  type SharedConditionId,
+} from "@dd-simple/shared";
 
-type ConditionId =
-  | "blinded"
-  | "charmed"
-  | "deafened"
-  | "frightened"
-  | "grappled"
-  | "incapacitated"
-  | "invisible"
-  | "paralyzed"
-  | "petrified"
-  | "poisoned"
-  | "prone"
-  | "restrained"
-  | "stunned"
-  | "unconscious";
+type ConditionId = SharedConditionId;
 
 type ConditionState = {
   activeConditions: Record<ConditionId, boolean>;
@@ -56,103 +47,29 @@ type ConditionDefinition = {
   name: string;
 };
 
-const conditionDefinitions: ConditionDefinition[] = [
-  {
-    id: "blinded",
-    name: "Blinded",
-    icon: <EyeOff size={16} />,
-    description:
-      "You can't see, automatically fail sight-based checks, attacks against you have advantage, and your attack rolls have disadvantage.",
-  },
-  {
-    id: "charmed",
-    name: "Charmed",
-    icon: <Sparkles size={16} />,
-    description:
-      "You can't attack the charmer or target them with harmful abilities or magical effects, and they have advantage on social checks against you.",
-  },
-  {
-    id: "deafened",
-    name: "Deafened",
-    icon: <EarOff size={16} />,
-    description: "You can't hear and automatically fail hearing-based checks.",
-  },
-  {
-    id: "frightened",
-    name: "Frightened",
-    icon: <AlertTriangle size={16} />,
-    description:
-      "While the source of fear is in sight, you have disadvantage on checks and attack rolls, and you can't willingly move closer.",
-  },
-  {
-    id: "grappled",
-    name: "Grappled",
-    icon: <Hand size={16} />,
-    description:
-      "Your speed becomes 0, you gain no speed bonuses, and the effect ends if the grappler is incapacitated or you are moved away.",
-  },
-  {
-    id: "incapacitated",
-    name: "Incapacitated",
-    icon: <Ban size={16} />,
-    description: "You can't take actions or reactions.",
-  },
-  {
-    id: "invisible",
-    name: "Invisible",
-    icon: <Ghost size={16} />,
-    description:
-      "You can't be seen without magic or a special sense, attacks against you have disadvantage, and your attack rolls have advantage.",
-  },
-  {
-    id: "paralyzed",
-    name: "Paralyzed",
-    icon: <UserRoundX size={16} />,
-    description:
-      "You are incapacitated, can't move or speak, fail Strength and Dexterity saves, attacks against you have advantage, and hits within 5 feet are critical.",
-  },
-  {
-    id: "petrified",
-    name: "Petrified",
-    icon: <Skull size={16} />,
-    description:
-      "You turn to stone, become incapacitated, can't move or speak, fail Strength and Dexterity saves, attacks against you have advantage, and you gain resistance to all damage.",
-  },
-  {
-    id: "poisoned",
-    name: "Poisoned",
-    icon: <HeartCrack size={16} />,
-    description: "You have disadvantage on attack rolls and ability checks.",
-  },
-  {
-    id: "prone",
-    name: "Prone",
-    icon: <PersonStanding size={16} />,
-    description:
-      "Your only movement option is to crawl unless you stand up, you have disadvantage on attack rolls, and nearby attacks against you have advantage.",
-  },
-  {
-    id: "restrained",
-    name: "Restrained",
-    icon: <HandMetal size={16} />,
-    description:
-      "Your speed becomes 0, you gain no speed bonuses, attacks against you have advantage, your attack rolls have disadvantage, and you have disadvantage on Dexterity saves.",
-  },
-  {
-    id: "stunned",
-    name: "Stunned",
-    icon: <Sparkles size={16} />,
-    description:
-      "You are incapacitated, can't move, speak only falteringly, fail Strength and Dexterity saves, and attacks against you have advantage.",
-  },
-  {
-    id: "unconscious",
-    name: "Unconscious",
-    icon: <Skull size={16} />,
-    description:
-      "You are incapacitated, unaware of your surroundings, drop what you're holding, fall prone, fail Strength and Dexterity saves, and nearby hits are critical.",
-  },
-];
+const conditionIcons: Record<ConditionId, ReactNode> = {
+  blinded: <EyeOff size={16} />,
+  charmed: <Sparkles size={16} />,
+  deafened: <EarOff size={16} />,
+  frightened: <AlertTriangle size={16} />,
+  grappled: <Hand size={16} />,
+  incapacitated: <Ban size={16} />,
+  invisible: <Ghost size={16} />,
+  paralyzed: <UserRoundX size={16} />,
+  petrified: <Skull size={16} />,
+  poisoned: <HeartCrack size={16} />,
+  prone: <PersonStanding size={16} />,
+  restrained: <HandMetal size={16} />,
+  stunned: <Sparkles size={16} />,
+  unconscious: <Skull size={16} />,
+};
+
+const conditionDefinitions: ConditionDefinition[] = sharedConditionDefinitions.map(
+  (condition: SharedConditionDefinition) => ({
+    ...condition,
+    icon: conditionIcons[condition.id],
+  }),
+);
 
 function ConditionsSidebar({
   conditionState,
@@ -312,22 +229,9 @@ function ConditionsSidebar({
 
 function createDefaultConditionState(): ConditionState {
   return {
-    activeConditions: {
-      blinded: false,
-      charmed: false,
-      deafened: false,
-      frightened: false,
-      grappled: false,
-      incapacitated: false,
-      invisible: false,
-      paralyzed: false,
-      petrified: false,
-      poisoned: false,
-      prone: false,
-      restrained: false,
-      stunned: false,
-      unconscious: false,
-    },
+    activeConditions: Object.fromEntries(
+      sharedConditionDefinitions.map((condition) => [condition.id, false]),
+    ) as Record<ConditionId, boolean>,
     exhaustionLevel: 0,
   };
 }

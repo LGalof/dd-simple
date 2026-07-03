@@ -1,5 +1,6 @@
 /// <reference types="node" />
 
+import dotenv from "dotenv";
 import { Prisma, PrismaClient } from "@prisma/client";
 import fs from "node:fs";
 import path from "node:path";
@@ -38,12 +39,14 @@ import {
   type CuratedClassOverride,
 } from "./reference-overrides/remainingClasses2024.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
 const prisma = new PrismaClient();
 
 type AnyRecord = Record<string, any>;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const DATA_DIR = path.join(__dirname, "seed-data", "5e", "mixed");
 
@@ -62,7 +65,25 @@ const FILES = {
   languages: "5e-SRD-Languages.json",
   proficiencies: "5e-SRD-Proficiencies.json",
   equipment: "5e-SRD-Equipment.json",
+  magicItems: "5e-SRD-Magic-Items.json",
 };
+
+const CURATED_OGL_MAGIC_ITEM_INDEXES = [
+  "armor-1",
+  "shield-1",
+  "weapon-1",
+  "ammunition-1",
+  "bag-of-holding",
+  "boots-of-elvenkind",
+  "cloak-of-protection",
+  "gauntlets-of-ogre-power",
+  "potion-of-invisibility",
+  "ring-of-protection",
+  "ring-of-resistance",
+  "ring-of-warmth",
+  "staff-of-healing",
+  "wand-of-magic-missiles",
+] as const;
 
 function assertSeedDataDirExists() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -368,6 +389,17 @@ async function seedGenericRuleDocuments() {
 
 async function seedCurated2024FeatReferences() {
   console.log("Applying curated 2024 feat reference overrides...");
+
+  const allowedFeatIndexes = CURATED_2024_FEAT_REFERENCES.map((feat) => feat.index);
+
+  await prisma.refRuleDocument.deleteMany({
+    where: {
+      category: "feats",
+      index: {
+        notIn: allowedFeatIndexes,
+      },
+    },
+  });
 
   for (const feat of CURATED_2024_FEAT_REFERENCES) {
     await prisma.refRuleDocument.upsert({
@@ -1306,6 +1338,101 @@ async function seedEquipment() {
   }
 }
 
+async function seedCuratedOglMagicItems() {
+  console.log("Seeding curated OGL magic items into RefEquipment...");
+
+  const magicItems = readJsonArray(FILES.magicItems);
+  const selectedIndexes = new Set<string>(CURATED_OGL_MAGIC_ITEM_INDEXES);
+
+  for (const item of magicItems) {
+    const index = getItemIndex(item);
+
+    if (!index || !selectedIndexes.has(index)) {
+      continue;
+    }
+
+    await prisma.refEquipment.upsert({
+      where: {
+        index,
+      },
+      update: {
+        name: stringOrNull(item.name) ?? index,
+        equipmentCategory: firstEquipmentCategory(item),
+        itemType: equipmentItemType(item),
+        costQuantity: numberOrNull(item.cost?.quantity),
+        costUnit: stringOrNull(item.cost?.unit),
+        weight: numberOrNull(item.weight),
+        description: toDescription(item.description, item.desc),
+        sourceJson: sourceJson(item),
+      },
+      create: {
+        index,
+        name: stringOrNull(item.name) ?? index,
+        equipmentCategory: firstEquipmentCategory(item),
+        itemType: equipmentItemType(item),
+        costQuantity: numberOrNull(item.cost?.quantity),
+        costUnit: stringOrNull(item.cost?.unit),
+        weight: numberOrNull(item.weight),
+        description: toDescription(item.description, item.desc),
+        sourceJson: sourceJson(item),
+      },
+    });
+  }
+
+  await prisma.refEquipment.upsert({
+    where: {
+      index: "ring-of-fire-resistance",
+    },
+    update: {
+      name: "Ring of Fire Resistance",
+      equipmentCategory: "rings",
+      itemType: "Ring",
+      costQuantity: null,
+      costUnit: null,
+      weight: null,
+      description: "Ring. You have Resistance to Fire damage while wearing this ring.",
+      sourceJson: sourceJson({
+        index: "ring-of-fire-resistance",
+        name: "Ring of Fire Resistance",
+        equipment_category: {
+          index: "rings",
+          name: "Rings",
+          url: "/api/2024/equipment-categories/rings",
+        },
+        rarity: {
+          name: "Rare",
+        },
+        attunement: false,
+        desc: "Ring. You have Resistance to Fire damage while wearing this ring.",
+      }),
+    },
+    create: {
+      index: "ring-of-fire-resistance",
+      name: "Ring of Fire Resistance",
+      equipmentCategory: "rings",
+      itemType: "Ring",
+      costQuantity: null,
+      costUnit: null,
+      weight: null,
+      description: "Ring. You have Resistance to Fire damage while wearing this ring.",
+      sourceJson: sourceJson({
+        index: "ring-of-fire-resistance",
+        name: "Ring of Fire Resistance",
+        equipment_category: {
+          index: "rings",
+          name: "Rings",
+          url: "/api/2024/equipment-categories/rings",
+        },
+        rarity: {
+          name: "Rare",
+        },
+        attunement: false,
+        desc: "Ring. You have Resistance to Fire damage while wearing this ring.",
+      }),
+    },
+  });
+}
+
 async function seedCurated2024BarbarianReferences() {
   console.log("Applying curated 2024 Barbarian reference overrides...");
 
@@ -2076,6 +2203,7 @@ async function main() {
   await seedBackgroundReferenceData();
   await seedClassProficiencyData();
   await seedEquipment();
+  await seedCuratedOglMagicItems();
   await seedCurated2024BarbarianReferences();
   await seedCurated2024BardReferences();
   await seedCurated2024ClericReferences();

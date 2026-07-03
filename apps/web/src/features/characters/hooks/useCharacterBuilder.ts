@@ -71,6 +71,13 @@ const abilityScoreIndexAliases: Record<string, string> = {
   cha: "cha",
   charisma: "cha",
 };
+const characterBuilderDraftStoragePrefix = "dd-simple.characterBuilderDraft";
+
+type PersistedCharacterBuilderDraft = {
+  builderState: CharacterBuilderState;
+  featureChoices: FeatureChoiceSelections;
+  version: 1;
+};
 
 function createInitialBuilderState(character: Character): CharacterBuilderState {
   return createBuilderStateFromOptions(character, {
@@ -1032,6 +1039,229 @@ function stableJsonString(value: unknown) {
   }
 }
 
+function getCharacterBuilderDraftStorageKey(characterId: string) {
+  return `${characterBuilderDraftStoragePrefix}:${characterId}`;
+}
+
+function loadCharacterBuilderDraft(characterId: string) {
+  try {
+    const rawDraft = window.localStorage.getItem(getCharacterBuilderDraftStorageKey(characterId));
+
+    if (!rawDraft) {
+      return null;
+    }
+
+    const parsedDraft = JSON.parse(rawDraft) as PersistedCharacterBuilderDraft;
+
+    if (
+      !parsedDraft ||
+      parsedDraft.version !== 1 ||
+      !parsedDraft.builderState ||
+      !parsedDraft.featureChoices
+    ) {
+      return null;
+    }
+
+    return parsedDraft;
+  } catch {
+    return null;
+  }
+}
+
+function saveCharacterBuilderDraft(
+  characterId: string,
+  builderState: CharacterBuilderState,
+  featureChoices: FeatureChoiceSelections,
+) {
+  try {
+    const draft: PersistedCharacterBuilderDraft = {
+      builderState,
+      featureChoices,
+      version: 1,
+    };
+
+    window.localStorage.setItem(
+      getCharacterBuilderDraftStorageKey(characterId),
+      JSON.stringify(draft),
+    );
+  } catch {
+    // Ignore storage failures so the live builder remains usable.
+  }
+}
+
+function normalizePersistedFeatureChoices(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as FeatureChoiceSelections;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, entryValue]) =>
+      typeof key === "string" && typeof entryValue === "string"
+        ? [[key, entryValue] as const]
+        : [],
+    ),
+  ) as FeatureChoiceSelections;
+}
+
+function normalizePersistedBuilderState(
+  value: unknown,
+  baseState: CharacterBuilderState,
+  options: {
+    backgroundOptions: BackgroundOption[];
+    classOptions: ClassOption[];
+    speciesOptions: SpeciesOption[];
+  },
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return baseState;
+  }
+
+  const draftState = value as Partial<CharacterBuilderState>;
+  const speciesIndexes = new Set(options.speciesOptions.map((species) => species.index));
+  const backgroundIndexes = new Set(options.backgroundOptions.map((background) => background.index));
+  const classIndexes = new Set(options.classOptions.map((classOption) => classOption.index));
+  const normalizedLevel = clampLevel(
+    typeof draftState.level === "number" ? draftState.level : baseState.level,
+  );
+  const normalizedCurrentHp = Math.max(
+    0,
+    Math.floor(
+      typeof draftState.currentHp === "number" ? draftState.currentHp : baseState.currentHp,
+    ),
+  );
+  const normalizedTempHp = Math.max(
+    0,
+    Math.floor(typeof draftState.tempHp === "number" ? draftState.tempHp : baseState.tempHp),
+  );
+  const normalizedAbilityAssignments = Array.isArray(draftState.abilityAssignments)
+    ? baseState.abilityAssignments.map((baseAssignment) => {
+        const matchingDraftAssignment = draftState.abilityAssignments?.find(
+          (assignment) =>
+            assignment &&
+            typeof assignment === "object" &&
+            "id" in assignment &&
+            assignment.id === baseAssignment.id,
+        );
+
+        if (!matchingDraftAssignment || typeof matchingDraftAssignment !== "object") {
+          return baseAssignment;
+        }
+
+        const nextAbilityIndex =
+          typeof matchingDraftAssignment.abilityIndex === "string" &&
+          abilityOrder.includes(matchingDraftAssignment.abilityIndex)
+            ? matchingDraftAssignment.abilityIndex
+            : baseAssignment.abilityIndex;
+        const nextScore =
+          typeof matchingDraftAssignment.score === "number" &&
+          Number.isFinite(matchingDraftAssignment.score)
+            ? Math.max(1, Math.floor(matchingDraftAssignment.score))
+            : baseAssignment.score;
+        const nextDice = Array.isArray(matchingDraftAssignment.dice)
+          ? matchingDraftAssignment.dice
+              .filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
+              .map((entry) => Math.max(1, Math.floor(entry)))
+          : baseAssignment.dice;
+
+        return {
+          ...baseAssignment,
+          abilityIndex: nextAbilityIndex,
+          dice: nextDice,
+          score: nextScore,
+        };
+      })
+    : baseState.abilityAssignments;
+  const normalizedHitPointSettings =
+    draftState.hitPointSettings &&
+    typeof draftState.hitPointSettings === "object" &&
+    !Array.isArray(draftState.hitPointSettings)
+      ? {
+          bonusHp:
+            typeof draftState.hitPointSettings.bonusHp === "number" &&
+            Number.isFinite(draftState.hitPointSettings.bonusHp)
+              ? Math.floor(draftState.hitPointSettings.bonusHp)
+              : baseState.hitPointSettings.bonusHp,
+          calculationMode:
+            draftState.hitPointSettings.calculationMode === "rolled" ||
+            draftState.hitPointSettings.calculationMode === "override" ||
+            draftState.hitPointSettings.calculationMode === "fixed"
+              ? draftState.hitPointSettings.calculationMode
+              : baseState.hitPointSettings.calculationMode,
+          overrideMaxHp:
+            typeof draftState.hitPointSettings.overrideMaxHp === "number" &&
+            Number.isFinite(draftState.hitPointSettings.overrideMaxHp)
+              ? Math.max(1, Math.floor(draftState.hitPointSettings.overrideMaxHp))
+              : draftState.hitPointSettings.overrideMaxHp === null
+                ? null
+                : baseState.hitPointSettings.overrideMaxHp,
+          rolledHitPoints: synchronizeHitPointRolls(
+            normalizedLevel,
+            getClassOptionByIndex(
+              typeof draftState.classIndex === "string" &&
+                classIndexes.has(draftState.classIndex)
+                ? draftState.classIndex
+                : baseState.classIndex,
+              options.classOptions,
+            ).hitDie,
+            Array.isArray(draftState.hitPointSettings.rolledHitPoints)
+              ? draftState.hitPointSettings.rolledHitPoints
+                  .filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
+                  .map((entry) => Math.max(1, Math.floor(entry)))
+              : baseState.hitPointSettings.rolledHitPoints,
+          ),
+        }
+      : baseState.hitPointSettings;
+
+  return {
+    ...baseState,
+    abilityAssignments: normalizedAbilityAssignments,
+    backgroundChoices: normalizeStringRecord(draftState.backgroundChoices, baseState.backgroundChoices),
+    backgroundIndex:
+      typeof draftState.backgroundIndex === "string" &&
+      backgroundIndexes.has(draftState.backgroundIndex)
+        ? draftState.backgroundIndex
+        : baseState.backgroundIndex,
+    classIndex:
+      typeof draftState.classIndex === "string" && classIndexes.has(draftState.classIndex)
+        ? draftState.classIndex
+        : baseState.classIndex,
+    currentHp: normalizedCurrentHp,
+    hitPointSettings: normalizedHitPointSettings,
+    level: normalizedLevel,
+    speciesChoices: normalizeStringRecord(draftState.speciesChoices, baseState.speciesChoices),
+    speciesIndex:
+      typeof draftState.speciesIndex === "string" && speciesIndexes.has(draftState.speciesIndex)
+        ? draftState.speciesIndex
+        : baseState.speciesIndex,
+    subclassIndex:
+      typeof draftState.subclassIndex === "string" || draftState.subclassIndex === null
+        ? draftState.subclassIndex
+        : baseState.subclassIndex,
+    tempHp: normalizedTempHp,
+  };
+}
+
+function normalizeStringRecord(
+  value: unknown,
+  fallback: Record<string, string>,
+) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return fallback;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, entryValue]) =>
+      typeof key === "string" && typeof entryValue === "string"
+        ? [[key, entryValue] as const]
+        : [],
+    ),
+  );
+}
+
+function getClassOptionByIndex(classIndex: string, options: ClassOption[]) {
+  return options.find((classOption) => classOption.index === classIndex) ?? options[0];
+}
+
 function getPersistedSkillIndexes(character: Character) {
   if (character.proficiencies?.length) {
     return [
@@ -1139,16 +1369,25 @@ function useCharacterBuilder(character: Character | undefined) {
           areBuilderStatesEquivalent(builderState, previousHydratedBuilderState),
       );
 
+    const persistedDraft = loadCharacterBuilderDraft(character.id);
+    const nextBuilderState = persistedDraft
+      ? normalizePersistedBuilderState(
+          persistedDraft.builderState,
+          nextHydratedBuilderState,
+          referenceOptions,
+        )
+      : nextHydratedBuilderState;
+
     setBuilderState((currentState) => {
       if (isNewCharacter || !currentState) {
-        return nextHydratedBuilderState;
+        return nextBuilderState;
       }
 
       if (
         previousHydratedBuilderState &&
         areBuilderStatesEquivalent(currentState, previousHydratedBuilderState)
       ) {
-        return nextHydratedBuilderState;
+        return nextBuilderState;
       }
 
       return currentState;
@@ -1171,6 +1410,10 @@ function useCharacterBuilder(character: Character | undefined) {
         return currentChoices;
       }
 
+      if (persistedDraft) {
+        return normalizePersistedFeatureChoices(persistedDraft.featureChoices);
+      }
+
       if (hydratedCount > 0 || savedCount === 0) {
         return hydratedFeatureChoices;
       }
@@ -1184,7 +1427,7 @@ function useCharacterBuilder(character: Character | undefined) {
 
     previousCharacterIdRef.current = character.id;
     if (shouldAcceptHydratedBuilderState) {
-      previousHydratedBuilderStateRef.current = nextHydratedBuilderState;
+      previousHydratedBuilderStateRef.current = nextBuilderState;
     }
     if (canMarkSavedChoicesProcessed) {
       previousClassSkillChoiceSignatureRef.current = classSkillChoiceSignature;
@@ -1197,6 +1440,14 @@ function useCharacterBuilder(character: Character | undefined) {
     getFeatureChoiceSelectionSignature(character),
     referenceOptions,
   ]);
+
+  useEffect(() => {
+    if (!character?.id || !builderState) {
+      return;
+    }
+
+    saveCharacterBuilderDraft(character.id, builderState, featureChoices);
+  }, [builderState, character?.id, featureChoices]);
 
   useEffect(() => {
     let isCurrentRequest = true;
@@ -1264,6 +1515,7 @@ function useCharacterBuilder(character: Character | undefined) {
           levelRuleDocuments,
           featureRuleDocuments,
           subclassRuleDocuments,
+          featRuleDocuments,
         );
 
         if (
@@ -1337,8 +1589,14 @@ function useCharacterBuilder(character: Character | undefined) {
     [featureChoices, selectedClass],
   );
   const resolvedPreviewSubclassIndex = useMemo(
-    () => getResolvedSubclassIndex(selectedClass, featureChoices, builderState?.subclassIndex ?? null),
-    [builderState?.subclassIndex, featureChoices, selectedClass],
+    () =>
+      getResolvedSubclassIndex(
+        selectedClass,
+        featureChoices,
+        builderState?.subclassIndex ?? null,
+        builderState?.level ?? 1,
+      ),
+    [builderState?.level, builderState?.subclassIndex, featureChoices, selectedClass],
   );
 
   const previewCharacter = useMemo(() => {
@@ -1351,6 +1609,7 @@ function useCharacterBuilder(character: Character | undefined) {
       selectedClass,
       builderState.level,
       featureChoices,
+      resolvedPreviewSubclassIndex,
     ).concat(
       buildGenericBackgroundFeatureChoices(
         selectedBackground,
@@ -1365,7 +1624,6 @@ function useCharacterBuilder(character: Character | undefined) {
       featureChoices,
       previewFeatureSelections,
       previewSubclassIndex: resolvedPreviewSubclassIndex,
-      persistedSkillIndexes,
       selectedSkillIndexes,
       species: selectedSpecies,
       state: builderState,
@@ -1376,7 +1634,6 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedBackground,
     selectedClass,
     featureChoices,
-    persistedSkillIndexes,
     resolvedPreviewSubclassIndex,
     selectedSkillIndexes,
     selectedSpecies,
@@ -1388,20 +1645,52 @@ function useCharacterBuilder(character: Character | undefined) {
     }
 
     const normalizedLevel = clampLevel(nextLevel);
+    setFeatureChoices((currentChoices) =>
+      pruneFeatureChoicesToLevel(selectedClass, currentChoices, normalizedLevel),
+    );
 
     setBuilderState((currentState) =>
       currentState
-        ? {
-            ...currentState,
-            level: normalizedLevel,
-            subclassIndex: shouldClearSubclassForLevel(
-              selectedClass,
-              currentState.subclassIndex,
-              normalizedLevel,
-            )
-              ? null
-              : currentState.subclassIndex,
-          }
+        ? (() => {
+            const normalizedHitPointSettings = {
+              ...currentState.hitPointSettings,
+              rolledHitPoints: synchronizeHitPointRolls(
+                normalizedLevel,
+                selectedClass.hitDie,
+                currentState.hitPointSettings.rolledHitPoints,
+              ),
+            };
+            const constitutionScore = getAssignedAbilityScore(
+              currentState.abilityAssignments,
+              "con",
+              10,
+            );
+            const nextHitPointPreview = calculateHitPointPreview({
+              constitutionScore,
+              featureBonusHp: getFeatureChoiceHitPointBonus(
+                selectedClass,
+                pruneFeatureChoicesToLevel(selectedClass, featureChoices, normalizedLevel),
+                normalizedLevel,
+              ),
+              hitDie: selectedClass.hitDie,
+              level: normalizedLevel,
+              settings: normalizedHitPointSettings,
+            });
+
+            return {
+              ...currentState,
+              level: normalizedLevel,
+              currentHp: Math.min(currentState.currentHp, nextHitPointPreview.maxHp),
+              hitPointSettings: normalizedHitPointSettings,
+              subclassIndex: shouldClearSubclassForLevel(
+                selectedClass,
+                currentState.subclassIndex,
+                normalizedLevel,
+              )
+                ? null
+                : currentState.subclassIndex,
+            };
+          })()
         : currentState,
     );
   }
@@ -1426,9 +1715,7 @@ function useCharacterBuilder(character: Character | undefined) {
     );
   }
 
-  function applyHitPointConfiguration(nextLevel: number, nextSettings: HitPointSettings) {
-    const normalizedLevel = clampLevel(nextLevel);
-
+  function applyHitPointConfiguration(nextSettings: HitPointSettings) {
     setBuilderState((currentState) =>
       currentState
         ? (() => {
@@ -1437,7 +1724,7 @@ function useCharacterBuilder(character: Character | undefined) {
               calculationMode: nextSettings.calculationMode,
               overrideMaxHp: nextSettings.overrideMaxHp,
               rolledHitPoints: synchronizeHitPointRolls(
-                normalizedLevel,
+                currentState.level,
                 selectedClass.hitDie,
                 nextSettings.rolledHitPoints,
               ),
@@ -1450,26 +1737,18 @@ function useCharacterBuilder(character: Character | undefined) {
             const featureBonusHp = getFeatureChoiceHitPointBonus(
               selectedClass,
               featureChoices,
-              normalizedLevel,
+              currentState.level,
             );
             const nextHitPointPreview = calculateHitPointPreview({
               constitutionScore,
               featureBonusHp,
               hitDie: selectedClass.hitDie,
-              level: normalizedLevel,
+              level: currentState.level,
               settings: normalizedSettings,
             });
 
             return {
               ...currentState,
-              level: normalizedLevel,
-              subclassIndex: shouldClearSubclassForLevel(
-                selectedClass,
-                currentState.subclassIndex,
-                normalizedLevel,
-              )
-                ? null
-                : currentState.subclassIndex,
               currentHp: Math.min(currentState.currentHp, nextHitPointPreview.maxHp),
               hitPointSettings: normalizedSettings,
             };
@@ -1764,14 +2043,23 @@ function getResolvedSubclassIndex(
   classOption: ClassOption,
   featureChoices: FeatureChoiceSelections,
   persistedSubclassIndex: string | null,
+  characterLevel: number,
 ) {
   const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
 
-  if (persistedSubclassIndex && subclassIndexes.has(persistedSubclassIndex)) {
+  if (
+    persistedSubclassIndex &&
+    subclassIndexes.has(persistedSubclassIndex) &&
+    !shouldClearSubclassForLevel(classOption, persistedSubclassIndex, characterLevel)
+  ) {
     return persistedSubclassIndex;
   }
 
   for (const feature of classOption.features) {
+    if (feature.level > characterLevel) {
+      continue;
+    }
+
     for (const field of feature.choiceFields ?? []) {
       if (field.choiceKind !== "subclass") {
         continue;
@@ -1788,6 +2076,21 @@ function getResolvedSubclassIndex(
   }
 
   return null;
+}
+
+function pruneFeatureChoicesToLevel(
+  classOption: ClassOption,
+  featureChoices: FeatureChoiceSelections,
+  characterLevel: number,
+) {
+  return Object.fromEntries(
+    Object.entries(featureChoices).filter(([choiceKey]) => {
+      const [featureId] = choiceKey.split(":");
+      const feature = classOption.features.find((classFeature) => classFeature.id === featureId);
+
+      return !feature || feature.level <= characterLevel;
+    }),
+  );
 }
 
 function swapAbilityAssignments(

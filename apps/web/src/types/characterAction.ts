@@ -15,7 +15,7 @@ type CharacterActionEntry = {
   id: string;
   level: number | null;
   sourceIndex: string;
-  sourceType: "class_feature" | "species_trait" | "subclass_feature";
+  sourceType: "class_feature" | "species_trait" | "subclass_feature" | "item";
   title: string;
 };
 

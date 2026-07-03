@@ -2,19 +2,31 @@ import type {
   BackgroundOption,
   ClassFeature,
   ClassOption,
+  ClassSubclassFeature,
+  FeatureChoiceOption,
   FeatureChoiceSelections,
 } from "../types/characterBuilder";
 import type { Character, CharacterFeatureChoiceSelection } from "../../../types/character";
+import { getVisibleFeatureChoiceFields } from "./featureChoiceVisibility";
+import { buildFeatureChoiceGrants } from "./featureChoiceGrants";
 
 function buildGenericClassFeatureChoices(
   classIndex: string,
   classOption: ClassOption,
   characterLevel: number,
   featureChoices: FeatureChoiceSelections,
+  selectedSubclassIndex: string | null = null,
 ): CharacterFeatureChoiceSelection[] {
   const selections: CharacterFeatureChoiceSelection[] = [];
 
-  for (const feature of classOption.features) {
+  for (const feature of [
+    ...classOption.features,
+    ...createSelectedSubclassChoiceFeatures(
+      classOption,
+      characterLevel,
+      selectedSubclassIndex,
+    ),
+  ]) {
     if (feature.level > characterLevel) {
       continue;
     }
@@ -50,16 +62,62 @@ function buildGenericClassFeatureChoices(
         selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
         selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
         selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
-        selectedRawJson: selectedOption.selectedRawJson ?? {
-          label: selectedOption.label,
-          value: selectedOption.value,
-        },
-        grantsRawJson: null,
+        selectedRawJson: mergeSelectedOptionRawJson(selectedOption),
+        grantsRawJson: buildFeatureChoiceGrants(feature, field, selectedOption),
       });
     }
   }
 
   return selections;
+}
+
+function createSelectedSubclassChoiceFeatures(
+  classOption: ClassOption,
+  characterLevel: number,
+  selectedSubclassIndex: string | null,
+): ClassFeature[] {
+  if (!selectedSubclassIndex) {
+    return [];
+  }
+
+  const selectedSubclass = classOption.subclasses?.find(
+    (subclass) => subclass.index === selectedSubclassIndex,
+  );
+
+  if (!selectedSubclass) {
+    return [];
+  }
+
+  return selectedSubclass.features
+    .filter((subclassFeature) => subclassFeature.level <= characterLevel)
+    .filter((subclassFeature) => (subclassFeature.choiceFields?.length ?? 0) > 0)
+    .map((subclassFeature) =>
+      createSubclassChoiceFeature(classOption, subclassFeature),
+    )
+    .filter((feature): feature is ClassFeature => Boolean(feature));
+}
+
+function createSubclassChoiceFeature(
+  classOption: ClassOption,
+  subclassFeature: ClassSubclassFeature,
+): ClassFeature | null {
+  const subclassFeaturePlaceholder = classOption.features.find(
+    (feature) =>
+      feature.level === subclassFeature.level &&
+      feature.id.includes("subclass-feature"),
+  );
+
+  if (!subclassFeaturePlaceholder) {
+    return null;
+  }
+
+  return {
+    choiceFields: subclassFeature.choiceFields,
+    id: `${subclassFeaturePlaceholder.id}:${slugifyFeatureName(subclassFeature.name)}`,
+    level: subclassFeature.level,
+    summary: subclassFeature.description,
+    title: subclassFeature.name,
+  };
 }
 
 function buildGenericBackgroundFeatureChoices(
@@ -100,11 +158,17 @@ function buildGenericBackgroundFeatureChoices(
         selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
         selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
         selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
-        selectedRawJson: selectedOption.selectedRawJson ?? {
-          label: selectedOption.label,
-          value: selectedOption.value,
-        },
-        grantsRawJson: null,
+        selectedRawJson: mergeSelectedOptionRawJson(selectedOption),
+        grantsRawJson: buildFeatureChoiceGrants(
+          {
+            id: section.id,
+            level: 1,
+            summary: section.details.join("\n"),
+            title: section.title,
+          },
+          field,
+          selectedOption,
+        ),
       });
     }
   }
@@ -135,28 +199,35 @@ function getFeatureChoiceSelectionKey(
   return `${selection.sourceType}:${selection.sourceIndex}:${selection.choicePath}`;
 }
 
+function slugifyFeatureName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 function getVisibleChoiceFieldsForSelection(
   featureId: string,
   choiceFields: ClassFeature["choiceFields"],
   selectedChoices: FeatureChoiceSelections,
 ) {
-  return (choiceFields ?? []).filter((field) =>
-    isChoiceFieldVisible(featureId, field, selectedChoices),
-  );
+  return getVisibleFeatureChoiceFields(featureId, choiceFields, selectedChoices);
 }
 
-function isChoiceFieldVisible(
-  featureId: string,
-  field: NonNullable<ClassFeature["choiceFields"]>[number],
-  selectedChoices: FeatureChoiceSelections,
-) {
-  if (!field.dependsOnFieldId || !field.dependsOnValues?.length) {
-    return true;
-  }
+function mergeSelectedOptionRawJson(selectedOption: FeatureChoiceOption) {
+  const baseRawJson =
+    selectedOption.selectedRawJson &&
+    typeof selectedOption.selectedRawJson === "object" &&
+    !Array.isArray(selectedOption.selectedRawJson)
+      ? selectedOption.selectedRawJson
+      : {
+          label: selectedOption.label,
+          value: selectedOption.value,
+        };
 
-  const dependencyValue = selectedChoices[`${featureId}:${field.dependsOnFieldId}`];
-
-  return Boolean(dependencyValue && field.dependsOnValues.includes(dependencyValue));
+  return {
+    ...baseRawJson,
+    description: selectedOption.description ?? null,
+    label: selectedOption.label,
+    value: selectedOption.value,
+  };
 }
 
 export {

@@ -32,6 +32,11 @@ import {
 import { fetchEquipment } from "../features/references/api/fetchReferences";
 import { AppLayout } from "../components/layout/AppLayout";
 import type { ReferenceEquipment } from "../types/reference";
+import {
+  deriveReferenceEquipmentEffects,
+  extractEquipmentDescription,
+  summarizeReferenceEquipmentEffects,
+} from "../features/characters/utils/inventoryReferenceEffects";
 
 type ContainerId = string;
 type EquipmentSlotId = "head" | "body" | "mainHand" | "offHand" | "hands" | "feet";
@@ -184,12 +189,12 @@ const equipmentSlots: Array<{
   label: string;
   accepts: ItemKind[];
 }> = [
-  { id: "head", label: "Head", accepts: ["armor"] },
+  { id: "head", label: "Head", accepts: ["armor", "treasure"] },
   { id: "body", label: "Armor", accepts: ["armor"] },
-  { id: "mainHand", label: "Main Hand", accepts: ["weapon"] },
-  { id: "offHand", label: "Off Hand", accepts: ["weapon"] },
-  { id: "hands", label: "Hands", accepts: ["armor"] },
-  { id: "feet", label: "Feet", accepts: ["armor"] },
+  { id: "mainHand", label: "Main Hand", accepts: ["weapon", "tool", "consumable"] },
+  { id: "offHand", label: "Off Hand", accepts: ["armor", "weapon"] },
+  { id: "hands", label: "Hands", accepts: ["armor", "treasure"] },
+  { id: "feet", label: "Feet", accepts: ["armor", "treasure"] },
 ];
 
 const initialItems: InventoryItem[] = [
@@ -559,6 +564,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     savedInventoryState?.containers ?? initialContainers,
   );
   const [items, setItems] = useState(savedInventoryState?.items ?? initialItems);
+  const [persistedItems, setPersistedItems] = useState(savedInventoryState?.items ?? initialItems);
   const [selectedItemId, setSelectedItemId] = useState(
     savedInventoryState?.selectedItemId ?? initialItems[0].id,
   );
@@ -602,6 +608,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     skipNextPersistRef.current = true;
     setContainers(nextState?.containers ?? initialContainers);
     setItems(nextState?.items ?? initialItems);
+    setPersistedItems(nextState?.items ?? initialItems);
     setSelectedItemId(nextState?.selectedItemId ?? initialItems[0].id);
     setDragItemId(null);
     setHoverPreview(null);
@@ -639,6 +646,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
             skipNextBackendPersistRef.current = true;
             setContainers(decodedState.containers);
             setItems(decodedState.items);
+            setPersistedItems(decodedState.items);
             setSelectedItemId(decodedState.selectedItemId);
             setMessage("Inventory layout loaded from character database.");
             return;
@@ -652,6 +660,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
           skipNextBackendPersistRef.current = true;
           setContainers(initialContainers);
           setItems(nextItems);
+          setPersistedItems(nextItems);
           setSelectedItemId(nextItems[0].id);
           setMessage("Inventory loaded from character database.");
         }
@@ -683,6 +692,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     try {
       await saveCharacterInventoryState(backendCharacterId, fullStateCode, token);
       await saveCharacterInventory(backendCharacterId, backendItems, token);
+      setPersistedItems(items);
       setMessage(
         source === "autosave"
           ? "Inventory autosaved to the character database."
@@ -1115,6 +1125,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     const kind = inferReferenceItemKind(referenceItem);
     const stackable = kind === "consumable";
     const maxStack = stackable ? 10 : 1;
+    const effects = deriveReferenceEquipmentEffects(referenceItem);
     const baseItem: InventoryItem = {
       id: `ref-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name: referenceItem.name,
@@ -1132,11 +1143,11 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
       weight: referenceItem.weight ?? 1,
       value: referenceItem.costQuantity ?? 0,
       rarity: isReferenceEquipmentMagical(referenceItem) ? "Magical" : "Common",
-      armorClassBonus: 0,
-      attackBonus: 0,
-      damage: kind === "weapon" ? "1d6" : "",
-      speedPenalty: 0,
-      notes: extractReferenceDescription(referenceItem),
+      armorClassBonus: effects.armorClassBonus,
+      attackBonus: effects.attackBonus,
+      damage: kind === "weapon" ? effects.damage || "1d6" : "",
+      speedPenalty: effects.speedPenalty,
+      notes: extractEquipmentDescription(referenceItem),
       requiresAttunement: inferReferenceRequiresAttunement(referenceItem),
       attuned: false,
       equipmentSlot,
@@ -1406,6 +1417,7 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     hoverPreview,
     importShareCode,
     items,
+    persistedItems,
     mergeTargetId,
     message,
     newChestColumns,
@@ -1657,6 +1669,9 @@ function InventoryDetailsContent({
       );
     }
 
+    const selectedItemEffectLines = summarizeInventoryItemEffects(selectedItem);
+    const selectedItemReferenceDescription = getSelectedItemReferenceDescription(selectedItem);
+
     return (
       <>
         <div className="selected-item-panel">
@@ -1678,6 +1693,28 @@ function InventoryDetailsContent({
         </div>
 
         <div className="item-detail-editor">
+          {selectedItemEffectLines.length > 0 ? (
+            <div className="attunement-panel">
+              <div>
+                <strong>Character Effect</strong>
+                <span>What this item changes for the character</span>
+              </div>
+              <div className="list">
+                {selectedItemEffectLines.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {selectedItemReferenceDescription ? (
+            <div className="attunement-panel">
+              <div>
+                <strong>Reference Description</strong>
+                <span>Official rule text or flavor</span>
+              </div>
+              <p>{selectedItemReferenceDescription}</p>
+            </div>
+          ) : null}
           <label className="inventory-tool-field">
             <span>Name</span>
             <input
@@ -2484,6 +2521,9 @@ function InventoryDetailsContent({
                           {formatReferenceEquipmentMeta(referenceItem)} ·{" "}
                           {inferReferenceSourceCategory(referenceItem)}
                         </span>
+                        {summarizeReferenceEquipmentEffects(referenceItem).effectLines[0] ? (
+                          <p>{summarizeReferenceEquipmentEffects(referenceItem).effectLines[0]}</p>
+                        ) : null}
                       </div>
                       <span className="inventory-library-result-chevron" aria-hidden="true">
                         {expandedEquipmentIndexes.includes(referenceItem.index) ? "▴" : "▾"}
@@ -2500,6 +2540,16 @@ function InventoryDetailsContent({
 
                   {expandedEquipmentIndexes.includes(referenceItem.index) && (
                     <div className="inventory-library-result-expanded">
+                      {summarizeReferenceEquipmentEffects(referenceItem).effectLines.length > 0 ? (
+                        <div className="inventory-library-result-effect-block">
+                          <strong>Character Effect</strong>
+                          <div className="inventory-library-result-effect-list">
+                            {summarizeReferenceEquipmentEffects(referenceItem).effectLines.map((line) => (
+                              <p key={line}>{line}</p>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                       {extractReferenceDescription(referenceItem) && (
                         <p>{extractReferenceDescription(referenceItem)}</p>
                       )}
@@ -2575,6 +2625,7 @@ function InventoryWorkbench({
   embedded = false,
   hideDetailsPanel = false,
 }: InventoryWorkbenchProps) {
+  const [activeContainerId, setActiveContainerId] = useState<string>("inventory");
   const {
     attunedItems,
     attunementLimit,
@@ -2600,6 +2651,13 @@ function InventoryWorkbench({
     setSelectedItemId,
     discardItem,
   } = controller;
+  const activeContainer = containers.find((container) => container.id === activeContainerId) ?? containers[0] ?? null;
+
+  useEffect(() => {
+    if (!containers.some((container) => container.id === activeContainerId) && containers[0]) {
+      setActiveContainerId(containers[0].id);
+    }
+  }, [activeContainerId, containers]);
 
   return (
     <section
@@ -2681,7 +2739,7 @@ function InventoryWorkbench({
                     ) : (
                       <>
                         <SlotIcon slotId={slot.id} />
-                        <em>Drop {slot.accepts.join(" / ")}</em>
+                        <em className="equipment-slot-placeholder">{slot.accepts[0] ?? "Item"}</em>
                       </>
                     )}
                   </div>
@@ -2690,26 +2748,56 @@ function InventoryWorkbench({
             </div>
           </section>
 
-          <div className="inventory-grid-stack">
-            {containers.map((container) => (
-              <InventoryGrid
-                key={container.id}
-                container={container}
-                items={items.filter((item) => item.location === container.id)}
-                hoverPreview={hoverPreview?.containerId === container.id ? hoverPreview : null}
-                mergeTargetId={mergeTargetId}
-                onDragEnd={handleDragEnd}
-                onDragLeave={handleDragLeave}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onItemDragLeave={handleItemDragLeave}
-                onItemDragOver={handleItemDragOver}
-                onItemDrop={handleItemDrop}
-                onDragStart={handleDragStart}
-                onSelectItem={setSelectedItemId}
-                selectedItemId={selectedItemId}
-              />
-            ))}
+          <div className="inventory-focus-shell">
+            <div className="inventory-focus-bar">
+              {containers.map((container) => {
+                const containerItems = items.filter((item) => item.location === container.id);
+
+                return (
+                  <button
+                    key={container.id}
+                    type="button"
+                    className={[
+                      "inventory-focus-tab",
+                      activeContainer?.id === container.id ? "inventory-focus-tab-active" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    onClick={() => setActiveContainerId(container.id)}
+                  >
+                    <strong>{container.name}</strong>
+                    <span>
+                      {container.columns} x {container.rows} · {containerItems.length} item
+                      {containerItems.length === 1 ? "" : "s"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="inventory-grid-stack inventory-grid-stack-focus">
+              {activeContainer ? (
+                <InventoryGrid
+                  key={activeContainer.id}
+                  container={activeContainer}
+                  items={items.filter((item) => item.location === activeContainer.id)}
+                  hoverPreview={
+                    hoverPreview?.containerId === activeContainer.id ? hoverPreview : null
+                  }
+                  mergeTargetId={mergeTargetId}
+                  onDragEnd={handleDragEnd}
+                  onDragLeave={handleDragLeave}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  onItemDragLeave={handleItemDragLeave}
+                  onItemDragOver={handleItemDragOver}
+                  onItemDrop={handleItemDrop}
+                  onDragStart={handleDragStart}
+                  onSelectItem={setSelectedItemId}
+                  selectedItemId={selectedItemId}
+                />
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -2908,6 +2996,7 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
     index: item.equipment.index ?? item.equipmentIndex ?? item.id,
     itemType: item.equipment.itemType ?? null,
     name: item.equipment.name,
+    sourceJson: item.equipment.sourceJson,
     weight:
       item.equipment.weight == null
         ? null
@@ -2915,12 +3004,13 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
   };
   const kind = inferReferenceItemKind(referenceItem);
   const equipmentSlot = inferReferenceEquipmentSlot(referenceItem);
+  const effects = deriveReferenceEquipmentEffects(referenceItem);
 
   return {
-    armorClassBonus: 0,
-    attackBonus: 0,
+    armorClassBonus: effects.armorClassBonus,
+    attackBonus: effects.attackBonus,
     color: inferReferenceItemColor(referenceItem),
-    damage: kind === "weapon" ? "1d6" : "",
+    damage: kind === "weapon" ? effects.damage || "1d6" : "",
     equipmentSlot,
     equippedSlot: item.equipped ? equipmentSlot : undefined,
     height: inferReferenceItemHeight(referenceItem),
@@ -2934,7 +3024,7 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
     rarity: isReferenceEquipmentMagical(referenceItem) ? "Magical" : "Common",
     referenceEquipmentIndex: item.equipment.index ?? item.equipmentIndex,
     rotated: false,
-    speedPenalty: 0,
+    speedPenalty: effects.speedPenalty,
     stackable: item.quantity > 1 || kind === "consumable",
     value: item.equipment.costQuantity ?? 0,
     weight: Number(item.equipment.weight ?? 1),
@@ -3131,6 +3221,10 @@ function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): Equipme
     text.includes("dagger") ||
     text.includes("bow") ||
     text.includes("crossbow") ||
+    text.includes("blowgun") ||
+    text.includes("sling") ||
+    text.includes("javelin") ||
+    text.includes("spear") ||
     text.includes("staff") ||
     text.includes("wand") ||
     text.includes("rod")
@@ -3147,6 +3241,10 @@ function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): Equipme
   }
 
   if (text.includes("glove") || text.includes("gauntlet")) {
+    return "hands";
+  }
+
+  if (text.includes("ring")) {
     return "hands";
   }
 
@@ -3270,7 +3368,9 @@ function inferReferenceLibraryType(referenceItem: ReferenceEquipment): Inventory
     text.includes("mace") ||
     text.includes("dagger") ||
     text.includes("bow") ||
-    text.includes("crossbow")
+    text.includes("crossbow") ||
+    text.includes("blowgun") ||
+    text.includes("sling")
   ) {
     return "weapon";
   }
@@ -3381,6 +3481,62 @@ function formatReferenceEquipmentMeta(referenceItem: ReferenceEquipment) {
         : referenceItem.name;
 
   return `${left} · ${right}`;
+}
+
+function summarizeInventoryItemEffects(item: InventoryItem) {
+  const effectLines: string[] = [];
+
+  if (item.requiresAttunement) {
+    effectLines.push(
+      item.attuned
+        ? "Attunement is active, so this item's magical effects currently apply."
+        : "This item needs attunement before its magical effects apply to the character.",
+    );
+  }
+
+  if (item.armorClassBonus > 0) {
+    effectLines.push(`Grants +${item.armorClassBonus} Armor Class while equipped.`);
+  }
+
+  if (item.attackBonus > 0) {
+    effectLines.push(`Grants +${item.attackBonus} to attack rolls made with this item.`);
+  }
+
+  if (item.damage) {
+    effectLines.push(`Uses ${item.damage} as its weapon damage profile.`);
+  }
+
+  if (item.speedPenalty > 0) {
+    effectLines.push(`Reduces speed by ${item.speedPenalty} feet while equipped.`);
+  }
+
+  if (item.referenceEquipmentIndex) {
+    const referenceSummary = summarizeReferenceEquipmentEffects({
+      description: item.notes,
+      index: item.referenceEquipmentIndex,
+      name: item.name,
+    });
+
+    referenceSummary.effectLines.forEach((line) => {
+      if (!effectLines.includes(line)) {
+        effectLines.push(line);
+      }
+    });
+  }
+
+  return effectLines;
+}
+
+function getSelectedItemReferenceDescription(item: InventoryItem) {
+  if (item.referenceEquipmentIndex) {
+    return summarizeReferenceEquipmentEffects({
+      description: item.notes,
+      index: item.referenceEquipmentIndex,
+      name: item.name,
+    }).description;
+  }
+
+  return item.notes.trim();
 }
 
 function clampNumber(value: number, min: number, max: number) {

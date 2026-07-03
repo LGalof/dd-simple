@@ -1,24 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import {
-  ConditionsSidebar,
   createDefaultConditionState,
   getConditionSummaryEntries,
   type ConditionId,
   type ConditionState,
 } from "../features/characters/components/ConditionsSidebar";
 import { CharacterBuilderSidebar } from "../features/characters/components/CharacterBuilderSidebar";
+import { CharacterDashboardRightRail } from "../features/characters/components/CharacterDashboardRightRail";
 import { CharacterSelectionPanel } from "../features/characters/components/CharacterSelectionPanel";
 import { CharacterSheet } from "../features/characters/components/CharacterSheet";
-import {
-  LocalRollsPanel,
-  type LocalRollEntry,
-} from "../features/characters/components/LocalRollsPanel";
+import { type LocalRollEntry } from "../features/characters/components/LocalRollsPanel";
 import type { RollableResult } from "../features/characters/components/Rollable";
 import type {
   ProgressionChoiceSummary,
   ResourceActionSummary,
-  SpellcastingSummary,
   WorkspaceTab,
 } from "../features/characters/components/CharacterSheet";
 import { useCharacterBuilder } from "../features/characters/hooks/useCharacterBuilder";
@@ -35,8 +31,6 @@ import type {
   BackgroundOption,
   ClassFeature,
   ClassOption,
-  ClassSpellcastingLevelSummary,
-  ClassSubclassOption,
   FeatureChoiceSelections,
   FeatureChoiceField,
   SpeciesOption,
@@ -46,6 +40,7 @@ import {
   getSelectedCharacterId,
 } from "../features/characters/utils/selectedCharacter";
 import { getSelectedFeatIndexesForPreview } from "../features/characters/utils/buildCharacterPreview";
+import { getSpellcastingSummary as getDashboardSpellcastingSummary } from "../features/characters/utils/dashboardSpellcasting";
 import {
   buildGenericBackgroundFeatureChoices,
   buildGenericClassFeatureChoices,
@@ -55,87 +50,20 @@ import type {
   AbilityScores,
   Character,
   CharacterFeatureChoiceSelection,
+  CharacterResourceState,
   CharacterFeatureSelection,
   CharacterSavePayload,
+  CharacterSpellcastingState,
 } from "../types/character";
 import type { CharacterDerivedState } from "../types/characterDerived";
 import {
-  InventoryDetailsSidebar,
   useInventorySandboxController,
 } from "./InventorySandboxPage";
 
 const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
 const maxLocalRollCount = 3;
-const spellcastingAbilityFallbacks: Record<string, keyof AbilityScores> = {
-  bard: "cha",
-  cleric: "wis",
-  druid: "wis",
-  paladin: "cha",
-  ranger: "wis",
-  sorcerer: "cha",
-  warlock: "cha",
-  wizard: "int",
-};
-const spellcastingTypeFallbacks: Record<string, SpellcastingSummary["castingType"]> = {
-  bard: "Full caster",
-  cleric: "Full caster",
-  druid: "Full caster",
-  paladin: "Half caster",
-  ranger: "Half caster",
-  sorcerer: "Full caster",
-  warlock: "Pact Magic",
-  wizard: "Full caster",
-};
-const fullCasterSlotProgression: Array<{ cantripsKnown: number; spellSlots: number[] }> = [
-  { cantripsKnown: 3, spellSlots: [2] },
-  { cantripsKnown: 3, spellSlots: [3] },
-  { cantripsKnown: 3, spellSlots: [4, 2] },
-  { cantripsKnown: 4, spellSlots: [4, 3] },
-  { cantripsKnown: 4, spellSlots: [4, 3, 2] },
-  { cantripsKnown: 4, spellSlots: [4, 3, 3] },
-  { cantripsKnown: 4, spellSlots: [4, 3, 3, 1] },
-  { cantripsKnown: 4, spellSlots: [4, 3, 3, 2] },
-  { cantripsKnown: 4, spellSlots: [4, 3, 3, 3, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 2, 1, 1, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 1, 1, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 2, 1, 1, 1] },
-  { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 2, 2, 1, 1] },
-];
-const halfCasterSlotProgression: number[][] = [
-  [2],
-  [2],
-  [3],
-  [3],
-  [4, 2],
-  [4, 2],
-  [4, 3],
-  [4, 3],
-  [4, 3, 2],
-  [4, 3, 2],
-  [4, 3, 3],
-  [4, 3, 3],
-  [4, 3, 3, 1],
-  [4, 3, 3, 1],
-  [4, 3, 3, 2],
-  [4, 3, 3, 2],
-  [4, 3, 3, 3, 1],
-  [4, 3, 3, 3, 1],
-  [4, 3, 3, 3, 2],
-  [4, 3, 3, 3, 2],
-];
-const knownSpellFallbacks: Record<string, number[]> = {
-  bard: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
-  sorcerer: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
-  warlock: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
-};
+const dashboardUiStateStoragePrefix = "dd-simple.dashboardUiState";
 const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
   str: "str",
   strength: "str",
@@ -151,14 +79,33 @@ const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
   charisma: "cha",
 };
 
+type PersistedDashboardUiState = {
+  activeWorkspaceTab: WorkspaceTab;
+  isBuilderSidebarHidden: boolean;
+  rightRailMode: "conditions" | "inventory" | "spells" | null;
+  resourceState: CharacterResourceState;
+  spellcastingState: CharacterSpellcastingState;
+  version: 1 | 2;
+};
+
 function CharacterDashboardPage() {
   const { token } = useAuth();
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
-  const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | null>(null);
+  const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | "spells" | null>(null);
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
   const [diceRollSaveError, setDiceRollSaveError] = useState<string | null>(null);
   const [localRolls, setLocalRolls] = useState<LocalRollEntry[]>([]);
+  const [spellcastingState, setSpellcastingState] = useState<CharacterSpellcastingState>({
+    learnedSpellIds: [],
+    preparedSpellIds: [],
+    slotUsageByLevel: {},
+  });
+  const [resourceState, setResourceState] = useState<CharacterResourceState>({
+    activeByResourceKey: {},
+    customMaxByResourceKey: {},
+    usageByResourceKey: {},
+  });
   const {
     addCondition,
     characters,
@@ -208,7 +155,6 @@ function CharacterDashboardPage() {
     hitPointSettings,
     openPanel,
     pendingSelection,
-    persistedSkillIndexes,
     previewCharacter,
     selectedBackground,
     selectedClass,
@@ -222,6 +168,7 @@ function CharacterDashboardPage() {
     speciesChoices,
     speciesOptions,
     updateAbilityAssignment,
+    updateLevel,
   } = useCharacterBuilder(character);
   const resolvedSubclassIndex = useMemo(
     () =>
@@ -229,11 +176,35 @@ function CharacterDashboardPage() {
         builderState?.subclassIndex ?? character?.subclassIndex ?? null,
         selectedClass,
         featureChoices,
+        builderState?.level ?? character?.level ?? 1,
       ),
     [
+      builderState?.level,
       builderState?.subclassIndex,
       character?.subclassIndex,
+      character?.level,
       featureChoices,
+      selectedClass,
+    ],
+  );
+  const resolvedFeatureChoiceSelections = useMemo<CharacterFeatureChoiceSelection[]>(
+    () =>
+      buildGenericClassFeatureChoices(
+        builderState?.classIndex ?? character?.classIndex ?? selectedClass.index,
+        selectedClass,
+        builderState?.level ?? character?.level ?? 1,
+        featureChoices,
+        resolvedSubclassIndex,
+      ).concat(buildGenericBackgroundFeatureChoices(selectedBackground, backgroundChoices)),
+    [
+      backgroundChoices,
+      builderState?.classIndex,
+      builderState?.level,
+      character?.classIndex,
+      character?.level,
+      featureChoices,
+      resolvedSubclassIndex,
+      selectedBackground,
       selectedClass,
     ],
   );
@@ -247,7 +218,9 @@ function CharacterDashboardPage() {
         featureChoices,
         builderState?.level ?? character?.level ?? 1,
       ),
+      featureChoices: resolvedFeatureChoiceSelections,
       level: builderState?.level ?? character?.level,
+      resourceState,
       speciesIndex: builderState?.speciesIndex ?? character?.speciesIndex,
       subclassIndex: resolvedSubclassIndex ?? undefined,
       subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
@@ -262,7 +235,9 @@ function CharacterDashboardPage() {
       character?.level,
       character?.speciesIndex,
       featureChoices,
+      resolvedFeatureChoiceSelections,
       resolvedSubclassIndex,
+      resourceState,
       selectedClass,
       selectedSpecies,
       speciesChoices,
@@ -293,22 +268,34 @@ function CharacterDashboardPage() {
   const spellcastingSummary = useMemo(
     () =>
       previewCharacter && builderState
-        ? getSpellcastingSummary(previewCharacter, selectedClass, selectedSubclass)
+        ? getDashboardSpellcastingSummary(previewCharacter, selectedClass, selectedSubclass)
         : null,
     [builderState, previewCharacter, selectedClass, selectedSubclass],
   );
-  const resourceActionSummaries = useMemo(
+  const fallbackResourceActionSummaries = useMemo(
     () =>
       builderState
-        ? getResourceActionSummaries(selectedClass, builderState.level)
+        ? getResourceActionSummaries(
+            selectedClass,
+            builderState.level,
+            getSelectedFeatIndexesForPreview(selectedClass, featureChoices, builderState.level),
+          )
         : [],
-    [builderState, selectedClass],
+    [builderState, featureChoices, selectedClass],
   );
   const {
     derivedState: characterDerivedStateWithPreview,
     error: characterDerivedStateErrorWithPreview,
     loading: characterDerivedStateLoadingWithPreview,
   } = useCharacterDerivedState(character?.id ?? null, builderActionPreview);
+  const resourceActionSummaries = useMemo(
+    () =>
+      mergeResourceActionSummaries(
+        characterDerivedStateWithPreview?.resources ?? [],
+        fallbackResourceActionSummaries,
+      ),
+    [characterDerivedStateWithPreview?.resources, fallbackResourceActionSummaries],
+  );
   const defenseSummary = useMemo(
     () => summarizeDefenses(characterDerivedStateWithPreview?.defenses ?? []),
     [characterDerivedStateWithPreview?.defenses],
@@ -326,9 +313,10 @@ function CharacterDashboardPage() {
             builderState,
             selectedClass,
             selectedBackground,
-            persistedSkillIndexes,
             selectedSkillIndexes,
             featureChoices,
+            spellcastingState,
+            resourceState,
             backgroundChoices,
             speciesChoices,
           )
@@ -338,11 +326,12 @@ function CharacterDashboardPage() {
       builderState,
       character,
       featureChoices,
-      persistedSkillIndexes,
       selectedBackground,
       selectedClass,
       selectedSkillIndexes,
       speciesChoices,
+      spellcastingState,
+      resourceState,
     ],
   );
   const saveDashboardCharacter = useCallback(
@@ -369,9 +358,10 @@ function CharacterDashboardPage() {
             builderState,
             selectedClass,
             selectedBackground,
-            persistedSkillIndexes,
             selectedSkillIndexes,
             featureChoices,
+            spellcastingState,
+            resourceState,
             backgroundChoices,
             speciesChoices,
           )
@@ -380,11 +370,12 @@ function CharacterDashboardPage() {
       backgroundChoices,
       builderState,
       featureChoices,
-      persistedSkillIndexes,
       selectedBackground,
       selectedClass,
       selectedSkillIndexes,
       speciesChoices,
+      spellcastingState,
+      resourceState,
     ],
   );
   const dashboardAutosave = useDashboardAutosave({
@@ -394,6 +385,9 @@ function CharacterDashboardPage() {
     payload: dashboardSavePayload,
     saveCharacter: saveDashboardCharacter,
   });
+  const toggleConditionsRail = useCallback(() => {
+    setRightRailMode((currentMode) => (currentMode === "conditions" ? null : "conditions"));
+  }, []);
 
   useEffect(() => {
     if (activeWorkspaceTab === "inventory") {
@@ -401,12 +395,77 @@ function CharacterDashboardPage() {
       return;
     }
 
-    setRightRailMode((currentMode) => (currentMode === "inventory" ? null : currentMode));
+    setRightRailMode((currentMode) =>
+      currentMode === "inventory" || (currentMode === "spells" && activeWorkspaceTab !== "spells")
+        ? null
+        : currentMode,
+    );
   }, [activeWorkspaceTab]);
 
   useEffect(() => {
     setConditionState(buildConditionStateFromCharacter(character));
   }, [character]);
+
+  useEffect(() => {
+    if (!character?.id) {
+      setActiveWorkspaceTab("actions");
+      setIsBuilderSidebarHidden(false);
+      setRightRailMode(null);
+      setSpellcastingState({
+        learnedSpellIds: [],
+        preparedSpellIds: [],
+        slotUsageByLevel: {},
+      });
+      setResourceState({
+        activeByResourceKey: {},
+        customMaxByResourceKey: {},
+        usageByResourceKey: {},
+      });
+      return;
+    }
+
+    const persistedUiState = loadDashboardUiState(character.id);
+
+    setActiveWorkspaceTab(persistedUiState?.activeWorkspaceTab ?? "actions");
+    setIsBuilderSidebarHidden(persistedUiState?.isBuilderSidebarHidden ?? false);
+    setRightRailMode(persistedUiState?.rightRailMode ?? null);
+    setSpellcastingState(
+      persistedUiState?.spellcastingState ?? {
+        learnedSpellIds: character.spellcastingState?.learnedSpellIds ?? [],
+        preparedSpellIds: character.spellcastingState?.preparedSpellIds ?? [],
+        slotUsageByLevel: character.spellcastingState?.slotUsageByLevel ?? {},
+      },
+    );
+    setResourceState(
+      persistedUiState?.resourceState ?? {
+        activeByResourceKey: character.resourceState?.activeByResourceKey ?? {},
+        customMaxByResourceKey: character.resourceState?.customMaxByResourceKey ?? {},
+        usageByResourceKey: character.resourceState?.usageByResourceKey ?? {},
+      },
+    );
+  }, [character]);
+
+  useEffect(() => {
+    if (!character?.id) {
+      return;
+    }
+
+    saveDashboardUiState(character.id, {
+      activeWorkspaceTab,
+      isBuilderSidebarHidden,
+      rightRailMode,
+      resourceState,
+      spellcastingState,
+      version: 2,
+    });
+  }, [
+    activeWorkspaceTab,
+    character?.id,
+    isBuilderSidebarHidden,
+    rightRailMode,
+    resourceState,
+    spellcastingState,
+  ]);
 
   function handleSaveBuild() {
     void dashboardAutosave.flushSave();
@@ -543,6 +602,7 @@ function CharacterDashboardPage() {
                   onAbilityAssignmentChange={updateAbilityAssignment}
                   onApplyHitPointSettings={applyHitPointConfiguration}
                   onFeatureChoicesChange={setFeatureChoices}
+                  onLevelChange={updateLevel}
                   onOpenPanel={openPanel}
                   onRollAbility={handleRollAbility}
                   onRollAllAbilities={handleRollAllAbilities}
@@ -568,14 +628,20 @@ function CharacterDashboardPage() {
               inventoryController={inventoryController}
               onActiveTabChange={setActiveWorkspaceTab}
               onLocalRoll={handleLocalRoll}
+              onResourceStateChange={setResourceState}
+              onSpellcastingStateChange={setSpellcastingState}
               progressionChoiceSummaries={progressionChoiceSummaries}
+              resolvedFeatureChoices={resolvedFeatureChoiceSelections}
+              resourceState={resourceState}
               resourceActionSummaries={resourceActionSummaries}
               selectedHeritage={selectedHeritage}
               selectedSubclassName={selectedSubclass?.name ?? null}
               spellcastingSummary={spellcastingSummary}
+              spellcastingState={spellcastingState}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onApplyLongRest={applyLongRest}
-              onOpenConditions={() => setRightRailMode("conditions")}
+              onOpenConditions={toggleConditionsRail}
+              onOpenSpellLibrary={() => setRightRailMode("spells")}
               onSetTempHp={setTempHp}
               selectedBackground={selectedBackground}
               selectedClass={selectedClass}
@@ -583,37 +649,28 @@ function CharacterDashboardPage() {
               speciesChoices={speciesChoices}
               tempHp={builderState.tempHp}
             />
-
-            <aside className="dashboard-utility-rail">
-              {localRolls.length > 0 ? (
-                <LocalRollsPanel
-                  rolls={localRolls}
-                  onDismiss={dismissLocalRoll}
-                  syncMessage={diceRollSaveError}
-                />
-              ) : null}
-
-              {rightRailMode === "conditions" ? (
-                <ConditionsSidebar
-                  conditionState={conditionState}
-                  isOpen
-                  onSetExhaustionLevel={(level) =>
-                    setConditionState((currentState) => ({
-                      ...currentState,
-                      exhaustionLevel: level,
-                    }))
-                  }
-                  onToggleCondition={(conditionId) => {
-                    void toggleCondition(conditionId);
-                  }}
-                />
-              ) : (
-                <InventoryDetailsSidebar
-                  controller={inventoryController}
-                  isOpen={rightRailMode === "inventory"}
-                />
-              )}
-            </aside>
+            <CharacterDashboardRightRail
+              conditionState={conditionState}
+              diceRollSaveError={diceRollSaveError}
+              inventoryController={inventoryController}
+              localRolls={localRolls}
+              onDismissLocalRoll={dismissLocalRoll}
+              onSetExhaustionLevel={(level) =>
+                setConditionState((currentState) => ({
+                  ...currentState,
+                  exhaustionLevel: level as ConditionState["exhaustionLevel"],
+                }))
+              }
+              onSpellcastingStateChange={setSpellcastingState}
+              onToggleCondition={(conditionId) => {
+                void toggleCondition(conditionId);
+              }}
+              rightRailMode={rightRailMode}
+              selectedClassIndex={selectedClass.index}
+              selectedClassName={selectedClass.name}
+              spellcastingState={spellcastingState}
+              spellcastingSummary={spellcastingSummary}
+            />
           </div>
         ) : null}
       </section>
@@ -640,9 +697,10 @@ export function buildCharacterSavePayload(
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   classOption: ClassOption,
   backgroundOption: BackgroundOption,
-  persistedSkillIndexes: string[],
   selectedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
+  spellcastingState: CharacterSpellcastingState,
+  resourceState: CharacterResourceState,
   backgroundChoices: Record<string, string>,
   speciesChoices: Record<string, string>,
 ): CharacterSavePayload {
@@ -654,6 +712,7 @@ export function buildCharacterSavePayload(
       builderState.subclassIndex,
       classOption,
       featureChoices,
+      builderState.level,
     ),
     backgroundIndex: builderState.backgroundIndex,
     alignment: character.alignment,
@@ -663,7 +722,9 @@ export function buildCharacterSavePayload(
       ...builderState.hitPointSettings,
       tempHp: builderState.tempHp,
     },
-    skillIndexes: [...new Set([...persistedSkillIndexes, ...selectedSkillIndexes])],
+    spellcastingState,
+    resourceState,
+    skillIndexes: [...new Set(selectedSkillIndexes)],
     choices: mergeCharacterChoices(
       character.choices,
       [
@@ -681,6 +742,12 @@ export function buildCharacterSavePayload(
         classOption,
         builderState.level,
         featureChoices,
+        getSelectedSubclassIndexForSave(
+          builderState.subclassIndex,
+          classOption,
+          featureChoices,
+          builderState.level,
+        ),
       ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
     ),
     abilityScores: buildAbilityScorePayload(character, builderState),
@@ -849,14 +916,23 @@ function getSelectedSubclassIndexForSave(
   subclassIndex: string | null,
   classOption: ClassOption,
   featureChoices: FeatureChoiceSelections,
+  characterLevel: number,
 ) {
   const subclassIndexes = new Set((classOption.subclasses ?? []).map((subclass) => subclass.index));
 
-  if (subclassIndex && subclassIndexes.has(subclassIndex)) {
+  if (
+    subclassIndex &&
+    subclassIndexes.has(subclassIndex) &&
+    !shouldClearSubclassForLevel(classOption, subclassIndex, characterLevel)
+  ) {
     return subclassIndex;
   }
 
   for (const feature of classOption.features) {
+    if (feature.level > characterLevel) {
+      continue;
+    }
+
     for (const field of feature.choiceFields ?? []) {
       if (field.choiceKind !== "subclass") {
         continue;
@@ -873,6 +949,27 @@ function getSelectedSubclassIndexForSave(
   }
 
   return null;
+}
+
+function shouldClearSubclassForLevel(
+  classOption: ClassOption,
+  subclassIndex: string,
+  characterLevel: number,
+) {
+  const subclassChoiceFeature = classOption.features.find(
+    (feature) =>
+      feature.level > characterLevel &&
+      (feature.choiceFields ?? []).some(
+        (field) =>
+          field.choiceKind === "subclass" &&
+          field.options.some(
+            (option) =>
+              (option.selectedOptionIndex ?? option.value) === subclassIndex,
+          ),
+      ),
+  );
+
+  return Boolean(subclassChoiceFeature);
 }
 
 function getProgressionChoiceSummaries(
@@ -900,240 +997,75 @@ function getProgressionChoiceSummaries(
     );
 }
 
-function getSpellcastingSummary(
-  character: Character,
-  classOption: ClassOption,
-  selectedSubclass: ClassSubclassOption | null,
-): SpellcastingSummary | null {
-  const abilityIndex = getSpellcastingAbilityIndex(classOption);
-
-  if (!abilityIndex) {
-    return null;
-  }
-
-  const abilityScore = character.abilityScores.find(
-    (score) => score.abilityIndex === abilityIndex,
-  );
-  const abilityValue = abilityScore?.score ?? 10;
-  const abilityModifier = Math.floor((abilityValue - 10) / 2);
-  const proficiencyBonus = getProficiencyBonus(character.level);
-  const levelSummary = getCurrentSpellcastingLevel(classOption, character.level);
-  const slotRows = (levelSummary?.spellSlots ?? []).map((slot) => ({
-    label: `Level ${slot.level}`,
-    level: slot.level,
-    slots: slot.slots,
-    value: String(slot.slots),
-  }));
-  const knownPrepared = [
-    levelSummary?.cantripsKnown !== undefined
-      ? {
-          label: "Cantrips Known",
-          value: String(levelSummary.cantripsKnown),
-        }
-      : null,
-    levelSummary?.spellsKnown !== undefined
-      ? {
-          label: "Spells Known",
-          value: String(levelSummary.spellsKnown),
-        }
-      : null,
-    levelSummary?.preparedSpells !== undefined
-      ? {
-          label: "Prepared Spells",
-          value: String(levelSummary.preparedSpells),
-        }
-      : null,
-  ].filter((entry): entry is { label: string; value: string } => Boolean(entry));
-
-  return {
-    abilityLabel: abilityScore?.ability.fullName ?? abilityIndex.toUpperCase(),
-    attackBonus: abilityModifier + proficiencyBonus,
-    castingType: getSpellcastingTypeLabel(classOption),
-    knownPrepared,
-    notes: getSpellcastingNotesForDisplay(classOption, selectedSubclass, character.level),
-    proficiencyBonus,
-    saveDc: 8 + abilityModifier + proficiencyBonus,
-    slotRows,
-    slotsAvailable: slotRows.length > 0,
-    slotsUnavailableReason:
-      "Spell slots are not available from the current reference data for this class level yet.",
-  };
-}
-
-function getSpellcastingNotesForDisplay(
-  classOption: ClassOption,
-  selectedSubclass: ClassSubclassOption | null,
-  characterLevel: number,
-) {
-  const baseNotes =
-    classOption.index === "wizard"
-      ? ["Prepare Wizard spells from your spellbook for which you have spell slots."]
-      : classOption.spellcasting?.notes ?? [];
-
-  return uniqueStrings([
-    ...baseNotes,
-    ...getSubclassSpellcastingNotes(selectedSubclass, characterLevel),
-  ]);
-}
-
-function getSubclassSpellcastingNotes(
-  selectedSubclass: ClassSubclassOption | null,
-  characterLevel: number,
-) {
-  return (selectedSubclass?.features ?? [])
-    .filter((feature) => feature.level <= characterLevel)
-    .filter((feature) => {
-      const searchableText = `${feature.name} ${feature.description}`.toLowerCase();
-
-      return searchableText.includes("spell");
-    })
-    .map((feature) => `${selectedSubclass?.name}: ${feature.name} - ${feature.description}`);
-}
-
-function getSpellcastingAbilityIndex(classOption: ClassOption): keyof AbilityScores | null {
-  const structuredAbilityIndex = canonicalAbilityScoreIndex(
-    classOption.spellcasting?.abilityIndex ?? undefined,
-  );
-
-  if (structuredAbilityIndex) {
-    return structuredAbilityIndex;
-  }
-
-  return spellcastingAbilityFallbacks[classOption.index] ?? null;
-}
-
-function getSpellcastingTypeLabel(classOption: ClassOption) {
-  if (classOption.spellcasting?.castingType === "pact-magic") {
-    return "Pact Magic";
-  }
-
-  if (classOption.spellcasting?.castingType === "half-caster") {
-    return "Half caster";
-  }
-
-  if (classOption.spellcasting?.castingType === "full-caster") {
-    return "Full caster";
-  }
-
-  return spellcastingTypeFallbacks[classOption.index] ?? "Spellcaster";
-}
-
-function getCurrentSpellcastingLevel(
-  classOption: ClassOption,
-  characterLevel: number,
-): ClassSpellcastingLevelSummary | null {
-  const levels = classOption.spellcasting?.levels ?? [];
-  const referenceLevel = [...levels].reverse().find((level) => level.level <= characterLevel);
-
-  if (referenceLevel) {
-    return referenceLevel;
-  }
-
-  return getFallbackSpellcastingLevel(classOption.index, characterLevel);
-}
-
-function getFallbackSpellcastingLevel(
-  classIndex: string,
-  characterLevel: number,
-): ClassSpellcastingLevelSummary | null {
-  const normalizedLevel = Math.max(1, Math.min(20, characterLevel));
-  const castingType = spellcastingTypeFallbacks[classIndex];
-
-  if (castingType === "Full caster") {
-    const progression = fullCasterSlotProgression[normalizedLevel - 1];
-
-    return {
-      cantripsKnown: progression.cantripsKnown,
-      level: normalizedLevel,
-      preparedSpells: getPreparedSpellFallback(classIndex, normalizedLevel),
-      spellSlots: progression.spellSlots.map((slots, index) => ({
-        level: index + 1,
-        slots,
-      })),
-      spellsKnown: getKnownSpellFallback(classIndex, normalizedLevel),
-    };
-  }
-
-  if (castingType === "Half caster") {
-    const progression = halfCasterSlotProgression[normalizedLevel - 1] ?? [];
-
-    return {
-      level: normalizedLevel,
-      preparedSpells: Math.max(1, Math.floor(normalizedLevel / 2) + 1),
-      spellSlots: progression.map((slots, index) => ({
-        level: index + 1,
-        slots,
-      })),
-    };
-  }
-
-  if (castingType === "Pact Magic") {
-    return {
-      cantripsKnown: normalizedLevel < 4 ? 2 : normalizedLevel < 10 ? 3 : 4,
-      level: normalizedLevel,
-      spellSlots: [
-        {
-          level: normalizedLevel < 3 ? 1 : normalizedLevel < 5 ? 2 : normalizedLevel < 7 ? 3 : normalizedLevel < 9 ? 4 : 5,
-          slots: normalizedLevel < 11 ? 2 : normalizedLevel < 17 ? 3 : 4,
-        },
-      ],
-      spellsKnown: getKnownSpellFallback(classIndex, normalizedLevel),
-    };
-  }
-
-  return null;
-}
-
-function getPreparedSpellFallback(classIndex: string, characterLevel: number) {
-  if (["cleric", "druid", "wizard"].includes(classIndex)) {
-    return Math.max(1, characterLevel + 3);
-  }
-
-  return undefined;
-}
-
-function getKnownSpellFallback(classIndex: string, characterLevel: number) {
-  return knownSpellFallbacks[classIndex]?.[characterLevel - 1];
-}
-
-function uniqueStrings(values: string[]) {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const value of values) {
-    const trimmedValue = value.trim();
-    const normalizedValue = trimmedValue.toLowerCase();
-
-    if (!trimmedValue || seen.has(normalizedValue)) {
-      continue;
-    }
-
-    seen.add(normalizedValue);
-    result.push(trimmedValue);
-  }
-
-  return result;
-}
-
 function getResourceActionSummaries(
   classOption: ClassOption,
   characterLevel: number,
+  selectedFeatIndexes: string[] = [],
 ): ResourceActionSummary[] {
-  const summaries = classOption.features
-    .filter((feature) => feature.level <= characterLevel)
-    .map((feature) => getResourceActionSummary(feature, characterLevel))
-    .filter((summary): summary is ResourceActionSummary => Boolean(summary));
+  const summaries = [
+    ...classOption.features
+      .filter((feature) => feature.level <= characterLevel)
+      .map((feature) => getResourceActionSummary(feature, characterLevel))
+      .filter((summary): summary is ResourceActionSummary => Boolean(summary)),
+    ...selectedFeatIndexes
+      .map((featIndex) => getFeatResourceActionSummary(featIndex, characterLevel))
+      .filter((summary): summary is ResourceActionSummary => Boolean(summary)),
+  ];
   const byName = new Map<string, ResourceActionSummary>();
 
   for (const summary of summaries) {
     const existing = byName.get(summary.name);
 
-    if (!existing || existing.level <= summary.level) {
+    if (!existing || getNullableLevel(existing) <= getNullableLevel(summary)) {
       byName.set(summary.name, summary);
     }
   }
 
-  return [...byName.values()].sort((left, right) => left.level - right.level || left.name.localeCompare(right.name));
+  return [...byName.values()].sort((left, right) => getNullableLevel(left) - getNullableLevel(right) || left.name.localeCompare(right.name));
+}
+
+function mergeResourceActionSummaries(
+  derivedResources: ResourceActionSummary[],
+  fallbackResources: ResourceActionSummary[],
+) {
+  const byName = new Map<string, ResourceActionSummary>();
+
+  for (const resource of [...fallbackResources, ...derivedResources]) {
+    byName.set(resource.name, resource);
+  }
+
+  return [...byName.values()].sort(
+    (left, right) =>
+      getNullableLevel(left) - getNullableLevel(right) ||
+      left.name.localeCompare(right.name),
+  );
+}
+
+function getNullableLevel(value: { level: number | null }) {
+  return value.level ?? Number.POSITIVE_INFINITY;
+}
+
+function getFeatResourceActionSummary(
+  featIndex: string,
+  characterLevel: number,
+): ResourceActionSummary | null {
+  if (featIndex !== "lucky") {
+    return null;
+  }
+
+  return {
+    automationNote: "Track Luck Points for Advantage and Disadvantage uses.",
+    category: "resource",
+    id: "resource:feat:lucky",
+    level: null,
+    maxUses: "Uses equal Proficiency Bonus",
+    maxUsesValue: getProficiencyBonus(characterLevel),
+    name: "Luck Points",
+    recharge: "Long Rest",
+    resourceKey: "lucky",
+    sourceFeature: "Lucky",
+    trackingMode: "uses",
+  };
 }
 
 function getResourceActionSummary(
@@ -1141,9 +1073,11 @@ function getResourceActionSummary(
   characterLevel: number,
 ): ResourceActionSummary | null {
   const key = `${feature.id} ${feature.title}`.toLowerCase();
+  const resourceKey = feature.id.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
   const base = {
     id: `resource:${feature.id}`,
     level: feature.level,
+    resourceKey,
     sourceFeature: feature.title,
   };
 
@@ -1152,9 +1086,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; damage, resistance, and duration automation are not implemented.",
       category: "bonus action",
+      maxUsesValue: getRageUseCount(characterLevel),
       maxUses: "Uses follow class progression",
       name: "Rage",
       recharge: "Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1163,9 +1099,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; die size and target tracking are not automated.",
       category: "bonus action",
+      maxUsesValue: getProficiencyBonus(characterLevel),
       maxUses: "Uses follow class progression",
       name: "Bardic Inspiration",
       recharge: "Long Rest / feature-based recovery",
+      trackingMode: "uses",
     };
   }
 
@@ -1174,9 +1112,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; subclass Channel Divinity effects are not automated.",
       category: "resource",
+      maxUsesValue: getChannelDivinityUses(characterLevel),
       maxUses: "Uses follow class progression",
       name: "Channel Divinity",
-      recharge: "Feature-based recovery",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1185,9 +1125,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; beast forms and transformation stats are not implemented.",
       category: "resource",
+      maxUsesValue: 2,
       maxUses: "Uses follow class progression",
       name: "Wild Shape",
-      recharge: "Feature-based recovery",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1196,9 +1138,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; healing roll and use tracking are not automated.",
       category: "bonus action",
+      maxUsesValue: 2,
       maxUses: "Uses follow class progression",
       name: "Second Wind",
       recharge: "Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1207,9 +1151,37 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; extra action timing is not automated.",
       category: "resource",
+      maxUsesValue: characterLevel >= 17 ? 2 : 1,
       maxUses: key.includes("2-use") ? "2 uses" : "1 use",
       name: "Action Surge",
-      recharge: "Feature-based recovery",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("indomitable")) {
+    return {
+      ...base,
+      automationNote: "Summary only; reroll timing and save replacement are not automated.",
+      category: "resource",
+      maxUsesValue: characterLevel >= 17 ? 3 : characterLevel >= 13 ? 2 : 1,
+      maxUses: "Uses follow class progression",
+      name: "Indomitable",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("superiority-dice")) {
+    return {
+      ...base,
+      automationNote: "Summary only; maneuver spend and die size upgrades are not automated.",
+      category: "resource",
+      maxUsesValue: characterLevel >= 15 ? 6 : characterLevel >= 7 ? 5 : 4,
+      maxUses: "Uses follow class progression",
+      name: "Superiority Dice",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1218,9 +1190,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; Focus spenders are not automated.",
       category: "resource",
+      maxUsesValue: characterLevel,
       maxUses: `${characterLevel} Focus Points`,
       name: "Monk's Focus",
-      recharge: "Feature-based recovery",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1229,9 +1203,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; healing pool spending is not automated.",
       category: "bonus action",
+      maxUsesValue: characterLevel * 5,
       maxUses: `${characterLevel * 5} HP pool`,
       name: "Lay on Hands",
       recharge: "Long Rest",
+      trackingMode: "pool",
     };
   }
 
@@ -1242,6 +1218,7 @@ function getResourceActionSummary(
       category: "bonus action",
       maxUses: "At will",
       name: "Cunning Action",
+      trackingMode: "none",
     };
   }
 
@@ -1251,6 +1228,7 @@ function getResourceActionSummary(
       automationNote: "Summary only; Sneak Attack tradeoffs and save DCs are not automated.",
       category: "passive",
       name: key.includes("improved") ? "Improved Cunning Strike" : "Cunning Strike",
+      trackingMode: "none",
     };
   }
 
@@ -1259,9 +1237,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; Sorcery Point spending and conversion are not automated.",
       category: "resource",
+      maxUsesValue: characterLevel,
       maxUses: `${characterLevel} Sorcery Points`,
       name: "Font of Magic",
       recharge: "Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1271,7 +1251,8 @@ function getResourceActionSummary(
       automationNote: "Spell slot details appear in the Spells tab when reference data provides them.",
       category: "resource",
       name: "Pact Magic",
-      recharge: "Feature-based recovery",
+      recharge: "Short or Long Rest",
+      trackingMode: "none",
     };
   }
 
@@ -1280,9 +1261,11 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; arcanum spell choice and casting are not automated.",
       category: "resource",
+      maxUsesValue: 1,
       maxUses: "1 use",
       name: "Mystic Arcanum",
       recharge: "Long Rest",
+      trackingMode: "uses",
     };
   }
 
@@ -1291,12 +1274,79 @@ function getResourceActionSummary(
       ...base,
       automationNote: "Summary only; recovered slot selection is not automated.",
       category: "resource",
+      maxUsesValue: 1,
       name: "Arcane Recovery",
       recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("divine-intervention")) {
+    return {
+      ...base,
+      automationNote: "Summary only; intervention outcome automation is not implemented.",
+      category: "resource",
+      maxUsesValue: 1,
+      maxUses: "1 use",
+      name: "Divine Intervention",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("stroke-of-luck")) {
+    return {
+      ...base,
+      automationNote: "Summary only; automatic hit/check conversion is not automated.",
+      category: "resource",
+      maxUsesValue: 1,
+      maxUses: "1 use",
+      name: "Stroke of Luck",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("arcane-shot")) {
+    return {
+      ...base,
+      automationNote: "Summary only; shot effect riders are not automated.",
+      category: "resource",
+      maxUsesValue: 2,
+      maxUses: "2 uses",
+      name: "Arcane Shot",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
     };
   }
 
   return null;
+}
+
+function getRageUseCount(level: number) {
+  if (level >= 17) {
+    return 6;
+  }
+  if (level >= 12) {
+    return 5;
+  }
+  if (level >= 6) {
+    return 4;
+  }
+  if (level >= 3) {
+    return 3;
+  }
+  return 2;
+}
+
+function getChannelDivinityUses(level: number) {
+  if (level >= 18) {
+    return 3;
+  }
+  if (level >= 6) {
+    return 2;
+  }
+  return 1;
 }
 
 function getProficiencyBonus(level: number) {
@@ -1592,6 +1642,9 @@ function summarizeDefenses(
         case "condition_immunity":
           groups.conditionImmunities.push(entry.target);
           break;
+        case "damage_reduction":
+          groups.damageReductions.push(entry.target);
+          break;
         default:
           break;
       }
@@ -1600,6 +1653,7 @@ function summarizeDefenses(
     },
     {
       conditionImmunities: [] as string[],
+      damageReductions: [] as string[],
       immunities: [] as string[],
       resistances: [] as string[],
       vulnerabilities: [] as string[],
@@ -1611,6 +1665,7 @@ function summarizeDefenses(
     createDefenseSummaryRow("Immunities", groupedValues.immunities),
     createDefenseSummaryRow("Vulnerabilities", groupedValues.vulnerabilities),
     createDefenseSummaryRow("Condition Immunities", groupedValues.conditionImmunities),
+    createDefenseSummaryRow("Damage Reduction", groupedValues.damageReductions),
   ].filter((entry): entry is { label: string; value: string } => entry !== null);
 }
 
@@ -1625,6 +1680,137 @@ function createDefenseSummaryRow(label: string, values: string[]) {
     label,
     value: uniqueValues.join(", "),
   };
+}
+
+function getDashboardUiStateStorageKey(characterId: string) {
+  return `${dashboardUiStateStoragePrefix}:${characterId}`;
+}
+
+function loadDashboardUiState(characterId: string) {
+  try {
+    const rawState = window.localStorage.getItem(getDashboardUiStateStorageKey(characterId));
+
+    if (!rawState) {
+      return null;
+    }
+
+    const parsedState = JSON.parse(rawState) as PersistedDashboardUiState;
+
+    if (!parsedState || (parsedState.version !== 1 && parsedState.version !== 2)) {
+      return null;
+    }
+
+    return {
+      ...parsedState,
+      resourceState: normalizeResourceState(
+        (parsedState as PersistedDashboardUiState & { resourceState?: unknown }).resourceState,
+      ),
+      spellcastingState: normalizeSpellcastingState(parsedState.spellcastingState),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDashboardUiState(characterId: string, state: PersistedDashboardUiState) {
+  try {
+    window.localStorage.setItem(
+      getDashboardUiStateStorageKey(characterId),
+      JSON.stringify(state),
+    );
+  } catch {
+    // Ignore storage failures so the dashboard keeps working normally.
+  }
+}
+
+function normalizeSpellcastingState(
+  value: unknown,
+): CharacterSpellcastingState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      learnedSpellIds: [],
+      preparedSpellIds: [],
+      slotUsageByLevel: {},
+    };
+  }
+
+  const normalizedValue = value as Partial<CharacterSpellcastingState>;
+
+  return {
+    learnedSpellIds: normalizeStringArray(normalizedValue.learnedSpellIds),
+    preparedSpellIds: normalizeStringArray(normalizedValue.preparedSpellIds),
+    slotUsageByLevel: normalizeNumericRecord(normalizedValue.slotUsageByLevel),
+  };
+}
+
+function normalizeResourceState(
+  value: unknown,
+): CharacterResourceState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      activeByResourceKey: {},
+      customMaxByResourceKey: {},
+      usageByResourceKey: {},
+    };
+  }
+
+  const normalizedValue = value as Partial<CharacterResourceState>;
+
+  return {
+    activeByResourceKey: normalizeBooleanRecord(normalizedValue.activeByResourceKey),
+    customMaxByResourceKey: normalizeNumericRecord(
+      normalizedValue.customMaxByResourceKey,
+    ),
+    usageByResourceKey: normalizeNumericRecord(normalizedValue.usageByResourceKey),
+  };
+}
+
+function normalizeStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0),
+    ),
+  ];
+}
+
+function normalizeNumericRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, number>;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, entryValue]) =>
+      typeof key === "string" &&
+      typeof entryValue === "number" &&
+      Number.isFinite(entryValue) &&
+      entryValue >= 0
+        ? [[key, Math.floor(entryValue)] as const]
+        : [],
+    ),
+  ) as Record<string, number>;
+}
+
+function normalizeBooleanRecord(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, boolean>;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, entryValue]) =>
+      typeof key === "string" &&
+      key.trim().length > 0 &&
+      typeof entryValue === "boolean"
+        ? [[key, entryValue] as const]
+        : [],
+    ),
+  ) as Record<string, boolean>;
 }
 
 export { CharacterDashboardPage };

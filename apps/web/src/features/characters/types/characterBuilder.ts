@@ -66,6 +66,7 @@ type BackgroundOption = {
 };
 
 type FeatureChoiceOption = {
+  description?: string | null;
   value: string;
   label: string;
   selectedOptionIndex?: string | null;
@@ -106,16 +107,20 @@ type FeatureChoiceKind =
   | "armor-proficiency"
   | "weapon-proficiency"
   | "expertise"
+  | "scholar"
+  | "elemental-fury"
   | "fighting-style"
   | "metamagic"
   | "pact-boon"
   | "eldritch-invocation"
+  | "mystic-arcanum"
   | "weapon-mastery"
   | "asi-feat"
   | "epic-boon"
   | "option";
 
 type ClassSubclassFeature = {
+  choiceFields?: FeatureChoiceField[];
   description: string;
   level: number;
   name: string;
@@ -157,6 +162,7 @@ type ClassFeature = {
   summary: string;
   details?: string[];
   choiceFields?: FeatureChoiceField[];
+  subclassIndex?: string;
 };
 
 type ClassOverviewRow = {

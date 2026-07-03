@@ -1,19 +1,30 @@
 import { prisma } from "../lib/prisma.js";
+import { findResourceStateForCharacter } from "./character-resource-state.service.js";
 import { deriveActionEntries } from "./character-effects/actions.js";
 import { deriveDefenseEntries } from "./character-effects/defenses.js";
 import {
+  decodeInventoryAttunementState,
+  deriveEquippedItemEffects,
+} from "./character-effects/items.js";
+import {
   asClassSourceJson,
+  compareActionEntries,
   createBaseDerivedStats,
+  compareDefenseEntries,
+  dedupeActions,
+  dedupeDefenses,
   isPresent,
   passiveEffectRegistryKeys,
   stringValue,
 } from "./character-effects/shared.js";
 import {
   getActiveClassFeatureIndexes,
+  getActiveFeatureChoiceSources,
   getActiveSpeciesTraitIndexes,
   getSelectedFeatIndexes,
   isSubclassDocumentForClass,
   isSubspeciesDocumentForSpecies,
+  mergeFeatureChoiceRecords,
   resolveClassFeatureSources,
   resolveFeatSources,
   resolveSelectedSubclassIndex,
@@ -22,9 +33,12 @@ import {
 } from "./character-effects/sources.js";
 import { deriveSpellEntries } from "./character-effects/spells.js";
 import { deriveCharacterStats } from "./character-effects/stats.js";
+import { deriveResourceEntries } from "./character-effects/resources.js";
+import { deriveWeaponActionEntries } from "./character-effects/weapon-actions.js";
 import type {
   CharacterFeatureEffectsOverrides,
   DerivedCharacterState,
+  ResolvedFeatureSource,
   RuleDocumentRecord,
 } from "./character-effects/types.js";
 
@@ -39,11 +53,51 @@ async function findCharacterDerivedStateForUser(
       userId,
     },
     select: {
+      abilityScores: {
+        select: {
+          abilityIndex: true,
+          score: true,
+        },
+      },
       backgroundIndex: true,
       classIndex: true,
       level: true,
+      proficiencies: {
+        select: {
+          proficiency: {
+            select: {
+              index: true,
+              name: true,
+            },
+          },
+        },
+      },
       speciesIndex: true,
       subclassIndex: true,
+      inventory: {
+        where: {
+          equipped: true,
+        },
+        select: {
+          equipmentIndex: true,
+          customName: true,
+          notes: true,
+          equipment: {
+            select: {
+              description: true,
+              index: true,
+              itemType: true,
+              name: true,
+              sourceJson: true,
+            },
+          },
+        },
+      },
+      inventoryState: {
+        select: {
+          stateCode: true,
+        },
+      },
       choices: {
         select: {
           choiceType: true,
@@ -55,13 +109,21 @@ async function findCharacterDerivedStateForUser(
       },
       featureChoices: {
         select: {
+          classIndex: true,
           choiceKey: true,
           choiceLabel: true,
           choicePath: true,
+          featureIndex: true,
+          grantsRawJson: true,
+          level: true,
           selectedOptionIndex: true,
           selectedOptionName: true,
           selectedOptionType: true,
           selectedOptionUrl: true,
+          selectedRawJson: true,
+          sourceIndex: true,
+          sourceType: true,
+          subclassIndex: true,
         },
       },
     },
@@ -129,6 +191,7 @@ async function findCharacterDerivedStateForUser(
       actions: [],
       activeSources: [],
       defenses: [],
+      resources: [],
       selectedSubclassIndex: null,
       selectedSubspeciesIndex: null,
       spells: [],
@@ -206,9 +269,17 @@ async function findCharacterDerivedStateForUser(
     effectiveClassIndex,
     effectiveLevel,
   );
+  // Derived state is assembled from three layers:
+  // 1. rule documents unlocked by class/species/level,
+  // 2. persisted feature-choice selections,
+  // 3. preview overrides coming from the builder before save.
+  const mergedFeatureChoices = mergeFeatureChoiceRecords(
+    character.featureChoices,
+    overrides.featureChoices ?? [],
+  );
   const selectedFeatIndexes = getSelectedFeatIndexes(
     character.choices,
-    character.featureChoices,
+    mergedFeatureChoices,
     classSubclassIndexes,
     effectiveBackground.featGrants.map((grant) => grant.featIndex),
     overrides.featIndexes ?? [],
@@ -266,7 +337,20 @@ async function findCharacterDerivedStateForUser(
       : Promise.resolve([] as RuleDocumentRecord[]),
   ]);
 
-  const activeSources = [
+  const attunedStateBySignature = decodeInventoryAttunementState(
+    character.inventoryState?.stateCode,
+  );
+  const equippedItemEffects = deriveEquippedItemEffects(
+    character.inventory,
+    attunedStateBySignature,
+  );
+  const persistedResourceState = overrides.resourceState
+    ? null
+    : await findResourceStateForCharacter(prisma, characterId);
+  const effectiveResourceState = overrides.resourceState ?? persistedResourceState ?? {
+    activeByResourceKey: {},
+  };
+  const baseActiveSources = [
     ...resolveClassFeatureSources(
       activeClassFeatureIndexes,
       featureDocuments,
@@ -279,18 +363,141 @@ async function findCharacterDerivedStateForUser(
       featDocuments,
       passiveEffectRegistryKeys,
     ),
-    ...resolveSpeciesTraitSources(traitDocuments),
+    ...getActiveFeatureChoiceSources(
+      mergedFeatureChoices,
+      effectiveLevel,
+    ),
+    ...resolveSpeciesTraitSources(traitDocuments, effectiveLevel),
+    ...equippedItemEffects.activeSources,
   ];
+  const activeSources = [
+    ...baseActiveSources,
+    ...deriveActiveResourceSources(baseActiveSources, effectiveResourceState.activeByResourceKey ?? {}),
+  ];
+  const abilityScoresByIndex = Object.fromEntries(
+    character.abilityScores.map((abilityScore) => [
+      abilityScore.abilityIndex,
+      abilityScore.score,
+    ]),
+  );
+  const derivedStats = deriveCharacterStats(activeSources, effectiveLevel, {
+    abilityScoresByIndex,
+    hasArmorEquipped: hasArmorEquipped(character.inventory),
+    hasHeavyArmorEquipped: hasHeavyArmorEquipped(character.inventory),
+  });
+  derivedStats.armorClassBonus += equippedItemEffects.armorClassBonus;
+  derivedStats.savingThrowBonus += equippedItemEffects.savingThrowBonus;
+  if (equippedItemEffects.strengthMinimum !== null) {
+    derivedStats.strengthMinimum = Math.max(
+      derivedStats.strengthMinimum ?? 0,
+      equippedItemEffects.strengthMinimum,
+    );
+  }
+  const combinedDefenses = dedupeDefenses([
+    ...deriveDefenseEntries(activeSources),
+    ...equippedItemEffects.defenses,
+  ]).sort(compareDefenseEntries);
+  const combinedActions = dedupeActions([
+    ...deriveWeaponActionEntries({
+      abilityScores: character.abilityScores,
+      activeSources,
+      characterLevel: effectiveLevel,
+      inventory: character.inventory,
+      proficiencies: character.proficiencies,
+      stats: derivedStats,
+    }),
+    ...deriveActionEntries(activeSources),
+  ]).sort(compareActionEntries);
 
   return {
-    actions: deriveActionEntries(activeSources),
+    actions: combinedActions,
     activeSources,
-    defenses: deriveDefenseEntries(activeSources),
+    defenses: combinedDefenses,
+    resources: deriveResourceEntries(activeSources, effectiveLevel),
     selectedSubclassIndex: validatedSubclassDocument?.index ?? null,
     selectedSubspeciesIndex: validatedSubspeciesDocument?.index ?? null,
     spells: deriveSpellEntries(activeSources, classSourceJson),
-    stats: deriveCharacterStats(activeSources, effectiveLevel),
+    stats: derivedStats,
   };
+}
+
+function deriveActiveResourceSources(
+  activeSources: ResolvedFeatureSource[],
+  activeByResourceKey: Record<string, boolean>,
+) {
+  const activeResourceKeys = new Set(
+    Object.entries(activeByResourceKey)
+      .filter(([, isActive]) => isActive)
+      .map(([key]) => key.toLowerCase()),
+  );
+
+  if (!activeResourceKeys.has("rage")) {
+    return [];
+  }
+
+  const rageSource = activeSources.find((source) =>
+    `${source.sourceIndex} ${source.title}`.toLowerCase().includes("rage"),
+  );
+
+  if (!rageSource) {
+    return [];
+  }
+
+  return [
+    {
+      description:
+        "While Rage is active, you have resistance to bludgeoning, piercing, and slashing damage.",
+      level: rageSource.level,
+      sourceIndex: "rage-active",
+      sourceType: "class_feature" as const,
+      title: "Rage (Active)",
+    },
+  ];
+}
+
+function hasArmorEquipped(
+  items: Array<{
+    equipment: {
+      itemType?: string | null;
+      name: string;
+    };
+  }>,
+) {
+  return items.some((item) => {
+    const normalizedItemType = item.equipment.itemType?.trim().toLowerCase() ?? "";
+    const normalizedName = item.equipment.name.trim().toLowerCase();
+
+    return (
+      normalizedItemType.includes("armor") ||
+      ["armor", "mail", "breastplate", "plate", "hide", "leather", "chain shirt", "chainmail"].some(
+        (keyword) => normalizedName.includes(keyword),
+      )
+    );
+  });
+}
+
+function hasHeavyArmorEquipped(
+  items: Array<{
+    equipment: {
+      itemType?: string | null;
+      name: string;
+    };
+  }>,
+) {
+  return items.some((item) => {
+    const normalizedItemType = item.equipment.itemType?.trim().toLowerCase() ?? "";
+    const normalizedName = item.equipment.name.trim().toLowerCase();
+
+    return (
+      normalizedItemType.includes("heavy armor") ||
+      normalizedName.includes("ring mail") ||
+      normalizedName.includes("chain mail") ||
+      normalizedName.includes("chainmail") ||
+      normalizedName.includes("splint") ||
+      normalizedName === "plate" ||
+      normalizedName.includes("plate armor")
+    );
+  });
 }
 
 export { findCharacterDerivedStateForUser };
@@ -301,6 +508,7 @@ export type {
   CharacterDefenseKind,
   CharacterFeatureEffectsOverrides,
   CharacterFeatureSourceType,
+  CharacterResourceEntry,
   CharacterSpellEntry,
   DerivedCharacterState,
   ResolvedFeatureSource,

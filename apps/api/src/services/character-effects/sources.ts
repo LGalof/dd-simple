@@ -25,6 +25,14 @@ import type {
   RuleDocumentRecord,
 } from "./types.js";
 
+type DerivedFeatureChoiceSourceRecord = {
+  description?: unknown;
+  level?: unknown;
+  sourceIndex?: unknown;
+  sourceType?: unknown;
+  title?: unknown;
+};
+
 function resolveClassFeatureSources(
   activeFeatureIndexes: string[],
   featureDocuments: RuleDocumentRecord[],
@@ -32,7 +40,11 @@ function resolveClassFeatureSources(
   characterLevel: number,
   selectedSubclassDocument: RuleDocumentRecord | null,
 ) {
+  // Level documents tell us which feature indexes are unlocked; this step turns
+  // those indexes into normalized dashboard-friendly source records.
   const featureDocumentMap = new Map(featureDocuments.map((document) => [document.index, document]));
+  const subclassFeatureDocumentMap = createSubclassFeatureDocumentMap(featureDocuments);
+  const resolvedSubclassFeatureKeys = new Set<string>();
   const resolvedSources: ResolvedFeatureSource[] = [];
 
   for (const featureIndex of activeFeatureIndexes) {
@@ -43,8 +55,20 @@ function resolveClassFeatureSources(
     }
 
     const sourceJson = asFeatureSourceJson(document.sourceJson);
+    const featureSubclassIndex = stringValue(sourceJson.subclass?.index);
+    const featureClassIndex = stringValue(sourceJson.class?.index);
 
-    if (stringValue(sourceJson.class?.index) !== classIndex) {
+    if (
+      featureClassIndex !== classIndex &&
+      featureSubclassIndex !== selectedSubclassDocument?.index
+    ) {
+      continue;
+    }
+
+    if (
+      featureSubclassIndex &&
+      featureSubclassIndex !== selectedSubclassDocument?.index
+    ) {
       continue;
     }
 
@@ -52,11 +76,25 @@ function resolveClassFeatureSources(
       continue;
     }
 
+    if (featureSubclassIndex) {
+      const featureLevel = numberValue(sourceJson.level);
+      const featureName =
+        stringValue(sourceJson.name) ??
+        stringValue(document.name) ??
+        humanizeIndex(document.index);
+
+      if (featureLevel !== null) {
+        resolvedSubclassFeatureKeys.add(
+          subclassFeatureDocumentKey(featureSubclassIndex, featureLevel, featureName),
+        );
+      }
+    }
+
     resolvedSources.push({
       description: getRuleDescription(sourceJson.desc, sourceJson.description),
       level: numberValue(sourceJson.level),
       sourceIndex: document.index,
-      sourceType: "class_feature",
+      sourceType: featureSubclassIndex ? "subclass_feature" : "class_feature",
       title:
         stringValue(sourceJson.name) ??
         stringValue(document.name) ??
@@ -75,33 +113,98 @@ function resolveClassFeatureSources(
 
   for (const feature of subclassFeatures) {
     const title = stringValue(feature.name);
-    const description = stringValue(feature.description);
     const level = numberValue(feature.level);
 
-    if (!title || !description || (level !== null && level > characterLevel)) {
+    if (!title || level === null || level > characterLevel) {
+      continue;
+    }
+
+    const featureKey = subclassFeatureDocumentKey(
+      selectedSubclassDocument.index,
+      level,
+      title,
+    );
+
+    if (resolvedSubclassFeatureKeys.has(featureKey)) {
+      continue;
+    }
+
+    const featureDocument = subclassFeatureDocumentMap.get(featureKey);
+    const featureSourceJson = featureDocument
+      ? asFeatureSourceJson(featureDocument.sourceJson)
+      : null;
+    const description =
+      featureSourceJson
+        ? getRuleDescription(featureSourceJson.desc, featureSourceJson.description)
+        : stringValue(feature.description) ?? "";
+
+    if (!description) {
       continue;
     }
 
     resolvedSources.push({
       description,
       level,
-      sourceIndex: `${selectedSubclassDocument.index}:${slugify(title)}:${level ?? "na"}`,
+      sourceIndex:
+        featureDocument?.index ??
+        `${selectedSubclassDocument.index}:${slugify(title)}:${level}`,
       sourceType: "subclass_feature",
-      title,
+      title:
+        stringValue(featureSourceJson?.name) ??
+        stringValue(featureDocument?.name) ??
+        title,
     });
   }
 
   return resolvedSources.sort(compareResolvedSources);
 }
 
-function resolveSpeciesTraitSources(traitDocuments: RuleDocumentRecord[]) {
+function createSubclassFeatureDocumentMap(featureDocuments: RuleDocumentRecord[]) {
+  const featureMap = new Map<string, RuleDocumentRecord>();
+
+  for (const featureDocument of featureDocuments) {
+    const sourceJson = asFeatureSourceJson(featureDocument.sourceJson);
+    const subclassIndex = stringValue(sourceJson.subclass?.index);
+    const level = numberValue(sourceJson.level);
+    const name =
+      stringValue(sourceJson.name) ??
+      stringValue(featureDocument.name) ??
+      humanizeIndex(featureDocument.index);
+
+    if (!subclassIndex || level === null || !name) {
+      continue;
+    }
+
+    featureMap.set(subclassFeatureDocumentKey(subclassIndex, level, name), featureDocument);
+  }
+
+  return featureMap;
+}
+
+function subclassFeatureDocumentKey(subclassIndex: string, level: number, name: string) {
+  return `${subclassIndex}:${level}:${slugify(name)}`;
+}
+
+function resolveSpeciesTraitSources(
+  traitDocuments: RuleDocumentRecord[],
+  characterLevel: number,
+) {
   return traitDocuments
     .map((document) => {
       const sourceJson = asTraitSourceJson(document.sourceJson);
+      const description = getRuleDescription(sourceJson.desc, sourceJson.description);
+      const inferredLevel = inferFeatureLevel(
+        numberValue(sourceJson.level),
+        description,
+      );
+
+      if (inferredLevel !== null && inferredLevel > characterLevel) {
+        return null;
+      }
 
       return {
-        description: getRuleDescription(sourceJson.desc, sourceJson.description),
-        level: numberValue(sourceJson.level),
+        description,
+        level: inferredLevel,
         sourceIndex: document.index,
         sourceType: "species_trait" as const,
         title:
@@ -110,7 +213,27 @@ function resolveSpeciesTraitSources(traitDocuments: RuleDocumentRecord[]) {
           humanizeIndex(document.index),
       };
     })
+    .filter(isPresent)
     .sort(compareResolvedSources);
+}
+
+function inferFeatureLevel(
+  explicitLevel: number | null,
+  description: string,
+) {
+  if (explicitLevel !== null) {
+    return explicitLevel;
+  }
+
+  const characterLevelMatch = description.match(
+    /\bwhen you reach character level (\d+)\b/i,
+  );
+
+  if (characterLevelMatch) {
+    return Number.parseInt(characterLevelMatch[1] ?? "", 10);
+  }
+
+  return null;
 }
 
 function resolveFeatSources(
@@ -256,6 +379,264 @@ function isFeatFeatureChoiceRecord(choice: CharacterFeatureChoiceRecord) {
   return searchText.includes("feat");
 }
 
+function mergeFeatureChoiceRecords(
+  persistedChoices: CharacterFeatureChoiceRecord[],
+  previewChoices: CharacterFeatureChoiceRecord[],
+) {
+  const mergedChoices = new Map<string, CharacterFeatureChoiceRecord>();
+
+  for (const choice of persistedChoices) {
+    mergedChoices.set(getFeatureChoiceRecordKey(choice), choice);
+  }
+
+  for (const choice of previewChoices) {
+    mergedChoices.set(getFeatureChoiceRecordKey(choice), choice);
+  }
+
+  return [...mergedChoices.values()];
+}
+
+function getFeatureChoiceRecordKey(choice: CharacterFeatureChoiceRecord) {
+  return `${choice.sourceType}:${choice.sourceIndex}:${choice.choicePath}`;
+}
+
+function getActiveFeatureChoiceSources(
+  featureChoices: CharacterFeatureChoiceRecord[],
+  characterLevel: number,
+) {
+  // Choice records can inject extra passive/action/spell sources even when there
+  // is no standalone rule document for the selected option.
+  return featureChoices
+    .flatMap((choice) => {
+      if (typeof choice.level === "number" && choice.level > characterLevel) {
+        return [];
+      }
+
+      if (
+        choice.selectedOptionUrl?.toLowerCase().includes("/feats/") ||
+        isAbilityScoreImprovementChoice(choice)
+      ) {
+        return [];
+      }
+
+      const grantSources = getDerivedSourcesFromGrants(choice.grantsRawJson, choice);
+
+      if (grantSources.length > 0) {
+        return grantSources;
+      }
+
+      const fallbackSource = createFallbackFeatureChoiceSource(choice);
+
+      return fallbackSource ? [fallbackSource] : [];
+    })
+    .sort(compareResolvedSources);
+}
+
+function getDerivedSourcesFromGrants(
+  grantsRawJson: unknown,
+  choice: CharacterFeatureChoiceRecord,
+) {
+  if (!grantsRawJson || typeof grantsRawJson !== "object") {
+    return [];
+  }
+
+  const grants = grantsRawJson as { derivedSources?: unknown };
+  const derivedSources = Array.isArray(grants.derivedSources)
+    ? grants.derivedSources
+    : [];
+
+  return derivedSources
+    .map((entry) => normalizeDerivedFeatureChoiceSource(entry, choice))
+    .filter(isPresent);
+}
+
+function normalizeDerivedFeatureChoiceSource(
+  value: unknown,
+  choice: CharacterFeatureChoiceRecord,
+): ResolvedFeatureSource | null {
+  const source = (typeof value === "object" && value !== null
+    ? value as DerivedFeatureChoiceSourceRecord
+    : null);
+
+  if (!source) {
+    return null;
+  }
+
+  const title = stringValue(source.title) ?? choice.selectedOptionName ?? choice.selectedOptionIndex;
+  const description =
+    stringValue(source.description) ??
+    getSelectedOptionDescription(choice.selectedRawJson);
+  const sourceIndex =
+    stringValue(source.sourceIndex) ??
+    choice.selectedOptionIndex ??
+    choice.selectedOptionName ??
+    choice.choiceKey;
+
+  if (!title || !description || !sourceIndex) {
+    return null;
+  }
+
+  const sourceType = normalizeChoiceDerivedSourceType(
+    stringValue(source.sourceType),
+    choice,
+  );
+
+  return {
+    description,
+    level: numberValue(source.level) ?? choice.level ?? null,
+    sourceIndex,
+    sourceType,
+    title,
+  };
+}
+
+function createFallbackFeatureChoiceSource(choice: CharacterFeatureChoiceRecord) {
+  const selectedName = choice.selectedOptionName ?? choice.selectedOptionIndex;
+  const selectedDescription = getSelectedOptionDescription(choice.selectedRawJson);
+
+  if (!selectedName) {
+    return null;
+  }
+
+  const choiceKind = inferFeatureChoiceKind(choice);
+
+  if (!choiceKind) {
+    return null;
+  }
+
+  if (choiceKind === "spell") {
+    return {
+      description:
+        selectedDescription ??
+        `You learn or gain access to the spell ${selectedName}.`,
+      level: choice.level ?? null,
+      sourceIndex: choice.selectedOptionIndex ?? slugify(selectedName),
+      sourceType: normalizeChoiceDerivedSourceType(null, choice),
+      title: selectedName,
+    };
+  }
+
+  if (choiceKind === "scholar") {
+    return {
+      description:
+        selectedDescription ??
+        `You gain Expertise in ${selectedName.replace(/^Skill:\s*/i, "")}.`,
+      level: choice.level ?? null,
+      sourceIndex: `scholar-${choice.selectedOptionIndex ?? slugify(selectedName)}`,
+      sourceType: normalizeChoiceDerivedSourceType(null, choice),
+      title: `Scholar: ${selectedName.replace(/^Skill:\s*/i, "")}`,
+    };
+  }
+
+  if (choiceKind === "expertise") {
+    return {
+      description:
+        selectedDescription ??
+        `${selectedName.replace(/^Skill:\s*/i, "")} gains Expertise for this character.`,
+      level: choice.level ?? null,
+      sourceIndex: `expertise-${choice.selectedOptionIndex ?? slugify(selectedName)}`,
+      sourceType: normalizeChoiceDerivedSourceType(null, choice),
+      title: `Expertise: ${selectedName.replace(/^Skill:\s*/i, "")}`,
+    };
+  }
+
+  return {
+    description:
+      selectedDescription ??
+      `${selectedName} is selected for ${choice.choiceLabel ?? choice.choiceKey ?? choice.featureIndex ?? "this feature"}.`,
+    level: choice.level ?? null,
+    sourceIndex: choice.selectedOptionIndex ?? slugify(selectedName),
+    sourceType: normalizeChoiceDerivedSourceType(null, choice),
+    title: selectedName,
+  };
+}
+
+function getSelectedOptionDescription(selectedRawJson: unknown) {
+  if (!selectedRawJson || typeof selectedRawJson !== "object" || Array.isArray(selectedRawJson)) {
+    return null;
+  }
+
+  return stringValue((selectedRawJson as { description?: unknown }).description);
+}
+
+function inferFeatureChoiceKind(choice: CharacterFeatureChoiceRecord) {
+  const searchText = [
+    choice.choiceKey,
+    choice.choiceLabel,
+    choice.choicePath,
+    choice.featureIndex,
+    choice.sourceIndex,
+    choice.selectedOptionUrl,
+    choice.selectedOptionName,
+  ]
+    .filter(isPresent)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    searchText.includes("/spells/") ||
+    searchText.includes(" cantrip") ||
+    searchText.includes(" spell") ||
+    searchText.includes("ritual")
+  ) {
+    return "spell";
+  }
+
+  if (searchText.includes("scholar")) {
+    return "scholar";
+  }
+
+  if (searchText.includes("expertise")) {
+    return "expertise";
+  }
+
+  if (
+    searchText.includes("fighting style") ||
+    searchText.includes("weapon mastery") ||
+    searchText.includes("metamagic") ||
+    searchText.includes("pact boon") ||
+    searchText.includes("eldritch invocation") ||
+    searchText.includes("mystic arcanum") ||
+    searchText.includes("elemental fury")
+  ) {
+    return "feature";
+  }
+
+  return null;
+}
+
+function normalizeChoiceDerivedSourceType(
+  sourceType: string | null,
+  choice: CharacterFeatureChoiceRecord,
+): ResolvedFeatureSource["sourceType"] {
+  if (sourceType === "species_trait" || sourceType === "subclass_feature" || sourceType === "class_feature") {
+    return sourceType;
+  }
+
+  if (choice.sourceType.toUpperCase() === "SPECIES") {
+    return "species_trait";
+  }
+
+  if (choice.subclassIndex) {
+    return "subclass_feature";
+  }
+
+  return "class_feature";
+}
+
+function isAbilityScoreImprovementChoice(choice: CharacterFeatureChoiceRecord) {
+  const searchText = [
+    choice.choiceKey,
+    choice.choiceLabel,
+    choice.choicePath,
+  ]
+    .filter(isPresent)
+    .join(" ")
+    .toLowerCase();
+
+  return searchText.includes("asi-score") || searchText.includes("feat-ability-");
+}
+
 function resolveSelectedSubclassIndex(
   validSubclassIndexes: Set<string>,
   choices: CharacterChoiceRecord[],
@@ -328,11 +709,13 @@ function isSubspeciesDocumentForSpecies(
 }
 
 export {
+  getActiveFeatureChoiceSources,
   getActiveClassFeatureIndexes,
   getActiveSpeciesTraitIndexes,
   getSelectedFeatIndexes,
   isSubclassDocumentForClass,
   isSubspeciesDocumentForSpecies,
+  mergeFeatureChoiceRecords,
   resolveClassFeatureSources,
   resolveFeatSources,
   resolveSelectedSubclassIndex,

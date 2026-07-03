@@ -7,9 +7,7 @@ type FeatAbilityRule = {
 };
 
 const allAbilityScoreKeys: AbilityScoreKey[] = ["str", "dex", "con", "int", "wis", "cha"];
-const mentalAbilityScoreKeys: AbilityScoreKey[] = ["int", "wis", "cha"];
 const martialAbilityScoreKeys: AbilityScoreKey[] = ["str", "dex"];
-const armoredAbilityScoreKeys: AbilityScoreKey[] = ["str", "dex"];
 const heartyAbilityScoreKeys: AbilityScoreKey[] = ["str", "con"];
 
 const featAbilityRules: Record<string, FeatAbilityRule> = {
@@ -21,16 +19,6 @@ const featAbilityRules: Record<string, FeatAbilityRule> = {
     selectableCount: 1,
   },
   charger: {
-    selectableAbilities: martialAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "crossbow-expert": {
-    fixedBonuses: { dex: 1 },
-  },
-  "defensive-duelist": {
-    fixedBonuses: { dex: 1 },
-  },
-  "dual-wielder": {
     selectableAbilities: martialAbilityScoreKeys,
     selectableCount: 1,
   },
@@ -65,88 +53,16 @@ const featAbilityRules: Record<string, FeatAbilityRule> = {
   durable: {
     fixedBonuses: { con: 1 },
   },
-  "elemental-adept": {
-    selectableAbilities: mentalAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  grappler: {
-    selectableAbilities: martialAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "great-weapon-master": {
-    fixedBonuses: { str: 1 },
-  },
   "heavy-armor-master": {
     selectableAbilities: heartyAbilityScoreKeys,
     selectableCount: 1,
   },
-  healer: {
-    fixedBonuses: { wis: 1 },
-  },
-  "inspiring-leader": {
-    selectableAbilities: ["wis", "cha"],
-    selectableCount: 1,
-  },
-  "keen-mind": {
-    selectableAbilities: mentalAbilityScoreKeys,
-    selectableCount: 1,
-  },
   "lightly-armored": {
-    selectableAbilities: armoredAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "mage-slayer": {
-    selectableAbilities: martialAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "medium-armor-master": {
-    selectableAbilities: armoredAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "moderately-armored": {
-    selectableAbilities: armoredAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  observant: {
-    selectableAbilities: ["int", "wis"],
-    selectableCount: 1,
-  },
-  "polearm-master": {
     selectableAbilities: martialAbilityScoreKeys,
     selectableCount: 1,
   },
   resilient: {
     selectableAbilities: allAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "skill-expert": {
-    selectableAbilities: allAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "shield-master": {
-    fixedBonuses: { str: 1 },
-  },
-  skulker: {
-    fixedBonuses: { dex: 1 },
-  },
-  speedy: {
-    selectableAbilities: ["dex", "con"],
-    selectableCount: 1,
-  },
-  "spell-sniper": {
-    selectableAbilities: mentalAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "tavern-brawler": {
-    selectableAbilities: heartyAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "war-caster": {
-    selectableAbilities: mentalAbilityScoreKeys,
-    selectableCount: 1,
-  },
-  "weapon-master": {
-    selectableAbilities: martialAbilityScoreKeys,
     selectableCount: 1,
   },
 };

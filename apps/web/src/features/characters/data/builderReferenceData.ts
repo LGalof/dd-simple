@@ -22,14 +22,23 @@ function toOptions(values: string[]): FeatureChoiceOption[] {
 
 const coreFeatNames = [
   "Alert",
-  "Archery",
-  "Defense",
-  "Grappler",
-  "Great Weapon Fighting",
+  "Crafter",
+  "Healer",
+  "Lucky",
   "Magic Initiate",
+  "Musician",
   "Savage Attacker",
   "Skilled",
-  "Two Weapon Fighting",
+  "Tavern Brawler",
+  "Actor",
+  "Athlete",
+  "Charger",
+  "Durable",
+  "Heavy Armor Master",
+  "Lightly Armored",
+  "Protection",
+  "Resilient",
+  "Tough",
 ];
 
 function createChoiceField(

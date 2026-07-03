@@ -15,14 +15,20 @@ import type {
   ClassSubclassOption,
   FeatureChoiceField,
   FeatureChoiceKind,
+  FeatureChoiceOption,
   SpeciesOption,
   SpeciesHeritageOption,
 } from "../types/characterBuilder";
-import { getFeatAbilityChoiceFieldConfigs } from "./featAbilityChoiceFields";
+import {
+  getFeatAbilityChoiceFieldConfigs,
+  getMagicInitiateFixedSpellChoiceFieldConfigs,
+} from "./featAbilityChoiceFields";
 
 type ReferenceItem = {
+  description?: unknown;
   index?: unknown;
   name?: unknown;
+  url?: unknown;
 };
 
 type SpellcastingInfoSource = {
@@ -39,6 +45,7 @@ type SpellcastingSourceJson = {
 type ChoiceOption = {
   choice?: Choice;
   count?: unknown;
+  description?: unknown;
   item?: ReferenceItem;
   items?: ChoiceOption[];
   of?: ReferenceItem;
@@ -46,7 +53,10 @@ type ChoiceOption = {
 };
 
 type ChoiceOptionData = {
+  description?: string | null;
   label: string;
+  nestedChoice?: Choice;
+  nestedChoicePath?: string;
   selectedOptionIndex?: string | null;
   selectedOptionName?: string | null;
   selectedOptionType?: string;
@@ -118,6 +128,25 @@ type BackgroundSourceJson = {
 type FeatSourceJson = {
   description?: unknown;
   repeatable?: unknown;
+};
+
+const WEAPON_MASTERY_OPTION_DESCRIPTIONS: Record<string, string> = {
+  cleave:
+    "If you hit a creature with this weapon, you can make a melee attack roll with it against a second creature within 5 feet of the first and within your reach.",
+  graze:
+    "If your attack roll misses a creature, you can still deal damage to that creature equal to the ability modifier used to make the attack roll.",
+  nick:
+    "When you make the extra attack of the Light property, you can make it as part of the Attack action instead of as a Bonus Action. You can still make only one extra attack from Light weapons each turn.",
+  push:
+    "If you hit a Large or smaller creature with this weapon, you can push it up to 10 feet straight away from yourself.",
+  sap:
+    "If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn.",
+  slow:
+    "If you hit a creature with this weapon and deal damage to it, you can reduce its Speed by 10 feet until the start of your next turn.",
+  topple:
+    "If you hit a Large or smaller creature with this weapon, you can force it to make a Constitution saving throw or have the Prone condition.",
+  vex:
+    "If you hit a creature with this weapon and deal damage to it, you have Advantage on your next attack roll against that creature before the end of your next turn.",
 };
 
 type ClassSourceJson = {
@@ -550,22 +579,12 @@ function mapBackgroundReferences(
     const featName = normalizedFeat?.name ?? referenceName(sourceJson.feat) ?? fallback?.feature ?? "Origin Feature";
     const featNote = normalizedFeat?.note ?? stringValue(sourceJson.feat?.note);
     const featDetails = getFeatDetails(reference.name, featName, featNote, featSourceJson, fallback?.description);
-    const equipmentDetails = (sourceJson.equipment_options ?? [])
-      .map((option) => stringValue(option.desc))
-      .filter(isPresent);
-    const equipmentChoiceFields = (sourceJson.equipment_options ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(
-        choice,
-        `${reference.index}-equipment-choice-${index}`,
-        "Equipment Choice",
-        {
-          baseChoicePath: `equipment_options[${index}]`,
-          sourceIndex: reference.index,
-          sourceType: "BACKGROUND",
-        },
-      ),
-    );
     const featSubtitleParts = ["Granted Feat"];
+    const originFeatChoiceFields = createBackgroundOriginFeatChoiceFields(
+      reference.index,
+      featName,
+      featNote,
+    );
 
     if (featNote) {
       featSubtitleParts.push(featNote);
@@ -588,6 +607,7 @@ function mapBackgroundReferences(
           title: featName,
           subtitle: featSubtitleParts.join(" - "),
           details: featDetails,
+          choiceFields: originFeatChoiceFields.length > 0 ? originFeatChoiceFields : undefined,
         },
         {
           id: `${reference.index}-ability-scores`,
@@ -614,23 +634,64 @@ function mapBackgroundReferences(
               },
             ]
           : []),
-        ...(equipmentDetails.length > 0
-          ? [
-              {
-                id: `${reference.index}-starting-equipment`,
-                title: "Starting Equipment",
-                subtitle:
-                  equipmentChoiceFields.length > 0
-                    ? formatChoiceCount(equipmentChoiceFields.length)
-                    : "Background Gear",
-                details: equipmentDetails,
-                choiceFields: equipmentChoiceFields.length > 0 ? equipmentChoiceFields : undefined,
-              },
-            ]
-          : []),
       ],
     };
   });
+}
+
+function createBackgroundOriginFeatChoiceFields(
+  backgroundIndex: string,
+  featName: string,
+  featNote: string | null,
+): FeatureChoiceField[] {
+  const magicInitiateSpellList = getBackgroundMagicInitiateSpellList(backgroundIndex, featName, featNote);
+
+  if (!magicInitiateSpellList) {
+    return [];
+  }
+
+  return getMagicInitiateFixedSpellChoiceFieldConfigs(
+    magicInitiateSpellList.value,
+    magicInitiateSpellList.label,
+  ).map((fieldConfig) =>
+    createChoiceField(fieldConfig.id, fieldConfig.label, fieldConfig.options, {
+      choiceGroupId: fieldConfig.choiceGroupId,
+      choiceGroupLabel: fieldConfig.choiceGroupLabel,
+      choiceGroupLimit: fieldConfig.choiceGroupLimit,
+      choiceKind: fieldConfig.choiceKind,
+      choicePath: `feat.magicInitiate.${fieldConfig.id}`,
+      sourceIndex: backgroundIndex,
+      sourceType: "BACKGROUND",
+    }),
+  );
+}
+
+function getBackgroundMagicInitiateSpellList(
+  backgroundIndex: string,
+  featName: string,
+  featNote: string | null,
+) {
+  const normalizedFeat = slugify([featName, featNote].filter(isPresent).join(" "));
+
+  if (!normalizedFeat.includes("magic-initiate")) {
+    return null;
+  }
+
+  if (backgroundIndex === "acolyte" || normalizedFeat.includes("cleric")) {
+    return {
+      label: "Cleric",
+      value: "cleric",
+    };
+  }
+
+  if (backgroundIndex === "sage" || normalizedFeat.includes("wizard")) {
+    return {
+      label: "Wizard",
+      value: "wizard",
+    };
+  }
+
+  return null;
 }
 
 function normalizedBackgroundProficiencies(reference: ReferenceBackground) {
@@ -704,10 +765,13 @@ function mapClassReferences(
   levelDocuments: ReferenceRuleDocument[] = [],
   featureDocuments: ReferenceRuleDocument[] = [],
   subclassDocuments: ReferenceRuleDocument[] = [],
+  featDocuments: ReferenceRuleDocument[] = [],
 ): ClassOption[] {
   if (references.length === 0) {
     return fallbackOptions;
   }
+
+  const featDocumentMap = new Map(featDocuments.map((document) => [document.index, document]));
 
   return references.map((reference) => {
     const fallback = fallbackOptions.find((option) => option.index === reference.index);
@@ -739,8 +803,13 @@ function mapClassReferences(
       reference.features ?? [],
       reference.index,
     );
-    const subclasses = getClassSubclasses(reference.index, sourceJson, subclassDocuments);
-    const features =
+    const subclasses = getClassSubclasses(
+      reference.index,
+      sourceJson,
+      subclassDocuments,
+      featureDocuments,
+    );
+    const rawFeatures =
       normalizedFeatures.length > 0
         ? [...classChoiceFeature, ...normalizedFeatures]
         : createReferenceBackedClassFeatures(
@@ -749,6 +818,7 @@ function mapClassReferences(
             levelDocuments,
             featureDocuments,
           );
+    const features = enrichFeatureChoiceOptionDescriptions(rawFeatures, featDocumentMap);
 
     return {
       index: reference.index,
@@ -995,7 +1065,12 @@ function normalizedClassSkillChoice(reference: ReferenceClass) {
 
 function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSourceJson): ClassFeature[] {
   const normalizedSkillChoice = normalizedClassSkillChoice(reference);
-  const sourceProficiencyChoices = sourceJson.proficiency_choices ?? [];
+  const sourceProficiencyChoices = (sourceJson.proficiency_choices ?? []).map((choice) =>
+    normalizeClassProficiencyChoiceForBuilder(choice),
+  );
+  const sourceSkillChoiceIndex = normalizedSkillChoice
+    ? sourceProficiencyChoices.findIndex((choice) => isSourceSkillChoice(choice))
+    : -1;
   const sourceFallbackChoices = normalizedSkillChoice
     ? sourceProficiencyChoices
         .map((choice, index) => ({ choice, index }))
@@ -1003,7 +1078,16 @@ function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSo
     : sourceProficiencyChoices.map((choice, index) => ({ choice, index }));
   const classChoiceFields = [
     ...(normalizedSkillChoice
-      ? createChoiceFieldsFromNormalizedSkillChoice(normalizedSkillChoice)
+      ? createChoiceFieldsFromNormalizedSkillChoice(normalizedSkillChoice, {
+          baseChoicePath:
+            sourceSkillChoiceIndex >= 0
+              ? `proficiency_choices[${sourceSkillChoiceIndex}]`
+              : undefined,
+          classIndex: reference.index,
+          level: 1,
+          sourceIndex: reference.index,
+          sourceType: "CLASS",
+        })
       : []),
     ...sourceFallbackChoices.flatMap(({ choice, index }) =>
       createChoiceFieldsFromChoice(
@@ -1012,20 +1096,6 @@ function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSo
         "Proficiency Choices",
         {
           baseChoicePath: `proficiency_choices[${index}]`,
-          classIndex: reference.index,
-          level: 1,
-          sourceIndex: reference.index,
-          sourceType: "CLASS",
-        },
-      ),
-    ),
-    ...(sourceJson.starting_equipment_options ?? []).flatMap((choice, index) =>
-      createChoiceFieldsFromChoice(
-        choice,
-        `class-equipment-${index}`,
-        "Starting Equipment",
-        {
-          baseChoicePath: `starting_equipment_options[${index}]`,
           classIndex: reference.index,
           level: 1,
           sourceIndex: reference.index,
@@ -1059,19 +1129,117 @@ function isSourceSkillChoice(choice: Choice) {
   });
 }
 
+function normalizeClassProficiencyChoiceForBuilder(choice: Choice) {
+  if (!isRecord(choice)) {
+    return choice;
+  }
+
+  const choose = numberValue(choice.choose);
+  const options = Array.isArray(choice.from?.options) ? choice.from.options : [];
+
+  if (choose !== 1 || options.length === 0) {
+    return choice;
+  }
+
+  const flattenedOptions = options.flatMap((option) => {
+    if (!isRecord(option)) {
+      return [];
+    }
+
+    const nestedChoice = isRecord(option.choice) ? option.choice : null;
+    const nestedChoose = numberValue(nestedChoice?.choose);
+    const nestedOptions = Array.isArray(nestedChoice?.from?.options) ? nestedChoice.from.options : [];
+
+    if (nestedChoose !== 1 || nestedOptions.length === 0) {
+      return [];
+    }
+
+    return nestedOptions.filter((nestedOption) => {
+      if (!isRecord(nestedOption)) {
+        return false;
+      }
+
+      const item = isRecord(nestedOption.item) ? nestedOption.item : null;
+      const index = stringValue(item?.index);
+      const name = stringValue(item?.name);
+
+      return Boolean(
+        item &&
+          index &&
+          name &&
+          (name.startsWith("Tool: ") || isLikelyInstrumentName(name)),
+      );
+    });
+  });
+
+  if (flattenedOptions.length === 0) {
+    return choice;
+  }
+
+  const dedupedOptions = Array.from(
+    new Map(
+      flattenedOptions.map((option) => {
+        const item = isRecord(option.item) ? option.item : null;
+        const key = stringValue(item?.index) ?? JSON.stringify(option);
+
+        return [key, option] as const;
+      }),
+    ).values(),
+  );
+
+  return {
+    ...choice,
+    desc: "Choose one type of artisan's tools or one musical instrument.",
+    field_label: "Tool proficiency",
+    type: "tool proficiency",
+    from: {
+      option_set_type: "options_array",
+      options: dedupedOptions,
+    },
+  };
+}
+
 function createChoiceFieldsFromNormalizedSkillChoice(
   choice: NonNullable<ReturnType<typeof normalizedClassSkillChoice>>,
+  context: Pick<
+    FeatureChoiceField,
+    "classIndex" | "level" | "sourceIndex" | "sourceType"
+  > & {
+    baseChoicePath?: string;
+  },
 ): FeatureChoiceField[] {
   return Array.from({ length: choice.choose }, (_, index) =>
     createChoiceField(
       choice.choose === 1 ? "class-skill-choice" : `class-skill-choice-${index + 1}`,
       choice.choose === 1 ? "Skill proficiency" : `Skill proficiency ${index + 1}`,
-      choice.valueOptions,
+      choice.valueOptions.map((option) => ({
+        ...option,
+        selectedOptionIndex: option.value,
+        selectedOptionName: option.label,
+        selectedOptionType: "reference",
+        selectedOptionUrl: `/api/2024/proficiencies/${option.value}`,
+        selectedRawJson: {
+          item: {
+            index: option.value,
+            name: option.label,
+            url: `/api/2024/proficiencies/${option.value}`,
+          },
+          option_type: "reference",
+        },
+      })),
       {
         choiceKind: "skill-proficiency",
         choiceGroupId: "class-skill-choice",
         choiceGroupLabel: choice.description ?? `Choose ${choice.choose} skill proficiencies`,
         choiceGroupLimit: choice.choose,
+        choicePath:
+          choice.choose === 1
+            ? context.baseChoicePath
+            : appendChoicePath(context.baseChoicePath, `slot${index + 1}`),
+        classIndex: context.classIndex,
+        level: context.level,
+        sourceIndex: context.sourceIndex,
+        sourceType: context.sourceType,
       },
     ),
   );
@@ -1104,16 +1272,19 @@ function createNormalizedClassFeatures(
           subclassIndex,
         },
       );
+      const normalizedText = normalizeFeatureDisplayText({
+        description: feature.description,
+        details: feature.details,
+        sourceDescriptions: featureSourceJson.desc,
+        summary: feature.summary,
+      });
 
       return createFeature({
         id: feature.index ?? feature.id,
         level: feature.level,
         title: feature.title ?? feature.name ?? feature.index ?? feature.id,
-        summary:
-          feature.summary ??
-          feature.description ??
-          "No description available from reference data.",
-        details: feature.details,
+        summary: normalizedText.summary,
+        details: normalizedText.details,
         choiceFields:
           choiceFields.length > 0
             ? augmentFeatAbilityChoiceFields(choiceFields)
@@ -1158,14 +1329,14 @@ function createReferenceBackedClassFeatures(
 
           const featureDocument = featureDocumentMap.get(featureIndex);
           const featureSourceJson = asRecord(featureDocument?.sourceJson) as FeatureSourceJson;
-
-          if (stringValue(featureSourceJson.subclass?.index)) {
-            return null;
-          }
+          const subclassIndex = stringValue(featureSourceJson.subclass?.index) ?? undefined;
 
           const descriptions = Array.isArray(featureSourceJson.desc)
             ? featureSourceJson.desc.filter((entry): entry is string => typeof entry === "string")
             : [];
+          const normalizedText = normalizeFeatureDisplayText({
+            sourceDescriptions: descriptions,
+          });
           const choiceFields = createChoiceFieldsFromChoice(
             featureSourceJson.feature_specific,
             `feature-${featureIndex}`,
@@ -1177,7 +1348,7 @@ function createReferenceBackedClassFeatures(
               level: numberValue(featureSourceJson.level) ?? level,
               sourceIndex: featureIndex,
               sourceType: "FEATURE",
-              subclassIndex: stringValue(featureSourceJson.subclass?.index),
+              subclassIndex,
             },
           );
 
@@ -1189,14 +1360,13 @@ function createReferenceBackedClassFeatures(
               featureDocument?.name ??
               stringValue(featureReference.name) ??
               featureIndex,
-            summary: trimDescription(
-              descriptions[0] ?? "No description available from reference data.",
-            ),
-            details: descriptions.slice(1).map(trimDescription).filter(isPresent),
+            summary: normalizedText.summary,
+            details: normalizedText.details,
             choiceFields:
               choiceFields.length > 0
                 ? augmentFeatAbilityChoiceFields(choiceFields)
                 : undefined,
+            subclassIndex,
           });
         })
         .filter(isPresent);
@@ -1219,6 +1389,95 @@ function createFeature(feature: ClassFeature): ClassFeature {
     ...feature,
     details: feature.details?.length ? feature.details : undefined,
     choiceFields: feature.choiceFields?.length ? feature.choiceFields : undefined,
+  };
+}
+
+function normalizeFeatureDisplayText({
+  description,
+  details,
+  sourceDescriptions,
+  summary,
+}: {
+  description?: string | null;
+  details?: string[];
+  sourceDescriptions?: unknown;
+  summary?: string | null;
+}) {
+  const sourceParagraphs = Array.isArray(sourceDescriptions)
+    ? sourceDescriptions.filter((entry): entry is string => typeof entry === "string")
+    : [];
+  const combinedParagraphs = dedupeParagraphs([
+    ...normalizePreviewParagraphs(sourceParagraphs),
+    ...normalizePreviewParagraphs(details ?? []),
+    ...normalizePreviewParagraphs(description ? [description] : []),
+  ]);
+  const preferredSummary = normalizePreviewParagraphs(summary ? [summary] : [])[0];
+  const baseSummary = preferredSummary ?? combinedParagraphs[0] ?? "No description available from reference data.";
+
+  if (combinedParagraphs.length === 0) {
+    return {
+      summary: trimDescription(baseSummary),
+      details: undefined,
+    };
+  }
+
+  const { summaryText, detailFromSummary } = splitSummarySentence(baseSummary);
+  const remainingDetails = dedupeParagraphs([
+    ...(detailFromSummary ? [detailFromSummary] : []),
+    ...combinedParagraphs.filter((paragraph) => paragraph !== combinedParagraphs[0]),
+  ]);
+
+  return {
+    summary: trimDescription(summaryText),
+    details: remainingDetails.length > 0 ? remainingDetails : undefined,
+  };
+}
+
+function normalizePreviewParagraphs(values: string[]) {
+  return values
+    .flatMap((value) => splitParagraphs(value))
+    .map(cleanReferenceParagraph)
+    .filter(isPresent);
+}
+
+function getRuleDescription(...values: unknown[]) {
+  return normalizePreviewParagraphs(
+    values.flatMap((value) =>
+      Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === "string")
+        : typeof value === "string"
+          ? [value]
+          : [],
+    ),
+  ).join(" ");
+}
+
+function cleanReferenceParagraph(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(/\s*•\s*/g, " • ")
+    .replace(/\s*-\s*/g, " - ")
+    .trim();
+}
+
+function dedupeParagraphs(values: string[]) {
+  return Array.from(new Set(values.filter(isPresent)));
+}
+
+function splitSummarySentence(value: string) {
+  const cleaned = cleanReferenceParagraph(value);
+  const sentenceMatch = cleaned.match(/^(.+?[.!?])(?:\s+|$)(.+)$/);
+
+  if (!sentenceMatch || cleaned.length < 120) {
+    return {
+      summaryText: cleaned,
+      detailFromSummary: null as string | null,
+    };
+  }
+
+  return {
+    summaryText: sentenceMatch[1].trim(),
+    detailFromSummary: sentenceMatch[2].trim() || null,
   };
 }
 
@@ -1263,8 +1522,10 @@ function getClassSubclasses(
   classIndex: string,
   sourceJson: ClassSourceJson,
   subclassDocuments: ReferenceRuleDocument[],
+  featureDocuments: ReferenceRuleDocument[] = [],
 ): ClassSubclassOption[] {
   const subclassDocumentMap = new Map(subclassDocuments.map((document) => [document.index, document]));
+  const subclassFeatureDocumentMap = createSubclassFeatureDocumentMap(featureDocuments);
   const sourceSubclasses = Array.isArray(sourceJson.subclasses) ? sourceJson.subclasses : [];
 
   return sourceSubclasses
@@ -1292,17 +1553,53 @@ function getClassSubclasses(
         ? subclassSourceJson.features
             .map((feature) => {
               const name = stringValue(feature.name);
-              const description = stringValue(feature.description);
               const level = numberValue(feature.level);
 
-              if (!name || !description || level === null) {
+              if (!name || level === null) {
                 return null;
               }
 
+              const featureDocument = subclassFeatureDocumentMap.get(
+                subclassFeatureDocumentKey(subclassIndex, level, name),
+              );
+              const featureIndex = featureDocument?.index;
+              const featureSourceJson = asRecord(featureDocument?.sourceJson);
+              const featureDocumentDescription = getRuleDescription(
+                featureSourceJson.desc,
+                featureSourceJson.description,
+              );
+              const fallbackDescription = stringValue(feature.description) ?? "";
+              const description = featureDocumentDescription || fallbackDescription;
+              const featureSpecific = asRecord(feature).feature_specific ?? featureSourceJson.feature_specific;
+
+              if (!description) {
+                return null;
+              }
+
+              const choiceFields = createChoiceFieldsFromChoice(
+                featureSpecific,
+                `feature-${featureIndex ?? `${subclassIndex}-${slugify(name)}`}`,
+                "Feature Choice",
+                {
+                  baseChoicePath: "feature_specific",
+                  classIndex,
+                  featureIndex,
+                  level,
+                  sourceIndex: featureIndex ?? `${subclassIndex}-${slugify(name)}`,
+                  sourceType: "FEATURE",
+                  subclassIndex,
+                },
+              );
+
               return {
                 name,
-                description: trimDescription(description),
+                description:
+                  normalizePreviewParagraphs([description])[0] ?? trimDescription(description),
                 level,
+                choiceFields:
+                  choiceFields.length > 0
+                    ? augmentFeatAbilityChoiceFields(choiceFields)
+                    : undefined,
               };
             })
             .filter(isPresent)
@@ -1324,6 +1621,29 @@ function getClassSubclasses(
       };
     })
     .filter(isPresent);
+}
+
+function createSubclassFeatureDocumentMap(featureDocuments: ReferenceRuleDocument[]) {
+  const featureMap = new Map<string, ReferenceRuleDocument>();
+
+  for (const featureDocument of featureDocuments) {
+    const sourceJson = asRecord(featureDocument.sourceJson) as FeatureSourceJson;
+    const subclassIndex = stringValue(sourceJson.subclass?.index);
+    const level = numberValue(sourceJson.level);
+    const name = stringValue(sourceJson.name) ?? featureDocument.name;
+
+    if (!subclassIndex || level === null || !name) {
+      continue;
+    }
+
+    featureMap.set(subclassFeatureDocumentKey(subclassIndex, level, name), featureDocument);
+  }
+
+  return featureMap;
+}
+
+function subclassFeatureDocumentKey(subclassIndex: string, level: number, name: string) {
+  return `${subclassIndex}:${level}:${slugify(name)}`;
 }
 
 function createChoiceFieldsFromChoice(
@@ -1398,6 +1718,10 @@ function collectChoiceGroups(
   }>,
   choicePath?: string,
   inheritedChoiceKind?: FeatureChoiceKind,
+  inheritedDependency?: {
+    fieldId: string;
+    values: string[];
+  },
 ) {
   if (Array.isArray(value)) {
     value.forEach((entry, index) =>
@@ -1408,6 +1732,7 @@ function collectChoiceGroups(
         groups,
         appendChoicePath(choicePath, `[${index}]`),
         inheritedChoiceKind,
+        inheritedDependency,
       ),
     );
     return;
@@ -1428,7 +1753,7 @@ function collectChoiceGroups(
   const nextInheritedChoiceKind =
     recordChoiceKind === "option" ? inheritedChoiceKind : recordChoiceKind;
   const choose = numberValue(value.choose);
-  const options = getChoiceOptions(value);
+  const options = getChoiceOptions(value, choicePath);
 
   if (choose && options.length > 0) {
     const optionKind = inferChoiceOptionKind(options.map((option) => option.rawLabel), fallbackLabel);
@@ -1445,10 +1770,13 @@ function collectChoiceGroups(
         ? nextInheritedChoiceKind ?? "option"
         : inferredChoiceKind;
     const visibleWhen = isRecord(value.visible_when) ? value.visible_when : null;
-    const dependsOnFieldId = stringValue(visibleWhen?.field) ?? undefined;
-    const dependsOnValues = Array.isArray(visibleWhen?.values)
+    const explicitDependsOnFieldId = stringValue(visibleWhen?.field) ?? undefined;
+    const explicitDependsOnValues = Array.isArray(visibleWhen?.values)
       ? visibleWhen.values.map((entry) => stringValue(entry)).filter(isPresent)
       : undefined;
+    const dependsOnFieldId = explicitDependsOnFieldId ?? inheritedDependency?.fieldId;
+    const dependsOnValues =
+      explicitDependsOnValues?.length ? explicitDependsOnValues : inheritedDependency?.values;
     const fieldLabel = stringValue(value.field_label) ?? undefined;
     const choiceId = stringValue(value.id) ?? baseId;
     const groupLabel =
@@ -1469,6 +1797,27 @@ function collectChoiceGroups(
       })),
       optionKind,
     });
+
+    if (choose === 1) {
+      for (const option of options) {
+        if (!option.nestedChoice || !option.nestedChoicePath) {
+          continue;
+        }
+
+        collectChoiceGroups(
+          option.nestedChoice,
+          `${choiceId}-${option.value}`,
+          option.label,
+          groups,
+          option.nestedChoicePath,
+          nextInheritedChoiceKind,
+          {
+            fieldId: choiceId,
+            values: [option.value],
+          },
+        );
+      }
+    }
   }
 
   Object.entries(value).forEach(([key, nestedValue]) => {
@@ -1483,18 +1832,26 @@ function collectChoiceGroups(
       groups,
       appendChoicePath(choicePath, key),
       nextInheritedChoiceKind,
+      inheritedDependency,
     );
   });
 }
 
-function getChoiceOptions(value: Record<string, unknown>) {
+function getChoiceOptions(value: Record<string, unknown>, choicePath?: string) {
   const from = isRecord(value.from) ? value.from : null;
   const rawOptions = Array.isArray(from?.options) ? from.options : [];
 
-  return rawOptions.map(choiceOptionData).filter(isPresent);
+  return rawOptions
+    .map((option, index) =>
+      choiceOptionData(option, appendChoicePath(choicePath, `from.options[${index}]`)),
+    )
+    .filter(isPresent);
 }
 
-function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: string }) | null {
+function choiceOptionData(
+  value: unknown,
+  optionPath?: string,
+): (ChoiceOptionData & { rawLabel: string }) | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -1509,11 +1866,13 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
   const referenceIndex = stringValue(item?.index) ?? stringValue(of?.index);
   const referenceName = referenceLabel(item) ?? referenceLabel(of);
   const referenceUrl = stringValue(item?.url) ?? stringValue(of?.url);
+  const description = stringValue(value.description) ?? stringValue(item?.description) ?? stringValue(of?.description);
 
   if (reference) {
     const rawLabel = count && count > 1 ? `${count} ${reference}` : reference;
 
     return {
+      description,
       label: cleanChoiceOptionLabel(rawLabel),
       rawLabel,
       selectedOptionIndex: referenceIndex,
@@ -1533,6 +1892,8 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
     return rawLabel
       ? {
           label: cleanChoiceOptionLabel(rawLabel),
+          nestedChoice: choice,
+          nestedChoicePath: appendChoicePath(optionPath, "choice"),
           rawLabel,
           selectedOptionName: rawLabel,
           selectedOptionType: "nested choice",
@@ -1543,7 +1904,7 @@ function choiceOptionData(value: unknown): (ChoiceOptionData & { rawLabel: strin
   }
 
   if (items) {
-    const options = items.map(choiceOptionData).filter(isPresent);
+    const options = items.map((entry) => choiceOptionData(entry)).filter(isPresent);
 
     if (options.length === 0) {
       return null;
@@ -1721,12 +2082,24 @@ function inferFeatureChoiceKind({
     return "expertise";
   }
 
+  if (text.includes("scholar")) {
+    return "scholar";
+  }
+
+  if (text.includes("elemental fury")) {
+    return "elemental-fury";
+  }
+
   if (text.includes("fighting style")) {
     return "fighting-style";
   }
 
   if (text.includes("metamagic")) {
     return "metamagic";
+  }
+
+  if (text.includes("mystic arcanum")) {
+    return "mystic-arcanum";
   }
 
   if (text.includes("pact boon")) {
@@ -1748,8 +2121,8 @@ function inferFeatureChoiceKind({
   if (
     text.includes("ability score improvement") ||
     text.includes("ability score increase") ||
-    text.includes("asi") ||
-    text.includes("feat")
+    /\basi\b/.test(text) ||
+    /\bfeat\b/.test(text)
   ) {
     return "asi-feat";
   }
@@ -1797,6 +2170,23 @@ function cleanChoiceOptionLabel(value: string) {
     .replace(/^Armor: /, "");
 }
 
+function isLikelyInstrumentName(value: string) {
+  const normalized = value.toLowerCase();
+
+  return [
+    "bagpipes",
+    "drum",
+    "dulcimer",
+    "flute",
+    "horn",
+    "lute",
+    "lyre",
+    "pan flute",
+    "shawm",
+    "viol",
+  ].includes(normalized);
+}
+
 function pluralize(value: string, count: number) {
   if (count === 1) {
     return value;
@@ -1839,6 +2229,7 @@ function createChoiceField(
     options: options.map((option) => ({
       value: typeof option === "string" ? slugify(option) : option.value,
       label: typeof option === "string" ? option : option.label,
+      description: typeof option === "string" ? undefined : option.description ?? undefined,
       selectedOptionIndex: typeof option === "string" ? undefined : option.selectedOptionIndex,
       selectedOptionName: typeof option === "string" ? option : option.selectedOptionName,
       selectedOptionType: typeof option === "string" ? "string" : option.selectedOptionType,
@@ -1909,6 +2300,65 @@ function groupClassProficiencies(proficiencies: string[]) {
       weapons: [] as string[],
     },
   );
+}
+
+function enrichFeatureChoiceOptionDescriptions(
+  features: ClassFeature[],
+  featDocumentMap: Map<string, ReferenceRuleDocument>,
+) {
+  return features.map((feature) => ({
+    ...feature,
+    choiceFields: feature.choiceFields?.map((field) => ({
+      ...field,
+      options: field.options.map((option) => ({
+        ...option,
+        description:
+          option.description ??
+          resolveFeatureChoiceOptionDescription(field.choiceKind, option, featDocumentMap),
+      })),
+    })),
+  }));
+}
+
+function resolveFeatureChoiceOptionDescription(
+  choiceKind: FeatureChoiceField["choiceKind"],
+  option: FeatureChoiceOption,
+  featDocumentMap: Map<string, ReferenceRuleDocument>,
+) {
+  const optionIndex = option.selectedOptionIndex?.trim().toLowerCase();
+
+  if (!optionIndex) {
+    return null;
+  }
+
+  if (choiceKind === "weapon-mastery") {
+    return WEAPON_MASTERY_OPTION_DESCRIPTIONS[optionIndex] ?? null;
+  }
+
+  const featLikeChoiceKinds = new Set<FeatureChoiceField["choiceKind"]>([
+    "asi-feat",
+    "epic-boon",
+    "fighting-style",
+  ]);
+
+  if (
+    featLikeChoiceKinds.has(choiceKind) ||
+    option.selectedOptionUrl?.toLowerCase().includes("/feats/")
+  ) {
+    const featSourceJson = asRecord(featDocumentMap.get(optionIndex)?.sourceJson) as FeatSourceJson;
+    const description = stringValue(featSourceJson.description);
+    const repeatable = stringValue(featSourceJson.repeatable);
+
+    if (!description && !repeatable) {
+      return null;
+    }
+
+    return [description, repeatable ? `Repeatable: ${repeatable}` : null]
+      .filter(isPresent)
+      .join(" ");
+  }
+
+  return null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

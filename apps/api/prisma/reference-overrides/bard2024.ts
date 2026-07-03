@@ -38,6 +38,119 @@ const BARD_INSTRUMENT_OPTIONS = [
   ["viol", "Viol"],
 ] as const;
 
+const BARD_CANTRIP_OPTIONS = [
+  ["blade-ward", "Blade Ward"],
+  ["dancing-lights", "Dancing Lights"],
+  ["friends", "Friends"],
+  ["light", "Light"],
+  ["mage-hand", "Mage Hand"],
+  ["mending", "Mending"],
+  ["message", "Message"],
+  ["minor-illusion", "Minor Illusion"],
+  ["prestidigitation", "Prestidigitation"],
+  ["starry-wisp", "Starry Wisp"],
+  ["thunderclap", "Thunderclap"],
+  ["true-strike", "True Strike"],
+  ["vicious-mockery", "Vicious Mockery"],
+] as const;
+
+const BARD_MAGICAL_DISCOVERIES_SPELL_OPTIONS = [
+  ["acid-splash", "Acid Splash"],
+  ["blade-ward", "Blade Ward"],
+  ["chill-touch", "Chill Touch"],
+  ["dancing-lights", "Dancing Lights"],
+  ["druidcraft", "Druidcraft"],
+  ["fire-bolt", "Fire Bolt"],
+  ["guidance", "Guidance"],
+  ["light", "Light"],
+  ["mage-hand", "Mage Hand"],
+  ["mending", "Mending"],
+  ["message", "Message"],
+  ["minor-illusion", "Minor Illusion"],
+  ["poison-spray", "Poison Spray"],
+  ["prestidigitation", "Prestidigitation"],
+  ["produce-flame", "Produce Flame"],
+  ["ray-of-frost", "Ray of Frost"],
+  ["resistance", "Resistance"],
+  ["sacred-flame", "Sacred Flame"],
+  ["shocking-grasp", "Shocking Grasp"],
+  ["spare-the-dying", "Spare the Dying"],
+  ["thaumaturgy", "Thaumaturgy"],
+  ["thorn-whip", "Thorn Whip"],
+  ["true-strike", "True Strike"],
+  ["animal-friendship", "Animal Friendship"],
+  ["bless", "Bless"],
+  ["burning-hands", "Burning Hands"],
+  ["charm-person", "Charm Person"],
+  ["command", "Command"],
+  ["comprehend-languages", "Comprehend Languages"],
+  ["cure-wounds", "Cure Wounds"],
+  ["detect-magic", "Detect Magic"],
+  ["disguise-self", "Disguise Self"],
+  ["entangle", "Entangle"],
+  ["faerie-fire", "Faerie Fire"],
+  ["feather-fall", "Feather Fall"],
+  ["find-familiar", "Find Familiar"],
+  ["fog-cloud", "Fog Cloud"],
+  ["goodberry", "Goodberry"],
+  ["guiding-bolt", "Guiding Bolt"],
+  ["healing-word", "Healing Word"],
+  ["inflict-wounds", "Inflict Wounds"],
+  ["jump", "Jump"],
+  ["longstrider", "Longstrider"],
+  ["mage-armor", "Mage Armor"],
+  ["magic-missile", "Magic Missile"],
+  ["shield", "Shield"],
+  ["sleep", "Sleep"],
+  ["speak-with-animals", "Speak with Animals"],
+  ["thunderwave", "Thunderwave"],
+  ["aid", "Aid"],
+  ["arcane-lock", "Arcane Lock"],
+  ["augury", "Augury"],
+  ["blur", "Blur"],
+  ["darkvision", "Darkvision"],
+  ["detect-thoughts", "Detect Thoughts"],
+  ["enhance-ability", "Enhance Ability"],
+  ["flaming-sphere", "Flaming Sphere"],
+  ["hold-person", "Hold Person"],
+  ["invisibility", "Invisibility"],
+  ["knock", "Knock"],
+  ["lesser-restoration", "Lesser Restoration"],
+  ["levitate", "Levitate"],
+  ["mirror-image", "Mirror Image"],
+  ["misty-step", "Misty Step"],
+  ["moonbeam", "Moonbeam"],
+  ["pass-without-trace", "Pass without Trace"],
+  ["prayer-of-healing", "Prayer of Healing"],
+  ["scorching-ray", "Scorching Ray"],
+  ["see-invisibility", "See Invisibility"],
+  ["shatter", "Shatter"],
+  ["spike-growth", "Spike Growth"],
+  ["spiritual-weapon", "Spiritual Weapon"],
+  ["web", "Web"],
+  ["call-lightning", "Call Lightning"],
+  ["counterspell", "Counterspell"],
+  ["daylight", "Daylight"],
+  ["dispel-magic", "Dispel Magic"],
+  ["fear", "Fear"],
+  ["fireball", "Fireball"],
+  ["fly", "Fly"],
+  ["gaseous-form", "Gaseous Form"],
+  ["haste", "Haste"],
+  ["hypnotic-pattern", "Hypnotic Pattern"],
+  ["lightning-bolt", "Lightning Bolt"],
+  ["major-image", "Major Image"],
+  ["mass-healing-word", "Mass Healing Word"],
+  ["plant-growth", "Plant Growth"],
+  ["revivify", "Revivify"],
+  ["sending", "Sending"],
+  ["sleet-storm", "Sleet Storm"],
+  ["slow", "Slow"],
+  ["speak-with-dead", "Speak with Dead"],
+  ["spirit-guardians", "Spirit Guardians"],
+  ["water-breathing", "Water Breathing"],
+] as const;
+
 const BARD_ABILITY_SCORE_OPTIONS = COMMON_ABILITY_SCORE_OPTIONS;
 
 const BARD_FEAT_OPTIONS = CORE_FEAT_OPTIONS;
@@ -56,6 +169,42 @@ function toReferenceOptions(
       url: `/api/2024/${category}/${index}`,
     },
   }));
+}
+
+function toSpellOptions(entries: readonly (readonly [string, string])[]) {
+  return entries.map(([index, name]) => ({
+    option_type: "reference",
+    item: {
+      index,
+      name,
+      url: `/api/2024/spells/${index}`,
+    },
+  }));
+}
+
+function createBardSpellChoiceFeature(
+  index: string,
+  level: number,
+  name: string,
+  description: string,
+  choose: number,
+  spellOptions: readonly (readonly [string, string])[],
+  type: "bard cantrip",
+) {
+  return {
+    index,
+    level,
+    name,
+    desc: [description],
+    feature_specific: {
+      choose,
+      type,
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(spellOptions),
+      },
+    },
+  };
 }
 
 function createAbilityScoreImprovementSpecific() {
@@ -297,18 +446,53 @@ const BARD_CLASS_REFERENCE = {
 };
 
 const BARD_LEVEL_REFERENCES = [
-  { index: "bard-1", level: 1, features: ["bard-spellcasting", "bardic-inspiration"] },
+  { index: "bard-1", level: 1, features: ["bard-cantrips-1", "bard-spellcasting", "bardic-inspiration"] },
   { index: "bard-2", level: 2, features: ["bard-expertise-1", "jack-of-all-trades"] },
-  { index: "bard-3", level: 3, features: ["bard-subclass-feature-3", "bard-subclass"] },
-  { index: "bard-4", level: 4, features: ["bard-ability-score-improvement-1"] },
+  {
+    index: "bard-3",
+    level: 3,
+    features: [
+      "bard-subclass-feature-3",
+      "bard-subclass",
+      "dazzling-footwork",
+      "mantle-of-inspiration",
+      "beguiling-magic",
+      "college-of-lore-bonus-proficiencies",
+      "cutting-words",
+      "combat-inspiration",
+      "martial-training",
+    ],
+  },
+  { index: "bard-4", level: 4, features: ["bard-cantrips-2", "bard-ability-score-improvement-1"] },
   { index: "bard-5", level: 5, features: ["font-of-inspiration"] },
-  { index: "bard-6", level: 6, features: ["bard-subclass-feature-6"] },
+  {
+    index: "bard-6",
+    level: 6,
+    features: [
+      "bard-subclass-feature-6",
+      "inspiring-movement",
+      "tandem-footwork",
+      "mantle-of-majesty",
+      "magical-discoveries",
+      "valor-extra-attack",
+    ],
+  },
   { index: "bard-7", level: 7, features: ["countercharm"] },
   { index: "bard-8", level: 8, features: ["bard-ability-score-improvement-2"] },
   { index: "bard-9", level: 9, features: ["bard-expertise-2"] },
-  { index: "bard-10", level: 10, features: ["magical-secrets"] },
+  { index: "bard-10", level: 10, features: ["bard-cantrips-3", "magical-secrets"] },
   { index: "bard-12", level: 12, features: ["bard-ability-score-improvement-3"] },
-  { index: "bard-14", level: 14, features: ["bard-subclass-feature-14"] },
+  {
+    index: "bard-14",
+    level: 14,
+    features: [
+      "bard-subclass-feature-14",
+      "leading-evasion",
+      "unbreakable-majesty",
+      "peerless-skill",
+      "battle-magic",
+    ],
+  },
   { index: "bard-16", level: 16, features: ["bard-ability-score-improvement-4"] },
   { index: "bard-18", level: 18, features: ["superior-inspiration"] },
   { index: "bard-19", level: 19, features: ["bard-epic-boon"] },
@@ -316,6 +500,15 @@ const BARD_LEVEL_REFERENCES = [
 ];
 
 const BARD_FEATURE_REFERENCES = [
+  createBardSpellChoiceFeature(
+    "bard-cantrips-1",
+    1,
+    "Cantrips",
+    "Choose two cantrips from the Bard spell list.",
+    2,
+    BARD_CANTRIP_OPTIONS,
+    "bard cantrip",
+  ),
   {
     index: "bard-spellcasting",
     level: 1,
@@ -341,7 +534,7 @@ const BARD_FEATURE_REFERENCES = [
     ],
     feature_specific: {
       choose: 2,
-      type: "proficiencies",
+      type: "expertise",
       from: {
         option_set_type: "options_array",
         options: toReferenceOptions(BARD_SKILL_OPTIONS, "proficiencies"),
@@ -393,6 +586,71 @@ const BARD_FEATURE_REFERENCES = [
     },
   },
   {
+    index: "dazzling-footwork",
+    level: 3,
+    name: "Dazzling Footwork",
+    desc: [
+      "You have Advantage on any Charisma (Performance) check you make that involves you dancing. Your base Armor Class equals 10 plus your Dexterity and Charisma modifiers.",
+      "When you expend a use of your Bardic Inspiration as part of an action, a Bonus Action, or a Reaction, you can make one Unarmed Strike as part of that action, Bonus Action, or Reaction.",
+      "You can use Dexterity instead of Strength for the attack rolls of your Unarmed Strikes. When you deal damage with an Unarmed Strike, you can deal Bludgeoning damage equal to a roll of your Bardic Inspiration die plus your Dexterity modifier, instead of the strike's normal damage. This roll doesn't expend the die.",
+    ],
+    subclass: {
+      index: "college-of-dance",
+      name: "College of Dance",
+      url: "/api/2024/subclasses/college-of-dance",
+    },
+  },
+  {
+    index: "inspiring-movement",
+    level: 6,
+    name: "Inspiring Movement",
+    desc: [
+      "When an enemy you can see ends its turn within 5 feet of you, you can take a Reaction and expend one use of your Bardic Inspiration to move up to half your Speed. Then one ally of your choice within 30 feet of you can also move up to half their Speed using their Reaction. None of this feature's movement provokes Opportunity Attacks.",
+    ],
+    subclass: {
+      index: "college-of-dance",
+      name: "College of Dance",
+      url: "/api/2024/subclasses/college-of-dance",
+    },
+  },
+  {
+    index: "mantle-of-inspiration",
+    level: 3,
+    name: "Mantle of Inspiration",
+    desc: [
+      "You can weave fey magic into a song or dance to fill others with vigor. As a Bonus Action, you can expend a use of Bardic Inspiration, rolling a Bardic Inspiration die. When you do so, choose a number of other creatures within 60 feet of yourself, up to a number equal to your Charisma modifier (minimum of one creature). Each of those creatures gains a number of Temporary Hit Points equal to two times the number rolled on the Bardic Inspiration die, and then each can use its Reaction to move up to its Speed without provoking Opportunity Attacks.",
+    ],
+    subclass: {
+      index: "college-of-glamour",
+      name: "College of Glamour",
+      url: "/api/2024/subclasses/college-of-glamour",
+    },
+  },
+  {
+    index: "beguiling-magic",
+    level: 3,
+    name: "Beguiling Magic",
+    desc: [
+      "You always have the Charm Person and Mirror Image spells prepared.",
+      "In addition, immediately after you cast an Enchantment or Illusion spell using a spell slot, you can cause a creature you can see within 60 feet of yourself to make a Wisdom saving throw against your spell save DC. On a failed save, the target has the Charmed or Frightened condition (your choice) until the end of your next turn.",
+      "Once you use this benefit, you can't use it again until you finish a Long Rest unless you expend a use of Bardic Inspiration to use it again.",
+    ],
+    subclass: {
+      index: "college-of-glamour",
+      name: "College of Glamour",
+      url: "/api/2024/subclasses/college-of-glamour",
+    },
+  },
+  createBardSpellChoiceFeature(
+    "bard-cantrips-2",
+    4,
+    "Cantrip",
+    "Choose one additional Bard cantrip.",
+    1,
+    BARD_CANTRIP_OPTIONS,
+    "bard cantrip",
+  ),
+  {
     index: "bard-ability-score-improvement-1",
     level: 4,
     name: "Ability Score Improvement",
@@ -417,9 +675,75 @@ const BARD_FEATURE_REFERENCES = [
       "Your Bard college grants a stronger signature feature at this level.",
       "College of Dance sharpens your movement-driven performance.",
       "College of Glamour heightens your beguiling stage magic and command over attention.",
-      "College of Lore grants Magical Discoveries and expands your stolen magical repertoire.",
+      "College of Lore grants Magical Discoveries and expands your prepared spells with magic from Cleric, Druid, or Wizard traditions.",
       "College of Valor deepens your battlefield support and martial presence.",
     ],
+  },
+  {
+    index: "tandem-footwork",
+    level: 6,
+    name: "Tandem Footwork",
+    desc: [
+      "When you roll Initiative, you can expend one use of your Bardic Inspiration if you don't have the Incapacitated condition. When you do so, roll your Bardic Inspiration die; you and each ally within 30 feet of you who can see or hear you gains a bonus to Initiative equal to the number rolled.",
+    ],
+    subclass: {
+      index: "college-of-dance",
+      name: "College of Dance",
+      url: "/api/2024/subclasses/college-of-dance",
+    },
+  },
+  {
+    index: "mantle-of-majesty",
+    level: 6,
+    name: "Mantle of Majesty",
+    desc: [
+      "You always have the Command spell prepared.",
+      "As a Bonus Action, you cast Command without expending a spell slot, and you take on an unearthly appearance for 1 minute or until your Concentration ends. During this time, you can cast Command as a Bonus Action without expending a spell slot.",
+      "Any creature Charmed by you automatically fails its saving throw against the Command you cast with this feature.",
+      "Once you use this feature, you can't use it again until you finish a Long Rest.",
+    ],
+    subclass: {
+      index: "college-of-glamour",
+      name: "College of Glamour",
+      url: "/api/2024/subclasses/college-of-glamour",
+    },
+  },
+  {
+    index: "magical-discoveries",
+    level: 6,
+    name: "Magical Discoveries",
+    desc: [
+      "You learn two spells of your choice. These spells can come from the Cleric, Druid, or Wizard spell list or any combination thereof. A spell you choose must be a cantrip or a spell for which you have spell slots, as shown in the Bard Features table.",
+      "You always have the chosen spells prepared, and whenever you gain a Bard level, you can replace one of the spells with another spell that meets these requirements.",
+    ],
+    subclass: {
+      index: "college-of-lore",
+      name: "College of Lore",
+      url: "/api/2024/subclasses/college-of-lore",
+    },
+    feature_specific: {
+      choose: 2,
+      type: "spell",
+      label: "Choose 2 spells",
+      field_label: "Spell",
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(BARD_MAGICAL_DISCOVERIES_SPELL_OPTIONS),
+      },
+    },
+  },
+  {
+    index: "valor-extra-attack",
+    level: 6,
+    name: "Extra Attack",
+    desc: [
+      "You can attack twice when you take the Attack action, strengthening the college's role as a battle-ready bard.",
+    ],
+    subclass: {
+      index: "college-of-valor",
+      name: "College of Valor",
+      url: "/api/2024/subclasses/college-of-valor",
+    },
   },
   {
     index: "countercharm",
@@ -447,7 +771,7 @@ const BARD_FEATURE_REFERENCES = [
     ],
     feature_specific: {
       choose: 2,
-      type: "proficiencies",
+      type: "expertise",
       from: {
         option_set_type: "options_array",
         options: toReferenceOptions(BARD_SKILL_OPTIONS, "proficiencies"),
@@ -463,6 +787,15 @@ const BARD_FEATURE_REFERENCES = [
       "This project does not yet have a full spell-selection engine, so this feature is currently tracked as reference data only.",
     ],
   },
+  createBardSpellChoiceFeature(
+    "bard-cantrips-3",
+    10,
+    "Cantrip",
+    "Choose one additional Bard cantrip.",
+    1,
+    BARD_CANTRIP_OPTIONS,
+    "bard cantrip",
+  ),
   {
     index: "bard-ability-score-improvement-3",
     level: 12,
@@ -485,6 +818,59 @@ const BARD_FEATURE_REFERENCES = [
     ],
   },
   {
+    index: "leading-evasion",
+    level: 14,
+    name: "Leading Evasion",
+    desc: [
+      "When you are subjected to an effect that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw and only half damage if you fail. If any creatures within 5 feet of you are making the same Dexterity saving throw, you can share this benefit with them for that save. You can't use this feature if you have the Incapacitated condition.",
+    ],
+    subclass: {
+      index: "college-of-dance",
+      name: "College of Dance",
+      url: "/api/2024/subclasses/college-of-dance",
+    },
+  },
+  {
+    index: "unbreakable-majesty",
+    level: 14,
+    name: "Unbreakable Majesty",
+    desc: [
+      "As a Bonus Action, you can assume a magically majestic presence for 1 minute or until you have the Incapacitated condition. For the duration, whenever any creature hits you with an attack roll for the first time on a turn, the attacker must succeed on a Charisma saving throw against your spell save DC, or the attack misses instead, as the creature recoils from your majesty.",
+      "Once you assume this majestic presence, you can't do so again until you finish a Short or Long Rest.",
+    ],
+    subclass: {
+      index: "college-of-glamour",
+      name: "College of Glamour",
+      url: "/api/2024/subclasses/college-of-glamour",
+    },
+  },
+  {
+    index: "peerless-skill",
+    level: 14,
+    name: "Peerless Skill",
+    desc: [
+      "You can spend Bardic Inspiration on your own failed efforts, turning personal talent and broad mastery into clutch success.",
+    ],
+    subclass: {
+      index: "college-of-lore",
+      name: "College of Lore",
+      url: "/api/2024/subclasses/college-of-lore",
+    },
+  },
+  {
+    index: "battle-magic",
+    level: 14,
+    name: "Battle Magic",
+    desc: [
+      "After you cast a spell that has a casting time of an action, you can make one attack with a weapon as a Bonus Action.",
+    ],
+    subclass: {
+      index: "college-of-valor",
+      name: "College of Valor",
+      url: "/api/2024/subclasses/college-of-valor",
+    },
+  },
+  {
     index: "bard-ability-score-improvement-4",
     level: 16,
     name: "Ability Score Improvement",
@@ -498,7 +884,7 @@ const BARD_FEATURE_REFERENCES = [
     level: 18,
     name: "Superior Inspiration",
     desc: [
-      "When initiative is rolled and you have no uses of Bardic Inspiration left, you regain one use.",
+      "When you roll Initiative, you regain expended uses of Bardic Inspiration until you have two if you have fewer than that.",
     ],
   },
   {
@@ -525,6 +911,69 @@ const BARD_FEATURE_REFERENCES = [
       "You master the deepest creative magic of the Bard and can weave reality-shaping performance at the height of your power.",
     ],
   },
+  {
+    index: "college-of-lore-bonus-proficiencies",
+    level: 3,
+    name: "Bonus Proficiencies",
+    desc: [
+      "You gain proficiency with three skills of your choice.",
+    ],
+    subclass: {
+      index: "college-of-lore",
+      name: "College of Lore",
+      url: "/api/2024/subclasses/college-of-lore",
+    },
+    feature_specific: {
+      choose: 3,
+      type: "proficiencies",
+      from: {
+        option_set_type: "options_array",
+        options: toReferenceOptions(BARD_SKILL_OPTIONS, "proficiencies"),
+      },
+    },
+  },
+  {
+    index: "cutting-words",
+    level: 3,
+    name: "Cutting Words",
+    desc: [
+      "You learn to use your wit to supernaturally distract, confuse, and otherwise sap the confidence and competence of others. When a creature that you can see within 60 feet of yourself makes a damage roll or succeeds on an ability check or attack roll, you can take a Reaction to expend one use of your Bardic Inspiration; roll your Bardic Inspiration die, and subtract the number rolled from the creature's roll, reducing the damage or potentially turning the success into a failure.",
+    ],
+    subclass: {
+      index: "college-of-lore",
+      name: "College of Lore",
+      url: "/api/2024/subclasses/college-of-lore",
+    },
+  },
+  {
+    index: "combat-inspiration",
+    level: 3,
+    name: "Combat Inspiration",
+    desc: [
+      "You can use your wit to turn the tide of battle. A creature that has a Bardic Inspiration die from you can use it for one of the following effects.",
+      "Defense. When the creature is hit by an attack roll, that creature can use its Reaction to roll the Bardic Inspiration die and add the number rolled to its AC against that attack, potentially causing the attack to miss.",
+      "Offense. Immediately after the creature hits a target with an attack roll, the creature can roll the Bardic Inspiration die and add the number rolled to the attack's damage against the target.",
+    ],
+    subclass: {
+      index: "college-of-valor",
+      name: "College of Valor",
+      url: "/api/2024/subclasses/college-of-valor",
+    },
+  },
+  {
+    index: "martial-training",
+    level: 3,
+    name: "Martial Training",
+    desc: [
+      "You gain proficiency with Martial weapons and training with Medium armor and Shields.",
+      "In addition, you can use a Simple or Martial weapon as a Spellcasting Focus to cast spells from your Bard spell list.",
+    ],
+    subclass: {
+      index: "college-of-valor",
+      name: "College of Valor",
+      url: "/api/2024/subclasses/college-of-valor",
+    },
+  },
 ];
 
 const BARD_SUBCLASS_REFERENCES = [
@@ -540,25 +989,25 @@ const BARD_SUBCLASS_REFERENCES = [
         name: "Dazzling Footwork",
         level: 3,
         description:
-          "Your dance infuses your movement with distracting flair, letting graceful footwork pressure enemies while keeping you mobile.",
+          "Your dance improves Performance, Armor Class, and Unarmed Strikes through Dexterity and Bardic Inspiration.",
       },
       {
         name: "Inspiring Movement",
-        level: 3,
-        description:
-          "Your rhythm helps nearby allies reposition with confidence, turning your performance into shared battlefield momentum.",
-      },
-      {
-        name: "Leading Evasion",
         level: 6,
         description:
-          "You guide allies through danger with practiced motion, helping the group slip through blasts, traps, and chaotic battle spaces.",
+          "When an enemy ends its turn near you, you can take a Reaction and expend Bardic Inspiration to move yourself and an ally without provoking Opportunity Attacks.",
       },
       {
         name: "Tandem Footwork",
+        level: 6,
+        description:
+          "When you roll Initiative, you can expend Bardic Inspiration to boost Initiative for yourself and nearby allies.",
+      },
+      {
+        name: "Leading Evasion",
         level: 14,
         description:
-          "Your mastery of movement peaks in coordinated dances that elevate both your own agility and the party's ability to move as one.",
+          "You gain Evasion-like protection against Dexterity saves and can share it with nearby creatures making the same save.",
       },
     ],
     class: {
@@ -572,33 +1021,33 @@ const BARD_SUBCLASS_REFERENCES = [
     index: "college-of-glamour",
     name: "College of Glamour",
     subclass_flavor: "Glamour",
-    summary: "Wrap Performance in Fey Splendor",
+    summary: "Weave Beguiling Fey Magic",
     description:
-      "Bards of the College of Glamour wield fey beauty, captivating stagecraft, and commanding presence.",
+      "The College of Glamour traces its origins to the beguiling magic of the Feywild. Bards who study this magic weave threads of beauty and terror into their songs and stories, and the mightiest among them can cloak themselves in otherworldly majesty. Their performances stir up wistful longing for forgotten innocence, evoke unconscious memories of long-held fears, and tug at the emotions of even the most hard-hearted listeners.",
     features: [
       {
         name: "Mantle of Inspiration",
         level: 3,
         description:
-          "A flourish of fey glamour refreshes and repositions your allies, turning applause and admiration into immediate tactical support.",
+          "You can weave fey magic into a song or dance to fill others with vigor. As a Bonus Action, you can expend a use of Bardic Inspiration, rolling a Bardic Inspiration die. When you do so, choose a number of other creatures within 60 feet of yourself, up to a number equal to your Charisma modifier (minimum of one creature). Each of those creatures gains a number of Temporary Hit Points equal to two times the number rolled on the Bardic Inspiration die, and then each can use its Reaction to move up to its Speed without provoking Opportunity Attacks.",
       },
       {
-        name: "Enthralling Performance",
+        name: "Beguiling Magic",
         level: 3,
         description:
-          "Your art can leave an audience spellbound, creating a social opening through admiration, fascination, and supernatural charm.",
+          "You always have the Charm Person and Mirror Image spells prepared. Immediately after you cast an Enchantment or Illusion spell using a spell slot, you can cause a creature you can see within 60 feet of yourself to make a Wisdom saving throw against your spell save DC. On a failed save, the target has the Charmed or Frightened condition (your choice) until the end of your next turn. Once you use this benefit, you can't use it again until you finish a Long Rest unless you expend a use of Bardic Inspiration to use it again.",
       },
       {
         name: "Mantle of Majesty",
         level: 6,
         description:
-          "Your presence becomes regal and irresistible, letting you project authority through performance and fey command.",
+          "You always have the Command spell prepared. As a Bonus Action, you cast Command without expending a spell slot, and you take on an unearthly appearance for 1 minute or until your Concentration ends. During this time, you can cast Command as a Bonus Action without expending a spell slot. Any creature Charmed by you automatically fails its saving throw against the Command you cast with this feature. Once you use this feature, you can't use it again until you finish a Long Rest.",
       },
       {
         name: "Unbreakable Majesty",
         level: 14,
         description:
-          "Your glamour reaches a nearly untouchable pinnacle, making it difficult for enemies to challenge your poise and presence directly.",
+          "As a Bonus Action, you can assume a magically majestic presence for 1 minute or until you have the Incapacitated condition. For the duration, whenever any creature hits you with an attack roll for the first time on a turn, the attacker must succeed on a Charisma saving throw against your spell save DC, or the attack misses instead, as the creature recoils from your majesty. Once you assume this majestic presence, you can't do so again until you finish a Short or Long Rest.",
       },
     ],
     class: {
@@ -614,25 +1063,25 @@ const BARD_SUBCLASS_REFERENCES = [
     subclass_flavor: "Lore",
     summary: "Plumb the Depths of Magical Knowledge",
     description:
-      "Bards of the College of Lore gather stories, secrets, and magic from every tradition, pairing scholarship with razor-sharp wit.",
+      "Bards of the College of Lore collect spells and secrets from diverse sources, such as scholarly tomes, mystical rites, and peasant tales. The college's members gather in libraries and universities to share their lore with one another. They also meet at festivals or affairs of state, where they can expose corruption, unravel lies, and poke fun at self-important figures of authority.",
     features: [
       {
         name: "Bonus Proficiencies",
         level: 3,
         description:
-          "You broaden your expertise with three additional skill proficiencies, reinforcing the College of Lore's identity as the most learned bardic tradition.",
+          "You gain proficiency with three skills of your choice.",
       },
       {
         name: "Cutting Words",
         level: 3,
         description:
-          "Your wit can throw off a creature's confidence at a key moment, undermining attacks, checks, or damage with a sharp remark.",
+          "You learn to use your wit to supernaturally distract, confuse, and otherwise sap the confidence and competence of others. When a creature that you can see within 60 feet of yourself makes a damage roll or succeeds on an ability check or attack roll, you can take a Reaction to expend one use of your Bardic Inspiration; roll your Bardic Inspiration die, and subtract the number rolled from the creature's roll, reducing the damage or potentially turning the success into a failure.",
       },
       {
         name: "Magical Discoveries",
         level: 6,
         description:
-          "You uncover spells from other traditions and permanently fold them into your repertoire as part of your expanding command of magical knowledge.",
+          "You learn two spells of your choice. These spells can come from the Cleric, Druid, or Wizard spell list or any combination thereof. A spell you choose must be a cantrip or a spell for which you have spell slots, as shown in the Bard Features table. You always have the chosen spells prepared, and whenever you gain a Bard level, you can replace one of the spells with another spell that meets these requirements.",
       },
       {
         name: "Peerless Skill",
@@ -660,13 +1109,13 @@ const BARD_SUBCLASS_REFERENCES = [
         name: "Combat Inspiration",
         level: 3,
         description:
-          "Your inspiration becomes more martial, helping allies press an attack or answer danger with better-protected reactions.",
+          "You can use your wit to turn the tide of battle. A creature that has a Bardic Inspiration die from you can use it for one of the following effects.\n\nDefense. When the creature is hit by an attack roll, that creature can use its Reaction to roll the Bardic Inspiration die and add the number rolled to its AC against that attack, potentially causing the attack to miss.\n\nOffense. Immediately after the creature hits a target with an attack roll, the creature can roll the Bardic Inspiration die and add the number rolled to the attack's damage against the target.",
       },
       {
         name: "Martial Training",
         level: 3,
         description:
-          "You train for front-line heroics, pairing bardic magic with the discipline needed to thrive in weapon-driven combat.",
+          "You gain proficiency with Martial weapons and training with Medium armor and Shields.\n\nIn addition, you can use a Simple or Martial weapon as a Spellcasting Focus to cast spells from your Bard spell list.",
       },
       {
         name: "Extra Attack",
@@ -678,7 +1127,7 @@ const BARD_SUBCLASS_REFERENCES = [
         name: "Battle Magic",
         level: 14,
         description:
-          "Your spellcasting and weapon play flow together in epic fashion, letting you blend bardic magic into decisive combat turns.",
+          "After you cast a spell that has a casting time of an action, you can make one attack with a weapon as a Bonus Action.",
       },
     ],
     class: {
@@ -742,6 +1191,7 @@ function createBardFeatureRuleDocuments() {
       name: featureReference.name,
       desc: featureReference.desc,
       feature_specific: featureReference.feature_specific,
+      subclass: "subclass" in featureReference ? featureReference.subclass : undefined,
       url: `/api/2024/features/${featureReference.index}`,
     },
   }));
@@ -752,7 +1202,10 @@ function createBardSubclassRuleDocuments() {
     category: "subclasses",
     index: subclassReference.index,
     name: subclassReference.name,
-    sourceJson: subclassReference,
+    sourceJson: {
+      ...subclassReference,
+      features: subclassReference.features.map(({ description: _description, ...feature }) => feature),
+    },
   }));
 }
 

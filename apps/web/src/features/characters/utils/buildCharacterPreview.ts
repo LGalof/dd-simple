@@ -39,7 +39,6 @@ type BuildCharacterPreviewOptions = {
   featureChoices?: FeatureChoiceSelections;
   previewFeatureSelections?: CharacterFeatureChoiceSelection[];
   previewSubclassIndex?: string | null;
-  persistedSkillIndexes?: string[];
   selectedSkillIndexes?: string[];
   species: SpeciesOption;
   state: CharacterBuilderState;
@@ -91,7 +90,6 @@ function buildCharacterPreview({
   featureChoices = {},
   previewFeatureSelections = [],
   previewSubclassIndex,
-  persistedSkillIndexes,
   selectedSkillIndexes = [],
   species,
   state,
@@ -121,11 +119,24 @@ function buildCharacterPreview({
     featureChoices,
     state.level,
   );
+  const featureAbilityBonuses = getClassFeatureAbilityBonuses(
+    classOption.index,
+    state.level,
+  );
+  const effectiveAbilityScores = featureAbilityBonuses.size
+    ? nextAbilityScores.map((abilityScore) => ({
+        ...abilityScore,
+        score: Math.min(
+          getClassFeatureAbilityMaximum(classOption.index, state.level, abilityScore.abilityIndex),
+          abilityScore.score + (featureAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
+        ),
+      }))
+    : nextAbilityScores;
 
   const dexterityScore =
-    nextAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "dex")?.score ?? 10;
+    effectiveAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "dex")?.score ?? 10;
   const constitutionScore =
-    nextAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "con")?.score ?? 10;
+    effectiveAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "con")?.score ?? 10;
   const featureBonusHp = getFeatureChoiceHitPointBonus(
     classOption,
     featureChoices,
@@ -143,12 +154,6 @@ function buildCharacterPreview({
   const selectedSkillIndexSet = new Set(selectedSkillIndexes);
   const backgroundSkillIndexSet = new Set(
     background.skillProficiencies.map(canonicalSkillIndex).filter(Boolean),
-  );
-  const persistedSkillIndexSet = new Set(
-    persistedSkillIndexes ??
-      character.skills
-        .filter((characterSkill) => characterSkill.isProficient)
-        .map((characterSkill) => characterSkill.skillIndex),
   );
 
   return {
@@ -174,11 +179,10 @@ function buildCharacterPreview({
         ...getSelectedBackgroundToolProficiencies(state.backgroundChoices, background),
       ],
     } as Character["background"],
-    abilityScores: nextAbilityScores,
+    abilityScores: effectiveAbilityScores,
     skills: character.skills.map((characterSkill) => ({
       ...characterSkill,
       isProficient:
-        persistedSkillIndexSet.has(characterSkill.skillIndex) ||
         backgroundSkillIndexSet.has(canonicalSkillIndex(characterSkill.skillIndex)) ||
         selectedSkillIndexSet.has(characterSkill.skillIndex),
     })),
@@ -192,6 +196,33 @@ function buildCharacterPreview({
     ),
     proficiencies: character.proficiencies,
   };
+}
+
+function getClassFeatureAbilityBonuses(classIndex: string, level: number) {
+  const bonuses = new Map<string, number>();
+
+  if (classIndex === "barbarian" && level >= 20) {
+    bonuses.set("str", 4);
+    bonuses.set("con", 4);
+  }
+
+  return bonuses;
+}
+
+function getClassFeatureAbilityMaximum(
+  classIndex: string,
+  level: number,
+  abilityIndex: string,
+) {
+  if (
+    classIndex === "barbarian" &&
+    level >= 20 &&
+    (abilityIndex === "str" || abilityIndex === "con")
+  ) {
+    return 25;
+  }
+
+  return 20;
 }
 
 function filterActiveFeatureChoices(

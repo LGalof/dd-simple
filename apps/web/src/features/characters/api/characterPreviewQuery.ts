@@ -1,8 +1,15 @@
+import type {
+  CharacterFeatureChoiceSelection,
+  CharacterResourceState,
+} from "../../../types/character";
+
 type CharacterPreviewQuery = {
   backgroundIndex?: string;
   classIndex?: string;
   featIndexes?: string[];
+  featureChoices?: CharacterFeatureChoiceSelection[];
   level?: number;
+  resourceState?: CharacterResourceState;
   speciesIndex?: string;
   subclassIndex?: string;
   subspeciesIndex?: string;

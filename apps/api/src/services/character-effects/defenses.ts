@@ -16,13 +16,23 @@ function inferDefenseEffects(source: ResolvedFeatureSource) {
   const seen = new Set<string>();
 
   addDamageDefenseEntries(entries, seen, source, "resistance", /resistance to ([^.]+?) damage/gi);
+  addDamageDefenseEntries(entries, seen, source, "resistance", /resistant to ([^.]+?) damage/gi);
   addDamageDefenseEntries(entries, seen, source, "immunity", /immunity to ([^.]+?) damage/gi);
+  addDamageDefenseEntries(entries, seen, source, "immunity", /immune to ([^.]+?) damage/gi);
   addDamageDefenseEntries(entries, seen, source, "vulnerability", /vulnerability to ([^.]+?) damage/gi);
+  addHeavyArmorMasterReduction(entries, seen, source);
+  addWildHeartBearResistance(entries, seen, source);
   addConditionDefenseEntries(
     entries,
     seen,
     source,
     /immunity to (?:the )?([^.]+?) condition/gi,
+  );
+  addConditionDefenseEntries(
+    entries,
+    seen,
+    source,
+    /immune to (?:the )?([^.]+?) condition/gi,
   );
   addConditionDefenseEntries(
     entries,
@@ -38,6 +48,59 @@ function inferDefenseEffects(source: ResolvedFeatureSource) {
   );
 
   return entries;
+}
+
+function addWildHeartBearResistance(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  const normalizedDescription = source.description.toLowerCase();
+
+  if (
+    source.sourceIndex.toLowerCase() !== "rage-of-the-wilds" ||
+    !normalizedDescription.includes("resistance to every damage type except")
+  ) {
+    return;
+  }
+
+  pushDefenseEntry(entries, seen, {
+    description: source.description,
+    kind: "resistance",
+    level: source.level,
+    sourceIndex: source.sourceIndex,
+    sourceType: source.sourceType,
+    target: "All except Force, Necrotic, Psychic, Radiant while raging",
+    title: "Rage of the Wilds: Bear",
+  });
+}
+
+function addHeavyArmorMasterReduction(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  const normalizedDescription = source.description.toLowerCase();
+
+  if (
+    !normalizedDescription.includes("heavy armor") ||
+    !normalizedDescription.includes("bludgeoning") ||
+    !normalizedDescription.includes("piercing") ||
+    !normalizedDescription.includes("slashing") ||
+    !normalizedDescription.includes("proficiency bonus")
+  ) {
+    return;
+  }
+
+  pushDefenseEntry(entries, seen, {
+    description: source.description,
+    kind: "damage_reduction",
+    level: source.level,
+    sourceIndex: source.sourceIndex,
+    sourceType: source.sourceType,
+    target: "Bludgeoning, Piercing, Slashing by PB while wearing Heavy Armor",
+    title: source.title,
+  });
 }
 
 function deriveDefenseEntries(activeSources: ResolvedFeatureSource[]) {

@@ -50,6 +50,8 @@ type CharacterMutationRequestBody = {
   level?: unknown;
   currentHp?: unknown;
   hitPointState?: unknown;
+  spellcastingState?: unknown;
+  resourceState?: unknown;
   skillIndexes?: unknown;
   choices?: unknown;
   featureChoices?: unknown;
@@ -144,6 +146,18 @@ type ValidDiceRollRequestBody = {
   visibility: DiceRollVisibility;
 };
 
+type SpellcastingStateRequestBody = {
+  learnedSpellIds?: unknown;
+  preparedSpellIds?: unknown;
+  slotUsageByLevel?: unknown;
+};
+
+type ResourceStateRequestBody = {
+  activeByResourceKey?: unknown;
+  customMaxByResourceKey?: unknown;
+  usageByResourceKey?: unknown;
+};
+
 type ValidHitPointStateRequestBody = {
   calculationMode: "fixed" | "rolled" | "override";
   bonusHp: number;
@@ -188,21 +202,39 @@ type ValidCharacterMutationRequestBody = {
   level?: number;
   currentHp?: number;
   hitPointState?: ValidHitPointStateRequestBody;
+  spellcastingState?: ValidSpellcastingStateRequestBody;
+  resourceState?: ValidResourceStateRequestBody;
   skillIndexes: string[];
   choices?: ValidCharacterChoiceRequestBody[];
   featureChoices?: ValidFeatureChoiceSelectionRequestBody[];
   abilityScores: AbilityScoreRequestBody;
 };
 
+type ValidSpellcastingStateRequestBody = {
+  learnedSpellIds: string[];
+  preparedSpellIds: string[];
+  slotUsageByLevel: Record<string, number>;
+};
+
+type ValidResourceStateRequestBody = {
+  activeByResourceKey: Record<string, boolean>;
+  customMaxByResourceKey: Record<string, number>;
+  usageByResourceKey: Record<string, number>;
+};
+
 type CharacterPreviewOverrides = {
   backgroundIndex?: string;
   classIndex?: string;
   featIndexes?: string[];
+  featureChoices?: ValidFeatureChoiceSelectionRequestBody[];
   level?: number;
+  resourceState?: ValidResourceStateRequestBody;
   speciesIndex?: string;
   subclassIndex?: string;
   subspeciesIndex?: string;
 };
+
+type CharacterDerivedPreviewRequestBody = CharacterPreviewOverrides;
 
 function isAbilityScoresBody(value: unknown): value is AbilityScoreRequestBody {
   if (!value || typeof value !== "object") {
@@ -397,6 +429,39 @@ function isHitPointStateRequestBody(value: unknown): value is ValidHitPointState
   return hasValidMode && hasValidBonusHp && hasValidOverride && hasValidRolls && hasValidTempHp;
 }
 
+function isSpellcastingStateRequestBody(
+  value: unknown,
+): value is ValidSpellcastingStateRequestBody {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as SpellcastingStateRequestBody;
+  const learnedSpellIds =
+    candidate.learnedSpellIds === undefined ||
+    (Array.isArray(candidate.learnedSpellIds) &&
+      candidate.learnedSpellIds.every((entry) => isNonEmptyString(entry)));
+  const preparedSpellIds =
+    candidate.preparedSpellIds === undefined ||
+    (Array.isArray(candidate.preparedSpellIds) &&
+      candidate.preparedSpellIds.every((entry) => isNonEmptyString(entry)));
+  const slotUsageByLevel =
+    candidate.slotUsageByLevel === undefined ||
+    (candidate.slotUsageByLevel !== null &&
+      typeof candidate.slotUsageByLevel === "object" &&
+      !Array.isArray(candidate.slotUsageByLevel) &&
+      Object.entries(candidate.slotUsageByLevel).every(
+        ([level, usage]) =>
+          /^\d+$/.test(level) &&
+          typeof usage === "number" &&
+          Number.isInteger(usage) &&
+          usage >= 0 &&
+          usage <= 99,
+      ));
+
+  return learnedSpellIds && preparedSpellIds && slotUsageByLevel;
+}
+
 function isCharacterMutationRequestBody(
   body: unknown,
 ): body is ValidCharacterMutationRequestBody {
@@ -431,6 +496,10 @@ function isCharacterMutationRequestBody(
         candidate.currentHp <= 999)) &&
     (candidate.hitPointState === undefined ||
       isHitPointStateRequestBody(candidate.hitPointState)) &&
+    (candidate.spellcastingState === undefined ||
+      isSpellcastingStateRequestBody(candidate.spellcastingState)) &&
+    (candidate.resourceState === undefined ||
+      isResourceStateRequestBody(candidate.resourceState)) &&
     Array.isArray(candidate.skillIndexes) &&
     candidate.skillIndexes.every((skillIndex) => typeof skillIndex === "string") &&
     (candidate.choices === undefined ||
@@ -440,6 +509,63 @@ function isCharacterMutationRequestBody(
       isValidFeatureChoiceSelectionArray(candidate.featureChoices)) &&
     isAbilityScoresBody(candidate.abilityScores)
   );
+}
+
+function normalizeSpellcastingState(
+  spellcastingState: ValidSpellcastingStateRequestBody | undefined,
+) {
+  if (!spellcastingState) {
+    return undefined;
+  }
+
+  return {
+    learnedSpellIds: [
+      ...new Set((spellcastingState.learnedSpellIds ?? []).map((entry) => entry.trim())),
+    ].filter((entry) => entry.length > 0),
+    preparedSpellIds: [
+      ...new Set((spellcastingState.preparedSpellIds ?? []).map((entry) => entry.trim())),
+    ].filter((entry) => entry.length > 0),
+    slotUsageByLevel: Object.fromEntries(
+      Object.entries(spellcastingState.slotUsageByLevel ?? {}).map(([level, usage]) => [
+        level,
+        Math.max(0, Math.floor(usage)),
+      ]),
+    ),
+  };
+}
+
+function isResourceStateRequestBody(
+  value: unknown,
+): value is ValidResourceStateRequestBody {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as ResourceStateRequestBody;
+
+  return (
+    isBooleanRecord(candidate.activeByResourceKey) &&
+    isNumericRecord(candidate.customMaxByResourceKey) &&
+    isNumericRecord(candidate.usageByResourceKey)
+  );
+}
+
+function normalizeResourceState(
+  resourceState: ValidResourceStateRequestBody | undefined,
+) {
+  if (!resourceState) {
+    return undefined;
+  }
+
+  return {
+    activeByResourceKey: Object.fromEntries(
+      Object.entries(resourceState.activeByResourceKey ?? {}).filter(
+        ([key, value]) => key.trim().length > 0 && typeof value === "boolean",
+      ),
+    ),
+    customMaxByResourceKey: normalizeNumericRecord(resourceState.customMaxByResourceKey),
+    usageByResourceKey: normalizeNumericRecord(resourceState.usageByResourceKey),
+  };
 }
 
 function normalizeFeatureChoiceSelections(
@@ -462,6 +588,48 @@ function normalizeFeatureChoiceSelections(
     selectedRawJson: choice.selectedRawJson,
     grantsRawJson: choice.grantsRawJson ?? null,
   }));
+}
+
+function isBooleanRecord(value: unknown) {
+  return (
+    value !== undefined &&
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.entries(value).every(
+      ([key, entryValue]) => key.trim().length > 0 && typeof entryValue === "boolean",
+    )
+  );
+}
+
+function isNumericRecord(value: unknown) {
+  return (
+    value !== undefined &&
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.entries(value).every(
+      ([key, entryValue]) =>
+        key.trim().length > 0 &&
+        typeof entryValue === "number" &&
+        Number.isInteger(entryValue) &&
+        entryValue >= 0 &&
+        entryValue <= 999,
+    )
+  );
+}
+
+function normalizeNumericRecord(value: Record<string, number> | undefined) {
+  return Object.fromEntries(
+    Object.entries(value ?? {}).flatMap(([key, entryValue]) =>
+      key.trim().length > 0 &&
+      typeof entryValue === "number" &&
+      Number.isFinite(entryValue) &&
+      entryValue >= 0
+        ? [[key, Math.floor(entryValue)] as const]
+        : [],
+    ),
+  ) as Record<string, number>;
 }
 
 function parseDiceRollRequestBody(body: unknown): ValidDiceRollRequestBody | null {
@@ -617,6 +785,52 @@ function parseCharacterPreviewOverrides(query: Request["query"]): CharacterPrevi
     speciesIndex,
     subclassIndex,
     subspeciesIndex,
+  };
+}
+
+function isCharacterDerivedPreviewRequestBody(
+  body: unknown,
+): body is CharacterDerivedPreviewRequestBody {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+
+  const candidate = body as CharacterDerivedPreviewRequestBody;
+
+  return (
+    isOptionalString(candidate.backgroundIndex) &&
+    isOptionalString(candidate.classIndex) &&
+    (candidate.featIndexes === undefined ||
+      (Array.isArray(candidate.featIndexes) &&
+        candidate.featIndexes.every((entry) => typeof entry === "string"))) &&
+    (candidate.featureChoices === undefined ||
+      isValidFeatureChoiceSelectionArray(candidate.featureChoices)) &&
+    (candidate.resourceState === undefined ||
+      isResourceStateRequestBody(candidate.resourceState)) &&
+    (candidate.level === undefined ||
+      (typeof candidate.level === "number" &&
+        Number.isInteger(candidate.level) &&
+        candidate.level >= 1 &&
+        candidate.level <= 20)) &&
+    isOptionalString(candidate.speciesIndex) &&
+    isOptionalString(candidate.subclassIndex) &&
+    isOptionalString(candidate.subspeciesIndex)
+  );
+}
+
+function normalizeCharacterPreviewOverrides(
+  overrides: CharacterPreviewOverrides,
+) {
+  return {
+    backgroundIndex: normalizeOptionalString(overrides.backgroundIndex) ?? undefined,
+    classIndex: normalizeOptionalString(overrides.classIndex) ?? undefined,
+    featIndexes: overrides.featIndexes?.map((entry) => entry.trim()).filter((entry) => entry.length > 0) ?? [],
+    featureChoices: normalizeFeatureChoiceSelections(overrides.featureChoices),
+    level: overrides.level,
+    resourceState: normalizeResourceState(overrides.resourceState),
+    speciesIndex: normalizeOptionalString(overrides.speciesIndex) ?? undefined,
+    subclassIndex: normalizeOptionalString(overrides.subclassIndex) ?? undefined,
+    subspeciesIndex: normalizeOptionalString(overrides.subspeciesIndex) ?? undefined,
   };
 }
 
@@ -785,7 +999,7 @@ async function getCharacterActions(req: Request, res: Response) {
     const actions = await findCharacterActionsForUser(
       getAuthenticatedUser(req).id,
       id,
-      parseCharacterPreviewOverrides(req.query),
+      normalizeCharacterPreviewOverrides(parseCharacterPreviewOverrides(req.query)),
     );
 
     if (!actions) {
@@ -819,7 +1033,7 @@ async function getCharacterDerivedState(req: Request, res: Response) {
     const derivedState = await findCharacterDerivedStateForUser(
       getAuthenticatedUser(req).id,
       id,
-      parseCharacterPreviewOverrides(req.query),
+      normalizeCharacterPreviewOverrides(parseCharacterPreviewOverrides(req.query)),
     );
 
     if (!derivedState) {
@@ -833,6 +1047,7 @@ async function getCharacterDerivedState(req: Request, res: Response) {
       actions: derivedState.actions,
       activeSources: derivedState.activeSources,
       defenses: derivedState.defenses,
+      resources: derivedState.resources,
       selectedSubclassIndex: derivedState.selectedSubclassIndex,
       selectedSubspeciesIndex: derivedState.selectedSubspeciesIndex,
       spells: derivedState.spells,
@@ -840,6 +1055,56 @@ async function getCharacterDerivedState(req: Request, res: Response) {
     });
   } catch (error) {
     console.error("Failed to fetch character derived state:", error);
+
+    res.status(500).json({
+      error: "Failed to fetch character derived state",
+    });
+  }
+}
+
+async function previewCharacterDerivedState(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    if (!isCharacterDerivedPreviewRequestBody(req.body)) {
+      res.status(400).json({
+        error: "Bad Request",
+      });
+      return;
+    }
+
+    const derivedState = await findCharacterDerivedStateForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      normalizeCharacterPreviewOverrides(req.body),
+    );
+
+    if (!derivedState) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json({
+      actions: derivedState.actions,
+      activeSources: derivedState.activeSources,
+      defenses: derivedState.defenses,
+      resources: derivedState.resources,
+      selectedSubclassIndex: derivedState.selectedSubclassIndex,
+      selectedSubspeciesIndex: derivedState.selectedSubspeciesIndex,
+      spells: derivedState.spells,
+      stats: derivedState.stats,
+    });
+  } catch (error) {
+    console.error("Failed to preview character derived state:", error);
 
     res.status(500).json({
       error: "Failed to fetch character derived state",
@@ -861,7 +1126,7 @@ async function getCharacterDefenses(req: Request, res: Response) {
     const defenses = await findCharacterDefensesForUser(
       getAuthenticatedUser(req).id,
       id,
-      parseCharacterPreviewOverrides(req.query),
+      normalizeCharacterPreviewOverrides(parseCharacterPreviewOverrides(req.query)),
     );
 
     if (!defenses) {
@@ -1070,6 +1335,8 @@ async function createCharacter(req: Request, res: Response) {
       level: body.level,
       currentHp: body.currentHp,
       hitPointState: body.hitPointState,
+      spellcastingState: normalizeSpellcastingState(body.spellcastingState),
+      resourceState: normalizeResourceState(body.resourceState),
       skillIndexes: body.skillIndexes,
       choices: body.choices,
       featureChoices: normalizeFeatureChoiceSelections(body.featureChoices),
@@ -1135,6 +1402,8 @@ async function updateCharacter(req: Request, res: Response) {
         level: body.level,
         currentHp: body.currentHp,
         hitPointState: body.hitPointState,
+        spellcastingState: normalizeSpellcastingState(body.spellcastingState),
+        resourceState: normalizeResourceState(body.resourceState),
         skillIndexes: body.skillIndexes,
         choices: body.choices,
         featureChoices: normalizeFeatureChoiceSelections(body.featureChoices),
@@ -1350,6 +1619,7 @@ export {
   getCharacterInventory,
   getCharacterInventoryState,
   getCharacters,
+  previewCharacterDerivedState,
   removeCharacterCondition,
   updateCharacter,
   updateCharacterInventory,

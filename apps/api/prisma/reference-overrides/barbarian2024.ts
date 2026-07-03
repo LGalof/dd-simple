@@ -308,6 +308,37 @@ const BARBARIAN_ASI_AND_FEAT_OPTIONS = toReferenceOptions(CORE_FEAT_OPTIONS, "fe
 
 const BARBARIAN_EPIC_BOON_OPTIONS = toReferenceOptions(COMMON_EPIC_BOON_OPTIONS, "feats");
 
+const WILD_HEART_ASPECT_OPTIONS = [
+  {
+    option_type: "reference",
+    item: {
+      index: "wild-heart-aspect-owl",
+      name: "Owl",
+      url: "/api/2024/features/wild-heart-aspect-owl",
+      description:
+        "Owl. You have Darkvision with a range of 60 feet. If you already have Darkvision, its range increases by 60 feet.",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "wild-heart-aspect-panther",
+      name: "Panther",
+      url: "/api/2024/features/wild-heart-aspect-panther",
+      description: "Panther. You have a Climb Speed equal to your Speed.",
+    },
+  },
+  {
+    option_type: "reference",
+    item: {
+      index: "wild-heart-aspect-salmon",
+      name: "Salmon",
+      url: "/api/2024/features/wild-heart-aspect-salmon",
+      description: "Salmon. You have a Swim Speed equal to your Speed.",
+    },
+  },
+];
+
 function createAbilityScoreImprovementSpecific() {
   return {
     type: "ability score improvement",
@@ -383,7 +414,16 @@ const BARBARIAN_LEVEL_REFERENCES = [
   {
     index: "barbarian-3",
     level: 3,
-    features: ["barbarian-primal-knowledge", "barbarian-subclass", "barbarian-subclass-feature-3"],
+    features: [
+      "barbarian-primal-knowledge",
+      "barbarian-subclass",
+      "barbarian-subclass-feature-3",
+      "frenzy",
+      "animal-speaker",
+      "rage-of-the-wilds",
+      "vitality-of-the-tree",
+      "divine-fury",
+    ],
   },
   {
     index: "barbarian-4",
@@ -398,7 +438,13 @@ const BARBARIAN_LEVEL_REFERENCES = [
   {
     index: "barbarian-6",
     level: 6,
-    features: ["barbarian-subclass-feature-6"],
+    features: [
+      "barbarian-subclass-feature-6",
+      "mindless-rage",
+      "aspect-of-the-wilds",
+      "branches-of-the-tree",
+      "fanatical-focus",
+    ],
   },
   {
     index: "barbarian-7",
@@ -418,7 +464,13 @@ const BARBARIAN_LEVEL_REFERENCES = [
   {
     index: "barbarian-10",
     level: 10,
-    features: ["barbarian-subclass-feature-10"],
+    features: [
+      "barbarian-subclass-feature-10",
+      "retaliation",
+      "nature-speaker",
+      "battering-roots",
+      "zealous-presence",
+    ],
   },
   {
     index: "barbarian-11",
@@ -438,7 +490,13 @@ const BARBARIAN_LEVEL_REFERENCES = [
   {
     index: "barbarian-14",
     level: 14,
-    features: ["barbarian-subclass-feature-14"],
+    features: [
+      "barbarian-subclass-feature-14",
+      "intimidating-presence",
+      "power-of-the-wilds",
+      "travel-along-the-tree",
+      "rage-of-the-gods",
+    ],
   },
   {
     index: "barbarian-15",
@@ -478,8 +536,14 @@ const BARBARIAN_FEATURE_REFERENCES = [
     level: 1,
     name: "Rage",
     desc: [
-      "You can enter a Rage as a Bonus Action. While raging, you gain a damage bonus on Strength-based attacks and resist bludgeoning, piercing, and slashing damage, subject to the normal class limits.",
-      "Your Rage ends early if you wear Heavy Armor or if your turn ends without attacking, forcing a saving throw, or using a Bonus Action to keep the Rage going. The number of Rages you can use increases as you gain Barbarian levels.",
+      "You can imbue yourself with a primal power called Rage, a force that grants you extraordinary might and resilience. You can enter it as a Bonus Action if you aren't wearing Heavy armor.",
+      "You can enter your Rage the number of times shown for your Barbarian level in the Rages column of the Barbarian Features table. You regain one expended use when you finish a Short Rest, and you regain all expended uses when you finish a Long Rest.",
+      "While active, your Rage follows the rules below.",
+      "Damage Resistance. You have Resistance to Bludgeoning, Piercing, and Slashing damage.",
+      "Rage Damage. When you make an attack using Strength-with either a weapon or an Unarmed Strike-and deal damage to the target, you gain a bonus to the damage that increases as you gain levels as a Barbarian, as shown in the Rage Damage column of the Barbarian Features table.",
+      "Strength Advantage. You have Advantage on Strength checks and Strength saving throws.",
+      "No Concentration or Spells. You can't maintain Concentration, and you can't cast spells.",
+      "Duration. The Rage lasts until the end of your next turn, and it ends early if you don Heavy armor or have the Incapacitated condition. If your Rage is still active on your next turn, you can extend the Rage for another round by doing one of the following: make an attack roll against an enemy, force an enemy to make a saving throw, or take a Bonus Action to extend your Rage. Each time the Rage is extended, it lasts until the end of your next turn. You can maintain a Rage for up to 10 minutes.",
     ],
   },
   {
@@ -650,6 +714,75 @@ const BARBARIAN_FEATURE_REFERENCES = [
     ],
   },
   {
+    index: "frenzy",
+    level: 3,
+    name: "Frenzy",
+    desc: [
+      "If you use Reckless Attack while your Rage is active, you deal extra damage to the first target you hit on your turn with a Strength-based attack. To determine the extra damage, roll a number of d6s equal to your Rage Damage bonus, and add them together. The damage has the same type as the weapon or Unarmed Strike used for the attack.",
+    ],
+    subclass: {
+      index: "path-of-the-berserker",
+      name: "Path of the Berserker",
+      url: "/api/2024/subclasses/path-of-the-berserker",
+    },
+  },
+  {
+    index: "animal-speaker",
+    level: 3,
+    name: "Animal Speaker",
+    desc: [
+      "You can cast Speak with Animals as a ritual, reflecting your kinship with beasts and the natural world.",
+    ],
+    subclass: {
+      index: "path-of-the-wild-heart",
+      name: "Path of the Wild Heart",
+      url: "/api/2024/subclasses/path-of-the-wild-heart",
+    },
+  },
+  {
+    index: "rage-of-the-wilds",
+    level: 3,
+    name: "Rage of the Wilds",
+    desc: [
+      "Your Rage taps into the primal power of animals. Whenever you activate your Rage, you gain one of the following options of your choice.",
+      "Bear. While your Rage is active, you have Resistance to every damage type except Force, Necrotic, Psychic, and Radiant.",
+      "Eagle. When you activate your Rage, you can take the Disengage and Dash actions as part of that Bonus Action. While your Rage is active, you can take a Bonus Action to take both of those actions.",
+      "Wolf. While your Rage is active, your allies have Advantage on attack rolls against any enemy of yours within 5 feet of you.",
+    ],
+    subclass: {
+      index: "path-of-the-wild-heart",
+      name: "Path of the Wild Heart",
+      url: "/api/2024/subclasses/path-of-the-wild-heart",
+    },
+  },
+  {
+    index: "vitality-of-the-tree",
+    level: 3,
+    name: "Vitality of the Tree",
+    desc: [
+      "Vitality Surge. When you activate your Rage, you gain a number of Temporary Hit Points equal to your Barbarian level.",
+      "Life-Giving Force. At the start of each of your turns while your Rage is active, you can choose another creature within 10 feet of yourself to gain Temporary Hit Points. To determine the number of Temporary Hit Points, roll a number of d6s equal to your Rage Damage bonus, and add them together. If any of these Temporary Hit Points remain when your Rage ends, they vanish.",
+    ],
+    subclass: {
+      index: "path-of-the-world-tree",
+      name: "Path of the World Tree",
+      url: "/api/2024/subclasses/path-of-the-world-tree",
+    },
+  },
+  {
+    index: "divine-fury",
+    level: 3,
+    name: "Divine Fury",
+    desc: [
+      "Sacred wrath infuses your strikes, adding divine force to your attacks while your Rage is active.",
+    ],
+    subclass: {
+      index: "path-of-the-zealot",
+      name: "Path of the Zealot",
+      url: "/api/2024/subclasses/path-of-the-zealot",
+    },
+  },
+  {
     index: "barbarian-ability-score-improvement-1",
     level: 4,
     name: "Ability Score Improvement",
@@ -671,7 +804,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     level: 5,
     name: "Fast Movement",
     desc: [
-      "Your speed increases while you are not wearing Heavy Armor.",
+      "Your speed increases by 10 feet while you aren't wearing Heavy armor.",
     ],
   },
   {
@@ -685,6 +818,71 @@ const BARBARIAN_FEATURE_REFERENCES = [
       "Path of the World Tree: Branches of the Tree extends your control of the battlefield with supernatural reach and interception.",
       "Path of the Zealot: Fanatical Focus helps you push through failed saving throws through divine conviction.",
     ],
+  },
+  {
+    index: "mindless-rage",
+    level: 6,
+    name: "Mindless Rage",
+    desc: [
+      "You have Immunity to the Charmed and Frightened conditions while your Rage is active, and those conditions end on you when you enter your Rage.",
+    ],
+    subclass: {
+      index: "path-of-the-berserker",
+      name: "Path of the Berserker",
+      url: "/api/2024/subclasses/path-of-the-berserker",
+    },
+  },
+  {
+    index: "aspect-of-the-wilds",
+    level: 6,
+    name: "Aspect of the Wilds",
+    desc: [
+      "You gain one of the following options of your choice. Whenever you finish a Long Rest, you can change your choice.",
+      "Owl. You have Darkvision with a range of 60 feet. If you already have Darkvision, its range increases by 60 feet.",
+      "Panther. You have a Climb Speed equal to your Speed.",
+      "Salmon. You have a Swim Speed equal to your Speed.",
+    ],
+    feature_specific: {
+      choose: 1,
+      type: "wild heart aspect",
+      label: "Choose 1 level 6 option",
+      field_label: "Level 6 Option",
+      from: {
+        option_set_type: "options_array",
+        options: WILD_HEART_ASPECT_OPTIONS,
+      },
+    },
+    subclass: {
+      index: "path-of-the-wild-heart",
+      name: "Path of the Wild Heart",
+      url: "/api/2024/subclasses/path-of-the-wild-heart",
+    },
+  },
+  {
+    index: "branches-of-the-tree",
+    level: 6,
+    name: "Branches of the Tree",
+    desc: [
+      "Whenever a creature you can see starts its turn within 30 feet of you while your Rage is active, you can take a Reaction to summon spectral branches of the World Tree around it. The target must succeed on a Strength saving throw (DC 8 plus your Strength modifier and Proficiency Bonus) or be teleported to an unoccupied space you can see within 5 feet of yourself or in the nearest unoccupied space you can see. After the target teleports, you can reduce its Speed to 0 until the end of the current turn.",
+    ],
+    subclass: {
+      index: "path-of-the-world-tree",
+      name: "Path of the World Tree",
+      url: "/api/2024/subclasses/path-of-the-world-tree",
+    },
+  },
+  {
+    index: "fanatical-focus",
+    level: 6,
+    name: "Fanatical Focus",
+    desc: [
+      "Your conviction helps you push through failure and endure effects that would stop a lesser warrior.",
+    ],
+    subclass: {
+      index: "path-of-the-zealot",
+      name: "Path of the Zealot",
+      url: "/api/2024/subclasses/path-of-the-zealot",
+    },
   },
   {
     index: "feral-instinct",
@@ -716,7 +914,9 @@ const BARBARIAN_FEATURE_REFERENCES = [
     level: 9,
     name: "Brutal Strike",
     desc: [
-      "When Reckless Attack is active, you can give up its advantage on one Strength-based attack roll to deliver an added effect if the attack hits. This feature replaces the old critical-only progression with a new tactical strike rider.",
+      "If you use Reckless Attack, you can forgo any Advantage on one Strength-based attack roll of your choice on your turn. The chosen attack roll mustn't have Disadvantage. If the chosen attack roll hits, the target takes an extra 1d10 damage of the same type dealt by the weapon or Unarmed Strike, and you can cause one Brutal Strike effect of your choice. You have the following effect options.",
+      "Forceful Blow. The target is pushed 15 feet straight away from you. You can then move up to half your Speed straight toward the target without provoking Opportunity Attacks.",
+      "Hamstring Blow. The target's Speed is reduced by 15 feet until the start of your next turn. A target can be affected by only one Hamstring Blow at a time-the most recent one.",
     ],
   },
   {
@@ -732,11 +932,64 @@ const BARBARIAN_FEATURE_REFERENCES = [
     ],
   },
   {
+    index: "retaliation",
+    level: 10,
+    name: "Retaliation",
+    desc: [
+      "When a creature within 5 feet damages you, you can use your Reaction to make a melee attack against it.",
+    ],
+    subclass: {
+      index: "path-of-the-berserker",
+      name: "Path of the Berserker",
+      url: "/api/2024/subclasses/path-of-the-berserker",
+    },
+  },
+  {
+    index: "nature-speaker",
+    level: 10,
+    name: "Nature Speaker",
+    desc: [
+      "You can cast the Commune with Nature spell but only as a Ritual. Wisdom is your spellcasting ability for it.",
+    ],
+    subclass: {
+      index: "path-of-the-wild-heart",
+      name: "Path of the Wild Heart",
+      url: "/api/2024/subclasses/path-of-the-wild-heart",
+    },
+  },
+  {
+    index: "battering-roots",
+    level: 10,
+    name: "Battering Roots",
+    desc: [
+      "During your turn, your reach is 10 feet greater with any Melee weapon that has the Heavy or Versatile property, as tendrils of the World Tree extend from you. When you hit with such a weapon on your turn, you can activate the Push or Topple mastery property in addition to a different mastery property you're using with that weapon.",
+    ],
+    subclass: {
+      index: "path-of-the-world-tree",
+      name: "Path of the World Tree",
+      url: "/api/2024/subclasses/path-of-the-world-tree",
+    },
+  },
+  {
+    index: "zealous-presence",
+    level: 10,
+    name: "Zealous Presence",
+    desc: [
+      "You can ignite your allies with holy battle fervor, lending them offensive momentum in a crucial moment.",
+    ],
+    subclass: {
+      index: "path-of-the-zealot",
+      name: "Path of the Zealot",
+      url: "/api/2024/subclasses/path-of-the-zealot",
+    },
+  },
+  {
     index: "relentless-rage",
     level: 11,
     name: "Relentless Rage",
     desc: [
-      "When you would be reduced to 0 hit points while raging, you can make a Constitution saving throw to drop to 1 hit point instead.",
+      "Your Rage can keep you fighting despite grievous wounds. If you drop to 0 Hit Points while your Rage is active and don't die outright, you can make a DC 10 Constitution saving throw. If you succeed, your Hit Points instead change to a number equal to twice your Barbarian level.",
+      "Each time you use this feature after the first, the DC increases by 5. When you finish a Short or Long Rest, the DC resets to 10.",
     ],
   },
   {
@@ -753,7 +1006,9 @@ const BARBARIAN_FEATURE_REFERENCES = [
     level: 13,
     name: "Improved Brutal Strike",
     desc: [
-      "Your Brutal Strike improves, giving you stronger results when you convert Reckless Attack into a devastating hit.",
+      "You have honed new ways to attack furiously. The following effects are now among your Brutal Strike options.",
+      "Staggering Blow. The target has Disadvantage on the next saving throw it makes, and it can't make Opportunity Attacks until the start of your next turn.",
+      "Sundering Blow. Before the start of your next turn, the next attack roll made by another creature against the target gains a +5 bonus to the roll. An attack roll can gain only one Sundering Blow bonus.",
     ],
   },
   {
@@ -767,6 +1022,62 @@ const BARBARIAN_FEATURE_REFERENCES = [
       "Path of the World Tree: Travel Along the Tree lets you bend world-tree pathways for dramatic repositioning.",
       "Path of the Zealot: your divine fury reaches its apex and makes you even harder to stop in battle.",
     ],
+  },
+  {
+    index: "intimidating-presence",
+    level: 14,
+    name: "Intimidating Presence",
+    desc: [
+      "As a Bonus Action, you can strike terror into others with your menacing presence and primal power. When you do so, each creature of your choice in a 30-foot Emanation originating from you must make a Wisdom saving throw (DC 8 plus your Strength modifier and Proficiency Bonus). On a failed save, a creature has the Frightened condition for 1 minute. At the end of each of the Frightened creature's turns, the creature repeats the save, ending the effect on itself on a success.",
+      "Once you use this feature, you can't use it again until you finish a Long Rest unless you expend a use of your Rage (no action required) to restore your use of it.",
+    ],
+    subclass: {
+      index: "path-of-the-berserker",
+      name: "Path of the Berserker",
+      url: "/api/2024/subclasses/path-of-the-berserker",
+    },
+  },
+  {
+    index: "power-of-the-wilds",
+    level: 14,
+    name: "Power of the Wilds",
+    desc: [
+      "Whenever you activate your Rage, you gain one of the following options of your choice.",
+      "Falcon. While your Rage is active, you have a Fly Speed equal to your Speed if you aren't wearing any armor.",
+      "Lion. While your Rage is active, any of your enemies within 5 feet of you have Disadvantage on attack rolls against targets other than you or another Barbarian who has this option active.",
+      "Ram. While your Rage is active, you can cause a Large or smaller creature to have the Prone condition when you hit it with a melee attack.",
+    ],
+    subclass: {
+      index: "path-of-the-wild-heart",
+      name: "Path of the Wild Heart",
+      url: "/api/2024/subclasses/path-of-the-wild-heart",
+    },
+  },
+  {
+    index: "travel-along-the-tree",
+    level: 14,
+    name: "Travel Along the Tree",
+    desc: [
+      "When you activate your Rage and as a Bonus Action while your Rage is active, you can teleport up to 60 feet to an unoccupied space you can see. In addition, once per Rage, you can increase the range of that teleport to 150 feet. When you do so, you can also bring up to six willing creatures who are within 10 feet of you. Each creature teleports to an unoccupied space of your choice within 10 feet of your destination space.",
+    ],
+    subclass: {
+      index: "path-of-the-world-tree",
+      name: "Path of the World Tree",
+      url: "/api/2024/subclasses/path-of-the-world-tree",
+    },
+  },
+  {
+    index: "rage-of-the-gods",
+    level: 14,
+    name: "Rage of the Gods",
+    desc: [
+      "Your divine fury reaches its apex, making you even harder to stop when battle turns desperate.",
+    ],
+    subclass: {
+      index: "path-of-the-zealot",
+      name: "Path of the Zealot",
+      url: "/api/2024/subclasses/path-of-the-zealot",
+    },
   },
   {
     index: "persistent-rage",
@@ -790,7 +1101,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     level: 17,
     name: "Improved Brutal Strike",
     desc: [
-      "Your Brutal Strike improves again, expanding the impact of your strongest hits.",
+      "The extra damage of your Brutal Strike increases to 2d10. In addition, you can use two different Brutal Strike effects whenever you use your Brutal Strike feature.",
     ],
   },
   {
@@ -822,7 +1133,7 @@ const BARBARIAN_FEATURE_REFERENCES = [
     level: 20,
     name: "Primal Champion",
     desc: [
-      "Your Strength and Constitution improve beyond ordinary limits, marking the peak of Barbarian power.",
+      "You embody primal power. Your Strength and Constitution scores increase by 4, and their maximum is now 25.",
     ],
   },
 ];
@@ -840,7 +1151,7 @@ const BARBARIAN_SUBCLASS_REFERENCES = [
         name: "Frenzy",
         level: 3,
         description:
-          "If you use Reckless Attack while your Rage is active, you deal extra damage to the first target you hit on your turn with a Strength-based attack.",
+          "If you use Reckless Attack while your Rage is active, you deal extra damage to the first target you hit on your turn with a Strength-based attack. To determine the extra damage, roll a number of d6s equal to your Rage Damage bonus, and add them together. The damage has the same type as the weapon or Unarmed Strike used for the attack.",
       },
       {
         name: "Mindless Rage",
@@ -858,7 +1169,7 @@ const BARBARIAN_SUBCLASS_REFERENCES = [
         name: "Intimidating Presence",
         level: 14,
         description:
-          "As a Bonus Action, you can unleash terrifying primal menace that frightens creatures of your choice nearby.",
+          "As a Bonus Action, you can strike terror into others with your menacing presence and primal power. When you do so, each creature of your choice in a 30-foot Emanation originating from you must make a Wisdom saving throw (DC 8 plus your Strength modifier and Proficiency Bonus). On a failed save, a creature has the Frightened condition for 1 minute. At the end of each of the Frightened creature's turns, the creature repeats the save, ending the effect on itself on a success. Once you use this feature, you can't use it again until you finish a Long Rest unless you expend a use of your Rage (no action required) to restore your use of it.",
       },
     ],
     class: {
@@ -886,25 +1197,25 @@ const BARBARIAN_SUBCLASS_REFERENCES = [
         name: "Rage of the Wilds",
         level: 3,
         description:
-          "Your Rage takes on a primal bestial identity, granting a wilderness-focused combat expression tied to your chosen wild aspect.",
+          "Your Rage taps into the primal power of animals. Whenever you activate your Rage, you gain one of the following options of your choice. Bear. While your Rage is active, you have Resistance to every damage type except Force, Necrotic, Psychic, and Radiant. Eagle. When you activate your Rage, you can take the Disengage and Dash actions as part of that Bonus Action. While your Rage is active, you can take a Bonus Action to take both of those actions. Wolf. While your Rage is active, your allies have Advantage on attack rolls against any enemy of yours within 5 feet of you.",
       },
       {
         name: "Aspect of the Wilds",
         level: 6,
         description:
-          "Your spiritual bond to the wild deepens, sharpening your movement, instincts, or survival-focused primal benefits.",
+          "You gain one of the following options of your choice. Whenever you finish a Long Rest, you can change your choice. Owl. You have Darkvision with a range of 60 feet. If you already have Darkvision, its range increases by 60 feet. Panther. You have a Climb Speed equal to your Speed. Salmon. You have a Swim Speed equal to your Speed.",
       },
       {
         name: "Nature Speaker",
         level: 10,
         description:
-          "Your connection to the natural world grows into a stronger primal utility feature and deeper communion with beast spirits.",
+          "You can cast the Commune with Nature spell but only as a Ritual. Wisdom is your spellcasting ability for it.",
       },
       {
         name: "Power of the Wilds",
         level: 14,
         description:
-          "Your primal form reaches its peak, expressing the full supernatural force of your chosen animal spirit.",
+          "Whenever you activate your Rage, you gain one of the following options of your choice. Falcon. While your Rage is active, you have a Fly Speed equal to your Speed if you aren't wearing any armor. Lion. While your Rage is active, any of your enemies within 5 feet of you have Disadvantage on attack rolls against targets other than you or another Barbarian who has this option active. Ram. While your Rage is active, you can cause a Large or smaller creature to have the Prone condition when you hit it with a melee attack.",
       },
     ],
     class: {
@@ -926,25 +1237,25 @@ const BARBARIAN_SUBCLASS_REFERENCES = [
         name: "Vitality of the Tree",
         level: 3,
         description:
-          "Your Rage channels the world tree's sustaining force, blending primal ferocity with restorative and rooting power.",
+          "Vitality Surge. When you activate your Rage, you gain a number of Temporary Hit Points equal to your Barbarian level. Life-Giving Force. At the start of each of your turns while your Rage is active, you can choose another creature within 10 feet of yourself to gain Temporary Hit Points. To determine the number of Temporary Hit Points, roll a number of d6s equal to your Rage Damage bonus, and add them together. If any of these Temporary Hit Points remain when your Rage ends, they vanish.",
       },
       {
         name: "Branches of the Tree",
         level: 6,
         description:
-          "Your connection to the world tree extends your reach and lets you interfere with foes through supernatural limbs and presence.",
+          "Whenever a creature you can see starts its turn within 30 feet of you while your Rage is active, you can take a Reaction to summon spectral branches of the World Tree around it. The target must succeed on a Strength saving throw (DC 8 plus your Strength modifier and Proficiency Bonus) or be teleported to an unoccupied space you can see within 5 feet of yourself or in the nearest unoccupied space you can see. After the target teleports, you can reduce its Speed to 0 until the end of the current turn.",
       },
       {
         name: "Battering Roots",
         level: 10,
         description:
-          "Your battlefield control becomes forceful and disruptive, letting world-tree power shove or reposition creatures.",
+          "During your turn, your reach is 10 feet greater with any Melee weapon that has the Heavy or Versatile property, as tendrils of the World Tree extend from you. When you hit with such a weapon on your turn, you can activate the Push or Topple mastery property in addition to a different mastery property you're using with that weapon.",
       },
       {
         name: "Travel Along the Tree",
         level: 14,
         description:
-          "You bend the pathways of the world tree to reposition yourself and others in dramatic ways.",
+          "When you activate your Rage and as a Bonus Action while your Rage is active, you can teleport up to 60 feet to an unoccupied space you can see. In addition, once per Rage, you can increase the range of that teleport to 150 feet. When you do so, you can also bring up to six willing creatures who are within 10 feet of you. Each creature teleports to an unoccupied space of your choice within 10 feet of your destination space.",
       },
     ],
     class: {
@@ -1048,6 +1359,7 @@ function createFeatureRuleDocuments() {
       name: featureReference.name,
       desc: featureReference.desc,
       feature_specific: featureReference.feature_specific,
+      subclass: "subclass" in featureReference ? featureReference.subclass : undefined,
       url: `/api/2024/features/${featureReference.index}`,
     },
   }));

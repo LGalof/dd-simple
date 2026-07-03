@@ -3,6 +3,7 @@ type CuratedFeatReference = {
   name: string;
   type: "origin" | "general" | "fighting-style" | "epic-boon";
   description: string;
+  feature_specific?: unknown;
   repeatable?: string;
   prerequisites?: Record<string, unknown>;
   prerequisite_options?: Record<string, unknown>;
@@ -13,13 +14,108 @@ function featUrl(index: string) {
   return `/api/2024/feats/${index}`;
 }
 
+const ARTISAN_TOOL_NAMES = [
+  "Alchemist's Supplies",
+  "Brewer's Supplies",
+  "Calligrapher's Supplies",
+  "Carpenter's Tools",
+  "Cartographer's Tools",
+  "Cobbler's Tools",
+  "Cook's Utensils",
+  "Glassblower's Tools",
+  "Jeweler's Tools",
+  "Leatherworker's Tools",
+  "Mason's Tools",
+  "Painter's Supplies",
+  "Potter's Tools",
+  "Smith's Tools",
+  "Tinker's Tools",
+  "Weaver's Tools",
+  "Woodcarver's Tools",
+];
+
+const MUSICAL_INSTRUMENT_NAMES = [
+  "Bagpipes",
+  "Drum",
+  "Dulcimer",
+  "Flute",
+  "Lute",
+  "Lyre",
+  "Horn",
+  "Pan Flute",
+  "Shawm",
+  "Viol",
+];
+
+const SKILL_NAMES = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+];
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function referenceOption(name: string, category: string, label = name) {
+  const index = category === "skills" ? `skill-${slugify(name)}` : slugify(name);
+
+  return {
+    option_type: "reference",
+    item: {
+      index,
+      name: label,
+      url: `/api/2024/proficiencies/${index}`,
+    },
+  };
+}
+
+function choiceSpecific(
+  id: string,
+  label: string,
+  choose: number,
+  options: Array<ReturnType<typeof referenceOption>>,
+) {
+  return {
+    type: "proficiency choice",
+    proficiency: {
+      id,
+      label,
+      field_label: label,
+      choose,
+      from: {
+        option_set_type: "options_array",
+        options,
+      },
+    },
+  };
+}
+
 const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
   {
     index: "alert",
     name: "Alert",
     type: "origin",
     description:
-      "You gain Initiative Proficiency, and immediately after you roll Initiative you can swap your Initiative with a willing ally in the same combat if neither of you is Incapacitated.",
+      "You gain the following benefits.\n\nInitiative Proficiency. When you roll Initiative, you can add your Proficiency Bonus to the roll.\n\nInitiative Swap. Immediately after you roll Initiative, you can swap your Initiative with the Initiative of one willing ally in the same combat. You can't make this swap if you or the ally has the Incapacitated condition.",
     url: featUrl("alert"),
   },
   {
@@ -27,7 +123,13 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     name: "Crafter",
     type: "origin",
     description:
-      "You gain proficiency with three different artisan's tools, receive a discount when buying nonmagical items, and can craft common equipment more efficiently during downtime.",
+      "You gain the following benefits.\n\nTool Proficiency. You gain proficiency with three different Artisan's Tools of your choice from the Fast Crafting table.\n\nDiscount. Whenever you buy a nonmagical item, you receive a 20 percent discount on it.\n\nFast Crafting. When you finish a Long Rest, you can craft one piece of gear from the Fast Crafting table, provided you have the Artisan's Tools associated with that item and have proficiency with those tools. The item lasts until you finish another Long Rest, at which point the item falls apart.",
+    feature_specific: choiceSpecific(
+      "crafter-tools",
+      "Artisan's Tool",
+      3,
+      ARTISAN_TOOL_NAMES.map((name) => referenceOption(name, "tools", `Tool: ${name}`)),
+    ),
     url: featUrl("crafter"),
   },
   {
@@ -35,7 +137,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     name: "Healer",
     type: "origin",
     description:
-      "You can quickly stabilize creatures, restore extra hit points with healing kits, and improve the recovery your allies get from your battlefield care.",
+      "You gain the following benefits.\n\nBattle Medic. If you have Healer's kit, you can expend one use of it and tend to a creature within 5 feet of yourself as a Utilize action. That creature can expend one of its Hit Point Dice, and you then roll that die. The creature regains a number of Hit Points equal to the roll plus your Proficiency Bonus.\n\nHealing Rerolls. Whenever you roll a die to determine the number of Hit Points you restore with a spell or with this feat's Battle Medic benefit, you can reroll the die if it rolls a 1, and you must use the new roll.",
     url: featUrl("healer"),
   },
   {
@@ -43,7 +145,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     name: "Lucky",
     type: "origin",
     description:
-      "You gain Luck Points you can spend to give yourself Advantage on a d20 Test or to impose Disadvantage on an attack roll made against you.",
+      "You gain the following benefits.\n\nLuck Points. You have a number of Luck Points equal to your Proficiency Bonus and can spend the points on the benefits below. You regain your expended Luck Points when you finish a Long Rest.\n\nAdvantage. When you roll a d20 for a D20 test, you can spend 1 Luck Point to give yourself Advantage on the roll.\n\nDisadvantage. When a creature rolls a d20 for an attack roll against you, you can spend 1 Luck Point to impose Disadvantage on that roll.",
     url: featUrl("lucky"),
   },
   {
@@ -51,7 +153,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     name: "Magic Initiate",
     type: "origin",
     description:
-      "You learn two cantrips and one 1st-level spell from the Cleric, Druid, or Wizard spell list, and you can cast the chosen 1st-level spell once per Long Rest without a spell slot.",
+      "You gain the following benefits.\n\nTwo Cantrips. You learn two cantrips of your choice from the Cleric, Druid, or Wizard spell list. Intelligence, Wisdom, or Charisma is your spellcasting ability for this feat's spells (choose when you select this feat).\n\nLevel 1 Spell. Choose a level 1 spell from the same list you selected for this feat's cantrips. You always have that spell prepared. You can cast it once without a spell slot, and you regain the ability to cast it in that way when you finish a Long Rest. You can also cast the spell using any spell slots you have.\n\nSpell Change. Whenever you gain a new level, you can replace one of the spells you chose for this feat with a different spell of the same level from the chosen spell list.",
     repeatable:
       "You can take this feat more than once, but you must choose a different spell list each time.",
     url: featUrl("magic-initiate"),
@@ -61,7 +163,13 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     name: "Musician",
     type: "origin",
     description:
-      "You gain proficiency with three musical instruments, and after a Short or Long Rest you can inspire allies so they begin the next day with Heroic Inspiration.",
+      "You gain the following benefits.\n\nInstrument Training. You gain proficiency with three Musical Instruments of your choice.\n\nEncouraging Song. As you finish a Short or Long Rest, you can play a song on a Musical Instrument with which you have proficiency and give Heroic inspiration to allies who hear the song. The number of allies you can affect in this way equals your Proficiency Bonus.",
+    feature_specific: choiceSpecific(
+      "musician-instruments",
+      "Musical Instrument",
+      3,
+      MUSICAL_INSTRUMENT_NAMES.map((name) => referenceOption(name, "tools", `Tool: ${name}`)),
+    ),
     url: featUrl("musician"),
   },
   {
@@ -78,6 +186,16 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     type: "origin",
     description:
       "You gain proficiency in any combination of three skills or tools of your choice.",
+    feature_specific: choiceSpecific(
+      "skilled-proficiencies",
+      "Skill or Tool",
+      3,
+      [
+        ...SKILL_NAMES.map((name) => referenceOption(name, "skills", `Skill: ${name}`)),
+        ...ARTISAN_TOOL_NAMES.map((name) => referenceOption(name, "tools", `Tool: ${name}`)),
+        ...MUSICAL_INSTRUMENT_NAMES.map((name) => referenceOption(name, "tools", `Tool: ${name}`)),
+      ],
+    ),
     repeatable: "You can take this feat more than once.",
     url: featUrl("skilled"),
   },
@@ -86,7 +204,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     name: "Tavern Brawler",
     type: "origin",
     description:
-      "Your unarmed strikes and improvised attacks become more dangerous, and after you hit a creature you can shove or grapple it as part of the same aggressive sequence.",
+      "You gain the following benefits.\n\nEnhanced Unarmed Strike. When you hit with your Unarmed Strike and deal damage, you can deal Bludgeoning damage equal to 1d4 plus your Strength modifier instead of the normal damage of an Unarmed Strike.\n\nDamage Rerolls. Whenever you roll a damage die for your Unarmed Strike, you can reroll the die if it rolls a 1, and you must use the new roll.\n\nImprovised Weaponry. You have proficiency with improvised weapons.\n\nPush. When you hit a creature with an Unarmed Strike as part of the Attack action on your turn, you can deal damage to the target and also push it 5 feet away from you. You can use this benefit only once per turn.",
     url: featUrl("tavern-brawler"),
   },
   {
@@ -109,7 +227,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 4,
     },
     description:
-      "You sharpen your performance and impersonation skills, gaining a Charisma boost and a stronger ability to mimic voices, mannerisms, and dramatic delivery.",
+      "You gain the following benefits.\n\nAbility Score Increase. Increase your Charisma score by 1, to a maximum of 20.\n\nImpersonation. While you're disguised as a real or fictional person, you have Advantage on Charisma (Deception or Performance) checks to convince others that you are that person.\n\nMimicry. You can mimic the sounds of other creatures, including speech. A creature that hears the mimicry must succeed on a Wisdom (Insight) check to determine the effect is faked (DC 8 plus your Charisma modifier and Proficiency Bonus).",
     url: featUrl("actor"),
   },
   {
@@ -120,7 +238,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 4,
     },
     description:
-      "You gain a physical ability score increase and improved mobility, letting you climb, jump, stand, and reposition more effectively in combat and exploration.",
+      "You gain the following benefits.\n\nAbility Score Increase. Increase your Strength or Dexterity score by 1, to a maximum of 20.\n\nClimb Speed. You gain a Climb Speed equal to your Speed.\n\nHop Up. When you have the Prone condition, you can right yourself with only 5 feet of movement.\n\nJumping. You can make a running Long or High Jump after moving only 5 feet.",
     url: featUrl("athlete"),
   },
   {
@@ -131,41 +249,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 4,
     },
     description:
-      "When you Dash, you can follow with a forceful strike or shove, turning your movement into an explosive offensive burst.",
+      "You gain the following benefits.\n\nAbility Score Increase. Increase your Strength or Dexterity score by 1, to a maximum of 20.\n\nImproved Dash. When you take the Dash action, your Speed increases by 10 feet for that action.\n\nCharge Attack. If you move at least 10 feet in a straight line toward a target immediately before hitting it with a melee attack roll as part of the Attack action, choose one of the following effects: gain a 1d8 bonus to the attack's damage roll, or push the target up to 10 feet away if it is no more than one size larger than you. You can use this benefit only once on each of your turns.",
     url: featUrl("charger"),
-  },
-  {
-    index: "crossbow-expert",
-    name: "Crossbow Expert",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You ignore the Loading property of crossbows, fight effectively in close quarters with ranged weapons, and gain an extra attack pattern that rewards dedicated crossbow use.",
-    url: featUrl("crossbow-expert"),
-  },
-  {
-    index: "defensive-duelist",
-    name: "Defensive Duelist",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "When you are wielding a finesse weapon and a creature hits you with a melee attack, you can use your Reaction to raise your Armor Class against that strike.",
-    url: featUrl("defensive-duelist"),
-  },
-  {
-    index: "dual-wielder",
-    name: "Dual Wielder",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You become more effective with paired weapons, gaining additional weapon flexibility and stronger two-weapon offense.",
-    url: featUrl("dual-wielder"),
   },
   {
     index: "durable",
@@ -175,70 +260,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 4,
     },
     description:
-      "Your resilience improves, granting a Constitution increase and better recovery whenever you spend Hit Point Dice.",
+      "Ability Score Increase. Increase your Constitution score by 1, to a maximum of 20.\n\nDefy Death. You have Advantage on Death Saving Throws.\n\nSpeedy Recovery. As a Bonus Action, you can expend one of your Hit Point Dice, roll the die, and regain a number of Hit Points equal to the roll.",
     url: featUrl("durable"),
-  },
-  {
-    index: "elemental-adept",
-    name: "Elemental Adept",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      feature_named: "Spellcasting",
-    },
-    description:
-      "Choose one elemental damage type. Your spells with that damage type cut through resistance more reliably and deal steadier damage.",
-    url: featUrl("elemental-adept"),
-  },
-  {
-    index: "grappler",
-    name: "Grappler",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    prerequisite_options: {
-      desc: "Strength or Dexterity 13+",
-      type: "ability-scores",
-      choose: 1,
-      from: {
-        option_set_type: "options_array",
-        options: [
-          {
-            option_type: "score_prerequisite",
-            ability_score: {
-              index: "str",
-              name: "STR",
-              url: "/api/2024/ability-scores/str",
-            },
-            minimum_score: 13,
-          },
-          {
-            option_type: "score_prerequisite",
-            ability_score: {
-              index: "dex",
-              name: "DEX",
-              url: "/api/2024/ability-scores/dex",
-            },
-            minimum_score: 13,
-          },
-        ],
-      },
-    },
-    description:
-      "You gain a Strength or Dexterity increase and become much better at combining Unarmed Strikes, grapples, and pressure against restrained foes.",
-    url: featUrl("grappler"),
-  },
-  {
-    index: "great-weapon-master",
-    name: "Great Weapon Master",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You deliver especially punishing heavy melee attacks and can press your advantage with brutal follow-through when you land decisive hits.",
-    url: featUrl("great-weapon-master"),
   },
   {
     index: "heavy-armor-master",
@@ -249,30 +272,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       proficiency_with: "heavy-armor",
     },
     description:
-      "You strengthen your body and armor training, reducing incoming physical damage while wearing Heavy Armor.",
+      "Ability Score Increase. Increase your Constitution or Strength score by 1, to a maximum of 20.\n\nDamage Reduction. When you're hit by an attack while you're wearing Heavy armor, any Bludgeoning, Piercing, and Slashing damage dealt to you by that attack is reduced by an amount equal to your Proficiency Bonus.",
     url: featUrl("heavy-armor-master"),
-  },
-  {
-    index: "inspiring-leader",
-    name: "Inspiring Leader",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You can deliver stirring words that grant Temporary Hit Points to your allies before danger begins.",
-    url: featUrl("inspiring-leader"),
-  },
-  {
-    index: "keen-mind",
-    name: "Keen Mind",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "Your mental precision sharpens, improving memory, recall, orientation, and the ability to quickly piece information together.",
-    url: featUrl("keen-mind"),
   },
   {
     index: "lightly-armored",
@@ -284,63 +285,6 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     description:
       "You gain training with Light Armor and an ability score increase that helps you start building toward armored defense.",
     url: featUrl("lightly-armored"),
-  },
-  {
-    index: "mage-slayer",
-    name: "Mage Slayer",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You specialize in disrupting enemy spellcasters, staying dangerous in their reach and punishing their attempts to cast under pressure.",
-    url: featUrl("mage-slayer"),
-  },
-  {
-    index: "medium-armor-master",
-    name: "Medium Armor Master",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      proficiency_with: "medium-armor",
-    },
-    description:
-      "You move more effectively in Medium Armor and get better value from your Dexterity without sacrificing protection.",
-    url: featUrl("medium-armor-master"),
-  },
-  {
-    index: "moderately-armored",
-    name: "Moderately Armored",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      proficiency_with: "light-armor",
-    },
-    description:
-      "You gain training with Medium Armor and Shields, broadening your defensive equipment options.",
-    url: featUrl("moderately-armored"),
-  },
-  {
-    index: "observant",
-    name: "Observant",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "Your awareness improves, granting a mental ability increase and heightened passive perception and investigation.",
-    url: featUrl("observant"),
-  },
-  {
-    index: "polearm-master",
-    name: "Polearm Master",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You gain extra tactical attacks with polearms and can threaten enemies who close into your reach.",
-    url: featUrl("polearm-master"),
   },
   {
     index: "resilient",
@@ -356,86 +300,6 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     url: featUrl("resilient"),
   },
   {
-    index: "ritual-caster",
-    name: "Ritual Caster",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      feature_named: "Spellcasting",
-    },
-    description:
-      "You record magical rituals in a special book and can cast qualifying ritual spells without preparing them in the normal way.",
-    url: featUrl("ritual-caster"),
-  },
-  {
-    index: "sentinel",
-    name: "Sentinel",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You are excellent at pinning enemies in place, stopping their movement and punishing them when they try to slip past or attack your allies.",
-    url: featUrl("sentinel"),
-  },
-  {
-    index: "shield-master",
-    name: "Shield Master",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      proficiency_with: "shields",
-    },
-    description:
-      "You turn your shield into an aggressive defensive tool, improving shove options and helping you weather dangerous Dexterity-based effects.",
-    url: featUrl("shield-master"),
-  },
-  {
-    index: "skill-expert",
-    name: "Skill Expert",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You improve one ability score, gain proficiency in a skill, and gain Expertise in a skill you already know.",
-    url: featUrl("skill-expert"),
-  },
-  {
-    index: "skulker",
-    name: "Skulker",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You become harder to pin down while hiding, attacking from concealment more effectively and remaining elusive in dim conditions.",
-    url: featUrl("skulker"),
-  },
-  {
-    index: "speedy",
-    name: "Speedy",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "Your movement speed improves and you handle Dashes, Disengages, and battlefield mobility with greater efficiency.",
-    url: featUrl("speedy"),
-  },
-  {
-    index: "spell-sniper",
-    name: "Spell Sniper",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      feature_named: "Spellcasting",
-    },
-    description:
-      "You extend the effective reach of attack spells and learn to land them more cleanly from a distance.",
-    url: featUrl("spell-sniper"),
-  },
-  {
     index: "tough",
     name: "Tough",
     type: "general",
@@ -443,31 +307,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 4,
     },
     description:
-      "Your maximum Hit Points increase substantially, making you much harder to put down over a long adventuring day.",
+      "Your Hit Point maximum increases by an amount equal to twice your character level when you gain this feat. Whenever you gain a character level thereafter, your Hit Point maximum increases by an additional 2 Hit Points.",
     url: featUrl("tough"),
-  },
-  {
-    index: "war-caster",
-    name: "War Caster",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-      feature_named: "Spellcasting",
-    },
-    description:
-      "You maintain concentration better under pressure and can weave spellcasting more naturally into armed combat.",
-    url: featUrl("war-caster"),
-  },
-  {
-    index: "weapon-master",
-    name: "Weapon Master",
-    type: "general",
-    prerequisites: {
-      minimum_level: 4,
-    },
-    description:
-      "You expand your martial training, gaining proficiency with additional weapons and improving the ability score that supports your chosen combat style.",
-    url: featUrl("weapon-master"),
   },
   {
     index: "archery",
@@ -476,19 +317,9 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
     prerequisites: {
       feature_named: "Fighting Style",
     },
-    description: "You gain a +2 bonus to attack rolls you make with Ranged weapons.",
-    url: featUrl("archery"),
-  },
-  {
-    index: "blind-fighting",
-    name: "Blind Fighting",
-    type: "fighting-style",
-    prerequisites: {
-      feature_named: "Fighting Style",
-    },
     description:
-      "You gain Blindsight with a short range, letting you better detect creatures you can't see directly.",
-    url: featUrl("blind-fighting"),
+      "You gain a +2 bonus to attack rolls you make with Ranged weapons.",
+    url: featUrl("archery"),
   },
   {
     index: "defense",
@@ -520,19 +351,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       feature_named: "Fighting Style",
     },
     description:
-      "When you roll damage for an attack made with a qualifying two-handed melee weapon, you can treat any 1 or 2 on a damage die as a 3.",
+      "When you roll damage for an attack you make with a Melee weapon that you are holding with two hands, you can treat any 1 or 2 on a damage die as a 3. The weapon must have the Two-Handed or Versatile property to gain this benefit.",
     url: featUrl("great-weapon-fighting"),
-  },
-  {
-    index: "interception",
-    name: "Interception",
-    type: "fighting-style",
-    prerequisites: {
-      feature_named: "Fighting Style",
-    },
-    description:
-      "When a creature you can see hits a nearby target other than you, you can use your Reaction to reduce the damage by interposing your weapon or shield.",
-    url: featUrl("interception"),
   },
   {
     index: "protection",
@@ -542,19 +362,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       feature_named: "Fighting Style",
     },
     description:
-      "When a creature you can see attacks a nearby ally, you can impose disadvantage by using your shield to interfere.",
+      "When a creature you can see attacks a target other than you that is within 5 feet of you, you can take a Reaction to impose Disadvantage on the attack roll. You must be holding a Shield to use this Reaction.",
     url: featUrl("protection"),
-  },
-  {
-    index: "thrown-weapon-fighting",
-    name: "Thrown Weapon Fighting",
-    type: "fighting-style",
-    prerequisites: {
-      feature_named: "Fighting Style",
-    },
-    description:
-      "You draw thrown weapons more fluidly, and thrown weapon attacks gain an extra damage bonus.",
-    url: featUrl("thrown-weapon-fighting"),
   },
   {
     index: "two-weapon-fighting",
@@ -564,19 +373,8 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       feature_named: "Fighting Style",
     },
     description:
-      "When you make an extra attack because of a Light weapon, you can add your ability modifier to that attack's damage if it isn't already included.",
+      "When you make an extra attack as a result of using a weapon that has the Light property, you can add your ability modifier to the damage of that attack if you aren't already adding it to the damage.",
     url: featUrl("two-weapon-fighting"),
-  },
-  {
-    index: "unarmed-fighting",
-    name: "Unarmed Fighting",
-    type: "fighting-style",
-    prerequisites: {
-      feature_named: "Fighting Style",
-    },
-    description:
-      "Your unarmed strikes deal stronger damage, and creatures you grapple take automatic pressure damage at the start of your turn.",
-    url: featUrl("unarmed-fighting"),
   },
   {
     index: "boon-of-combat-prowess",

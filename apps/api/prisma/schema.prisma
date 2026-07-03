@@ -58,6 +58,7 @@ model Character {
   languages      CharacterLanguage[]
   conditions     CharacterCondition[]
   hitPointState  CharacterHitPointState?
+  spellcastingState CharacterSpellcastingState?
   diceRolls      DiceRoll[]
   roomPlayers    RoomPlayer[]
   hostedRooms    Room[]                    @relation("RoomCreatorCharacter")
@@ -553,6 +554,18 @@ model CharacterHitPointState {
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@map("character_hit_point_states")
+}
+
+model CharacterSpellcastingState {
+  id          String @id @default(uuid()) @db.Uuid
+  characterId String @unique @db.Uuid
+
+  preparedSpellIds Json?
+  slotUsageByLevel Json?
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("character_spellcasting_states")
 }
 
 model DiceRoll {

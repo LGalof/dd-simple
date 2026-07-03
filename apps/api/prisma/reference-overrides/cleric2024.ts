@@ -12,6 +12,18 @@ const CLERIC_SKILL_OPTIONS = [
   ["skill-religion", "Skill: Religion"],
 ] as const;
 
+const CLERIC_CANTRIP_OPTIONS = [
+  ["guidance", "Guidance"],
+  ["light", "Light"],
+  ["mending", "Mending"],
+  ["resistance", "Resistance"],
+  ["sacred-flame", "Sacred Flame"],
+  ["spare-the-dying", "Spare the Dying"],
+  ["thaumaturgy", "Thaumaturgy"],
+  ["toll-the-dead", "Toll the Dead"],
+  ["word-of-radiance", "Word of Radiance"],
+] as const;
+
 const CLERIC_ABILITY_SCORE_OPTIONS = COMMON_ABILITY_SCORE_OPTIONS;
 
 const CLERIC_FEAT_OPTIONS = CORE_FEAT_OPTIONS;
@@ -30,6 +42,41 @@ function toReferenceOptions(
       url: `/api/2024/${category}/${index}`,
     },
   }));
+}
+
+function toSpellOptions(entries: readonly (readonly [string, string])[]) {
+  return entries.map(([index, name]) => ({
+    option_type: "reference",
+    item: {
+      index,
+      name,
+      url: `/api/2024/spells/${index}`,
+    },
+  }));
+}
+
+function createClericSpellChoiceFeature(
+  index: string,
+  level: number,
+  name: string,
+  description: string,
+  choose: number,
+  spellOptions: readonly (readonly [string, string])[],
+) {
+  return {
+    index,
+    level,
+    name,
+    desc: [description],
+    feature_specific: {
+      choose,
+      type: "cleric cantrip",
+      from: {
+        option_set_type: "options_array",
+        options: toSpellOptions(spellOptions),
+      },
+    },
+  };
 }
 
 function createAbilityScoreImprovementSpecific() {
@@ -320,24 +367,71 @@ const CLERIC_CLASS_REFERENCE = {
 };
 
 const CLERIC_LEVEL_REFERENCES = [
-  { index: "cleric-1", level: 1, features: ["cleric-spellcasting", "divine-order"] },
+  { index: "cleric-1", level: 1, features: ["cleric-cantrips-1", "cleric-spellcasting", "divine-order"] },
   { index: "cleric-2", level: 2, features: ["channel-divinity"] },
-  { index: "cleric-3", level: 3, features: ["cleric-subclass-feature-3", "cleric-subclass"] },
-  { index: "cleric-4", level: 4, features: ["cleric-ability-score-improvement-1"] },
+  {
+    index: "cleric-3",
+    level: 3,
+    features: [
+      "cleric-subclass-feature-3",
+      "cleric-subclass",
+      "disciple-of-life",
+      "life-domain-spells",
+      "preserve-life",
+      "light-domain-spells",
+      "warding-flare",
+      "radiance-of-the-dawn",
+      "trickery-domain-spells",
+      "blessing-of-the-trickster",
+      "invoke-duplicity",
+      "war-domain-spells",
+      "guided-strike",
+      "war-priest",
+    ],
+  },
+  { index: "cleric-4", level: 4, features: ["cleric-cantrips-2", "cleric-ability-score-improvement-1"] },
   { index: "cleric-5", level: 5, features: ["sear-undead"] },
-  { index: "cleric-6", level: 6, features: ["cleric-subclass-feature-6"] },
+  {
+    index: "cleric-6",
+    level: 6,
+    features: [
+      "cleric-subclass-feature-6",
+      "blessed-healer",
+      "improved-warding-flare",
+      "tricksters-transposition",
+      "war-gods-blessing",
+    ],
+  },
   { index: "cleric-7", level: 7, features: ["blessed-strikes"] },
   { index: "cleric-8", level: 8, features: ["cleric-ability-score-improvement-2"] },
-  { index: "cleric-10", level: 10, features: ["divine-intervention"] },
+  { index: "cleric-10", level: 10, features: ["cleric-cantrips-3", "divine-intervention"] },
   { index: "cleric-12", level: 12, features: ["cleric-ability-score-improvement-3"] },
   { index: "cleric-14", level: 14, features: ["improved-blessed-strikes"] },
   { index: "cleric-16", level: 16, features: ["cleric-ability-score-improvement-4"] },
-  { index: "cleric-17", level: 17, features: ["cleric-subclass-feature-17"] },
+  {
+    index: "cleric-17",
+    level: 17,
+    features: [
+      "cleric-subclass-feature-17",
+      "supreme-healing",
+      "corona-of-light",
+      "improved-duplicity",
+      "avatar-of-battle",
+    ],
+  },
   { index: "cleric-19", level: 19, features: ["cleric-epic-boon"] },
   { index: "cleric-20", level: 20, features: ["greater-divine-intervention"] },
 ];
 
 const CLERIC_FEATURE_REFERENCES = [
+  createClericSpellChoiceFeature(
+    "cleric-cantrips-1",
+    1,
+    "Cantrips",
+    "Choose three Cleric cantrips to represent the first prayers and sacred signs you can invoke reliably.",
+    3,
+    CLERIC_CANTRIP_OPTIONS,
+  ),
   {
     index: "cleric-spellcasting",
     level: 1,
@@ -375,6 +469,15 @@ const CLERIC_FEATURE_REFERENCES = [
               index: "thaumaturge",
               name: "Thaumaturge",
               url: "/api/2024/ability-scores/wis",
+            },
+            choice: {
+              choose: 1,
+              type: "cleric cantrip",
+              desc: "Choose one additional Cleric cantrip granted by Thaumaturge.",
+              from: {
+                option_set_type: "options_array",
+                options: toSpellOptions(CLERIC_CANTRIP_OPTIONS),
+              },
             },
           },
         ],
@@ -428,6 +531,162 @@ const CLERIC_FEATURE_REFERENCES = [
     },
   },
   {
+    index: "disciple-of-life",
+    level: 3,
+    name: "Disciple of Life",
+    desc: [
+      "Your healing spells restore additional hit points, reinforcing your role as the party's premier divine healer.",
+    ],
+    subclass: {
+      index: "life-domain",
+      name: "Life Domain",
+      url: "/api/2024/subclasses/life-domain",
+    },
+  },
+  {
+    index: "life-domain-spells",
+    level: 3,
+    name: "Life Domain Spells",
+    desc: [
+      "You always have healing- and protection-focused domain spells prepared as you gain Cleric levels.",
+    ],
+    subclass: {
+      index: "life-domain",
+      name: "Life Domain",
+      url: "/api/2024/subclasses/life-domain",
+    },
+  },
+  {
+    index: "preserve-life",
+    level: 3,
+    name: "Preserve Life",
+    desc: [
+      "You can channel divine vitality to distribute a pool of healing among injured creatures nearby.",
+    ],
+    subclass: {
+      index: "life-domain",
+      name: "Life Domain",
+      url: "/api/2024/subclasses/life-domain",
+    },
+  },
+  {
+    index: "light-domain-spells",
+    level: 3,
+    name: "Light Domain Spells",
+    desc: [
+      "You always have domain spells prepared that emphasize radiance, fire, revelation, and magical sight.",
+    ],
+    subclass: {
+      index: "light-domain",
+      name: "Light Domain",
+      url: "/api/2024/subclasses/light-domain",
+    },
+  },
+  {
+    index: "warding-flare",
+    level: 3,
+    name: "Warding Flare",
+    desc: [
+      "A burst of divine light can foil an enemy's assault by dazzling the attacker at a crucial moment.",
+    ],
+    subclass: {
+      index: "light-domain",
+      name: "Light Domain",
+      url: "/api/2024/subclasses/light-domain",
+    },
+  },
+  {
+    index: "radiance-of-the-dawn",
+    level: 3,
+    name: "Radiance of the Dawn",
+    desc: [
+      "You unleash sunlight-like power that strips away darkness and burns hostile creatures with radiant energy.",
+    ],
+    subclass: {
+      index: "light-domain",
+      name: "Light Domain",
+      url: "/api/2024/subclasses/light-domain",
+    },
+  },
+  {
+    index: "trickery-domain-spells",
+    level: 3,
+    name: "Trickery Domain Spells",
+    desc: [
+      "You always have domain spells prepared that support stealth, illusions, infiltration, and deceit.",
+    ],
+    subclass: {
+      index: "trickery-domain",
+      name: "Trickery Domain",
+      url: "/api/2024/subclasses/trickery-domain",
+    },
+  },
+  {
+    index: "blessing-of-the-trickster",
+    level: 3,
+    name: "Blessing of the Trickster",
+    desc: [
+      "Your patron's subtle favor lets you enhance a creature's talent for stealth and covert movement.",
+    ],
+    subclass: {
+      index: "trickery-domain",
+      name: "Trickery Domain",
+      url: "/api/2024/subclasses/trickery-domain",
+    },
+  },
+  {
+    index: "invoke-duplicity",
+    level: 3,
+    name: "Invoke Duplicity",
+    desc: [
+      "You create an illusory double that extends your trickery, positioning, and spell support in a fight.",
+    ],
+    subclass: {
+      index: "trickery-domain",
+      name: "Trickery Domain",
+      url: "/api/2024/subclasses/trickery-domain",
+    },
+  },
+  {
+    index: "war-domain-spells",
+    level: 3,
+    name: "War Domain Spells",
+    desc: [
+      "You always have domain spells prepared that strengthen your battlefield control, offense, and front-line presence.",
+    ],
+    subclass: {
+      index: "war-domain",
+      name: "War Domain",
+      url: "/api/2024/subclasses/war-domain",
+    },
+  },
+  {
+    index: "guided-strike",
+    level: 3,
+    name: "Guided Strike",
+    desc: [
+      "Divine certainty lets you turn a crucial miss into a more accurate strike at the decisive moment.",
+    ],
+    subclass: {
+      index: "war-domain",
+      name: "War Domain",
+      url: "/api/2024/subclasses/war-domain",
+    },
+  },
+  {
+    index: "war-priest",
+    level: 3,
+    name: "War Priest",
+    desc: [
+      "You gain extra martial pressure in battle, reinforcing your role as a combat-ready cleric.",
+    ],
+    subclass: {
+      index: "war-domain",
+      name: "War Domain",
+      url: "/api/2024/subclasses/war-domain",
+    },
+  },
+  {
     index: "cleric-ability-score-improvement-1",
     level: 4,
     name: "Ability Score Improvement",
@@ -436,6 +695,14 @@ const CLERIC_FEATURE_REFERENCES = [
     ],
     feature_specific: createAbilityScoreImprovementSpecific(),
   },
+  createClericSpellChoiceFeature(
+    "cleric-cantrips-2",
+    4,
+    "Cantrip",
+    "Choose one additional Cleric cantrip.",
+    1,
+    CLERIC_CANTRIP_OPTIONS,
+  ),
   {
     index: "sear-undead",
     level: 5,
@@ -455,6 +722,58 @@ const CLERIC_FEATURE_REFERENCES = [
       "Trickery Domain: Trickster's Transposition lets you swap places with your duplicate and deepen your battlefield deception.",
       "War Domain: War God's Blessing lets you share your martial divine favor to improve an ally's strike.",
     ],
+  },
+  {
+    index: "blessed-healer",
+    level: 6,
+    name: "Blessed Healer",
+    desc: [
+      "When you restore others with leveled magic, some of that restorative power rebounds to you.",
+    ],
+    subclass: {
+      index: "life-domain",
+      name: "Life Domain",
+      url: "/api/2024/subclasses/life-domain",
+    },
+  },
+  {
+    index: "improved-warding-flare",
+    level: 6,
+    name: "Improved Warding Flare",
+    desc: [
+      "Your protective flare grows strong enough to defend your allies as well as yourself.",
+    ],
+    subclass: {
+      index: "light-domain",
+      name: "Light Domain",
+      url: "/api/2024/subclasses/light-domain",
+    },
+  },
+  {
+    index: "tricksters-transposition",
+    level: 6,
+    name: "Trickster's Transposition",
+    desc: [
+      "Your bond with your duplicate deepens, letting you reposition through it and confuse enemies more effectively.",
+    ],
+    subclass: {
+      index: "trickery-domain",
+      name: "Trickery Domain",
+      url: "/api/2024/subclasses/trickery-domain",
+    },
+  },
+  {
+    index: "war-gods-blessing",
+    level: 6,
+    name: "War God's Blessing",
+    desc: [
+      "Your divine favor can extend to allies, helping them land important weapon attacks when it matters most.",
+    ],
+    subclass: {
+      index: "war-domain",
+      name: "War Domain",
+      url: "/api/2024/subclasses/war-domain",
+    },
   },
   {
     index: "blessed-strikes",
@@ -508,6 +827,14 @@ const CLERIC_FEATURE_REFERENCES = [
       "As a Magic action, choose any Cleric spell of level 5 or lower that doesn't require a Reaction to cast, and cast it without expending a spell slot or material components. You can't use this feature again until you finish a Long Rest.",
     ],
   },
+  createClericSpellChoiceFeature(
+    "cleric-cantrips-3",
+    10,
+    "Cantrip",
+    "Choose one additional Cleric cantrip.",
+    1,
+    CLERIC_CANTRIP_OPTIONS,
+  ),
   {
     index: "cleric-ability-score-improvement-3",
     level: 12,
@@ -547,6 +874,58 @@ const CLERIC_FEATURE_REFERENCES = [
       "Trickery Domain: Improved Duplicity increases the power and flexibility of your duplicate-driven misdirection.",
       "War Domain: Avatar of Battle turns you into a heavily protected engine of divine warfare.",
     ],
+  },
+  {
+    index: "supreme-healing",
+    level: 17,
+    name: "Supreme Healing",
+    desc: [
+      "Your restorative magic becomes maximally efficient, turning healing dice into their highest possible values.",
+    ],
+    subclass: {
+      index: "life-domain",
+      name: "Life Domain",
+      url: "/api/2024/subclasses/life-domain",
+    },
+  },
+  {
+    index: "corona-of-light",
+    level: 17,
+    name: "Corona of Light",
+    desc: [
+      "You blaze with overwhelming radiance that makes your light- and fire-based magic even more devastating.",
+    ],
+    subclass: {
+      index: "light-domain",
+      name: "Light Domain",
+      url: "/api/2024/subclasses/light-domain",
+    },
+  },
+  {
+    index: "improved-duplicity",
+    level: 17,
+    name: "Improved Duplicity",
+    desc: [
+      "Your illusion-based misdirection reaches its peak, making your duplicates far more threatening and tactically useful.",
+    ],
+    subclass: {
+      index: "trickery-domain",
+      name: "Trickery Domain",
+      url: "/api/2024/subclasses/trickery-domain",
+    },
+  },
+  {
+    index: "avatar-of-battle",
+    level: 17,
+    name: "Avatar of Battle",
+    desc: [
+      "At your peak, divine war power hardens you against battlefield punishment and lets you endure prolonged conflict.",
+    ],
+    subclass: {
+      index: "war-domain",
+      name: "War Domain",
+      url: "/api/2024/subclasses/war-domain",
+    },
   },
   {
     index: "cleric-epic-boon",
@@ -813,6 +1192,7 @@ function createClericFeatureRuleDocuments() {
       name: featureReference.name,
       desc: featureReference.desc,
       feature_specific: featureReference.feature_specific,
+      subclass: "subclass" in featureReference ? featureReference.subclass : undefined,
       url: `/api/2024/features/${featureReference.index}`,
     },
   }));
