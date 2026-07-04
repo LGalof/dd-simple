@@ -655,6 +655,7 @@ function CharacterDashboardPage() {
               inventoryController={inventoryController}
               localRolls={localRolls}
               onDismissLocalRoll={dismissLocalRoll}
+              onManualRoll={handleLocalRoll}
               onSetExhaustionLevel={(level) =>
                 setConditionState((currentState) => ({
                   ...currentState,

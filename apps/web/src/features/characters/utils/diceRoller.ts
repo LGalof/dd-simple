@@ -157,9 +157,11 @@ function rollSingleDie(sides: number, random: () => number) {
 }
 
 function normalizeDiceExpression(parsedExpression: ParsedDiceExpression) {
-  const baseFormula = `${parsedExpression.count}d${parsedExpression.sides}`;
-
-  return `${baseFormula}${formatSignedModifier(parsedExpression.modifier)}`;
+  return formatDiceFormula(
+    parsedExpression.count,
+    parsedExpression.sides,
+    parsedExpression.modifier,
+  );
 }
 
 function formatSignedModifier(modifier: number) {
@@ -178,6 +180,10 @@ function formatD20Formula(modifier: number) {
   return `1d20${formatSignedModifier(Math.trunc(modifier))}`;
 }
 
+function formatDiceFormula(count: number, sides: number, modifier = 0) {
+  return `${Math.trunc(count)}d${Math.trunc(sides)}${formatSignedModifier(Math.trunc(modifier))}`;
+}
+
 function createUnparseableResult(originalFormula: string, error: string): DiceRollResult {
   return {
     originalFormula,
@@ -194,6 +200,7 @@ function createUnparseableResult(originalFormula: string, error: string): DiceRo
 
 export {
   canParseDiceExpression,
+  formatDiceFormula,
   formatD20Formula,
   formatRollBreakdown,
   rollD20,
