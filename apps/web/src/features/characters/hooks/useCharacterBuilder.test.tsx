@@ -111,6 +111,9 @@ function createAbilityScores(scores: Record<AbilityScoreKey, number>) {
 
 describe("useCharacterBuilder", () => {
   beforeEach(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.clear();
+    }
     referenceMocks.fetchBackgrounds.mockResolvedValue([]);
     referenceMocks.fetchClasses.mockResolvedValue([]);
     referenceMocks.fetchRuleDocuments.mockResolvedValue([]);
@@ -289,6 +292,7 @@ describe("useCharacterBuilder", () => {
       {},
       {},
       {},
+      {},
     );
 
     expect(payload.currentHp).toBe(7);
@@ -363,6 +367,7 @@ describe("useCharacterBuilder", () => {
       createSageBackgroundOption(),
       [],
       [],
+      {},
       {},
       {},
       {},

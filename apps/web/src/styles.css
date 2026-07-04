@@ -2444,6 +2444,195 @@ h1 {
   filter: none;
 }
 
+.manual-dice-roller-toggle-shell {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.manual-dice-roller-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 42px;
+  padding: 0.62rem 0.72rem;
+  border: 1px solid rgba(212, 176, 106, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.09), rgba(17, 24, 39, 0.92)),
+    rgba(17, 24, 39, 0.88);
+  color: #fff7e0;
+  font: inherit;
+  cursor: pointer;
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 176, 106, 0.04),
+    0 14px 34px rgba(0, 0, 0, 0.22);
+}
+
+.manual-dice-roller-toggle span {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.manual-dice-roller-toggle strong {
+  color: #fde68a;
+  font-size: 0.68rem;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.manual-dice-roller-toggle:hover,
+.manual-dice-roller-toggle:focus-visible,
+.manual-dice-roller-toggle-active {
+  border-color: rgba(212, 176, 106, 0.44);
+  outline: none;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.18), rgba(17, 24, 39, 0.92)),
+    rgba(17, 24, 39, 0.9);
+}
+
+.manual-dice-roller {
+  display: grid;
+  gap: 0.58rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.62rem;
+  border: 1px solid rgba(212, 176, 106, 0.2);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.075), rgba(17, 24, 39, 0.94)),
+    rgba(17, 24, 39, 0.9);
+  box-shadow:
+    inset 0 0 0 1px rgba(212, 176, 106, 0.04),
+    0 18px 46px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+  z-index: 3;
+}
+
+.manual-dice-roller__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-width: 0;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid rgba(212, 176, 106, 0.14);
+}
+
+.manual-dice-roller__header span {
+  color: #f9fafb;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.manual-dice-roller__header strong {
+  overflow: hidden;
+  color: #fde68a;
+  font-size: 0.74rem;
+  line-height: 1.1;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-dice-roller__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.manual-dice-roller__field,
+.manual-dice-roller__label-field {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+.manual-dice-roller__field span,
+.manual-dice-roller__label-field span {
+  color: #cbd5e1;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.manual-dice-roller__field input,
+.manual-dice-roller__label-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0.48rem 0.55rem;
+  border: 1px solid rgba(212, 176, 106, 0.18);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #f8fafc;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.manual-dice-roller__field input:focus,
+.manual-dice-roller__label-field input:focus {
+  border-color: rgba(212, 176, 106, 0.42);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(212, 176, 106, 0.14);
+}
+
+.manual-dice-roller__field input[aria-invalid="true"] {
+  border-color: rgba(248, 113, 113, 0.42);
+}
+
+.manual-dice-roller__label-field input::placeholder {
+  color: #94a3b8;
+}
+
+.manual-dice-roller__dice-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.38rem;
+}
+
+.manual-dice-roller__die {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid rgba(212, 176, 106, 0.2);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(31, 41, 55, 0.82), rgba(15, 23, 42, 0.9)),
+    rgba(31, 41, 55, 0.76);
+  color: #fff7e0;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.manual-dice-roller__die:hover,
+.manual-dice-roller__die:focus-visible,
+.manual-dice-roller__die-active {
+  border-color: rgba(212, 176, 106, 0.44);
+  outline: none;
+  background:
+    linear-gradient(180deg, rgba(212, 176, 106, 0.22), rgba(15, 23, 42, 0.92)),
+    rgba(31, 41, 55, 0.82);
+}
+
+.manual-dice-roller__die:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .local-rolls-panel {
   display: grid;
   gap: 0.45rem;

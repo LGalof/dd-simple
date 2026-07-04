@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ConditionsSidebar,
   type ConditionId,
@@ -7,6 +8,8 @@ import {
   LocalRollsPanel,
   type LocalRollEntry,
 } from "./LocalRollsPanel";
+import { ManualDiceRoller } from "./ManualDiceRoller";
+import type { RollableResult } from "./Rollable";
 import { SpellLibrarySidebar } from "./SpellLibrarySidebar";
 import type { SpellcastingSummary } from "./CharacterSheet";
 import type { CharacterSpellcastingState } from "../../../types/character";
@@ -21,6 +24,7 @@ type CharacterDashboardRightRailProps = {
   inventoryController: InventorySandboxController;
   localRolls: LocalRollEntry[];
   onDismissLocalRoll: (id: string) => void;
+  onManualRoll: (result: RollableResult) => void;
   onSetExhaustionLevel: (level: number) => void;
   onSpellcastingStateChange: (state: CharacterSpellcastingState) => void;
   onToggleCondition: (conditionId: ConditionId) => void;
@@ -37,6 +41,7 @@ function CharacterDashboardRightRail({
   inventoryController,
   localRolls,
   onDismissLocalRoll,
+  onManualRoll,
   onSetExhaustionLevel,
   onSpellcastingStateChange,
   onToggleCondition,
@@ -46,8 +51,33 @@ function CharacterDashboardRightRail({
   spellcastingState,
   spellcastingSummary,
 }: CharacterDashboardRightRailProps) {
+  const [isDiceRollerOpen, setIsDiceRollerOpen] = useState(false);
+
   return (
     <aside className="dashboard-utility-rail">
+      <div className="manual-dice-roller-toggle-shell">
+        <button
+          type="button"
+          className={
+            isDiceRollerOpen
+              ? "manual-dice-roller-toggle manual-dice-roller-toggle-active"
+              : "manual-dice-roller-toggle"
+          }
+          aria-expanded={isDiceRollerOpen}
+          aria-controls="manual-dice-roller-panel"
+          onClick={() => setIsDiceRollerOpen((currentValue) => !currentValue)}
+        >
+          <span>Dice Roller</span>
+          <strong>{isDiceRollerOpen ? "Close" : "Open"}</strong>
+        </button>
+
+        {isDiceRollerOpen ? (
+          <div id="manual-dice-roller-panel">
+            <ManualDiceRoller onRoll={onManualRoll} />
+          </div>
+        ) : null}
+      </div>
+
       {localRolls.length > 0 ? (
         <LocalRollsPanel
           rolls={localRolls}
