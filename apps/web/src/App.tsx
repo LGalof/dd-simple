@@ -106,7 +106,7 @@ function App() {
             />
             <Route path="/inventory" element={<InventorySandboxPage />} />
             <Route path="/board" element={<TacticalBoardPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/registracija" replace />} />
           </Routes>
         </Suspense>
       </BrowserRouter>
