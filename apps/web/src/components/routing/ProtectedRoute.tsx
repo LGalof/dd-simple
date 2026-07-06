@@ -14,7 +14,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/prijava" replace />;
+    return <Navigate to="/registracija" replace />;
   }
 
   return <>{children}</>;

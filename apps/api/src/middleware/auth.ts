@@ -61,7 +61,9 @@ function sendAuthenticationRequiredResponse(req: Request, res: Response, message
       <h1>Prijava potrebna</h1>
       <p>${message}</p>
       <p>Za dostop do te strani se prijavi v D&D Simple aplikacijo.</p>
-      <a href="/prijava">Pojdi na prijavo</a>
+      <a href="/registracija">Ustvari račun</a>
+      <br />
+      <a href="/prijava">Že imaš račun? Prijavi se</a>
     </main>
   </body>
 </html>`);
