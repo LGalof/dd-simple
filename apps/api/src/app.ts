@@ -25,7 +25,7 @@ app.get("*", async (req, res, next) => {
     return;
   }
 
-  const indexPath = path.resolve(process.cwd(), "../../dist/index.html");
+  const indexPath = path.resolve(process.cwd(), "../web/dist/index.html");
 
   try {
     const html = await readFile(indexPath, "utf8");
