@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbilityScoreKey } from "@dd-simple/shared";
 import type { Character, CharacterFeatureChoiceSelection } from "../../../types/character";
 import type { ReferenceBackground, ReferenceClass, ReferenceSpecies } from "../../../types/reference";
-import type { BackgroundOption, ClassOption, SpeciesOption } from "../types/characterBuilder";
+import type {
+  BackgroundOption,
+  CharacterBuilderState,
+  ClassOption,
+  FeatureChoiceSelections,
+  SpeciesOption,
+} from "../types/characterBuilder";
 import { buildCharacterSavePayload } from "../../../pages/CharacterDashboardPage";
 import { useCharacterBuilder } from "./useCharacterBuilder";
 
@@ -28,6 +34,7 @@ function BuilderHarness({ character }: { character: Character }) {
     <div>
       <span data-testid="current-hp">{builder.builderState?.currentHp ?? ""}</span>
       <span data-testid="class-index">{builder.builderState?.classIndex ?? ""}</span>
+      <span data-testid="species-index">{builder.builderState?.speciesIndex ?? ""}</span>
       <span data-testid="background-index">{builder.builderState?.backgroundIndex ?? ""}</span>
       <span data-testid="species-choices">{JSON.stringify(builder.speciesChoices)}</span>
       <span data-testid="background-choices">{JSON.stringify(builder.backgroundChoices)}</span>
@@ -109,6 +116,68 @@ function createAbilityScores(scores: Record<AbilityScoreKey, number>) {
   }));
 }
 
+const characterBuilderDraftStoragePrefix = "dd-simple.characterBuilderDraft";
+
+type PersistedCharacterBuilderDraft = {
+  baseCharacterUpdatedAt: string | null;
+  builderState: CharacterBuilderState;
+  dirty: boolean;
+  featureChoices: FeatureChoiceSelections;
+  updatedAt: string;
+  version: 2;
+};
+
+function createDraftBuilderState(
+  overrides: Partial<CharacterBuilderState> = {},
+): CharacterBuilderState {
+  return {
+    abilityAssignments: ["str", "dex", "con", "int", "wis", "cha"].map(
+      (abilityIndex, index) => ({
+        abilityIndex,
+        dice: [],
+        id: `slot-${index + 1}`,
+        score: 10,
+      }),
+    ),
+    backgroundChoices: {},
+    backgroundIndex: "acolyte",
+    classIndex: "rogue",
+    currentHp: 10,
+    hitPointSettings: {
+      bonusHp: 0,
+      calculationMode: "fixed",
+      overrideMaxHp: null,
+      rolledHitPoints: [10],
+    },
+    level: 1,
+    speciesChoices: {},
+    speciesIndex: "human",
+    subclassIndex: null,
+    tempHp: 0,
+    ...overrides,
+  };
+}
+
+function saveDraftToLocalStorage(
+  characterId: string,
+  overrides: Partial<PersistedCharacterBuilderDraft> = {},
+) {
+  const draft: PersistedCharacterBuilderDraft = {
+    baseCharacterUpdatedAt: "2026-01-01T00:00:00.000Z",
+    builderState: createDraftBuilderState(),
+    dirty: true,
+    featureChoices: {},
+    updatedAt: "2026-01-01T00:01:00.000Z",
+    version: 2,
+    ...overrides,
+  };
+
+  window.localStorage.setItem(
+    `${characterBuilderDraftStoragePrefix}:${characterId}`,
+    JSON.stringify(draft),
+  );
+}
+
 describe("useCharacterBuilder", () => {
   beforeEach(() => {
     if (typeof window !== "undefined") {
@@ -160,6 +229,203 @@ describe("useCharacterBuilder", () => {
     );
 
     expect(screen.getByTestId("current-hp").textContent).toBe("7");
+  });
+
+  it("applies refreshed database values when local builder state is clean", async () => {
+    const { rerender } = render(<BuilderHarness character={createCharacter()} />);
+
+    expect(screen.getByTestId("current-hp").textContent).toBe("10");
+    expect(screen.getByTestId("background-index").textContent).toBe("acolyte");
+
+    rerender(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Soldier",
+          },
+          backgroundIndex: "soldier",
+          class: {
+            name: "Wizard",
+          },
+          classIndex: "wizard",
+          currentHp: 14,
+          species: {
+            name: "Elf",
+          },
+          speciesIndex: "elf",
+          updatedAt: "2026-01-01T00:00:01.000Z",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("current-hp").textContent).toBe("14");
+      expect(screen.getByTestId("background-index").textContent).toBe("soldier");
+      expect(screen.getByTestId("class-index").textContent).toBe("wizard");
+      expect(screen.getByTestId("species-index").textContent).toBe("elf");
+    });
+  });
+
+  it("ignores an old local draft when database character data is newer", async () => {
+    referenceMocks.fetchBackgrounds.mockResolvedValue([createSoldierReference()]);
+    referenceMocks.fetchClasses.mockResolvedValue([createWizardReference()]);
+    referenceMocks.fetchSpecies.mockResolvedValue([createElfReference()]);
+
+    saveDraftToLocalStorage("character-1", {
+      baseCharacterUpdatedAt: "2026-01-01T00:00:00.000Z",
+      builderState: createDraftBuilderState({
+        backgroundChoices: {
+          "acolyte:old-background:choice": "stale-background-choice",
+        },
+        backgroundIndex: "acolyte",
+        classIndex: "rogue",
+        currentHp: 1,
+        speciesIndex: "human",
+      }),
+      featureChoices: {
+        "old-feature:choice": "stale-feature-choice",
+      },
+      updatedAt: "2026-01-01T00:01:00.000Z",
+    });
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Soldier",
+          },
+          backgroundIndex: "soldier",
+          class: {
+            name: "Wizard",
+          },
+          classIndex: "wizard",
+          currentHp: 14,
+          featureChoices: [
+            createBackgroundFeatureSelection({
+              choiceKey: "soldier-gaming-set",
+              choicePath: "proficiency_choices[0]",
+              selectedOptionIndex: "tool-dice",
+              selectedOptionName: "Tool: Dice",
+              sourceIndex: "soldier",
+            }),
+          ],
+          species: {
+            name: "Elf",
+          },
+          speciesIndex: "elf",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("current-hp").textContent).toBe("14");
+      expect(screen.getByTestId("background-index").textContent).toBe("soldier");
+      expect(screen.getByTestId("class-index").textContent).toBe("wizard");
+      expect(screen.getByTestId("species-index").textContent).toBe("elf");
+      expect(screen.getByTestId("background-choices").textContent).toContain(
+        "\"soldier:soldier-origin-proficiencies:soldier-gaming-set\":\"tool-dice\"",
+      );
+      expect(screen.getByTestId("feature-choices").textContent).not.toContain(
+        "stale-feature-choice",
+      );
+    });
+  });
+
+  it("ignores an empty clean local draft when database choices are populated", async () => {
+    referenceMocks.fetchBackgrounds.mockResolvedValue([createSoldierReference()]);
+
+    saveDraftToLocalStorage("character-1", {
+      builderState: createDraftBuilderState({
+        backgroundChoices: {},
+        backgroundIndex: "acolyte",
+      }),
+      dirty: false,
+      featureChoices: {},
+      updatedAt: "2026-01-01T00:02:00.000Z",
+    });
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Soldier",
+          },
+          backgroundIndex: "soldier",
+          featureChoices: [
+            createBackgroundFeatureSelection({
+              choiceKey: "soldier-gaming-set",
+              choicePath: "proficiency_choices[0]",
+              selectedOptionIndex: "tool-dice",
+              selectedOptionName: "Tool: Dice",
+              sourceIndex: "soldier",
+            }),
+          ],
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("background-index").textContent).toBe("soldier");
+      expect(screen.getByTestId("background-choices").textContent).toContain(
+        "\"soldier:soldier-origin-proficiencies:soldier-gaming-set\":\"tool-dice\"",
+      );
+    });
+  });
+
+  it("restores a genuinely newer unsaved draft over older database data", async () => {
+    saveDraftToLocalStorage("character-1", {
+      baseCharacterUpdatedAt: "2026-01-01T00:00:00.000Z",
+      builderState: createDraftBuilderState({
+        backgroundChoices: {
+          "soldier:soldier-origin-proficiencies:soldier-gaming-set": "tool-dice",
+        },
+        backgroundIndex: "soldier",
+        classIndex: "wizard",
+        currentHp: 4,
+        speciesIndex: "elf",
+      }),
+      dirty: true,
+      featureChoices: {
+        "draft-feature:choice": "draft-feature-choice",
+      },
+      updatedAt: "2026-01-01T00:03:00.000Z",
+    });
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Acolyte",
+          },
+          backgroundIndex: "acolyte",
+          class: {
+            name: "Rogue",
+          },
+          classIndex: "rogue",
+          currentHp: 10,
+          species: {
+            name: "Human",
+          },
+          speciesIndex: "human",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("current-hp").textContent).toBe("4");
+      expect(screen.getByTestId("background-index").textContent).toBe("soldier");
+      expect(screen.getByTestId("class-index").textContent).toBe("wizard");
+      expect(screen.getByTestId("species-index").textContent).toBe("elf");
+      expect(screen.getByTestId("background-choices").textContent).toContain(
+        "\"soldier:soldier-origin-proficiencies:soldier-gaming-set\":\"tool-dice\"",
+      );
+      expect(screen.getByTestId("feature-choices").textContent).toContain(
+        "\"draft-feature:choice\":\"draft-feature-choice\"",
+      );
+    });
   });
 
   it("rehydrates saved species heritage and background choices after reference data loads", async () => {

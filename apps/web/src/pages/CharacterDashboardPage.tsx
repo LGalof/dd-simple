@@ -609,15 +609,18 @@ function CharacterDashboardPage() {
               </button>
 
               <div className="dashboard-builder-panel">
-                <p
-                  className={dashboardAutosave.saveStatus === "error" ? "error-message" : "muted"}
-                  data-testid="dashboard-autosave-status"
-                >
-                  {formatDashboardSaveStatus(
-                    dashboardAutosave.saveStatus,
-                    dashboardAutosave.lastSavedAt,
-                  )}
-                </p>
+                {dashboardAutosave.saveStatus !== "saved" &&
+                dashboardAutosave.saveStatus !== "idle" ? (
+                  <p
+                    className={dashboardAutosave.saveStatus === "error" ? "error-message" : "muted"}
+                    data-testid="dashboard-autosave-status"
+                  >
+                    {formatDashboardSaveStatus(
+                      dashboardAutosave.saveStatus,
+                      dashboardAutosave.lastSavedAt,
+                    )}
+                  </p>
+                ) : null}
                 {dashboardAutosave.saveError ? (
                   <p className="error-message">{dashboardAutosave.saveError}</p>
                 ) : null}

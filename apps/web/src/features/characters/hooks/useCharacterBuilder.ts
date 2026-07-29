@@ -74,9 +74,12 @@ const abilityScoreIndexAliases: Record<string, string> = {
 const characterBuilderDraftStoragePrefix = "dd-simple.characterBuilderDraft";
 
 type PersistedCharacterBuilderDraft = {
+  baseCharacterUpdatedAt: string | null;
   builderState: CharacterBuilderState;
+  dirty: boolean;
   featureChoices: FeatureChoiceSelections;
-  version: 1;
+  updatedAt: string;
+  version: 2;
 };
 
 function createInitialBuilderState(character: Character): CharacterBuilderState {
@@ -666,6 +669,41 @@ function getFeatureChoiceSelectionSignature(character: Character | undefined) {
     .join("|");
 }
 
+function getCharacterBuilderHydrationSignature(character: Character | undefined) {
+  if (!character) {
+    return "";
+  }
+
+  return stableJsonString({
+    abilityScores: [...character.abilityScores]
+      .sort((left, right) => left.abilityIndex.localeCompare(right.abilityIndex))
+      .map((abilityScore) => ({
+        abilityIndex: abilityScore.abilityIndex,
+        baseScore: abilityScore.baseScore,
+        score: abilityScore.score,
+      })),
+    backgroundIndex: character.backgroundIndex,
+    backgroundName: character.background.name,
+    choices: (character.choices ?? [])
+      .map(
+        (choice) =>
+          `${choice.sourceType ?? ""}:${choice.sourceIndex ?? ""}:${choice.choiceType ?? ""}:${choice.selectedType ?? ""}:${choice.selectedIndex ?? ""}`,
+      )
+      .sort(),
+    classIndex: character.classIndex,
+    className: character.class.name,
+    currentHp: character.currentHp,
+    featureChoices: getFeatureChoiceSelectionSignature(character),
+    hitPointState: character.hitPointState ?? null,
+    id: character.id,
+    level: character.level,
+    speciesIndex: character.speciesIndex,
+    speciesName: character.species.name,
+    subclassIndex: character.subclassIndex,
+    updatedAt: getCharacterUpdatedAtRevision(character),
+  });
+}
+
 function getSavedClassSkillFeatureChoices(
   character: Character,
   classOption: ClassOption,
@@ -1105,7 +1143,11 @@ function loadCharacterBuilderDraft(characterId: string) {
 
     if (
       !parsedDraft ||
-      parsedDraft.version !== 1 ||
+      parsedDraft.version !== 2 ||
+      typeof parsedDraft.dirty !== "boolean" ||
+      !isNullableNonEmptyString(parsedDraft.baseCharacterUpdatedAt) ||
+      typeof parsedDraft.updatedAt !== "string" ||
+      Number.isNaN(Date.parse(parsedDraft.updatedAt)) ||
       !parsedDraft.builderState ||
       !parsedDraft.featureChoices
     ) {
@@ -1119,24 +1161,121 @@ function loadCharacterBuilderDraft(characterId: string) {
 }
 
 function saveCharacterBuilderDraft(
-  characterId: string,
+  character: Character,
   builderState: CharacterBuilderState,
   featureChoices: FeatureChoiceSelections,
+  options: {
+    backgroundOptions: BackgroundOption[];
+    classOptions: ClassOption[];
+    speciesOptions: SpeciesOption[];
+  },
+  baseCharacterUpdatedAt: string | null,
 ) {
   try {
+    const hydratedBuilderState = createBuilderStateFromOptions(character, options);
+    const hydratedFeatureChoices = getHydratedFeatureChoiceState(
+      character,
+      getClassOptionForCharacter(character, options.classOptions),
+    ).featureChoices;
     const draft: PersistedCharacterBuilderDraft = {
+      baseCharacterUpdatedAt,
       builderState,
+      dirty:
+        !areBuilderStatesEquivalent(builderState, hydratedBuilderState) ||
+        !areStringRecordsEquivalent(featureChoices, hydratedFeatureChoices),
       featureChoices,
-      version: 1,
+      updatedAt: createDraftUpdatedAt(baseCharacterUpdatedAt),
+      version: 2,
     };
 
     window.localStorage.setItem(
-      getCharacterBuilderDraftStorageKey(characterId),
+      getCharacterBuilderDraftStorageKey(character.id),
       JSON.stringify(draft),
     );
   } catch {
     // Ignore storage failures so the live builder remains usable.
   }
+}
+
+function isNullableNonEmptyString(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && value.trim().length > 0);
+}
+
+function getCharacterUpdatedAtRevision(character: Character) {
+  return typeof character.updatedAt === "string" && character.updatedAt.trim().length > 0
+    ? character.updatedAt
+    : null;
+}
+
+function getCharacterUpdatedAtTime(character: Character) {
+  const revision = getCharacterUpdatedAtRevision(character);
+
+  if (!revision) {
+    return null;
+  }
+
+  const timestamp = Date.parse(revision);
+
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function createDraftUpdatedAt(baseCharacterUpdatedAt: string | null) {
+  const baseTimestamp =
+    typeof baseCharacterUpdatedAt === "string" ? Date.parse(baseCharacterUpdatedAt) : Number.NaN;
+  const timestamp = Number.isNaN(baseTimestamp)
+    ? Date.now()
+    : Math.max(Date.now(), baseTimestamp + 1);
+
+  return new Date(timestamp).toISOString();
+}
+
+function shouldRestoreCharacterBuilderDraft({
+  character,
+  draft,
+  hydratedBuilderState,
+  hydratedFeatureChoices,
+  options,
+}: {
+  character: Character;
+  draft: PersistedCharacterBuilderDraft | null;
+  hydratedBuilderState: CharacterBuilderState;
+  hydratedFeatureChoices: FeatureChoiceSelections;
+  options: {
+    backgroundOptions: BackgroundOption[];
+    classOptions: ClassOption[];
+    speciesOptions: SpeciesOption[];
+  };
+}) {
+  const draftUpdatedAtTime = draft ? Date.parse(draft.updatedAt) : Number.NaN;
+  const characterUpdatedAtTime = getCharacterUpdatedAtTime(character);
+
+  if (
+    !draft?.dirty ||
+    draft.baseCharacterUpdatedAt !== getCharacterUpdatedAtRevision(character) ||
+    Number.isNaN(draftUpdatedAtTime) ||
+    (characterUpdatedAtTime !== null && draftUpdatedAtTime <= characterUpdatedAtTime)
+  ) {
+    return null;
+  }
+
+  const builderState = normalizePersistedBuilderState(
+    draft.builderState,
+    hydratedBuilderState,
+    options,
+  );
+  const featureChoices = normalizePersistedFeatureChoices(draft.featureChoices);
+
+  if (
+    areBuilderStatesEquivalent(builderState, hydratedBuilderState) &&
+    areStringRecordsEquivalent(featureChoices, hydratedFeatureChoices)
+  ) {
+    return null;
+  }
+
+  return {
+    builderState,
+    featureChoices,
+  };
 }
 
 function normalizePersistedFeatureChoices(value: unknown) {
@@ -1363,9 +1502,26 @@ function getPersistedFeatureChoices(character: Character) {
   );
 }
 
+function getHydratedFeatureChoiceState(character: Character, classOption: ClassOption) {
+  const persistedFeatureChoices = getPersistedFeatureChoices(character);
+  const classSkillHydration = getSavedClassSkillFeatureChoices(character, classOption);
+  const genericHydration = getSavedGenericFeatureChoices(character, classOption);
+
+  return {
+    classSkillHydration,
+    featureChoices: {
+      ...persistedFeatureChoices,
+      ...genericHydration.featureChoices,
+      ...classSkillHydration.featureChoices,
+    },
+    genericHydration,
+  };
+}
+
 function useCharacterBuilder(character: Character | undefined) {
   const previousCharacterIdRef = useRef<string | null>(null);
   const previousHydratedBuilderStateRef = useRef<CharacterBuilderState | null>(null);
+  const draftBaseCharacterUpdatedAtRef = useRef<string | null>(null);
   const previousClassSkillChoiceSignatureRef = useRef("");
   const previousFeatureChoiceSignatureRef = useRef("");
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
@@ -1388,27 +1544,26 @@ function useCharacterBuilder(character: Character | undefined) {
       setPersistedSkillIndexes([]);
       previousCharacterIdRef.current = null;
       previousHydratedBuilderStateRef.current = null;
+      draftBaseCharacterUpdatedAtRef.current = null;
       previousClassSkillChoiceSignatureRef.current = "";
       previousFeatureChoiceSignatureRef.current = "";
       return;
     }
 
     const isNewCharacter = previousCharacterIdRef.current !== character.id;
+    const characterUpdatedAtRevision = getCharacterUpdatedAtRevision(character);
     const nextHydratedBuilderState = createBuilderStateFromOptions(character, referenceOptions);
     const selectedClassOption = getClassOptionForCharacter(
       character,
       referenceOptions.classOptions,
     );
     const classSkillChoiceSignature = getClassSkillChoiceSignature(character);
-    const persistedFeatureChoices = getPersistedFeatureChoices(character);
     const featureChoiceSignature = getFeatureChoiceSelectionSignature(character);
-    const classSkillHydration = getSavedClassSkillFeatureChoices(character, selectedClassOption);
-    const genericHydration = getSavedGenericFeatureChoices(character, selectedClassOption);
-    const hydratedFeatureChoices = {
-      ...persistedFeatureChoices,
-      ...genericHydration.featureChoices,
-      ...classSkillHydration.featureChoices,
-    };
+    const {
+      classSkillHydration,
+      featureChoices: hydratedFeatureChoices,
+      genericHydration,
+    } = getHydratedFeatureChoiceState(character, selectedClassOption);
     const savedCount = classSkillHydration.savedCount + genericHydration.savedCount;
     const hydratedCount = classSkillHydration.hydratedCount + genericHydration.hydratedCount;
     const canMarkSavedChoicesProcessed =
@@ -1424,16 +1579,18 @@ function useCharacterBuilder(character: Character | undefined) {
       Boolean(
         previousHydratedBuilderState &&
           areBuilderStatesEquivalent(builderState, previousHydratedBuilderState),
-      );
+      ) ||
+      areBuilderStatesEquivalent(builderState, nextHydratedBuilderState);
 
     const persistedDraft = loadCharacterBuilderDraft(character.id);
-    const nextBuilderState = persistedDraft
-      ? normalizePersistedBuilderState(
-          persistedDraft.builderState,
-          nextHydratedBuilderState,
-          referenceOptions,
-        )
-      : nextHydratedBuilderState;
+    const restoredDraft = shouldRestoreCharacterBuilderDraft({
+      character,
+      draft: persistedDraft,
+      hydratedBuilderState: nextHydratedBuilderState,
+      hydratedFeatureChoices,
+      options: referenceOptions,
+    });
+    const nextBuilderState = restoredDraft?.builderState ?? nextHydratedBuilderState;
 
     setBuilderState((currentState) => {
       if (isNewCharacter || !currentState) {
@@ -1467,10 +1624,10 @@ function useCharacterBuilder(character: Character | undefined) {
         return currentChoices;
       }
 
-      if (persistedDraft) {
+      if (restoredDraft) {
         return {
           ...hydratedFeatureChoices,
-          ...normalizePersistedFeatureChoices(persistedDraft.featureChoices),
+          ...restoredDraft.featureChoices,
         };
       }
 
@@ -1487,27 +1644,35 @@ function useCharacterBuilder(character: Character | undefined) {
 
     previousCharacterIdRef.current = character.id;
     if (shouldAcceptHydratedBuilderState) {
-      previousHydratedBuilderStateRef.current = nextBuilderState;
+      previousHydratedBuilderStateRef.current = nextHydratedBuilderState;
     }
+    draftBaseCharacterUpdatedAtRef.current =
+      shouldAcceptHydratedBuilderState &&
+      areStringRecordsEquivalent(featureChoices, hydratedFeatureChoices)
+        ? characterUpdatedAtRevision
+        : draftBaseCharacterUpdatedAtRef.current ?? characterUpdatedAtRevision;
     if (canMarkSavedChoicesProcessed) {
       previousClassSkillChoiceSignatureRef.current = classSkillChoiceSignature;
       previousFeatureChoiceSignatureRef.current = featureChoiceSignature;
     }
   }, [
-    character?.id,
-    character?.subclassIndex,
-    getClassSkillChoiceSignature(character),
-    getFeatureChoiceSelectionSignature(character),
+    getCharacterBuilderHydrationSignature(character),
     referenceOptions,
   ]);
 
   useEffect(() => {
-    if (!character?.id || !builderState) {
+    if (!character || !builderState) {
       return;
     }
 
-    saveCharacterBuilderDraft(character.id, builderState, featureChoices);
-  }, [builderState, character?.id, featureChoices]);
+    saveCharacterBuilderDraft(
+      character,
+      builderState,
+      featureChoices,
+      referenceOptions,
+      draftBaseCharacterUpdatedAtRef.current ?? getCharacterUpdatedAtRevision(character),
+    );
+  }, [builderState, character?.id, character?.updatedAt, featureChoices]);
 
   useEffect(() => {
     let isCurrentRequest = true;
@@ -2097,6 +2262,17 @@ function areBuilderStatesEquivalent(
   right: CharacterBuilderState,
 ) {
   return stableJsonString(left) === stableJsonString(right);
+}
+
+function areStringRecordsEquivalent(left: Record<string, string>, right: Record<string, string>) {
+  const leftEntries = Object.entries(left).sort(([leftKey], [rightKey]) =>
+    leftKey.localeCompare(rightKey),
+  );
+  const rightEntries = Object.entries(right).sort(([leftKey], [rightKey]) =>
+    leftKey.localeCompare(rightKey),
+  );
+
+  return stableJsonString(leftEntries) === stableJsonString(rightEntries);
 }
 
 function getResolvedSubclassIndex(
