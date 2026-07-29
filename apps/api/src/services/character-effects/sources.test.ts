@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getActiveFeatureChoiceSources } from "./sources.js";
+import {
+  getActiveFeatureChoiceSources,
+  getActiveSpeciesTraitIndexes,
+} from "./sources.js";
 import type { CharacterFeatureChoiceRecord } from "./types.js";
 
 function createFeatureChoice(
@@ -116,15 +119,15 @@ test("getActiveFeatureChoiceSources falls back to selectedRawJson descriptions w
   const sources = getActiveFeatureChoiceSources(
     [
       createFeatureChoice({
-        choiceKey: "fighting-style",
-        choiceLabel: "Fighting Style",
-        selectedOptionIndex: "protection",
-        selectedOptionName: "Protection",
+        choiceKey: "weapon-mastery",
+        choiceLabel: "Weapon Mastery",
+        selectedOptionIndex: "vex",
+        selectedOptionName: "Vex",
         selectedRawJson: {
           description:
-            "When a creature you can see attacks a target other than you that is within 5 feet of you, you can take a Reaction to impose Disadvantage on the attack roll. You must be holding a Shield to use this Reaction.",
+            "If you hit a creature with this weapon and deal damage to it, you have Advantage on your next attack roll against that creature before the end of your next turn.",
         },
-        sourceIndex: "fighter-fighting-style",
+        sourceIndex: "rogue-weapon-mastery",
       }),
     ],
     1,
@@ -133,11 +136,65 @@ test("getActiveFeatureChoiceSources falls back to selectedRawJson descriptions w
   assert.deepEqual(sources, [
     {
       description:
-        "When a creature you can see attacks a target other than you that is within 5 feet of you, you can take a Reaction to impose Disadvantage on the attack roll. You must be holding a Shield to use this Reaction.",
+        "If you hit a creature with this weapon and deal damage to it, you have Advantage on your next attack roll against that creature before the end of your next turn.",
       level: 1,
-      sourceIndex: "protection",
+      sourceIndex: "vex",
       sourceType: "class_feature",
-      title: "Protection",
+      title: "Vex",
     },
   ]);
+});
+
+test("getActiveSpeciesTraitIndexes keeps only selected lineage trait branches", () => {
+  const activeTraitIndexes = getActiveSpeciesTraitIndexes(
+    [
+      "darkvision",
+      "fiendish-legacy",
+      "fiendish-legacy-abyssal",
+      "fiendish-legacy-chthonic",
+      "fiendish-spell-ray-of-sickness",
+      "fiendish-spell-false-life",
+      "fiendish-spell-ray-of-enfeeblement",
+    ],
+    {
+      traits: [
+        { index: "fiendish-legacy-chthonic" },
+        { index: "fiendish-spell-false-life" },
+        { index: "fiendish-spell-ray-of-enfeeblement" },
+      ],
+    },
+  );
+
+  assert.deepEqual(activeTraitIndexes.sort(), [
+    "darkvision",
+    "fiendish-legacy",
+    "fiendish-legacy-chthonic",
+    "fiendish-spell-false-life",
+    "fiendish-spell-ray-of-enfeeblement",
+  ].sort());
+});
+
+test("getActiveSpeciesTraitIndexes does not activate unselected elf and gnome lineages", () => {
+  const activeTraitIndexes = getActiveSpeciesTraitIndexes(
+    [
+      "elven-lineage",
+      "lineage-spell-dancing-lights",
+      "lineage-spell-faerie-fire",
+      "wood-elf-speed-increase",
+    ],
+    {
+      traits: [
+        { index: "wood-elf-speed-increase" },
+        { index: "lineage-spell-druidcraft" },
+        { index: "lineage-spell-longstrider" },
+      ],
+    },
+  );
+
+  assert.deepEqual(activeTraitIndexes.sort(), [
+    "elven-lineage",
+    "lineage-spell-druidcraft",
+    "lineage-spell-longstrider",
+    "wood-elf-speed-increase",
+  ].sort());
 });

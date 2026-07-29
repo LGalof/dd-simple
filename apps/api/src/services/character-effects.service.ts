@@ -374,8 +374,13 @@ async function findCharacterDerivedStateForUser(
     ...baseActiveSources,
     ...deriveActiveResourceSources(baseActiveSources, effectiveResourceState.activeByResourceKey ?? {}),
   ];
+  const effectiveAbilityScores = character.abilityScores.map((abilityScore) => ({
+    ...abilityScore,
+    score: overrides.abilityScores?.[abilityScore.abilityIndex as keyof NonNullable<typeof overrides.abilityScores>] ??
+      abilityScore.score,
+  }));
   const abilityScoresByIndex = Object.fromEntries(
-    character.abilityScores.map((abilityScore) => [
+    effectiveAbilityScores.map((abilityScore) => [
       abilityScore.abilityIndex,
       abilityScore.score,
     ]),
@@ -399,7 +404,7 @@ async function findCharacterDerivedStateForUser(
   ]).sort(compareDefenseEntries);
   const combinedActions = dedupeActions([
     ...deriveWeaponActionEntries({
-      abilityScores: character.abilityScores,
+      abilityScores: effectiveAbilityScores,
       activeSources,
       characterLevel: effectiveLevel,
       inventory: character.inventory,
@@ -413,10 +418,12 @@ async function findCharacterDerivedStateForUser(
     actions: combinedActions,
     activeSources,
     defenses: combinedDefenses,
-    resources: deriveResourceEntries(activeSources, effectiveLevel),
+    resources: deriveResourceEntries(activeSources, effectiveLevel, {
+      abilityScoresByIndex,
+    }),
     selectedSubclassIndex: validatedSubclassDocument?.index ?? null,
     selectedSubspeciesIndex: validatedSubspeciesDocument?.index ?? null,
-    spells: deriveSpellEntries(activeSources, classSourceJson),
+    spells: deriveSpellEntries(activeSources, classSourceJson, effectiveLevel),
     stats: derivedStats,
   };
 }
@@ -430,29 +437,43 @@ function deriveActiveResourceSources(
       .filter(([, isActive]) => isActive)
       .map(([key]) => key.toLowerCase()),
   );
+  const activeSourcesFromResources: ResolvedFeatureSource[] = [];
 
-  if (!activeResourceKeys.has("rage")) {
-    return [];
+  if (activeResourceKeys.has("large-form")) {
+    const largeFormSource = activeSources.find((source) =>
+      `${source.sourceIndex} ${source.title}`.toLowerCase().includes("large-form"),
+    );
+
+    if (largeFormSource) {
+      activeSourcesFromResources.push({
+        description:
+          "While Large Form is active, your Speed increases by 10 feet.",
+        level: largeFormSource.level,
+        sourceIndex: "large-form-active",
+        sourceType: "species_trait" as const,
+        title: "Large Form (Active)",
+      });
+    }
   }
 
-  const rageSource = activeSources.find((source) =>
-    `${source.sourceIndex} ${source.title}`.toLowerCase().includes("rage"),
-  );
+  if (activeResourceKeys.has("rage")) {
+    const rageSource = activeSources.find((source) =>
+      `${source.sourceIndex} ${source.title}`.toLowerCase().includes("rage"),
+    );
 
-  if (!rageSource) {
-    return [];
+    if (rageSource) {
+      activeSourcesFromResources.push({
+        description:
+          "While Rage is active, you have resistance to bludgeoning, piercing, and slashing damage.",
+        level: rageSource.level,
+        sourceIndex: "rage-active",
+        sourceType: "class_feature" as const,
+        title: "Rage (Active)",
+      });
+    }
   }
 
-  return [
-    {
-      description:
-        "While Rage is active, you have resistance to bludgeoning, piercing, and slashing damage.",
-      level: rageSource.level,
-      sourceIndex: "rage-active",
-      sourceType: "class_feature" as const,
-      title: "Rage (Active)",
-    },
-  ];
+  return activeSourcesFromResources;
 }
 
 function hasArmorEquipped(

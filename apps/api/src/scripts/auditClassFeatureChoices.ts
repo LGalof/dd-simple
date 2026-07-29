@@ -635,7 +635,7 @@ function buildReport(choices: ChoiceRecord[]) {
     "",
     "## Executive Summary",
     "",
-    `The scanner found ${choices.length} choice objects in the active local reference data under \`${relativePath(dataDir)}\`. The data contains class proficiency and equipment choices from class records plus feature-specific choices such as Bard Expertise, Fighter Fighting Style, Ranger Favored Enemy/Natural Explorer, Sorcerer Metamagic, Warlock Pact Boon, and Rogue Expertise. The scanner is audit-only: it reads JSON, classifies choices, writes this report, and leaves character persistence and gameplay logic unchanged.`,
+    `The scanner found ${choices.length} choice objects in the active local reference data under \`${relativePath(dataDir)}\`. The supported class audit focuses on Barbarian, Bard, Cleric, Rogue, and Wizard choices such as Bard Expertise, Rogue Expertise, Wizard spell selections, and class proficiency choices. The scanner is audit-only: it reads JSON, classifies choices, writes this report, and leaves character persistence and gameplay logic unchanged.`,
     "",
     "## Discovered Files",
     "",
@@ -739,18 +739,10 @@ function markdownProblemList(choices: ChoiceRecord[]) {
 function validateReport(report: string, choices: ChoiceRecord[]) {
   const requiredTerms = [
     "Bard Expertise",
-    "Fighter Fighting Style",
-    "Ranger Favored Enemy",
-    "Sorcerer Metamagic",
-    "Warlock Pact Boon",
     "Rogue Expertise",
   ];
   const requiredFeatureIndexes = [
     "bard-expertise-1",
-    "fighter-fighting-style",
-    "favored-enemy-1-type",
-    "metamagic-1",
-    "pact-boon",
     "rogue-expertise-1",
   ];
 

@@ -27,22 +27,12 @@ type SpellcastingSummary = {
 const spellcastingAbilityFallbacks: Record<string, keyof AbilityScores> = {
   bard: "cha",
   cleric: "wis",
-  druid: "wis",
-  paladin: "cha",
-  ranger: "wis",
-  sorcerer: "cha",
-  warlock: "cha",
   wizard: "int",
 };
 
 const spellcastingTypeFallbacks: Record<string, SpellcastingSummary["castingType"]> = {
   bard: "Full caster",
   cleric: "Full caster",
-  druid: "Full caster",
-  paladin: "Half caster",
-  ranger: "Half caster",
-  sorcerer: "Full caster",
-  warlock: "Pact Magic",
   wizard: "Full caster",
 };
 
@@ -69,33 +59,54 @@ const fullCasterSlotProgression: Array<{ cantripsKnown: number; spellSlots: numb
   { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 2, 2, 1, 1] },
 ];
 
-const halfCasterSlotProgression: number[][] = [
+const arcaneTricksterSlotProgression: number[][] = [
+  [],
+  [],
   [2],
-  [2],
+  [3],
   [3],
   [3],
   [4, 2],
   [4, 2],
+  [4, 2],
+  [4, 3],
   [4, 3],
   [4, 3],
   [4, 3, 2],
   [4, 3, 2],
+  [4, 3, 2],
+  [4, 3, 3],
   [4, 3, 3],
   [4, 3, 3],
   [4, 3, 3, 1],
   [4, 3, 3, 1],
-  [4, 3, 3, 2],
-  [4, 3, 3, 2],
-  [4, 3, 3, 3, 1],
-  [4, 3, 3, 3, 1],
-  [4, 3, 3, 3, 2],
-  [4, 3, 3, 3, 2],
+];
+
+const arcaneTricksterPreparedSpellsByLevel = [
+  0,
+  0,
+  3,
+  4,
+  4,
+  4,
+  5,
+  6,
+  6,
+  7,
+  8,
+  8,
+  9,
+  10,
+  10,
+  11,
+  11,
+  11,
+  12,
+  13,
 ];
 
 const knownSpellFallbacks: Record<string, number[]> = {
   bard: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
-  sorcerer: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
-  warlock: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
 };
 
 const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
@@ -118,7 +129,7 @@ function getSpellcastingSummary(
   classOption: ClassOption,
   selectedSubclass: ClassSubclassOption | null,
 ): SpellcastingSummary | null {
-  const abilityIndex = getSpellcastingAbilityIndex(classOption);
+  const abilityIndex = getSpellcastingAbilityIndex(classOption, selectedSubclass);
 
   if (!abilityIndex) {
     return null;
@@ -130,7 +141,7 @@ function getSpellcastingSummary(
   const abilityValue = abilityScore?.score ?? 10;
   const abilityModifier = Math.floor((abilityValue - 10) / 2);
   const proficiencyBonus = getProficiencyBonus(character.level);
-  const levelSummary = getCurrentSpellcastingLevel(classOption, character.level);
+  const levelSummary = getCurrentSpellcastingLevel(classOption, selectedSubclass, character.level);
   const slotRows = (levelSummary?.spellSlots ?? []).map((slot) => ({
     level: slot.level,
     max: slot.slots,
@@ -150,7 +161,7 @@ function getSpellcastingSummary(
   return {
     abilityLabel: abilityScore?.ability.fullName ?? abilityIndex.toUpperCase(),
     attackBonus: abilityModifier + proficiencyBonus,
-    castingType: getSpellcastingTypeLabel(classOption),
+    castingType: getSpellcastingTypeLabel(classOption, selectedSubclass),
     knownPrepared,
     notes: getSpellcastingNotesForDisplay(classOption, selectedSubclass, character.level),
     proficiencyBonus,
@@ -188,7 +199,14 @@ function getSubclassSpellcastingNotes(
     .map((feature) => `${selectedSubclass?.name}: ${feature.name} - ${feature.description}`);
 }
 
-function getSpellcastingAbilityIndex(classOption: ClassOption): keyof AbilityScores | null {
+function getSpellcastingAbilityIndex(
+  classOption: ClassOption,
+  selectedSubclass: ClassSubclassOption | null,
+): keyof AbilityScores | null {
+  if (isArcaneTrickster(classOption, selectedSubclass)) {
+    return "int";
+  }
+
   const structuredAbilityIndex = canonicalAbilityScoreIndex(
     classOption.spellcasting?.abilityIndex ?? undefined,
   );
@@ -196,13 +214,12 @@ function getSpellcastingAbilityIndex(classOption: ClassOption): keyof AbilitySco
   return structuredAbilityIndex ?? spellcastingAbilityFallbacks[classOption.index] ?? null;
 }
 
-function getSpellcastingTypeLabel(classOption: ClassOption) {
-  if (classOption.spellcasting?.castingType === "pact-magic") {
-    return "Pact Magic";
-  }
-
-  if (classOption.spellcasting?.castingType === "half-caster") {
-    return "Half caster";
+function getSpellcastingTypeLabel(
+  classOption: ClassOption,
+  selectedSubclass: ClassSubclassOption | null,
+) {
+  if (isArcaneTrickster(classOption, selectedSubclass)) {
+    return "Third caster";
   }
 
   if (classOption.spellcasting?.castingType === "full-caster") {
@@ -214,12 +231,42 @@ function getSpellcastingTypeLabel(classOption: ClassOption) {
 
 function getCurrentSpellcastingLevel(
   classOption: ClassOption,
+  selectedSubclass: ClassSubclassOption | null,
   characterLevel: number,
 ): ClassSpellcastingLevelSummary | null {
+  if (isArcaneTrickster(classOption, selectedSubclass)) {
+    return getArcaneTricksterSpellcastingLevel(characterLevel);
+  }
+
   const levels = classOption.spellcasting?.levels ?? [];
   const referenceLevel = [...levels].reverse().find((level) => level.level <= characterLevel);
 
   return referenceLevel ?? getFallbackSpellcastingLevel(classOption.index, characterLevel);
+}
+
+function getArcaneTricksterSpellcastingLevel(
+  characterLevel: number,
+): ClassSpellcastingLevelSummary | null {
+  const normalizedLevel = Math.max(1, Math.min(20, characterLevel));
+  const spellSlots = arcaneTricksterSlotProgression[normalizedLevel - 1] ?? [];
+
+  if (spellSlots.length === 0) {
+    return null;
+  }
+
+  return {
+    cantripsKnown: normalizedLevel >= 10 ? 4 : 3,
+    level: normalizedLevel,
+    preparedSpells: arcaneTricksterPreparedSpellsByLevel[normalizedLevel - 1] ?? 3,
+    spellSlots: spellSlots.map((slots, index) => ({ level: index + 1, slots })),
+  };
+}
+
+function isArcaneTrickster(
+  classOption: ClassOption,
+  selectedSubclass: ClassSubclassOption | null,
+) {
+  return classOption.index === "rogue" && selectedSubclass?.index === "arcane-trickster";
 }
 
 function getFallbackSpellcastingLevel(
@@ -241,44 +288,11 @@ function getFallbackSpellcastingLevel(
     };
   }
 
-  if (castingType === "Half caster") {
-    const progression = halfCasterSlotProgression[normalizedLevel - 1] ?? [];
-
-    return {
-      level: normalizedLevel,
-      preparedSpells: Math.max(1, Math.floor(normalizedLevel / 2) + 1),
-      spellSlots: progression.map((slots, index) => ({ level: index + 1, slots })),
-    };
-  }
-
-  if (castingType === "Pact Magic") {
-    return {
-      cantripsKnown: normalizedLevel < 4 ? 2 : normalizedLevel < 10 ? 3 : 4,
-      level: normalizedLevel,
-      spellSlots: [
-        {
-          level:
-            normalizedLevel < 3
-              ? 1
-              : normalizedLevel < 5
-                ? 2
-                : normalizedLevel < 7
-                  ? 3
-                  : normalizedLevel < 9
-                    ? 4
-                    : 5,
-          slots: normalizedLevel < 11 ? 2 : normalizedLevel < 17 ? 3 : 4,
-        },
-      ],
-      spellsKnown: getKnownSpellFallback(classIndex, normalizedLevel),
-    };
-  }
-
   return null;
 }
 
 function getPreparedSpellFallback(classIndex: string, characterLevel: number) {
-  if (["cleric", "druid", "wizard"].includes(classIndex)) {
+  if (["cleric", "wizard"].includes(classIndex)) {
     return Math.max(1, characterLevel + 3);
   }
 

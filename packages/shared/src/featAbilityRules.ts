@@ -35,11 +35,11 @@ const featAbilityRules: Record<string, FeatAbilityRule> = {
     selectableCount: 1,
   },
   "boon-of-irresistible-offense": {
-    selectableAbilities: allAbilityScoreKeys,
+    selectableAbilities: martialAbilityScoreKeys,
     selectableCount: 1,
   },
   "boon-of-spell-recall": {
-    selectableAbilities: allAbilityScoreKeys,
+    selectableAbilities: ["int", "wis", "cha"],
     selectableCount: 1,
   },
   "boon-of-the-night-spirit": {

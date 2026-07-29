@@ -220,9 +220,9 @@ async function seedReferences() {
         sourceJson: { saving_throws: [{ index: "dex" }, { index: "int" }] },
       },
       {
-        index: "fighter",
-        name: "Fighter",
-        hitDie: 10,
+        index: "barbarian",
+        name: "Barbarian",
+        hitDie: 12,
         sourceJson: { saving_throws: [{ index: "str" }, { index: "con" }] },
       },
       {
@@ -242,11 +242,11 @@ async function seedReferences() {
         abilityScoreIndex: "dex",
       },
       {
-        classIndex: "fighter",
+        classIndex: "barbarian",
         abilityScoreIndex: "str",
       },
       {
-        classIndex: "fighter",
+        classIndex: "barbarian",
         abilityScoreIndex: "dex",
       },
       {
@@ -332,13 +332,13 @@ async function seedReferences() {
         sourceLabel: "Intelligence Saving Throw",
       },
       {
-        classIndex: "fighter",
+        classIndex: "barbarian",
         proficiencyIndex: "saving-throw-str",
         grantType: "SAVING_THROW",
         sourceLabel: "Strength Saving Throw",
       },
       {
-        classIndex: "fighter",
+        classIndex: "barbarian",
         proficiencyIndex: "saving-throw-con",
         grantType: "SAVING_THROW",
         sourceLabel: "Constitution Saving Throw",
@@ -512,6 +512,21 @@ async function seedReferences() {
         costUnit: "gp",
         weight: 1,
         description: "Tools for locks and traps.",
+      },
+      {
+        index: "poisoners-kit",
+        name: "Poisoner's Kit",
+        equipmentCategory: "tools",
+        itemType: "tool",
+        costQuantity: 50,
+        costUnit: "gp",
+        weight: 2,
+        description:
+          "A poisoner's kit includes the vials, chemicals, and other equipment necessary for the creation of poisons. Proficiency with this kit lets you add your proficiency bonus to any ability checks you make to craft or use poisons.",
+        sourceJson: {
+          tags: ["utility"],
+          source: "Basic Rules (2014)",
+        },
       },
       {
         index: "backpack",
@@ -958,7 +973,7 @@ async function main() {
     {
       name: "Brunna Ironvale",
       speciesIndex: "dwarf",
-      classIndex: "fighter",
+      classIndex: "barbarian",
       backgroundIndex: "soldier",
       alignment: "Lawful Good",
       level: 4,

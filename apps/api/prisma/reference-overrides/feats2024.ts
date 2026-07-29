@@ -384,7 +384,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 19,
     },
     description:
-      "Increase one ability score by 1, up to 30, and once between turns you can turn a missed attack into a hit.",
+      "Epic Boon Feat (Prerequisite: Level 19+)\n\nYou gain the following benefits.\n\nAbility Score Increase. Increase one ability score of your choice by 1, to a maximum of 30.\n\nPeerless Aim. When you miss with an attack roll, you can hit instead. Once you use this benefit, you can't use it again until the start of your next turn.",
     url: featUrl("boon-of-combat-prowess"),
   },
   {
@@ -406,7 +406,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 19,
     },
     description:
-      "Increase one ability score by 1, up to 30, and twist fate by applying 2d4 as a bonus or penalty to a nearby creature's d20 Test.",
+      "Epic Boon Feat (Prerequisite: Level 19+)\n\nYou gain the following benefits.\n\nAbility Score Increase. Increase one ability score of your choice by 1, to a maximum of 30.\n\nImprove Fate. When you or another creature within 60 feet of you succeeds on or fails a D20 Test, you can roll 2d4 and apply the total rolled as a bonus or penalty to the d20 roll. Once you use this benefit, you can't use it again until you roll Initiative or finish a Short or Long Rest.",
     url: featUrl("boon-of-fate"),
   },
   {
@@ -417,7 +417,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 19,
     },
     description:
-      "Increase one ability score by 1, up to 30, ignore resistance to your basic weapon damage, and add extra damage when you roll a 20 on an attack.",
+      "Epic Boon Feat (Prerequisite: Level 19+)\n\nYou gain the following benefits.\n\nAbility Score Increase. Increase your Strength or Dexterity score by 1, to a maximum of 30.\n\nOvercome Defenses. The Bludgeoning, Piercing, and Slashing damage you deal always ignores Resistance.\n\nOverwhelming Strike. When you roll a 20 on the d20 for an attack roll, you can deal extra damage to the target equal to the ability score increased by this feat. The extra damage's type is the same as the attack's type.",
     url: featUrl("boon-of-irresistible-offense"),
   },
   {
@@ -429,7 +429,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       feature_named: "Spellcasting",
     },
     description:
-      "Increase one ability score by 1, up to 30, and sometimes preserve low-level spell slots when you cast with them.",
+      "Epic Boon Feat (Prerequisite: Level 19+)\n\nYou gain the following benefits.\n\nAbility Score Increase. Increase your Intelligence, Wisdom, or Charisma score by 1, to a maximum of 30.\n\nFree Casting. Whenever you cast a spell with a level 1-4 spell slot, roll 1d4. If the number you roll is the same as the slot's level, the slot isn't expended.",
     url: featUrl("boon-of-spell-recall"),
   },
   {
@@ -440,7 +440,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 19,
     },
     description:
-      "Increase one ability score by 1, up to 30, gain powerful shadow movement and invisibility benefits, and become extremely resilient in darkness.",
+      "Epic Boon Feat (Prerequisite: Level 19+)\n\nYou gain the following benefits.\n\nAbility Score Increase. Increase one ability score of your choice by 1, to a maximum of 30.\n\nMerge with Shadows. While within Dim Light or Darkness, you can give yourself the Invisible condition as a Bonus Action. The condition ends on you immediately after you take an action, a Bonus Action, or a Reaction.\n\nShadowy Form. While within Dim Light or Darkness, you have Resistance to all damage except Psychic and Radiant.",
     url: featUrl("boon-of-the-night-spirit"),
   },
   {
@@ -451,7 +451,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 19,
     },
     description:
-      "Increase one ability score by 1, up to 30, and gain Truesight out to 60 feet.",
+      "Epic Boon Feat (Prerequisite: Level 19+)\n\nYou gain the following benefits.\n\nAbility Score Increase. Increase one ability score of your choice by 1, to a maximum of 30.\n\nTruesight. You have Truesight 60 ft.",
     url: featUrl("boon-of-truesight"),
   },
 ];

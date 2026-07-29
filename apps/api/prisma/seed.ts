@@ -32,12 +32,20 @@ import {
   createLevelRuleDocuments as createCuratedLevelRuleDocuments,
   createSubclassRuleDocuments as createCuratedSubclassRuleDocuments,
   mergeClassReference,
+  type CuratedFeatureReference,
+  type CuratedLevelReference,
+  type CuratedSubclassOptionTuple,
+  type CuratedSubclassReference,
 } from "./reference-overrides/curatedClassHelpers.js";
 import { CURATED_2024_FEAT_REFERENCES } from "./reference-overrides/feats2024.js";
+import { ROGUE_CURATED_2024_CLASS_OVERRIDE } from "./reference-overrides/rogue2024.js";
 import {
-  REMAINING_CURATED_2024_CLASS_OVERRIDES,
-  type CuratedClassOverride,
-} from "./reference-overrides/remainingClasses2024.js";
+  CURATED_SPECIES_TRAIT_REFERENCES,
+  CURATED_SUBSPECIES_REFERENCES,
+  createSpeciesTraitRuleDocuments,
+  createSubspeciesRuleDocuments,
+} from "./reference-overrides/species2024.js";
+import { WIZARD_CURATED_2024_CLASS_OVERRIDE } from "./reference-overrides/wizard2024.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +55,21 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 const prisma = new PrismaClient();
 
 type AnyRecord = Record<string, any>;
+
+type CuratedClassOverride = {
+  classIndex: string;
+  className: string;
+  subclasses: readonly CuratedSubclassOptionTuple[];
+  levelReferences: readonly CuratedLevelReference[];
+  featureReferences: readonly CuratedFeatureReference[];
+  subclassReferences: readonly CuratedSubclassReference[];
+};
+
+const SUPPORTED_CLASS_INDEXES = new Set(["barbarian", "bard", "cleric", "rogue", "wizard"]);
+
+function isSupportedClassIndex(index: string | null | undefined) {
+  return typeof index === "string" && SUPPORTED_CLASS_INDEXES.has(index);
+}
 
 const DATA_DIR = path.join(__dirname, "seed-data", "5e", "mixed");
 
@@ -712,6 +735,116 @@ async function seedSpeciesReferenceData() {
   }
 }
 
+async function seedCurated2024SpeciesReferences() {
+  console.log("Seeding curated 2024 species reference overrides...");
+
+  const traitRuleDocuments = createSpeciesTraitRuleDocuments();
+  const subspeciesRuleDocuments = createSubspeciesRuleDocuments();
+
+  for (const document of [...traitRuleDocuments, ...subspeciesRuleDocuments]) {
+    await prisma.refRuleDocument.upsert({
+      where: {
+        category_index: {
+          category: document.category,
+          index: document.index,
+        },
+      },
+      update: {
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson),
+      },
+      create: {
+        category: document.category,
+        index: document.index,
+        name: document.name,
+        sourceJson: sourceJson(document.sourceJson),
+      },
+    });
+  }
+
+  for (const trait of CURATED_SPECIES_TRAIT_REFERENCES) {
+    await prisma.refSpeciesTrait.upsert({
+      where: {
+        speciesIndex_traitIndex: {
+          speciesIndex: trait.speciesIndex,
+          traitIndex: trait.index,
+        },
+      },
+      update: {
+        name: trait.name,
+        description: trait.desc.join("\n\n"),
+        sourceJson: sourceJson({
+          desc: trait.desc,
+          description: trait.desc.join("\n\n"),
+          index: trait.index,
+          name: trait.name,
+        }),
+      },
+      create: {
+        speciesIndex: trait.speciesIndex,
+        traitIndex: trait.index,
+        name: trait.name,
+        description: trait.desc.join("\n\n"),
+        sourceJson: sourceJson({
+          desc: trait.desc,
+          description: trait.desc.join("\n\n"),
+          index: trait.index,
+          name: trait.name,
+        }),
+      },
+    });
+  }
+
+  for (const subspecies of CURATED_SUBSPECIES_REFERENCES) {
+    const speciesNameByIndex: Record<string, string> = {
+      dragonborn: "Dragonborn",
+      elf: "Elf",
+      gnome: "Gnome",
+      human: "Human",
+      orc: "Orc",
+      tiefling: "Tiefling",
+    };
+    const speciesName = speciesNameByIndex[subspecies.speciesIndex] ?? subspecies.speciesIndex;
+    const source = {
+      desc: [subspecies.description],
+      description: subspecies.description,
+      index: subspecies.index,
+      name: subspecies.name,
+      species: {
+        index: subspecies.speciesIndex,
+        name: speciesName,
+        url: `/api/2024/species/${subspecies.speciesIndex}`,
+      },
+      traits: subspecies.traits.map((trait) => ({
+        index: trait.index,
+        level: trait.level,
+        name: trait.name,
+        url: `/api/2024/traits/${trait.index}`,
+      })),
+      url: `/api/2024/subspecies/${subspecies.index}`,
+    };
+
+    await prisma.refSubspecies.upsert({
+      where: {
+        index: subspecies.index,
+      },
+      update: {
+        name: subspecies.name,
+        speciesIndex: subspecies.speciesIndex,
+        description: subspecies.description,
+        sourceJson: sourceJson(source),
+      },
+      create: {
+        index: subspecies.index,
+        name: subspecies.name,
+        speciesIndex: subspecies.speciesIndex,
+        description: subspecies.description,
+        sourceJson: sourceJson(source),
+      },
+    });
+  }
+}
+
 async function seedLanguages() {
   const languages = readJsonArray(FILES.languages);
 
@@ -789,6 +922,10 @@ async function seedClasses() {
       continue;
     }
 
+    if (!isSupportedClassIndex(index)) {
+      continue;
+    }
+
     await prisma.refClass.upsert({
       where: {
         index,
@@ -819,6 +956,10 @@ async function seedClassLevels() {
 
     if (!classIndex || levelNumber === null) {
       console.warn("Skipping class level without class/level", level);
+      continue;
+    }
+
+    if (!isSupportedClassIndex(classIndex)) {
       continue;
     }
 
@@ -871,6 +1012,10 @@ async function seedClassFeatures() {
 
     if (!index || !classIndex || level === null) {
       console.warn("Skipping class feature without index/class/level", feature);
+      continue;
+    }
+
+    if (!isSupportedClassIndex(classIndex)) {
       continue;
     }
 
@@ -934,6 +1079,10 @@ async function seedClassPrimaryAbilities() {
 
     if (!classIndex) {
       console.warn("Skipping class primary ability without class index", cls);
+      continue;
+    }
+
+    if (!isSupportedClassIndex(classIndex)) {
       continue;
     }
 
@@ -1172,6 +1321,10 @@ async function seedClassProficiencyData() {
 
     if (!classIndex) {
       console.warn("Skipping class proficiency data without class index", cls);
+      continue;
+    }
+
+    if (!isSupportedClassIndex(classIndex)) {
       continue;
     }
 
@@ -1878,6 +2031,21 @@ async function ensureMinimumDemoReferences() {
       description: "Tools used to pick locks and disarm traps.",
     },
     {
+      index: "poisoners-kit",
+      name: "Poisoner's Kit",
+      equipmentCategory: "tools",
+      itemType: "tool",
+      costQuantity: 50,
+      costUnit: "gp",
+      weight: 2,
+      description:
+        "A poisoner's kit includes the vials, chemicals, and other equipment necessary for the creation of poisons. Proficiency with this kit lets you add your proficiency bonus to any ability checks you make to craft or use poisons.",
+      sourceJson: sourceJson({
+        tags: ["utility"],
+        source: "Basic Rules (2014)",
+      }),
+    },
+    {
       index: "backpack",
       name: "Backpack",
       equipmentCategory: "adventuring-gear",
@@ -2192,6 +2360,7 @@ async function main() {
   await seedSkills();
   await seedSpecies();
   await seedSpeciesReferenceData();
+  await seedCurated2024SpeciesReferences();
   await seedLanguages();
   await seedConditions();
   await seedClasses();
@@ -2207,9 +2376,8 @@ async function main() {
   await seedCurated2024BarbarianReferences();
   await seedCurated2024BardReferences();
   await seedCurated2024ClericReferences();
-  for (const override of REMAINING_CURATED_2024_CLASS_OVERRIDES) {
-    await seedCurated2024ClassOverride(override);
-  }
+  await seedCurated2024ClassOverride(WIZARD_CURATED_2024_CLASS_OVERRIDE);
+  await seedCurated2024ClassOverride(ROGUE_CURATED_2024_CLASS_OVERRIDE);
 
   await ensureMinimumDemoReferences();
   await seedDemoCharacter();

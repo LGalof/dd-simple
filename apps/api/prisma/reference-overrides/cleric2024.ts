@@ -446,8 +446,8 @@ const CLERIC_FEATURE_REFERENCES = [
     name: "Divine Order",
     desc: [
       "You have dedicated yourself to one of the sacred roles of your faith.",
-      "Protector grants training for battle, with Heavy Armor and Martial Weapon capability.",
-      "Thaumaturge deepens your mystical connection and grants an extra Cleric cantrip plus a Wisdom-based bonus to Arcana and Religion checks.",
+      "Protector. Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.",
+      "Thaumaturge. You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1).",
     ],
     feature_specific: {
       choose: 1,
@@ -460,7 +460,23 @@ const CLERIC_FEATURE_REFERENCES = [
             item: {
               index: "protector",
               name: "Protector",
-              url: "/api/2024/proficiencies/martial-weapons",
+              description:
+                "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.",
+              url: "/api/2024/features/divine-order/protector",
+            },
+            grants: {
+              armorNames: ["Heavy Armor"],
+              weaponNames: ["Martial Weapons"],
+              derivedSources: [
+                {
+                  description:
+                    "Trained for battle, you gain proficiency with Martial weapons and training with Heavy armor.",
+                  level: 1,
+                  sourceIndex: "divine-order-protector",
+                  sourceType: "class_feature",
+                  title: "Divine Order: Protector",
+                },
+              ],
             },
           },
           {
@@ -468,7 +484,25 @@ const CLERIC_FEATURE_REFERENCES = [
             item: {
               index: "thaumaturge",
               name: "Thaumaturge",
-              url: "/api/2024/ability-scores/wis",
+              description:
+                "You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1).",
+              url: "/api/2024/features/divine-order/thaumaturge",
+            },
+            grants: {
+              skillAbilityModifierBonusByIndex: {
+                arcana: "wis",
+                religion: "wis",
+              },
+              derivedSources: [
+                {
+                  description:
+                    "You know one extra cantrip from the Cleric spell list. In addition, your mystical connection to the divine gives you a bonus to your Intelligence (Arcana or Religion) checks. The bonus equals your Wisdom modifier (minimum of +1).",
+                  level: 1,
+                  sourceIndex: "divine-order-thaumaturge",
+                  sourceType: "class_feature",
+                  title: "Divine Order: Thaumaturge",
+                },
+              ],
             },
             choice: {
               choose: 1,
@@ -489,9 +523,11 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 2,
     name: "Channel Divinity",
     desc: [
-      "You can channel divine energy directly from the Outer Planes to fuel magical effects.",
-      "Divine Spark: as a Magic action, restore hit points to a creature within 30 feet or force a creature to make a Constitution save against Radiant or Necrotic damage.",
-      "Turn Undead: as a Magic action, present your Holy Symbol to frighten and incapacitate nearby Undead that fail a Wisdom saving throw.",
+      "You can channel divine energy directly from the Outer Planes to fuel magical effects. You start with two such effects: Divine Spark and Turn Undead, each of which is described below. Each time you use this class's Channel Divinity, choose which Channel Divinity effect from this class to create. You gain additional effect options at higher Cleric levels.",
+      "You can use this class's Channel Divinity twice. You regain one of its expended uses when you finish a Short Rest, and you regain all expended uses when you finish a Long Rest. You gain additional uses when you reach certain Cleric levels, as shown in the Channel Divinity column of the Cleric Features table.",
+      "If a Channel Divinity effect requires a saving throw, the DC equals the spell save DC from this class's Spellcasting feature.",
+      "Divine Spark. As a Magic action, you point your Holy Symbol at another creature you can see within 30 feet of yourself and focus divine energy at it. Roll 1d8 and add your Wisdom modifier. You either restore Hit Points to the creature equal to that total or force the creature to make a Constitution saving throw. On a failed save, the creature takes Necrotic or Radiant damage (your choice) equal to that total. On a successful save, the creature takes half as much damage (round down). You roll an additional d8 when you reach Cleric levels 7 (2d8), 13 (3d8), and 18 (4d8).",
+      "Turn Undead. As a Magic action, you present your Holy Symbol and censure Undead creatures. Each Undead of your choice within 30 feet of you must make a Wisdom saving throw. If the creature fails its save, it has the Frightened and Incapacitated conditions for 1 minute. For that duration, it tries to move as far from you as it can on its turns. This effect ends early on the creature if it takes any damage, if you have the Incapacitated condition, or if you die.",
     ],
   },
   {
@@ -535,7 +571,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Disciple of Life",
     desc: [
-      "Your healing spells restore additional hit points, reinforcing your role as the party's premier divine healer.",
+      "When a spell you cast with a spell slot restores Hit Points to a creature, that creature regains additional Hit Points on the turn you cast the spell. The additional Hit Points equal 2 plus the spell slot's level.",
     ],
     subclass: {
       index: "life-domain",
@@ -548,7 +584,9 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Life Domain Spells",
     desc: [
-      "You always have healing- and protection-focused domain spells prepared as you gain Cleric levels.",
+      "Your connection to this divine domain ensures you always have certain spells ready. When you reach a Cleric level specified in the Life Domain Spells table, you thereafter always have the listed spells prepared.",
+      "You always have Aid, Bless, Cure Wounds, Lesser Restoration, Mass Healing Word, Revivify, Aura of Life, Death Ward, Greater Restoration, and Mass Cure Wounds spells prepared as you gain Cleric levels.",
+      "Life Domain Spells. Cleric Level 3: Aid, Bless, Cure Wounds, Lesser Restoration. Cleric Level 5: Mass Healing Word, Revivify. Cleric Level 7: Aura of Life, Death Ward. Cleric Level 9: Greater Restoration, Mass Cure Wounds.",
     ],
     subclass: {
       index: "life-domain",
@@ -561,7 +599,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Preserve Life",
     desc: [
-      "You can channel divine vitality to distribute a pool of healing among injured creatures nearby.",
+      "As a Magic action, you present your Holy Symbol and expend a use of your Channel Divinity to evoke healing energy that can restore a number of Hit Points equal to five times your Cleric level. Choose Bloodied creatures within 30 feet of yourself (which can include you), and divide those Hit Points among them. This feature can restore a creature to no more than half its Hit Point maximum.",
     ],
     subclass: {
       index: "life-domain",
@@ -574,7 +612,8 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Light Domain Spells",
     desc: [
-      "You always have domain spells prepared that emphasize radiance, fire, revelation, and magical sight.",
+      "Your connection to this divine domain ensures you always have certain spells ready. When you reach a Cleric level specified in the Light Domain Spells table, you thereafter always have the listed spells prepared.",
+      "Light Domain Spells. Cleric Level 3: Burning Hands, Faerie Fire, Scorching Ray, See Invisibility. Cleric Level 5: Daylight, Fireball. Cleric Level 7: Arcane Eye, Wall of Fire. Cleric Level 9: Flame Strike, Scrying.",
     ],
     subclass: {
       index: "light-domain",
@@ -587,7 +626,8 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Warding Flare",
     desc: [
-      "A burst of divine light can foil an enemy's assault by dazzling the attacker at a crucial moment.",
+      "When a creature that you can see within 30 feet of yourself makes an attack roll, you can take a Reaction to impose Disadvantage on the attack roll, causing light to flare before it hits or misses.",
+      "You can use this feature a number of times equal to your Wisdom modifier (minimum of once). You regain all expended uses when you finish a Long Rest.",
     ],
     subclass: {
       index: "light-domain",
@@ -600,7 +640,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Radiance of the Dawn",
     desc: [
-      "You unleash sunlight-like power that strips away darkness and burns hostile creatures with radiant energy.",
+      "As a Magic action, you present your Holy Symbol and expend a use of your Channel Divinity to emit a flash of light in a 30-foot Emanation originating from yourself. Any magical Darkness--such as that created by the Darkness spell--in that area is dispelled. Additionally, each creature of your choice in that area must make a Constitution saving throw, taking Radiant damage equal to 2d10 plus your Cleric level on a failed save or half as much damage on a successful one.",
     ],
     subclass: {
       index: "light-domain",
@@ -613,7 +653,8 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Trickery Domain Spells",
     desc: [
-      "You always have domain spells prepared that support stealth, illusions, infiltration, and deceit.",
+      "Your connection to this divine domain ensures you always have certain spells ready. When you reach a Cleric level specified in the Trickery Domain Spells table, you thereafter always have the listed spells prepared.",
+      "Trickery Domain Spells. Cleric Level 3: Charm Person, Disguise Self, Invisibility, Pass without Trace. Cleric Level 5: Hypnotic Pattern, Nondetection. Cleric Level 7: Confusion, Dimension Door. Cleric Level 9: Dominate Person, Modify Memory.",
     ],
     subclass: {
       index: "trickery-domain",
@@ -626,7 +667,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Blessing of the Trickster",
     desc: [
-      "Your patron's subtle favor lets you enhance a creature's talent for stealth and covert movement.",
+      "As a Magic action, you can choose yourself or a willing creature within 30 feet of yourself to have Advantage on Dexterity (Stealth) checks. This blessing lasts until you finish a Long Rest or you use this feature again.",
     ],
     subclass: {
       index: "trickery-domain",
@@ -639,7 +680,10 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Invoke Duplicity",
     desc: [
-      "You create an illusory double that extends your trickery, positioning, and spell support in a fight.",
+      "As a Bonus Action, you can expend one use of your Channel Divinity to create a perfect visual illusion of yourself in an unoccupied space you can see within 30 feet of yourself. The illusion is intangible and doesn't occupy its space. It lasts for 1 minute, but it ends early if you dismiss it (no action required) or have the Incapacitated condition. The illusion is animated and mimics your expressions and gestures. While it persists, you gain the following benefits.",
+      "Cast Spells. You can cast spells as though you were in the illusion's space, but you must use your own senses.",
+      "Distract. When both you and your illusion are within 5 feet of a creature that can see the illusion, you have Advantage on attack rolls against that creature, given how distracting the illusion is to the target.",
+      "Move. As a Bonus Action, you can move the illusion up to 30 feet to an unoccupied space you can see that is within 120 feet of yourself.",
     ],
     subclass: {
       index: "trickery-domain",
@@ -652,7 +696,8 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "War Domain Spells",
     desc: [
-      "You always have domain spells prepared that strengthen your battlefield control, offense, and front-line presence.",
+      "Your connection to this divine domain ensures you always have certain spells ready. When you reach a Cleric level specified in the War Domain Spells table, you thereafter always have the listed spells prepared.",
+      "War Domain Spells. Cleric Level 3: Guiding Bolt, Magic Weapon, Shield of Faith, Spiritual Weapon. Cleric Level 5: Crusader's Mantle, Spirit Guardians. Cleric Level 7: Fire Shield, Freedom of Movement. Cleric Level 9: Hold Monster, Steel Wind Strike.",
     ],
     subclass: {
       index: "war-domain",
@@ -665,7 +710,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "Guided Strike",
     desc: [
-      "Divine certainty lets you turn a crucial miss into a more accurate strike at the decisive moment.",
+      "When you or a creature within 30 feet of you misses with an attack roll, you can expend one use of your Channel Divinity and give that roll a +10 bonus, potentially causing it to hit. When you use this feature to benefit another creature's attack roll, you must take a Reaction to do so.",
     ],
     subclass: {
       index: "war-domain",
@@ -678,7 +723,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 3,
     name: "War Priest",
     desc: [
-      "You gain extra martial pressure in battle, reinforcing your role as a combat-ready cleric.",
+      "As a Bonus Action, you can make one attack with a weapon or an Unarmed Strike. You can use this Bonus Action a number of times equal to your Wisdom modifier (minimum of once). You regain all expended uses when you finish a Short or Long Rest.",
     ],
     subclass: {
       index: "war-domain",
@@ -691,7 +736,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 4,
     name: "Ability Score Improvement",
     desc: [
-      "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify.",
+      "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify. You gain this feature again at Cleric levels 8, 12, and 16.",
     ],
     feature_specific: createAbilityScoreImprovementSpecific(),
   },
@@ -708,7 +753,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 5,
     name: "Sear Undead",
     desc: [
-      "Whenever you use Turn Undead, each Undead that fails its save takes Radiant damage equal to a number of d8s based on your Wisdom modifier.",
+      "Whenever you use Turn Undead, you can roll a number of d8s equal to your Wisdom modifier (minimum of 1d8) and add the rolls together. Each Undead that fails its saving throw against that use of Turn Undead takes Radiant damage equal to the roll's total. This damage doesn't end the turn effect.",
     ],
   },
   {
@@ -728,7 +773,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 6,
     name: "Blessed Healer",
     desc: [
-      "When you restore others with leveled magic, some of that restorative power rebounds to you.",
+      "The healing spells you cast on others heal you as well. Immediately after you cast a spell with a spell slot that restores Hit Points to one or more creatures other than yourself, you regain Hit Points equal to 2 plus the spell slot's level.",
     ],
     subclass: {
       index: "life-domain",
@@ -741,7 +786,8 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 6,
     name: "Improved Warding Flare",
     desc: [
-      "Your protective flare grows strong enough to defend your allies as well as yourself.",
+      "You regain all expended uses of your Warding Flare when you finish a Short or Long Rest.",
+      "In addition, whenever you use Warding Flare, you can give the target of the triggering attack a number of Temporary Hit Points equal to 2d6 plus your Wisdom modifier.",
     ],
     subclass: {
       index: "light-domain",
@@ -754,7 +800,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 6,
     name: "Trickster's Transposition",
     desc: [
-      "Your bond with your duplicate deepens, letting you reposition through it and confuse enemies more effectively.",
+      "Whenever you take the Bonus Action to create or move the illusion of your Invoke Duplicity, you can teleport, swapping places with the illusion.",
     ],
     subclass: {
       index: "trickery-domain",
@@ -767,7 +813,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 6,
     name: "War God's Blessing",
     desc: [
-      "Your divine favor can extend to allies, helping them land important weapon attacks when it matters most.",
+      "You can expend a use of your Channel Divinity to cast Shield of Faith or Spiritual Weapon rather than expending a spell slot. When you cast either spell in this way, the spell doesn't require Concentration. Instead the spell lasts for 1 minute, but it ends early if you cast that spell again, have the Incapacitated condition, or die.",
     ],
     subclass: {
       index: "war-domain",
@@ -780,9 +826,9 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 7,
     name: "Blessed Strikes",
     desc: [
-      "Divine power infuses you in battle. Choose one option: Divine Strike or Potent Spellcasting.",
-      "Divine Strike adds 1d8 Radiant or Necrotic damage once on each of your turns when you hit with a weapon attack.",
-      "Potent Spellcasting adds your Wisdom modifier to the damage of your Cleric cantrips.",
+      "Divine power infuses you in battle. You gain one of the following options of your choice.",
+      "Divine Strike. Once on each of your turns when you hit a creature with an attack roll using a weapon, you can cause the target to take an extra 1d8 Necrotic or Radiant damage (your choice).",
+      "Potent Spellcasting. Add your Wisdom modifier to the damage you deal with any Cleric cantrip.",
     ],
     feature_specific: {
       choose: 1,
@@ -793,17 +839,45 @@ const CLERIC_FEATURE_REFERENCES = [
           {
             option_type: "reference",
             item: {
+              description:
+                "Once on each of your turns when you hit a creature with an attack roll using a weapon, you can cause the target to take an extra 1d8 Necrotic or Radiant damage (your choice).",
               index: "divine-strike",
               name: "Divine Strike",
               url: "/api/2024/features/blessed-strikes",
+            },
+            grants: {
+              derivedSources: [
+                {
+                  description:
+                    "Once on each of your turns when you hit a creature with an attack roll using a weapon, you can cause the target to take an extra 1d8 Necrotic or Radiant damage (your choice).",
+                  level: 7,
+                  sourceIndex: "divine-strike",
+                  sourceType: "class_feature",
+                  title: "Divine Strike",
+                },
+              ],
             },
           },
           {
             option_type: "reference",
             item: {
+              description:
+                "Add your Wisdom modifier to the damage you deal with any Cleric cantrip.",
               index: "potent-spellcasting",
               name: "Potent Spellcasting",
               url: "/api/2024/features/blessed-strikes",
+            },
+            grants: {
+              derivedSources: [
+                {
+                  description:
+                    "Add your Wisdom modifier to the damage you deal with any Cleric cantrip.",
+                  level: 7,
+                  sourceIndex: "potent-spellcasting",
+                  sourceType: "class_feature",
+                  title: "Potent Spellcasting",
+                },
+              ],
             },
           },
         ],
@@ -815,7 +889,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 8,
     name: "Ability Score Improvement",
     desc: [
-      "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify.",
+      "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify. You gain this feature again at Cleric levels 12 and 16.",
     ],
     feature_specific: createAbilityScoreImprovementSpecific(),
   },
@@ -824,7 +898,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 10,
     name: "Divine Intervention",
     desc: [
-      "As a Magic action, choose any Cleric spell of level 5 or lower that doesn't require a Reaction to cast, and cast it without expending a spell slot or material components. You can't use this feature again until you finish a Long Rest.",
+      "You can call on your deity or pantheon to intervene on your behalf. As a Magic action, choose any Cleric spell of level 5 or lower that doesn't require a Reaction to cast. As part of the same action, you cast that spell without expending a spell slot or needing Material components. You can't use this feature again until you finish a Long Rest.",
     ],
   },
   createClericSpellChoiceFeature(
@@ -840,7 +914,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 12,
     name: "Ability Score Improvement",
     desc: [
-      "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify.",
+      "You gain the Ability Score Improvement feat or another feat of your choice for which you qualify. You gain this feature again at Cleric level 16.",
     ],
     feature_specific: createAbilityScoreImprovementSpecific(),
   },
@@ -850,8 +924,8 @@ const CLERIC_FEATURE_REFERENCES = [
     name: "Improved Blessed Strikes",
     desc: [
       "The option you chose for Blessed Strikes grows stronger.",
-      "Divine Strike increases to 2d8 extra damage.",
-      "Potent Spellcasting lets your Cleric cantrip damage grant temporary hit points to you or an ally within 60 feet equal to twice your Wisdom modifier.",
+      "Divine Strike. The extra damage of your Divine Strike increases to 2d8.",
+      "Potent Spellcasting. When you cast a Cleric cantrip and deal damage to a creature with it, you can give vitality to yourself or another creature within 60 feet of yourself, granting a number of Temporary Hit Points equal to twice your Wisdom modifier.",
     ],
   },
   {
@@ -880,7 +954,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 17,
     name: "Supreme Healing",
     desc: [
-      "Your restorative magic becomes maximally efficient, turning healing dice into their highest possible values.",
+      "When you would normally roll one or more dice to restore Hit Points to a creature with a spell or Channel Divinity, don't roll those dice for the healing; instead use the highest number possible for each die. For example, instead of restoring 2d6 Hit Points to a creature with a spell, you restore 12.",
     ],
     subclass: {
       index: "life-domain",
@@ -893,7 +967,8 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 17,
     name: "Corona of Light",
     desc: [
-      "You blaze with overwhelming radiance that makes your light- and fire-based magic even more devastating.",
+      "As a Magic action, you cause yourself to emit an aura of sunlight that lasts for 1 minute or until you dismiss it (no action required). You emit Bright Light in a 60-foot radius and Dim Light for an additional 30 feet. Your enemies in the Bright Light have Disadvantage on saving throws against your Radiance of the Dawn and any spell that deals Fire or Radiant damage.",
+      "You can use this feature a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest.",
     ],
     subclass: {
       index: "light-domain",
@@ -906,7 +981,9 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 17,
     name: "Improved Duplicity",
     desc: [
-      "Your illusion-based misdirection reaches its peak, making your duplicates far more threatening and tactically useful.",
+      "The illusion of your Invoke Duplicity has grown more powerful in the following ways.",
+      "Shared Distraction. When you and your allies make attack rolls against a creature within 5 feet of the illusion, the attack rolls have Advantage.",
+      "Healing Illusion. When the illusion ends, you or a creature of your choice within 5 feet of it regains a number of Hit Points equal to your Cleric level.",
     ],
     subclass: {
       index: "trickery-domain",
@@ -919,7 +996,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 17,
     name: "Avatar of Battle",
     desc: [
-      "At your peak, divine war power hardens you against battlefield punishment and lets you endure prolonged conflict.",
+      "You gain Resistance to Bludgeoning, Piercing, and Slashing damage.",
     ],
     subclass: {
       index: "war-domain",
@@ -932,7 +1009,7 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 19,
     name: "Epic Boon",
     desc: [
-      "You gain an Epic Boon feat or another feat of your choice for which you qualify. Boon of Fate is recommended.",
+      "You gain an Epic Boon feat or another feat of your choice for which you qualify.",
     ],
     feature_specific: {
       choose: 1,
@@ -948,10 +1025,28 @@ const CLERIC_FEATURE_REFERENCES = [
     level: 20,
     name: "Greater Divine Intervention",
     desc: [
-      "When you use Divine Intervention, you can choose Wish when you select a spell. If you do so, you can't use Divine Intervention again until you finish 2d4 Long Rests.",
+      "You can call on even more powerful divine intervention. When you use your Divine Intervention feature, you can choose Wish when you select a spell. If you do so, you can't use Divine Intervention again until you finish 2d4 Long Rests.",
     ],
   },
 ];
+
+function createClericSubclassFeatures(featureIndexes: string[]) {
+  return featureIndexes.map((featureIndex) => {
+    const feature = CLERIC_FEATURE_REFERENCES.find(
+      (entry) => entry.index === featureIndex,
+    );
+
+    if (!feature) {
+      throw new Error(`Missing Cleric subclass feature reference: ${featureIndex}`);
+    }
+
+    return {
+      name: feature.name,
+      level: feature.level,
+      description: feature.desc.join(" "),
+    };
+  });
+}
 
 const CLERIC_SUBCLASS_REFERENCES = [
   {
@@ -959,40 +1054,15 @@ const CLERIC_SUBCLASS_REFERENCES = [
     name: "Life Domain",
     subclass_flavor: "Life",
     description:
-      "The Life Domain focuses on positive energy that sustains life and makes its clerics masters of healing magic.",
+      "The Life Domain focuses on the positive energy that helps sustain all life in the multiverse. Clerics who tap into this domain are masters of healing, using that life force to cure many hurts. Existence itself relies on the positive energy associated with this domain, so a Cleric of almost any religious tradition might choose it. This domain is particularly associated with agricultural deities, gods of healing or endurance, and gods of home and community. Religious orders of healing also seek the magic of this domain.",
     summary: "Soothe the Hurts of the World",
-    features: [
-      {
-        name: "Disciple of Life",
-        level: 3,
-        description:
-          "Your healing spells restore additional hit points, reinforcing your role as the party's premier divine healer.",
-      },
-      {
-        name: "Life Domain Spells",
-        level: 3,
-        description:
-          "You always have healing- and protection-focused domain spells prepared as you gain Cleric levels.",
-      },
-      {
-        name: "Preserve Life",
-        level: 3,
-        description:
-          "You can channel divine vitality to distribute a pool of healing among injured creatures nearby.",
-      },
-      {
-        name: "Blessed Healer",
-        level: 6,
-        description:
-          "When you restore others with leveled magic, some of that restorative power rebounds to you.",
-      },
-      {
-        name: "Supreme Healing",
-        level: 17,
-        description:
-          "Your restorative magic becomes maximally efficient, turning healing dice into their highest possible values.",
-      },
-    ],
+    features: createClericSubclassFeatures([
+      "disciple-of-life",
+      "life-domain-spells",
+      "preserve-life",
+      "blessed-healer",
+      "supreme-healing",
+    ]),
     class: {
       index: "cleric",
       name: "Cleric",
@@ -1007,38 +1077,13 @@ const CLERIC_SUBCLASS_REFERENCES = [
     summary: "Wield Radiance Against Darkness",
     description:
       "The Light Domain channels revelation, fire, and radiant brilliance, empowering clerics who banish darkness and scorch enemies with holy illumination.",
-    features: [
-      {
-        name: "Light Domain Spells",
-        level: 3,
-        description:
-          "You always have domain spells prepared that emphasize radiance, fire, revelation, and magical sight.",
-      },
-      {
-        name: "Warding Flare",
-        level: 3,
-        description:
-          "A burst of divine light can foil an enemy's assault by dazzling the attacker at a crucial moment.",
-      },
-      {
-        name: "Radiance of the Dawn",
-        level: 3,
-        description:
-          "You unleash sunlight-like power that strips away darkness and burns hostile creatures with radiant energy.",
-      },
-      {
-        name: "Improved Warding Flare",
-        level: 6,
-        description:
-          "Your protective flare grows strong enough to defend your allies as well as yourself.",
-      },
-      {
-        name: "Corona of Light",
-        level: 17,
-        description:
-          "You blaze with overwhelming radiance that makes your light- and fire-based magic even more devastating.",
-      },
-    ],
+    features: createClericSubclassFeatures([
+      "light-domain-spells",
+      "warding-flare",
+      "radiance-of-the-dawn",
+      "improved-warding-flare",
+      "corona-of-light",
+    ]),
     class: {
       index: "cleric",
       name: "Cleric",
@@ -1053,38 +1098,13 @@ const CLERIC_SUBCLASS_REFERENCES = [
     summary: "Misdirect, Disguise, and Confound",
     description:
       "The Trickery Domain favors deception, stealth, disguise, and magical misdirection, empowering clerics who serve sly, secretive, or chaotic divine patrons.",
-    features: [
-      {
-        name: "Trickery Domain Spells",
-        level: 3,
-        description:
-          "You always have domain spells prepared that support stealth, illusions, infiltration, and deceit.",
-      },
-      {
-        name: "Blessing of the Trickster",
-        level: 3,
-        description:
-          "Your patron's subtle favor lets you enhance a creature's talent for stealth and covert movement.",
-      },
-      {
-        name: "Invoke Duplicity",
-        level: 3,
-        description:
-          "You create an illusory double that extends your trickery, positioning, and spell support in a fight.",
-      },
-      {
-        name: "Trickster's Transposition",
-        level: 6,
-        description:
-          "Your bond with your duplicate deepens, letting you reposition through it and confuse enemies more effectively.",
-      },
-      {
-        name: "Improved Duplicity",
-        level: 17,
-        description:
-          "Your illusion-based misdirection reaches its peak, making your duplicates far more threatening and tactically useful.",
-      },
-    ],
+    features: createClericSubclassFeatures([
+      "trickery-domain-spells",
+      "blessing-of-the-trickster",
+      "invoke-duplicity",
+      "tricksters-transposition",
+      "improved-duplicity",
+    ]),
     class: {
       index: "cleric",
       name: "Cleric",
@@ -1099,38 +1119,13 @@ const CLERIC_SUBCLASS_REFERENCES = [
     summary: "Lead the Faithful into Battle",
     description:
       "The War Domain embodies conflict, martial discipline, and divine victory, empowering clerics who march beside soldiers and champions.",
-    features: [
-      {
-        name: "War Domain Spells",
-        level: 3,
-        description:
-          "You always have domain spells prepared that strengthen your battlefield control, offense, and front-line presence.",
-      },
-      {
-        name: "Guided Strike",
-        level: 3,
-        description:
-          "Divine certainty lets you turn a crucial miss into a more accurate strike at the decisive moment.",
-      },
-      {
-        name: "War Priest",
-        level: 3,
-        description:
-          "You gain extra martial pressure in battle, reinforcing your role as a combat-ready cleric.",
-      },
-      {
-        name: "War God's Blessing",
-        level: 6,
-        description:
-          "Your divine favor can extend to allies, helping them land important weapon attacks when it matters most.",
-      },
-      {
-        name: "Avatar of Battle",
-        level: 17,
-        description:
-          "At your peak, divine war power hardens you against battlefield punishment and lets you endure prolonged conflict.",
-      },
-    ],
+    features: createClericSubclassFeatures([
+      "war-domain-spells",
+      "guided-strike",
+      "war-priest",
+      "war-gods-blessing",
+      "avatar-of-battle",
+    ]),
     class: {
       index: "cleric",
       name: "Cleric",

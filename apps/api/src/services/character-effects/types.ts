@@ -40,6 +40,7 @@ type CharacterDefenseEntry = {
 };
 
 type CharacterFeatureEffectsOverrides = {
+  abilityScores?: Partial<Record<"str" | "dex" | "con" | "int" | "wis" | "cha", number>>;
   backgroundIndex?: string;
   classIndex?: string;
   featIndexes?: string[];
@@ -56,8 +57,7 @@ type CharacterFeatureEffectsOverrides = {
 type DerivedArmorClassMode =
   | "base"
   | "barbarian_unarmored"
-  | "bard_dance_unarmored"
-  | "monk_unarmored";
+  | "bard_dance_unarmored";
 
 type CharacterDerivedStats = {
   armorClassBonus: number;

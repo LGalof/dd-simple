@@ -1,5 +1,8 @@
 import { prisma } from "../lib/prisma.js";
 
+const SUPPORTED_CLASS_INDEXES = ["barbarian", "bard", "cleric", "rogue", "wizard"] as const;
+const SUPPORTED_CLASS_INDEX_SET = new Set<string>(SUPPORTED_CLASS_INDEXES);
+
 function findAbilityScores() {
   return prisma.refAbilityScore.findMany({
     orderBy: {
@@ -179,6 +182,11 @@ function buildCuratedClassFeatures(
 async function findClasses() {
   const [classes, ruleDocuments] = await Promise.all([
     prisma.refClass.findMany({
+      where: {
+        index: {
+          in: [...SUPPORTED_CLASS_INDEXES],
+        },
+      },
       orderBy: {
         name: "asc",
       },
@@ -344,8 +352,8 @@ function findEquipment() {
   });
 }
 
-function findRuleDocumentsByCategory(category: string) {
-  return prisma.refRuleDocument.findMany({
+async function findRuleDocumentsByCategory(category: string) {
+  const documents = await prisma.refRuleDocument.findMany({
     where: {
       category,
     },
@@ -353,10 +361,12 @@ function findRuleDocumentsByCategory(category: string) {
       index: "asc",
     },
   });
+
+  return documents.filter((document) => isSupportedClassRuleDocument(category, document));
 }
 
-function findRuleDocumentByCategoryAndIndex(category: string, index: string) {
-  return prisma.refRuleDocument.findUnique({
+async function findRuleDocumentByCategoryAndIndex(category: string, index: string) {
+  const document = await prisma.refRuleDocument.findUnique({
     where: {
       category_index: {
         category,
@@ -364,6 +374,42 @@ function findRuleDocumentByCategoryAndIndex(category: string, index: string) {
       },
     },
   });
+
+  return document && isSupportedClassRuleDocument(category, document) ? document : null;
+}
+
+function isSupportedClassRuleDocument(category: string, document: RuleDocumentRow) {
+  if (category === "classes") {
+    const sourceJson = (document.sourceJson ?? {}) as Record<string, unknown>;
+    const sourceIndex = typeof sourceJson.index === "string" ? sourceJson.index : document.index;
+
+    return SUPPORTED_CLASS_INDEX_SET.has(sourceIndex);
+  }
+
+  if (!["levels", "features", "subclasses"].includes(category)) {
+    return true;
+  }
+
+  const classIndex = getRuleDocumentClassIndex(document);
+
+  return classIndex ? SUPPORTED_CLASS_INDEX_SET.has(classIndex) : true;
+}
+
+function getRuleDocumentClassIndex(document: RuleDocumentRow) {
+  const sourceJson = (document.sourceJson ?? {}) as Record<string, unknown>;
+  const classRecord = sourceJson.class;
+
+  if (classRecord && typeof classRecord === "object") {
+    const classIndex = (classRecord as Record<string, unknown>).index;
+
+    if (typeof classIndex === "string") {
+      return classIndex;
+    }
+  }
+
+  const explicitClassIndex = sourceJson.classIndex ?? sourceJson.class_index;
+
+  return typeof explicitClassIndex === "string" ? explicitClassIndex : null;
 }
 
 export {

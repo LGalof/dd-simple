@@ -5,6 +5,7 @@ import type {
   ClassSubclassFeature,
   FeatureChoiceOption,
   FeatureChoiceSelections,
+  SpeciesOption,
 } from "../types/characterBuilder";
 import type { Character, CharacterFeatureChoiceSelection } from "../../../types/character";
 import { getVisibleFeatureChoiceFields } from "./featureChoiceVisibility";
@@ -176,6 +177,62 @@ function buildGenericBackgroundFeatureChoices(
   return selections;
 }
 
+function buildGenericSpeciesFeatureChoices(
+  speciesOption: SpeciesOption,
+  speciesChoices: Record<string, string>,
+): CharacterFeatureChoiceSelection[] {
+  const selections: CharacterFeatureChoiceSelection[] = [];
+
+  for (const section of speciesOption.previewSections) {
+    for (const field of section.choiceFields ?? []) {
+      if (!field.sourceType || !field.sourceIndex || !field.choicePath) {
+        continue;
+      }
+
+      const selectedValue = speciesChoices[`${speciesOption.index}:${section.id}:${field.id}`];
+
+      if (!selectedValue) {
+        continue;
+      }
+
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (!selectedOption) {
+        continue;
+      }
+
+      selections.push({
+        sourceType: field.sourceType,
+        sourceIndex: field.sourceIndex,
+        classIndex: null,
+        subclassIndex: null,
+        level: field.level ?? 1,
+        featureIndex: field.featureIndex ?? section.id,
+        choicePath: field.choicePath,
+        choiceKey: field.choiceKey ?? field.id,
+        choiceLabel: field.choiceLabel ?? field.choiceGroupLabel ?? field.label,
+        selectedOptionType: selectedOption.selectedOptionType ?? "string",
+        selectedOptionIndex: selectedOption.selectedOptionIndex ?? selectedOption.value,
+        selectedOptionName: selectedOption.selectedOptionName ?? selectedOption.label,
+        selectedOptionUrl: selectedOption.selectedOptionUrl ?? null,
+        selectedRawJson: mergeSelectedOptionRawJson(selectedOption),
+        grantsRawJson: buildFeatureChoiceGrants(
+          {
+            id: section.id,
+            level: 1,
+            summary: section.details.join("\n"),
+            title: section.title,
+          },
+          field,
+          selectedOption,
+        ),
+      });
+    }
+  }
+
+  return selections;
+}
+
 function mergeFeatureChoiceSelections(
   persistedSelections: Character["featureChoices"] | undefined,
   previewSelections: CharacterFeatureChoiceSelection[],
@@ -233,6 +290,7 @@ function mergeSelectedOptionRawJson(selectedOption: FeatureChoiceOption) {
 export {
   buildGenericBackgroundFeatureChoices,
   buildGenericClassFeatureChoices,
+  buildGenericSpeciesFeatureChoices,
   getVisibleChoiceFieldsForSelection,
   mergeFeatureChoiceSelections,
 };

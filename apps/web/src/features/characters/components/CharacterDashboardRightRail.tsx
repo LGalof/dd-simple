@@ -13,6 +13,7 @@ import type { RollableResult } from "./Rollable";
 import { SpellLibrarySidebar } from "./SpellLibrarySidebar";
 import type { SpellcastingSummary } from "./CharacterSheet";
 import type { CharacterSpellcastingState } from "../../../types/character";
+import type { CharacterSpellEntry } from "../../../types/characterDerived";
 import {
   InventoryDetailsSidebar,
   type InventorySandboxController,
@@ -31,6 +32,7 @@ type CharacterDashboardRightRailProps = {
   rightRailMode: "conditions" | "inventory" | "spells" | null;
   selectedClassIndex: string;
   selectedClassName: string;
+  spellEntries: CharacterSpellEntry[];
   spellcastingState: CharacterSpellcastingState;
   spellcastingSummary: SpellcastingSummary | null;
 };
@@ -48,6 +50,7 @@ function CharacterDashboardRightRail({
   rightRailMode,
   selectedClassIndex,
   selectedClassName,
+  spellEntries,
   spellcastingState,
   spellcastingSummary,
 }: CharacterDashboardRightRailProps) {
@@ -99,6 +102,7 @@ function CharacterDashboardRightRail({
           onSpellcastingStateChange={onSpellcastingStateChange}
           selectedClassIndex={selectedClassIndex}
           selectedClassName={selectedClassName}
+          spellEntries={spellEntries}
           spellcastingState={spellcastingState}
           spellcastingSummary={spellcastingSummary}
         />

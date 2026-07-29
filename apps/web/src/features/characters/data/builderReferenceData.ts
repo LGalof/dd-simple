@@ -41,6 +41,49 @@ const coreFeatNames = [
   "Tough",
 ];
 
+const commonSkillNames = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+];
+
+function toSkillChoiceOptions(values: string[]): FeatureChoiceOption[] {
+  return values.map((name) => ({
+    label: name,
+    selectedOptionIndex: `skill-${slugify(name)}`,
+    selectedOptionName: name,
+    selectedOptionType: "proficiency",
+    selectedOptionUrl: `/api/2024/proficiencies/skill-${slugify(name)}`,
+    value: slugify(name),
+  }));
+}
+
+function toFeatChoiceOptions(values: string[]): FeatureChoiceOption[] {
+  return values.map((name) => ({
+    label: name,
+    selectedOptionIndex: slugify(name),
+    selectedOptionName: name,
+    selectedOptionType: "feat",
+    selectedOptionUrl: `/api/2024/feats/${slugify(name)}`,
+    value: slugify(name),
+  }));
+}
+
 function createChoiceField(
   id: string,
   label: string,
@@ -52,8 +95,13 @@ function createChoiceField(
       | "choiceGroupLabel"
       | "choiceGroupLimit"
       | "choiceKind"
+      | "choiceKey"
+      | "choiceLabel"
+      | "choicePath"
       | "dependsOnFieldId"
       | "dependsOnValues"
+      | "sourceIndex"
+      | "sourceType"
     >
   > = {},
 ): FeatureChoiceField {
@@ -223,17 +271,6 @@ const bardSkills = [
   "Religion",
   "Sleight of Hand",
   "Stealth",
-  "Survival",
-];
-
-const fighterSkills = [
-  "Acrobatics",
-  "Animal Handling",
-  "Athletics",
-  "History",
-  "Insight",
-  "Intimidation",
-  "Perception",
   "Survival",
 ];
 
@@ -420,120 +457,6 @@ const rogueFeatures: ClassFeature[] = [
     level: 20,
     title: "Stroke of Luck",
     summary: "You can turn a crucial miss or failed check into a dramatic success.",
-  }),
-];
-
-const fighterFeatures: ClassFeature[] = [
-  createFeature({
-    id: "fighter-core-traits",
-    level: 1,
-    title: "Core Fighter Traits",
-    summary: "Pick the combat style and proficiencies that shape your front-line identity.",
-    choiceFields: [
-      createChoiceField("fighting-style", "Fighting Style", [
-        "Archery",
-        "Defense",
-        "Dueling",
-        "Great Weapon Fighting",
-        "Protection",
-        "Two-Weapon Fighting",
-      ]),
-      createChoiceField("skill-1", "Skill Proficiency 1", fighterSkills),
-      createChoiceField("skill-2", "Skill Proficiency 2", fighterSkills),
-    ],
-  }),
-  createFeature({
-    id: "fighter-second-wind",
-    level: 1,
-    title: "Second Wind",
-    summary: "Recover a burst of hit points in the middle of a fight.",
-  }),
-  createFeature({
-    id: "fighter-action-surge",
-    level: 2,
-    title: "Action Surge",
-    summary: "Explode into a key turn by taking one additional action.",
-  }),
-  createFeature({
-    id: "fighter-martial-archetype",
-    level: 3,
-    title: "Martial Archetype",
-    summary: "Choose the subclass that drives your signature combat engine.",
-    choiceFields: [
-      createChoiceField("archetype", "Subclass", [
-        "Champion",
-        "Battle Master",
-        "Eldritch Knight",
-        "Samurai",
-      ]),
-    ],
-  }),
-  createAbilityScoreImprovement(4),
-  createFeature({
-    id: "fighter-extra-attack",
-    level: 5,
-    title: "Extra Attack",
-    summary: "Make two attacks when you take the Attack action.",
-  }),
-  createAbilityScoreImprovement(6),
-  createFeature({
-    id: "fighter-subclass-feature-7",
-    level: 7,
-    title: "Subclass Feature",
-    summary: "Your archetype unlocks a new tactical edge.",
-  }),
-  createAbilityScoreImprovement(8),
-  createFeature({
-    id: "fighter-indomitable",
-    level: 9,
-    title: "Indomitable",
-    summary: "Push through a failed saving throw when the fight cannot be lost.",
-  }),
-  createFeature({
-    id: "fighter-subclass-feature-10",
-    level: 10,
-    title: "Subclass Feature",
-    summary: "Your archetype deepens with a stronger combat identity.",
-  }),
-  createFeature({
-    id: "fighter-extra-attack-2",
-    level: 11,
-    title: "Extra Attack (2)",
-    summary: "Your Attack action now includes three attacks.",
-  }),
-  createAbilityScoreImprovement(12),
-  createFeature({
-    id: "fighter-indomitable-2",
-    level: 13,
-    title: "Indomitable (2)",
-    summary: "You can shrug off critical failed saves more than once between rests.",
-  }),
-  createAbilityScoreImprovement(14),
-  createFeature({
-    id: "fighter-subclass-feature-15",
-    level: 15,
-    title: "Subclass Feature",
-    summary: "Your archetype enters its late-game power band.",
-  }),
-  createAbilityScoreImprovement(16),
-  createFeature({
-    id: "fighter-action-surge-2",
-    level: 17,
-    title: "Action Surge (2) and Indomitable (3)",
-    summary: "Your decisive turns become even more explosive and resilient.",
-  }),
-  createFeature({
-    id: "fighter-subclass-feature-18",
-    level: 18,
-    title: "Subclass Feature",
-    summary: "A high-level archetype feature adds a defining twist to your build.",
-  }),
-  createAbilityScoreImprovement(19),
-  createFeature({
-    id: "fighter-extra-attack-3",
-    level: 20,
-    title: "Extra Attack (3)",
-    summary: "You now make four attacks with the Attack action.",
   }),
 ];
 
@@ -841,7 +764,7 @@ const speciesOptions: SpeciesOption[] = [
     name: "Human",
     description: "Adaptable adventurers with flexible talents and balanced attributes.",
     speed: 30,
-    traits: ["Versatile", "Ambitious", "Bonus skill-ready"],
+    traits: ["Skillful", "Versatile"],
     creatureType: "Humanoid",
     size: "Medium",
     languages: ["Common", "One extra language of your choice"],
@@ -871,10 +794,35 @@ const speciesOptions: SpeciesOption[] = [
         details: ["Your walking speed is 30 feet."],
       }),
       createSpeciesSection({
+        id: "human-skillful",
+        title: "Skillful",
+        subtitle: "1 Choice",
+        details: ["You gain proficiency in one skill of your choice."],
+        choiceFields: [
+          createChoiceField("skillful-skill", "Skill Proficiency", toSkillChoiceOptions(commonSkillNames), {
+            choiceKey: "feat-proficiency-skillful",
+            choiceKind: "skill-proficiency",
+            choiceLabel: "Skillful",
+            choicePath: "species.skillful",
+            sourceIndex: "human",
+            sourceType: "SPECIES",
+          }),
+        ],
+      }),
+      createSpeciesSection({
         id: "human-versatile",
-        title: "Versatile Heritage",
-        details: [
-          "Humans thrive in almost any environment and can grow into many kinds of adventurers.",
+        title: "Versatile",
+        subtitle: "1 Choice",
+        details: ["You gain one Origin feat of your choice."],
+        choiceFields: [
+          createChoiceField("versatile-feat", "Origin Feat", toFeatChoiceOptions(coreFeatNames), {
+            choiceKey: "feat-selection-versatile",
+            choiceKind: "feat",
+            choiceLabel: "Versatile",
+            choicePath: "species.versatile",
+            sourceIndex: "human",
+            sourceType: "SPECIES",
+          }),
         ],
       }),
     ],
@@ -884,11 +832,117 @@ const speciesOptions: SpeciesOption[] = [
     name: "Elf",
     description: "Graceful, perceptive, and naturally attuned to keen senses.",
     speed: 30,
-    traits: ["Darkvision", "Keen Senses", "Fey Ancestry"],
+    traits: ["Darkvision", "Keen Senses", "Fey Ancestry", "Elven Lineage"],
     creatureType: "Humanoid",
     size: "Medium",
     languages: ["Common", "Elvish"],
+    heritageOptions: [
+      {
+        damageType: "None",
+        index: "elven-lineage-drow",
+        name: "Elven Lineage: Drow",
+        traits: [
+          {
+            index: "darkvision-120",
+            name: "Darkvision 120 ft.",
+            description: "The range of your Darkvision increases to 120 feet.",
+          },
+          {
+            index: "lineage-spell-dancing-lights",
+            name: "Dancing Lights",
+            description: "You know the Dancing Lights cantrip.",
+          },
+          {
+            index: "lineage-spell-faerie-fire",
+            name: "Faerie Fire",
+            description: "At level 3, you learn Faerie Fire.",
+          },
+          {
+            index: "lineage-spell-darkness",
+            name: "Darkness",
+            description: "At level 5, you learn Darkness.",
+          },
+        ],
+      },
+      {
+        damageType: "None",
+        index: "elven-lineage-high-elf",
+        name: "Elven Lineage: High Elf",
+        traits: [
+          {
+            index: "high-elf-cantrip-versatility",
+            name: "High Elf Cantrip",
+            description:
+              "You know the Prestidigitation cantrip. Whenever you finish a Long Rest, you can replace it with a different Wizard cantrip.",
+          },
+          {
+            index: "lineage-spell-detect-magic",
+            name: "Detect Magic",
+            description: "At level 3, you learn Detect Magic.",
+          },
+          {
+            index: "lineage-spell-misty-step",
+            name: "Misty Step",
+            description: "At level 5, you learn Misty Step.",
+          },
+        ],
+      },
+      {
+        damageType: "None",
+        index: "elven-lineage-wood-elf",
+        name: "Elven Lineage: Wood Elf",
+        traits: [
+          {
+            index: "wood-elf-speed-increase",
+            name: "Wood Elf Speed",
+            description: "Your Speed increases to 35 feet.",
+          },
+          {
+            index: "lineage-spell-druidcraft",
+            name: "Druidcraft",
+            description: "You know the Druidcraft cantrip.",
+          },
+          {
+            index: "lineage-spell-longstrider",
+            name: "Longstrider",
+            description: "At level 3, you learn Longstrider.",
+          },
+          {
+            index: "lineage-spell-pass-without-trace",
+            name: "Pass without Trace",
+            description: "At level 5, you learn Pass without Trace.",
+          },
+        ],
+      },
+    ],
     previewSections: [
+      createSpeciesSection({
+        id: "elf-heritage-choice",
+        title: "Elven Lineages",
+        subtitle: "1 Choice",
+        details: [
+          "Choose the elven lineage that grants your lineage magic and special traits.",
+          "Drow -> Darkvision 120 ft., Dancing Lights, Faerie Fire, Darkness",
+          "High Elf -> Prestidigitation, Detect Magic, Misty Step",
+          "Wood Elf -> Speed 35 ft., Druidcraft, Longstrider, Pass without Trace",
+        ],
+        choiceFields: [
+          createChoiceField("heritage", "Elven Lineage", [
+            {
+              label: "Drow",
+              value: "elven-lineage-drow",
+            },
+            {
+              label: "High Elf",
+              value: "elven-lineage-high-elf",
+            },
+            {
+              label: "Wood Elf",
+              value: "elven-lineage-wood-elf",
+            },
+          ]),
+        ],
+      }),
       createSpeciesSection({
         id: "elf-languages",
         title: "Languages",
@@ -921,6 +975,101 @@ const speciesOptions: SpeciesOption[] = [
         id: "elf-darkvision",
         title: "Darkvision",
         details: ["You have Darkvision with a range of 60 feet."],
+      }),
+    ],
+  },
+  {
+    index: "gnome",
+    name: "Gnome",
+    description: "Small, clever folk whose lineages grant supernatural tricks and practical magic.",
+    speed: 30,
+    traits: ["Darkvision", "Gnomish Cunning", "Gnomish Lineage"],
+    creatureType: "Humanoid",
+    size: "Small",
+    languages: ["Common", "Gnomish"],
+    heritageOptions: [
+      {
+        damageType: "None",
+        index: "gnomish-lineage-forest-gnome",
+        name: "Gnomish Lineage: Forest Gnome",
+        traits: [
+          {
+            index: "gnomish-lineage-forest-gnome",
+            name: "Forest Gnome",
+            description:
+              "You know Minor Illusion and always have Speak with Animals prepared. You can cast Speak with Animals without a spell slot a number of times equal to your Proficiency Bonus.",
+          },
+        ],
+      },
+      {
+        damageType: "None",
+        index: "gnomish-lineage-rock-gnome",
+        name: "Gnomish Lineage: Rock Gnome",
+        traits: [
+          {
+            index: "gnomish-lineage-rock-gnome",
+            name: "Rock Gnome",
+            description:
+              "You know Mending and Prestidigitation, and you can use Prestidigitation to create tiny clockwork devices.",
+          },
+        ],
+      },
+    ],
+    previewSections: [
+      createSpeciesSection({
+        id: "gnome-heritage-choice",
+        title: "Gnomish Lineage",
+        subtitle: "1 Choice",
+        details: [
+          "Choose the gnomish lineage that grants your supernatural abilities.",
+          "Forest Gnome -> Minor Illusion, always-prepared Speak with Animals, and slot-free uses equal to your Proficiency Bonus.",
+          "Rock Gnome -> Mending, Prestidigitation, and tiny clockwork devices.",
+        ],
+        choiceFields: [
+          createChoiceField("heritage", "Gnomish Lineage", [
+            {
+              label: "Forest Gnome",
+              value: "gnomish-lineage-forest-gnome",
+            },
+            {
+              label: "Rock Gnome",
+              value: "gnomish-lineage-rock-gnome",
+            },
+          ]),
+        ],
+      }),
+      createSpeciesSection({
+        id: "gnome-languages",
+        title: "Languages",
+        subtitle: "Origin",
+        details: ["Your character can speak, read, and write Common and Gnomish."],
+      }),
+      createSpeciesSection({
+        id: "gnome-creature-type",
+        title: "Creature Type",
+        details: ["You are a Humanoid."],
+      }),
+      createSpeciesSection({
+        id: "gnome-size",
+        title: "Size",
+        details: ["You are Small."],
+      }),
+      createSpeciesSection({
+        id: "gnome-speed",
+        title: "Speed",
+        details: ["Your walking speed is 30 feet."],
+      }),
+      createSpeciesSection({
+        id: "gnome-darkvision",
+        title: "Darkvision",
+        details: ["You have Darkvision with a range of 60 feet."],
+      }),
+      createSpeciesSection({
+        id: "gnome-cunning",
+        title: "Gnomish Cunning",
+        details: [
+          "You have advantage on Intelligence, Wisdom, and Charisma saving throws.",
+        ],
       }),
     ],
   },
@@ -1023,13 +1172,112 @@ const speciesOptions: SpeciesOption[] = [
   {
     index: "tiefling",
     name: "Tiefling",
-    description: "Infernal-blooded travelers with arcane potential and darkvision.",
+    description: "Planar-blooded travelers whose fiendish legacy grants resistance and magic.",
     speed: 30,
-    traits: ["Darkvision", "Hellish Resistance", "Thaumaturgy"],
+    traits: ["Darkvision", "Fiendish Legacy"],
     creatureType: "Humanoid",
     size: "Medium",
     languages: ["Common", "Infernal"],
+    heritageOptions: [
+      {
+        damageType: "Poison",
+        index: "fiendish-legacy-abyssal",
+        name: "Fiendish Legacy: Abyssal",
+        resistanceTraitIndex: "fiendish-legacy-abyssal",
+        traits: [
+          {
+            index: "fiendish-legacy-abyssal",
+            name: "Abyssal Legacy",
+            description: "You have Resistance to Poison damage and know the Poison Spray cantrip.",
+          },
+          {
+            index: "fiendish-spell-ray-of-sickness",
+            name: "Ray of Sickness",
+            description: "At character level 3, you learn Ray of Sickness.",
+          },
+          {
+            index: "fiendish-spell-hold-person",
+            name: "Hold Person",
+            description: "At character level 5, you learn Hold Person.",
+          },
+        ],
+      },
+      {
+        damageType: "Necrotic",
+        index: "fiendish-legacy-chthonic",
+        name: "Fiendish Legacy: Chthonic",
+        resistanceTraitIndex: "fiendish-legacy-chthonic",
+        traits: [
+          {
+            index: "fiendish-legacy-chthonic",
+            name: "Chthonic Legacy",
+            description: "You have Resistance to Necrotic damage and know the Chill Touch cantrip.",
+          },
+          {
+            index: "fiendish-spell-false-life",
+            name: "False Life",
+            description: "At character level 3, you learn False Life.",
+          },
+          {
+            index: "fiendish-spell-ray-of-enfeeblement",
+            name: "Ray of Enfeeblement",
+            description: "At character level 5, you learn Ray of Enfeeblement.",
+          },
+        ],
+      },
+      {
+        damageType: "Fire",
+        index: "fiendish-legacy-infernal",
+        name: "Fiendish Legacy: Infernal",
+        resistanceTraitIndex: "fiendish-legacy-infernal",
+        traits: [
+          {
+            index: "fiendish-legacy-infernal",
+            name: "Infernal Legacy",
+            description: "You have Resistance to Fire damage and know the Fire Bolt cantrip.",
+          },
+          {
+            index: "fiendish-spell-hellish-rebuke",
+            name: "Hellish Rebuke",
+            description: "At character level 3, you learn Hellish Rebuke.",
+          },
+          {
+            index: "fiendish-spell-darkness",
+            name: "Darkness",
+            description: "At character level 5, you learn Darkness.",
+          },
+        ],
+      },
+    ],
     previewSections: [
+      createSpeciesSection({
+        id: "tiefling-heritage-choice",
+        title: "Fiendish Legacy",
+        subtitle: "1 Choice",
+        details: [
+          "Choose a legacy from the Fiendish Legacies table. You gain the level 1 benefit of the chosen legacy.",
+          "At character levels 3 and 5, you learn the higher-level spells shown for that legacy. You always have those spells prepared and can cast each once without a spell slot per Long Rest.",
+          "Abyssal -> Poison Resistance, Poison Spray, Ray of Sickness, Hold Person",
+          "Chthonic -> Necrotic Resistance, Chill Touch, False Life, Ray of Enfeeblement",
+          "Infernal -> Fire Resistance, Fire Bolt, Hellish Rebuke, Darkness",
+        ],
+        choiceFields: [
+          createChoiceField("heritage", "Fiendish Legacy", [
+            {
+              label: "Abyssal",
+              value: "fiendish-legacy-abyssal",
+            },
+            {
+              label: "Chthonic",
+              value: "fiendish-legacy-chthonic",
+            },
+            {
+              label: "Infernal",
+              value: "fiendish-legacy-infernal",
+            },
+          ]),
+        ],
+      }),
       createSpeciesSection({
         id: "tiefling-languages",
         title: "Languages",
@@ -1055,27 +1303,6 @@ const speciesOptions: SpeciesOption[] = [
         id: "tiefling-darkvision",
         title: "Darkvision",
         details: ["You have Darkvision with a range of 60 feet."],
-      }),
-      createSpeciesSection({
-        id: "tiefling-hellish-resistance",
-        title: "Hellish Resistance",
-        details: ["You have resistance to Fire damage."],
-      }),
-      createSpeciesSection({
-        id: "tiefling-thaumaturgy",
-        title: "Thaumaturgy",
-        subtitle: "1 Choice",
-        details: [
-          "You know the thaumaturgy cantrip through your infernal legacy.",
-          "Choose the spellcasting ability that powers this trait for your character.",
-        ],
-        choiceFields: [
-          createChoiceField("legacy-ability", "Spellcasting Ability", [
-            "Intelligence",
-            "Wisdom",
-            "Charisma",
-          ]),
-        ],
       }),
     ],
   },
@@ -1315,11 +1542,6 @@ const classOptions: ClassOption[] = [
       },
       { label: "Tool Proficiencies", value: "Thieves' Tools" },
       { label: "Armor Training", value: "Light armor" },
-      {
-        label: "Starting Equipment",
-        value:
-          "Choose A or B:\n(A) Leather Armor, 2 Daggers, Shortsword, Shortbow, 20 Arrows, Quiver, Thieves' Tools, Burglar's Pack, and 8 GP\n(B) 100 GP",
-      },
     ],
     savingThrows: ["DEX", "INT"],
     skillChoices: {
@@ -1347,48 +1569,6 @@ const classOptions: ClassOption[] = [
     features: rogueFeatures,
   },
   {
-    index: "fighter",
-    name: "Fighter",
-    description: "Martial specialists with strong defenses and reliable combat output.",
-    hitDie: 10,
-    primaryAbility: "STR / DEX",
-    previewOverview: [
-      { label: "Primary Ability", value: "Strength or Dexterity" },
-      { label: "Hit Point Die", value: "D10 per Fighter level" },
-      { label: "Saving Throw Proficiencies", value: "Strength and Constitution" },
-      {
-        label: "Skill Proficiencies",
-        value:
-          "Choose 2: Acrobatics, Animal Handling, Athletics, History, Insight, Intimidation, Perception, or Survival",
-      },
-      { label: "Weapon Proficiencies", value: "Simple Weapons and Martial Weapons" },
-      { label: "Tool Proficiencies", value: "None" },
-      { label: "Armor Training", value: "All armor and Shields" },
-      {
-        label: "Starting Equipment",
-        value:
-          "Choose A or B:\n(A) Chain Mail, a Martial weapon and Shield or two Martial weapons, Light Crossbow with bolts or Handaxes, and a Dungeoneer's Pack or Explorer's Pack\n(B) 155 GP",
-      },
-    ],
-    savingThrows: ["STR", "CON"],
-    skillChoices: {
-      choose: 2,
-      options: fighterSkills,
-    },
-    proficiencies: {
-      armor: ["All Armor", "Shields"],
-      weapons: ["Simple Weapons", "Martial Weapons"],
-      tools: [],
-    },
-    startingEquipment: [
-      "Chain Mail",
-      "Martial weapon and shield or two martial weapons",
-      "Light crossbow with bolts or handaxes",
-      "Dungeoneer's pack or explorer's pack",
-    ],
-    features: fighterFeatures,
-  },
-  {
     index: "wizard",
     name: "Wizard",
     description: "Scholarly spellcasters defined by spellbooks, rituals, and arcane study.",
@@ -1406,11 +1586,6 @@ const classOptions: ClassOption[] = [
       { label: "Weapon Proficiencies", value: "Simple Weapons" },
       { label: "Tool Proficiencies", value: "None" },
       { label: "Armor Training", value: "None" },
-      {
-        label: "Starting Equipment",
-        value:
-          "Choose A or B:\n(A) Spellbook, Arcane Focus or Component Pouch, Scholar's Pack or Explorer's Pack, and a Quarterstaff or Dagger\n(B) 55 GP",
-      },
     ],
     savingThrows: ["INT", "WIS"],
     skillChoices: {
@@ -1453,11 +1628,6 @@ const classOptions: ClassOption[] = [
       },
       { label: "Tool Proficiencies", value: "Three Musical Instruments of your choice" },
       { label: "Armor Training", value: "Light armor" },
-      {
-        label: "Starting Equipment",
-        value:
-          "Choose A or B:\n(A) Leather Armor, Dagger, Musical Instrument, Entertainer's Pack or Diplomat's Pack\n(B) 90 GP",
-      },
     ],
     savingThrows: ["DEX", "CHA"],
     skillChoices: {

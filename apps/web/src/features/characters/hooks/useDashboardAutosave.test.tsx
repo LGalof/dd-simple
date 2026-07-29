@@ -61,7 +61,7 @@ function createPayload(currentHp: number): CharacterSavePayload {
     alignment: null,
     backgroundIndex: "acolyte",
     choices: [],
-    classIndex: "fighter",
+    classIndex: "rogue",
     currentHp,
     featureChoices: [],
     hitPointState: {

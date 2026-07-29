@@ -104,6 +104,7 @@ type FeatureChoiceKind =
   | "subclass"
   | "skill-proficiency"
   | "tool-proficiency"
+  | "language"
   | "armor-proficiency"
   | "weapon-proficiency"
   | "expertise"
@@ -116,6 +117,7 @@ type FeatureChoiceKind =
   | "mystic-arcanum"
   | "weapon-mastery"
   | "asi-feat"
+  | "feat"
   | "epic-boon"
   | "option";
 

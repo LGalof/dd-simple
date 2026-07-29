@@ -1,5 +1,4 @@
 import type { CharacterSpellEntry } from "../../../../types/characterDerived";
-import type { CharacterSpellcastingState } from "../../../../types/character";
 
 type SpellcastingSummary = {
   abilityLabel: string;
@@ -36,58 +35,44 @@ type SpellSlotSummary = {
 
 type SpellsTabProps = {
   activeSpellLevelFilter: "all" | number;
-  canPrepareSpell: (entry: CharacterSpellEntry) => boolean;
   derivedStateError: string | null;
   derivedStateLoading: boolean;
   filteredSpellFeatureEntries: CharacterSpellEntry[];
   filteredSpellLevelSections: SpellLevelSection[];
   formatModifier: (value: number) => string;
   formatSpellFilterLabel: (level: number) => string;
-  formatSpellPreparationLabel: (
-    entry: CharacterSpellEntry,
-    preparedSpellIds: Set<string>,
-  ) => string;
   formatSpellSlotTitle: (level: number) => string;
   getSpellEntrySubtitle: (entry: CharacterSpellEntry) => string;
-  isSpellPrepared: (entry: CharacterSpellEntry, preparedSpellIds: Set<string>) => boolean;
   onActiveSpellLevelFilterChange: (filter: "all" | number) => void;
   onOpenSpellLibrary: () => void;
   onSpellSearchTextChange: (value: string) => void;
-  onTogglePreparedSpell: (entry: CharacterSpellEntry) => void;
   onUseSpellSlot: (level: number, max: number) => void;
   onRestoreSpellSlot: (level: number, max: number) => void;
   onSetUsedSpellSlots: (level: number, used: number, max: number) => void;
-  preparedSpellIds: Set<string>;
   spellEntriesForDisplayCount: number;
   spellLevelFilterOptions: Array<"all" | number>;
   spellModifierValue: string;
   spellSearchText: string;
   spellSlotSummary: SpellSlotSummary[];
-  spellcastingState: CharacterSpellcastingState;
   spellcastingSummary: SpellcastingSummary | null;
 };
 
 function SpellsTab({
   activeSpellLevelFilter,
-  canPrepareSpell,
   derivedStateError,
   derivedStateLoading,
   filteredSpellFeatureEntries,
   filteredSpellLevelSections,
   formatModifier,
   formatSpellFilterLabel,
-  formatSpellPreparationLabel,
   formatSpellSlotTitle,
   getSpellEntrySubtitle,
-  isSpellPrepared,
   onActiveSpellLevelFilterChange,
   onOpenSpellLibrary,
   onSpellSearchTextChange,
-  onTogglePreparedSpell,
   onUseSpellSlot,
   onRestoreSpellSlot,
   onSetUsedSpellSlots,
-  preparedSpellIds,
   spellEntriesForDisplayCount,
   spellLevelFilterOptions,
   spellModifierValue,
@@ -118,62 +103,65 @@ function SpellsTab({
 
   return (
     <div className="character-tab-scroll-stage">
-      {spellcastingSummary ? (
-        <div className="character-spell-summary-bar">
-          <div className="character-spell-summary-stat">
-            <strong>{spellModifierValue}</strong>
-            <span>Modifier</span>
+      <div className="character-spell-sticky-controls">
+        {spellcastingSummary ? (
+          <div className="character-spell-summary-bar">
+            <div className="character-spell-summary-stat">
+              <strong>{spellModifierValue}</strong>
+              <span>Modifier</span>
+            </div>
+            <div className="character-spell-summary-stat">
+              <strong>{formatModifier(spellcastingSummary.attackBonus)}</strong>
+              <span>Spell Attack</span>
+            </div>
+            <div className="character-spell-summary-stat">
+              <strong>{spellcastingSummary.saveDc}</strong>
+              <span>Save DC</span>
+            </div>
           </div>
-          <div className="character-spell-summary-stat">
-            <strong>{formatModifier(spellcastingSummary.attackBonus)}</strong>
-            <span>Spell Attack</span>
-          </div>
-          <div className="character-spell-summary-stat">
-            <strong>{spellcastingSummary.saveDc}</strong>
-            <span>Save DC</span>
-          </div>
+        ) : null}
+
+        <div className="character-spell-toolbar">
+          <label className="character-spell-search">
+            <span aria-hidden="true">O</span>
+            <input
+              type="search"
+              value={spellSearchText}
+              onChange={(event) => onSpellSearchTextChange(event.target.value)}
+              placeholder="Search Spell Names, Casting Times, Damage Types, Conditions or Tags"
+            />
+          </label>
+
+          <button
+            type="button"
+            className="character-inline-button character-inline-button-strong"
+            data-right-rail-trigger
+            onClick={onOpenSpellLibrary}
+          >
+            Manage Spells
+          </button>
         </div>
-      ) : null}
 
-      <div className="character-spell-toolbar">
-        <label className="character-spell-search">
-          <span aria-hidden="true">O</span>
-          <input
-            type="search"
-            value={spellSearchText}
-            onChange={(event) => onSpellSearchTextChange(event.target.value)}
-            placeholder="Search Spell Names, Casting Times, Damage Types, Conditions or Tags"
-          />
-        </label>
+        <div className="character-action-filter-bar">
+          {spellLevelFilterOptions.map((filter) => {
+            const isActive = activeSpellLevelFilter === filter;
 
-        <button
-          type="button"
-          className="character-inline-button character-inline-button-strong"
-          onClick={onOpenSpellLibrary}
-        >
-          Manage Spells
-        </button>
-      </div>
-
-      <div className="character-action-filter-bar">
-        {spellLevelFilterOptions.map((filter) => {
-          const isActive = activeSpellLevelFilter === filter;
-
-          return (
-            <button
-              key={String(filter)}
-              type="button"
-              className={
-                isActive
-                  ? "character-action-filter-pill character-action-filter-pill-active"
-                  : "character-action-filter-pill"
-              }
-              onClick={() => onActiveSpellLevelFilterChange(filter)}
-            >
-              {filter === "all" ? "All" : formatSpellFilterLabel(filter)}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={String(filter)}
+                type="button"
+                className={
+                  isActive
+                    ? "character-action-filter-pill character-action-filter-pill-active"
+                    : "character-action-filter-pill"
+                }
+                onClick={() => onActiveSpellLevelFilterChange(filter)}
+              >
+                {filter === "all" ? "All" : formatSpellFilterLabel(filter)}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {cantripSections.length > 0 ? (
@@ -181,12 +169,7 @@ function SpellsTab({
           {cantripSections.map((section) => (
             <SpellLevelSectionCard
               key={section.id}
-              canPrepareSpell={canPrepareSpell}
-              formatSpellPreparationLabel={formatSpellPreparationLabel}
               getSpellEntrySubtitle={getSpellEntrySubtitle}
-              isSpellPrepared={isSpellPrepared}
-              onTogglePreparedSpell={onTogglePreparedSpell}
-              preparedSpellIds={preparedSpellIds}
               section={section}
             />
           ))}
@@ -255,12 +238,7 @@ function SpellsTab({
               {(spellSectionsByLevel.get(slot.level) ?? []).map((section) => (
                 <SpellLevelSectionCard
                   key={section.id}
-                  canPrepareSpell={canPrepareSpell}
-                  formatSpellPreparationLabel={formatSpellPreparationLabel}
                   getSpellEntrySubtitle={getSpellEntrySubtitle}
-                  isSpellPrepared={isSpellPrepared}
-                  onTogglePreparedSpell={onTogglePreparedSpell}
-                  preparedSpellIds={preparedSpellIds}
                   section={section}
                 />
               ))}
@@ -283,12 +261,7 @@ function SpellsTab({
           {freeSpellLevelSections.map((section) => (
             <SpellLevelSectionCard
               key={section.id}
-              canPrepareSpell={canPrepareSpell}
-              formatSpellPreparationLabel={formatSpellPreparationLabel}
               getSpellEntrySubtitle={getSpellEntrySubtitle}
-              isSpellPrepared={isSpellPrepared}
-              onTogglePreparedSpell={onTogglePreparedSpell}
-              preparedSpellIds={preparedSpellIds}
               section={section}
             />
           ))}
@@ -307,9 +280,6 @@ function SpellsTab({
                         <strong>{entry.title}</strong>
                         <p>{getSpellEntrySubtitle(entry)}</p>
                       </div>
-                      <span className="character-actions-detail-tag">
-                        {formatSpellPreparationLabel(entry, preparedSpellIds)}
-                      </span>
                     </div>
                     <p>{entry.description}</p>
                   </div>
@@ -332,23 +302,10 @@ function SpellsTab({
 }
 
 function SpellLevelSectionCard({
-  canPrepareSpell,
-  formatSpellPreparationLabel,
   getSpellEntrySubtitle,
-  isSpellPrepared,
-  onTogglePreparedSpell,
-  preparedSpellIds,
   section,
 }: {
-  canPrepareSpell: (entry: CharacterSpellEntry) => boolean;
-  formatSpellPreparationLabel: (
-    entry: CharacterSpellEntry,
-    preparedSpellIds: Set<string>,
-  ) => string;
   getSpellEntrySubtitle: (entry: CharacterSpellEntry) => string;
-  isSpellPrepared: (entry: CharacterSpellEntry, preparedSpellIds: Set<string>) => boolean;
-  onTogglePreparedSpell: (entry: CharacterSpellEntry) => void;
-  preparedSpellIds: Set<string>;
   section: SpellLevelSection;
 }) {
   return (
@@ -361,20 +318,6 @@ function SpellLevelSectionCard({
               <div className="character-spell-entry-copy">
                 <strong>{entry.title}</strong>
                 <p>{getSpellEntrySubtitle(entry)}</p>
-              </div>
-              <div className="character-spell-entry-actions">
-                {canPrepareSpell(entry) ? (
-                  <button
-                    type="button"
-                    className="character-inline-button"
-                    onClick={() => onTogglePreparedSpell(entry)}
-                  >
-                    {isSpellPrepared(entry, preparedSpellIds) ? "Prepared" : "Prepare"}
-                  </button>
-                ) : null}
-                <span className="character-actions-detail-tag">
-                  {formatSpellPreparationLabel(entry, preparedSpellIds)}
-                </span>
               </div>
             </div>
             <p>{entry.description}</p>

@@ -4,8 +4,7 @@ import type { CharacterDefenseEntry } from "./characterDefense";
 type DerivedArmorClassMode =
   | "base"
   | "barbarian_unarmored"
-  | "bard_dance_unarmored"
-  | "monk_unarmored";
+  | "bard_dance_unarmored";
 
 type CharacterDerivedStats = {
   armorClassBonus: number;

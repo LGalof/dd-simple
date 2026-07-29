@@ -118,10 +118,22 @@ function getSpellManagementMode(classIndex: string): SpellManagementMode {
 }
 
 function getReferenceSpellsForClass(classIndex: string, maxSpellLevel: number | null) {
+  const spellListClassIndex = getSpellListClassIndex(classIndex);
+
   return spellLibraryRecords
-    .filter((entry) => entry.classIndexes.includes(classIndex.toLowerCase()))
+    .filter((entry) => entry.classIndexes.includes(spellListClassIndex))
     .filter((entry) => maxSpellLevel === null || entry.level === 0 || entry.level <= maxSpellLevel)
     .sort((left, right) => left.level - right.level || left.name.localeCompare(right.name));
+}
+
+function getSpellListClassIndex(classIndex: string) {
+  const normalizedClassIndex = classIndex.toLowerCase();
+
+  if (normalizedClassIndex === "arcane-trickster") {
+    return "wizard";
+  }
+
+  return normalizedClassIndex;
 }
 
 function findSpellLibraryRecordByName(name: string) {

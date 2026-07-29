@@ -74,6 +74,62 @@ type Choice = {
   type?: unknown;
 };
 
+const HUMAN_SKILL_OPTIONS: ChoiceOptionData[] = [
+  "Acrobatics",
+  "Animal Handling",
+  "Arcana",
+  "Athletics",
+  "Deception",
+  "History",
+  "Insight",
+  "Intimidation",
+  "Investigation",
+  "Medicine",
+  "Nature",
+  "Perception",
+  "Performance",
+  "Persuasion",
+  "Religion",
+  "Sleight of Hand",
+  "Stealth",
+  "Survival",
+].map((name) => ({
+  label: name,
+  selectedOptionIndex: `skill-${slugify(name)}`,
+  selectedOptionName: name,
+  selectedOptionType: "reference",
+  selectedOptionUrl: `/api/2024/proficiencies/skill-${slugify(name)}`,
+  value: slugify(name),
+}));
+
+const HUMAN_FEAT_OPTIONS: ChoiceOptionData[] = [
+  "Alert",
+  "Crafter",
+  "Healer",
+  "Lucky",
+  "Magic Initiate",
+  "Musician",
+  "Savage Attacker",
+  "Skilled",
+  "Tavern Brawler",
+  "Actor",
+  "Athlete",
+  "Charger",
+  "Durable",
+  "Heavy Armor Master",
+  "Lightly Armored",
+  "Protection",
+  "Resilient",
+  "Tough",
+].map((name) => ({
+  label: name,
+  selectedOptionIndex: slugify(name),
+  selectedOptionName: name,
+  selectedOptionType: "reference",
+  selectedOptionUrl: `/api/2024/feats/${slugify(name)}`,
+  value: slugify(name),
+}));
+
 type SpeciesSourceJson = {
   index?: unknown;
   languages?: ReferenceItem[];
@@ -295,23 +351,13 @@ function mapSpeciesReferences(
           ? [
               {
                 id: `${reference.index}-heritage-choice`,
-                title: reference.index === "dragonborn" ? "Draconic Ancestry" : "Heritage",
+                title: speciesHeritageChoiceTitle(reference.index),
                 subtitle: "1 Choice",
-                details:
-                  reference.index === "dragonborn"
-                    ? [
-                        "Choose the dragon lineage that defines your Breath Weapon and Damage Resistance.",
-                        ...heritageOptions.map(
-                          (option) => `${shortHeritageName(option.name)} -> ${option.damageType}`,
-                        ),
-                      ]
-                    : [
-                        "Choose the heritage that shapes this species-specific feature set.",
-                      ],
+                details: speciesHeritageChoiceDetails(reference.index, heritageOptions),
                 choiceFields: [
                   createChoiceField(
                     "heritage",
-                    reference.index === "dragonborn" ? "Dragon Heritage" : "Heritage",
+                    speciesHeritageChoiceLabel(reference.index),
                     heritageOptions.map((option) => ({
                       label: shortHeritageName(option.name),
                       value: option.index,
@@ -349,8 +395,8 @@ function mapSpeciesReferences(
                 id: `${reference.index}-breath-weapon`,
                 title: "Breath Weapon",
                 details: [
-                  "When you take the Attack action on your turn, you can replace one of your attacks with your selected Breath Weapon.",
-                  "Its damage type comes from your chosen Draconic Ancestry.",
+                  "When you take the Attack action on your turn, you can replace one of your attacks with an exhalation of magical energy in either a 15-foot Cone or a 30-foot Line that is 5 feet wide (choose the shape each time). Each creature in that area must make a Dexterity saving throw (DC 8 plus your Constitution modifier and Proficiency Bonus). On a failed save, a creature takes 1d10 damage of the type determined by your Draconic Ancestry trait. On a successful save, a creature takes half as much damage. This damage increases by 1d10 when you reach character levels 5 (2d10), 11 (3d10), and 17 (4d10).",
+                  "You can use this Breath Weapon a number of times equal to your Proficiency Bonus, and you regain all expended uses when you finish a Long Rest.",
                 ],
               },
               {
@@ -361,6 +407,9 @@ function mapSpeciesReferences(
                 ],
               },
             ]
+          : []),
+        ...(reference.index === "human"
+          ? createHumanChoiceSections(reference.index)
           : []),
         ...(traits.length > 0
           ? [
@@ -432,6 +481,123 @@ function formatLanguageList(values: string[]) {
   }
 
   return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+}
+
+function speciesHeritageChoiceTitle(speciesIndex: string) {
+  if (speciesIndex === "dragonborn") {
+    return "Draconic Ancestry";
+  }
+
+  if (speciesIndex === "elf") {
+    return "Elven Lineages";
+  }
+
+  if (speciesIndex === "gnome") {
+    return "Gnomish Lineage";
+  }
+
+  if (speciesIndex === "tiefling") {
+    return "Fiendish Legacy";
+  }
+
+  return "Heritage";
+}
+
+function speciesHeritageChoiceLabel(speciesIndex: string) {
+  if (speciesIndex === "dragonborn") {
+    return "Dragon Heritage";
+  }
+
+  if (speciesIndex === "elf") {
+    return "Elven Lineage";
+  }
+
+  if (speciesIndex === "gnome") {
+    return "Gnomish Lineage";
+  }
+
+  if (speciesIndex === "tiefling") {
+    return "Fiendish Legacy";
+  }
+
+  return "Heritage";
+}
+
+function speciesHeritageChoiceDetails(
+  speciesIndex: string,
+  heritageOptions: SpeciesHeritageOption[],
+) {
+  if (speciesIndex === "dragonborn") {
+    return [
+      "Choose the dragon lineage that defines your Breath Weapon and Damage Resistance.",
+      ...heritageOptions.map((option) => `${shortHeritageName(option.name)} -> ${option.damageType}`),
+    ];
+  }
+
+  if (speciesIndex === "elf") {
+    return [
+      "Choose the elven lineage that grants your lineage magic and special traits.",
+      "Drow -> Darkvision 120 ft., Dancing Lights, Faerie Fire, Darkness",
+      "High Elf -> Prestidigitation, Detect Magic, Misty Step",
+      "Wood Elf -> Speed 35 ft., Druidcraft, Longstrider, Pass without Trace",
+    ];
+  }
+
+  if (speciesIndex === "gnome") {
+    return [
+      "Choose the gnomish lineage that grants your supernatural abilities.",
+      "Forest Gnome -> Minor Illusion, always-prepared Speak with Animals, and slot-free uses equal to your Proficiency Bonus.",
+      "Rock Gnome -> Mending, Prestidigitation, and tiny clockwork devices.",
+    ];
+  }
+
+  if (speciesIndex === "tiefling") {
+    return [
+      "Choose the fiendish legacy that grants your resistance and legacy spells.",
+      "Abyssal -> Poison resistance, Poison Spray, Ray of Sickness, Hold Person",
+      "Chthonic -> Necrotic resistance, Chill Touch, False Life, Ray of Enfeeblement",
+      "Infernal -> Fire resistance, Fire Bolt, Hellish Rebuke, Darkness",
+    ];
+  }
+
+  return ["Choose the heritage that shapes this species-specific feature set."];
+}
+
+function createHumanChoiceSections(speciesIndex: string) {
+  return [
+    {
+      id: `${speciesIndex}-skillful`,
+      title: "Skillful",
+      subtitle: "1 Choice",
+      details: ["You gain proficiency in one skill of your choice."],
+      choiceFields: [
+        createChoiceField("skillful-skill", "Skill Proficiency", HUMAN_SKILL_OPTIONS, {
+          choiceKey: "feat-proficiency-skillful",
+          choiceKind: "skill-proficiency",
+          choiceLabel: "Skillful",
+          choicePath: "species.skillful",
+          sourceIndex: speciesIndex,
+          sourceType: "SPECIES",
+        }),
+      ],
+    },
+    {
+      id: `${speciesIndex}-versatile`,
+      title: "Versatile",
+      subtitle: "1 Choice",
+      details: ["You gain one Origin feat of your choice."],
+      choiceFields: [
+        createChoiceField("versatile-feat", "Origin Feat", HUMAN_FEAT_OPTIONS, {
+          choiceKey: "feat-selection-versatile",
+          choiceKind: "feat",
+          choiceLabel: "Versatile",
+          choicePath: "species.versatile",
+          sourceIndex: speciesIndex,
+          sourceType: "SPECIES",
+        }),
+      ],
+    },
+  ];
 }
 
 function normalizedSpeciesTraits(reference: ReferenceSpecies) {
@@ -798,11 +964,11 @@ function mapClassReferences(
     const startingEquipment = (sourceJson.starting_equipment_options ?? [])
       .map((option) => stringValue(option.desc))
       .filter(isPresent);
-    const classChoiceFeature = createClassChoiceFeature(reference, sourceJson);
     const normalizedFeatures = createNormalizedClassFeatures(
       reference.features ?? [],
       reference.index,
     );
+    const classChoiceFeature = createClassChoiceFeature(reference, sourceJson, normalizedFeatures);
     const subclasses = getClassSubclasses(
       reference.index,
       sourceJson,
@@ -840,7 +1006,6 @@ function mapClassReferences(
         { label: "Weapon Proficiencies", value: formatList(groupedProficiencies.weapons) },
         { label: "Tool Proficiencies", value: formatList(groupedProficiencies.tools) },
         { label: "Armor Training", value: formatList(groupedProficiencies.armor) },
-        { label: "Starting Equipment", value: startingEquipment[0] ?? "Starting equipment is not available." },
       ],
       savingThrows,
       skillChoices: {
@@ -954,23 +1119,7 @@ function getSpellcastingNotes(sourceJson: SpellcastingSourceJson | undefined) {
 }
 
 function inferClassCastingType(classIndex: string): ClassSpellcastingInfo["castingType"] {
-  if (classIndex === "warlock") {
-    return "pact-magic";
-  }
-
-  if (classIndex === "paladin" || classIndex === "ranger") {
-    return "half-caster";
-  }
-
-  if (
-    [
-      "bard",
-      "cleric",
-      "druid",
-      "sorcerer",
-      "wizard",
-    ].includes(classIndex)
-  ) {
+  if (["bard", "cleric", "wizard"].includes(classIndex)) {
     return "full-caster";
   }
 
@@ -1063,21 +1212,26 @@ function normalizedClassSkillChoice(reference: ReferenceClass) {
     : null;
 }
 
-function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSourceJson): ClassFeature[] {
+function createClassChoiceFeature(
+  reference: ReferenceClass,
+  sourceJson: ClassSourceJson,
+  existingFeatures: ClassFeature[] = [],
+): ClassFeature[] {
   const normalizedSkillChoice = normalizedClassSkillChoice(reference);
+  const hasCuratedSkillChoiceFeature = hasCuratedClassSkillChoiceFeature(existingFeatures);
   const sourceProficiencyChoices = (sourceJson.proficiency_choices ?? []).map((choice) =>
     normalizeClassProficiencyChoiceForBuilder(choice),
   );
   const sourceSkillChoiceIndex = normalizedSkillChoice
     ? sourceProficiencyChoices.findIndex((choice) => isSourceSkillChoice(choice))
     : -1;
-  const sourceFallbackChoices = normalizedSkillChoice
+  const sourceFallbackChoices = normalizedSkillChoice || hasCuratedSkillChoiceFeature
     ? sourceProficiencyChoices
         .map((choice, index) => ({ choice, index }))
         .filter(({ choice }) => !isSourceSkillChoice(choice))
     : sourceProficiencyChoices.map((choice, index) => ({ choice, index }));
   const classChoiceFields = [
-    ...(normalizedSkillChoice
+    ...(normalizedSkillChoice && !hasCuratedSkillChoiceFeature
       ? createChoiceFieldsFromNormalizedSkillChoice(normalizedSkillChoice, {
           baseChoicePath:
             sourceSkillChoiceIndex >= 0
@@ -1116,6 +1270,14 @@ function createClassChoiceFeature(reference: ReferenceClass, sourceJson: ClassSo
         }),
       ]
     : [];
+}
+
+function hasCuratedClassSkillChoiceFeature(features: ClassFeature[]) {
+  return features.some((feature) =>
+    feature.level === 1 &&
+    /^Core .+ Traits$/.test(feature.title) &&
+    (feature.choiceFields ?? []).some((field) => field.choiceKind === "skill-proficiency"),
+  );
 }
 
 function isSourceSkillChoice(choice: Choice) {
@@ -1330,6 +1492,10 @@ function createReferenceBackedClassFeatures(
           const featureDocument = featureDocumentMap.get(featureIndex);
           const featureSourceJson = asRecord(featureDocument?.sourceJson) as FeatureSourceJson;
           const subclassIndex = stringValue(featureSourceJson.subclass?.index) ?? undefined;
+
+          if (subclassIndex) {
+            return null;
+          }
 
           const descriptions = Array.isArray(featureSourceJson.desc)
             ? featureSourceJson.desc.filter((entry): entry is string => typeof entry === "string")
@@ -1881,6 +2047,12 @@ function choiceOptionData(
       selectedOptionUrl: referenceUrl,
       selectedRawJson: value,
       value: referenceIndex ?? slugify(rawLabel),
+      ...(choice
+        ? {
+            nestedChoice: choice,
+            nestedChoicePath: appendChoicePath(optionPath, "choice"),
+          }
+        : {}),
     };
   }
 
@@ -2266,6 +2438,18 @@ function shortHeritageName(value: string) {
   if (value.startsWith("Draconic Ancestor: ")) {
     const ancestor = value.replace("Draconic Ancestor: ", "");
     return `${ancestor} Dragon`;
+  }
+
+  if (value.startsWith("Elven Lineage: ")) {
+    return value.replace("Elven Lineage: ", "");
+  }
+
+  if (value.startsWith("Gnomish Lineage: ")) {
+    return value.replace("Gnomish Lineage: ", "");
+  }
+
+  if (value.startsWith("Fiendish Legacy: ")) {
+    return value.replace("Fiendish Legacy: ", "");
   }
 
   return value;

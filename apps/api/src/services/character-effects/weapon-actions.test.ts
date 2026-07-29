@@ -71,6 +71,54 @@ test("deriveWeaponActionEntries adds active Rage damage to Strength melee attack
   assert.equal(warhammer?.combat?.notes, "Weapon attack • Rage +3 damage");
 });
 
+test("deriveWeaponActionEntries adds Soulknife Psychic Blade attacks", () => {
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [
+      {
+        abilityIndex: "str",
+        score: 10,
+      },
+      {
+        abilityIndex: "dex",
+        score: 18,
+      },
+    ],
+    activeSources: [
+      {
+        description:
+          "Once per turn, you can deal extra damage to one creature you hit with an attack if you have Advantage on the attack roll.",
+        level: 1,
+        sourceIndex: "sneak-attack",
+        sourceType: "class_feature",
+        title: "Sneak Attack",
+      },
+      {
+        description: "You can manifest shimmering blades of psychic energy.",
+        level: 3,
+        sourceIndex: "psychic-blades",
+        sourceType: "subclass_feature",
+        title: "Psychic Blades",
+      },
+    ],
+    characterLevel: 5,
+    inventory: [],
+    proficiencies: [],
+    stats: createBaseDerivedStats(5),
+  });
+
+  const psychicBlade = actions.find((action) => action.title === "Psychic Blade");
+  const bonusPsychicBlade = actions.find(
+    (action) => action.title === "Psychic Blade (Bonus Action)",
+  );
+
+  assert.equal(psychicBlade?.activationType, "attack");
+  assert.equal(psychicBlade?.combat?.hit, "+7");
+  assert.equal(psychicBlade?.combat?.damage, "1d6 psychic + 4 + 3d6 Sneak Attack");
+  assert.equal(psychicBlade?.combat?.range, "60/120 ft.");
+  assert.equal(bonusPsychicBlade?.activationType, "bonus_action");
+  assert.equal(bonusPsychicBlade?.combat?.damage, "1d4 psychic + 4");
+});
+
 test("deriveWeaponActionEntries does not add Rage damage when Rage is inactive", () => {
   const actions = deriveWeaponActionEntries({
     abilityScores: [

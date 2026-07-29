@@ -180,24 +180,46 @@ function ActionsTab({
 
       {detailActionRows.length > 0 ? (
         <div className="character-actions-detail-list">
-          {detailActionRows.map((action) => (
-            <article key={action.id} className="character-actions-detail-card">
-              <div className="character-actions-detail-card-header">
-                <div className="character-actions-cell character-actions-cell-main">
-                  <strong>{action.title}</strong>
-                  <em>{action.subtitle}</em>
+          {detailActionRows.map((action) => {
+            const actionStats = getDetailActionStats(action);
+
+            return (
+              <article key={action.id} className="character-actions-detail-card">
+                <div className="character-actions-detail-card-header">
+                  <div className="character-actions-cell character-actions-cell-main">
+                    <strong>{action.title}</strong>
+                    <em>{action.subtitle}</em>
+                  </div>
+                  <span className="character-actions-detail-tag">
+                    {formatActivationLabel(action.activationType)}
+                  </span>
                 </div>
-                <span className="character-actions-detail-tag">
-                  {formatActivationLabel(action.activationType)}
-                </span>
-              </div>
-              <p>{action.notes}</p>
-            </article>
-          ))}
+                {actionStats.length > 0 ? (
+                  <dl className="character-actions-detail-stats">
+                    {actionStats.map((stat) => (
+                      <div key={stat.label}>
+                        <dt>{stat.label}</dt>
+                        <dd>{stat.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                <p>{action.notes}</p>
+              </article>
+            );
+          })}
         </div>
       ) : null}
     </div>
   );
+}
+
+function getDetailActionStats(action: ActionDisplayRow) {
+  return [
+    { label: "Range", value: action.range },
+    { label: "Hit / DC", value: action.hit },
+    { label: "Damage / Healing", value: action.damage },
+  ].filter((stat) => stat.value.trim().length > 0 && stat.value !== "--");
 }
 
 export { ActionsTab };

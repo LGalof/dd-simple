@@ -4,6 +4,7 @@ import type {
 } from "../../../types/character";
 
 type CharacterPreviewQuery = {
+  abilityScores?: Partial<Record<"str" | "dex" | "con" | "int" | "wis" | "cha", number>>;
   backgroundIndex?: string;
   classIndex?: string;
   featIndexes?: string[];

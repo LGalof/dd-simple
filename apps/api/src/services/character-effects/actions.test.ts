@@ -67,6 +67,26 @@ test("deriveActionEntries classifies Durable Speedy Recovery as a bonus action",
   assert.equal(actions[0]?.title, "Durable");
 });
 
+test("deriveActionEntries exposes Cleric Channel Divinity options separately", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "Divine Spark. As a Magic action, you point your Holy Symbol at another creature you can see within 30 feet of yourself. Turn Undead. As a Magic action, you present your Holy Symbol and censure Undead creatures.",
+      level: 2,
+      sourceIndex: "channel-divinity",
+      title: "Channel Divinity",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.range]),
+    [
+      ["Divine Spark", "action", "30 ft."],
+      ["Turn Undead", "action", "30 ft."],
+    ],
+  );
+});
+
 test("deriveActionEntries exposes Berserker Frenzy as a Strength attack rider", () => {
   const actions = deriveActionEntries([
     createSource({
@@ -119,6 +139,166 @@ test("deriveActionEntries exposes World Tree tactical features", () => {
       ["Battering Roots", "attack", "+10 ft. reach"],
       ["Travel Along the Tree", "bonus_action", null],
       ["Branches of the Tree", "reaction", "30 ft."],
+    ],
+  );
+});
+
+test("deriveActionEntries exposes Light Domain magic actions", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "As a Magic action, you present your Holy Symbol and expend a use of your Channel Divinity to emit a flash of light in a 30-foot Emanation originating from yourself. Each creature must make a Constitution saving throw, taking Radiant damage equal to 2d10 plus your Cleric level on a failed save or half as much damage on a successful one.",
+      level: 3,
+      sourceIndex: "radiance-of-the-dawn",
+      sourceType: "subclass_feature",
+      title: "Radiance of the Dawn",
+    }),
+    createSource({
+      description:
+        "As a Magic action, you cause yourself to emit an aura of sunlight that lasts for 1 minute.",
+      level: 17,
+      sourceIndex: "corona-of-light",
+      sourceType: "subclass_feature",
+      title: "Corona of Light",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.range ?? null]),
+    [
+      ["Radiance of the Dawn", "action", "30 ft. emanation"],
+      ["Corona of Light", "action", "60 ft. bright / 90 ft. total"],
+    ],
+  );
+});
+
+test("deriveActionEntries exposes Trickery Domain actions", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "As a Magic action, you can choose yourself or a willing creature within 30 feet of yourself to have Advantage on Dexterity (Stealth) checks.",
+      level: 3,
+      sourceIndex: "blessing-of-the-trickster",
+      sourceType: "subclass_feature",
+      title: "Blessing of the Trickster",
+    }),
+    createSource({
+      description:
+        "As a Bonus Action, you can expend one use of your Channel Divinity to create a perfect visual illusion of yourself.",
+      level: 3,
+      sourceIndex: "invoke-duplicity",
+      sourceType: "subclass_feature",
+      title: "Invoke Duplicity",
+    }),
+    createSource({
+      description:
+        "Whenever you take the Bonus Action to create or move the illusion of your Invoke Duplicity, you can teleport, swapping places with the illusion.",
+      level: 6,
+      sourceIndex: "tricksters-transposition",
+      sourceType: "subclass_feature",
+      title: "Trickster's Transposition",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.range ?? null]),
+    [
+      ["Blessing of the Trickster", "action", "30 ft."],
+      ["Invoke Duplicity", "bonus_action", "30 ft. create / 120 ft. move"],
+      ["Trickster's Transposition", "bonus_action", null],
+    ],
+  );
+});
+
+test("deriveActionEntries exposes War Domain actions", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "When you or a creature within 30 feet of you misses with an attack roll, you can expend one use of your Channel Divinity and give that roll a +10 bonus.",
+      level: 3,
+      sourceIndex: "guided-strike",
+      sourceType: "subclass_feature",
+      title: "Guided Strike",
+    }),
+    createSource({
+      description:
+        "As a Bonus Action, you can make one attack with a weapon or an Unarmed Strike.",
+      level: 3,
+      sourceIndex: "war-priest",
+      sourceType: "subclass_feature",
+      title: "War Priest",
+    }),
+    createSource({
+      description:
+        "You can expend a use of your Channel Divinity to cast Shield of Faith or Spiritual Weapon rather than expending a spell slot.",
+      level: 6,
+      sourceIndex: "war-gods-blessing",
+      sourceType: "subclass_feature",
+      title: "War God's Blessing",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.range ?? null]),
+    [
+      ["War God's Blessing", "action", null],
+      ["War Priest", "bonus_action", null],
+      ["Guided Strike", "reaction", "30 ft."],
+    ],
+  );
+});
+
+test("deriveActionEntries exposes Thief Fast Hands as a bonus action", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "As a Bonus Action, you can do one of the following. Sleight of Hand. Make a Dexterity (Sleight of Hand) check to pick a lock or disarm a trap with Thieves' Tools or to pick a pocket. Use an Object. Take the Utilize action, or take the Magic action to use a magic item that requires that action.",
+      level: 3,
+      sourceIndex: "fast-hands",
+      sourceType: "subclass_feature",
+      title: "Fast Hands",
+    }),
+  ]);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0]?.activationType, "bonus_action");
+  assert.equal(actions[0]?.title, "Fast Hands");
+});
+
+test("deriveActionEntries exposes Abjurer ward actions", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "Alternatively, as a Bonus Action, you can expend a spell slot, and the ward regains a number of Hit Points equal to twice the level of the spell slot expended.",
+      level: 3,
+      sourceIndex: "arcane-ward",
+      sourceType: "subclass_feature",
+      title: "Arcane Ward",
+    }),
+    createSource({
+      description:
+        "When a creature that you can see within 30 feet of yourself takes damage, you can take a Reaction to cause your Arcane Ward to absorb that damage.",
+      level: 6,
+      sourceIndex: "projected-ward",
+      sourceType: "subclass_feature",
+      title: "Projected Ward",
+    }),
+    createSource({
+      description:
+        "You always have the Counterspell and Dispel Magic spells prepared. In addition, you can cast Dispel Magic as a Bonus Action.",
+      level: 10,
+      sourceIndex: "improved-abjuration",
+      sourceType: "subclass_feature",
+      title: "Spell Breaker",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.range ?? null]),
+    [
+      ["Arcane Ward: Restore Ward", "bonus_action", null],
+      ["Spell Breaker: Dispel Magic", "bonus_action", null],
+      ["Projected Ward", "reaction", "30 ft."],
     ],
   );
 });

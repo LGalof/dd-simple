@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import {
   createDefaultConditionState,
@@ -13,7 +13,6 @@ import { CharacterSheet } from "../features/characters/components/CharacterSheet
 import { type LocalRollEntry } from "../features/characters/components/LocalRollsPanel";
 import type { RollableResult } from "../features/characters/components/Rollable";
 import type {
-  ProgressionChoiceSummary,
   ResourceActionSummary,
   WorkspaceTab,
 } from "../features/characters/components/CharacterSheet";
@@ -32,7 +31,6 @@ import type {
   ClassFeature,
   ClassOption,
   FeatureChoiceSelections,
-  FeatureChoiceField,
   SpeciesOption,
 } from "../features/characters/types/characterBuilder";
 import {
@@ -44,7 +42,7 @@ import { getSpellcastingSummary as getDashboardSpellcastingSummary } from "../fe
 import {
   buildGenericBackgroundFeatureChoices,
   buildGenericClassFeatureChoices,
-  getVisibleChoiceFieldsForSelection,
+  buildGenericSpeciesFeatureChoices,
 } from "../features/characters/utils/buildFeatureChoiceSelections";
 import type {
   AbilityScores,
@@ -93,6 +91,7 @@ function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | "spells" | null>(null);
+  const rightRailRef = useRef<HTMLDivElement | null>(null);
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
   const [diceRollSaveError, setDiceRollSaveError] = useState<string | null>(null);
   const [localRolls, setLocalRolls] = useState<LocalRollEntry[]>([]);
@@ -126,10 +125,6 @@ function CharacterDashboardPage() {
     [characters, selectedCharacterId],
   );
   const character = selectedCharacter ?? characters[0];
-  const inventoryController = useInventorySandboxController(
-    character ? `character-${character.id}` : "dashboard",
-    character?.id,
-  );
 
   useEffect(() => {
     if (!loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {
@@ -195,7 +190,10 @@ function CharacterDashboardPage() {
         builderState?.level ?? character?.level ?? 1,
         featureChoices,
         resolvedSubclassIndex,
-      ).concat(buildGenericBackgroundFeatureChoices(selectedBackground, backgroundChoices)),
+      ).concat(
+        buildGenericBackgroundFeatureChoices(selectedBackground, backgroundChoices),
+        buildGenericSpeciesFeatureChoices(selectedSpecies, speciesChoices),
+      ),
     [
       backgroundChoices,
       builderState?.classIndex,
@@ -206,11 +204,21 @@ function CharacterDashboardPage() {
       resolvedSubclassIndex,
       selectedBackground,
       selectedClass,
+      selectedSpecies,
+      speciesChoices,
     ],
   );
 
   const builderActionPreview = useMemo(
     () => ({
+      abilityScores: builderState?.abilityAssignments
+        ? Object.fromEntries(
+            builderState.abilityAssignments.map((assignment) => [
+              assignment.abilityIndex,
+              assignment.score,
+            ]),
+          )
+        : undefined,
       backgroundIndex: builderState?.backgroundIndex ?? character?.backgroundIndex,
       classIndex: builderState?.classIndex ?? character?.classIndex,
       featIndexes: getSelectedFeatIndexesForPreview(
@@ -226,6 +234,7 @@ function CharacterDashboardPage() {
       subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
     }),
     [
+      builderState?.abilityAssignments,
       builderState?.backgroundIndex,
       builderState?.classIndex,
       builderState?.level,
@@ -254,17 +263,15 @@ function CharacterDashboardPage() {
       ) ?? null,
     [resolvedSubclassIndex, selectedClass.subclasses],
   );
-  const progressionChoiceSummaries = useMemo(
-    () =>
-      builderState
-        ? getProgressionChoiceSummaries(
-            selectedClass,
-            builderState.level,
-            featureChoices,
-          )
-        : [],
-    [builderState, featureChoices, selectedClass],
+  const inventoryController = useInventorySandboxController(
+    character ? `character-${character.id}` : "dashboard",
+    character?.id,
+    getDashboardAttunementLimit(builderState?.level ?? 1, selectedClass.index, selectedSubclass?.index ?? null),
   );
+  const effectiveSpellLibraryClassIndex =
+    selectedClass.index === "rogue" && selectedSubclass?.index === "arcane-trickster"
+      ? "arcane-trickster"
+      : selectedClass.index;
   const spellcastingSummary = useMemo(
     () =>
       previewCharacter && builderState
@@ -313,6 +320,7 @@ function CharacterDashboardPage() {
             builderState,
             selectedClass,
             selectedBackground,
+            selectedSpecies,
             selectedSkillIndexes,
             featureChoices,
             spellcastingState,
@@ -328,6 +336,7 @@ function CharacterDashboardPage() {
       featureChoices,
       selectedBackground,
       selectedClass,
+      selectedSpecies,
       selectedSkillIndexes,
       speciesChoices,
       spellcastingState,
@@ -358,6 +367,7 @@ function CharacterDashboardPage() {
             builderState,
             selectedClass,
             selectedBackground,
+            selectedSpecies,
             selectedSkillIndexes,
             featureChoices,
             spellcastingState,
@@ -372,6 +382,7 @@ function CharacterDashboardPage() {
       featureChoices,
       selectedBackground,
       selectedClass,
+      selectedSpecies,
       selectedSkillIndexes,
       speciesChoices,
       spellcastingState,
@@ -388,6 +399,36 @@ function CharacterDashboardPage() {
   const toggleConditionsRail = useCallback(() => {
     setRightRailMode((currentMode) => (currentMode === "conditions" ? null : "conditions"));
   }, []);
+
+  useEffect(() => {
+    if (!rightRailMode || rightRailMode === "inventory") {
+      return;
+    }
+
+    function handleDocumentPointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (rightRailRef.current?.contains(target)) {
+        return;
+      }
+
+      if (target.closest("[data-right-rail-trigger]")) {
+        return;
+      }
+
+      setRightRailMode(null);
+    }
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+    };
+  }, [rightRailMode]);
 
   useEffect(() => {
     if (activeWorkspaceTab === "inventory") {
@@ -426,7 +467,9 @@ function CharacterDashboardPage() {
 
     const persistedUiState = loadDashboardUiState(character.id);
 
-    setActiveWorkspaceTab(persistedUiState?.activeWorkspaceTab ?? "actions");
+    setActiveWorkspaceTab(
+      normalizePersistedWorkspaceTab(persistedUiState?.activeWorkspaceTab),
+    );
     setIsBuilderSidebarHidden(persistedUiState?.isBuilderSidebarHidden ?? false);
     setRightRailMode(persistedUiState?.rightRailMode ?? null);
     setSpellcastingState(
@@ -630,7 +673,6 @@ function CharacterDashboardPage() {
               onLocalRoll={handleLocalRoll}
               onResourceStateChange={setResourceState}
               onSpellcastingStateChange={setSpellcastingState}
-              progressionChoiceSummaries={progressionChoiceSummaries}
               resolvedFeatureChoices={resolvedFeatureChoiceSelections}
               resourceState={resourceState}
               resourceActionSummaries={resourceActionSummaries}
@@ -641,7 +683,9 @@ function CharacterDashboardPage() {
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onApplyLongRest={applyLongRest}
               onOpenConditions={toggleConditionsRail}
-              onOpenSpellLibrary={() => setRightRailMode("spells")}
+              onOpenSpellLibrary={() =>
+                setRightRailMode((currentMode) => (currentMode === "spells" ? null : "spells"))
+              }
               onSetTempHp={setTempHp}
               selectedBackground={selectedBackground}
               selectedClass={selectedClass}
@@ -649,29 +693,32 @@ function CharacterDashboardPage() {
               speciesChoices={speciesChoices}
               tempHp={builderState.tempHp}
             />
-            <CharacterDashboardRightRail
-              conditionState={conditionState}
-              diceRollSaveError={diceRollSaveError}
-              inventoryController={inventoryController}
-              localRolls={localRolls}
-              onDismissLocalRoll={dismissLocalRoll}
-              onManualRoll={handleLocalRoll}
-              onSetExhaustionLevel={(level) =>
-                setConditionState((currentState) => ({
-                  ...currentState,
-                  exhaustionLevel: level as ConditionState["exhaustionLevel"],
-                }))
-              }
-              onSpellcastingStateChange={setSpellcastingState}
-              onToggleCondition={(conditionId) => {
-                void toggleCondition(conditionId);
-              }}
-              rightRailMode={rightRailMode}
-              selectedClassIndex={selectedClass.index}
-              selectedClassName={selectedClass.name}
-              spellcastingState={spellcastingState}
-              spellcastingSummary={spellcastingSummary}
-            />
+            <div ref={rightRailRef}>
+              <CharacterDashboardRightRail
+                conditionState={conditionState}
+                diceRollSaveError={diceRollSaveError}
+                inventoryController={inventoryController}
+                localRolls={localRolls}
+                onDismissLocalRoll={dismissLocalRoll}
+                onManualRoll={handleLocalRoll}
+                onSetExhaustionLevel={(level) =>
+                  setConditionState((currentState) => ({
+                    ...currentState,
+                    exhaustionLevel: level as ConditionState["exhaustionLevel"],
+                  }))
+                }
+                onSpellcastingStateChange={setSpellcastingState}
+                onToggleCondition={(conditionId) => {
+                  void toggleCondition(conditionId);
+                }}
+                rightRailMode={rightRailMode}
+                selectedClassIndex={effectiveSpellLibraryClassIndex}
+                selectedClassName={selectedClass.name}
+                spellEntries={characterDerivedStateWithPreview?.spells ?? []}
+                spellcastingState={spellcastingState}
+                spellcastingSummary={spellcastingSummary}
+              />
+            </div>
           </div>
         ) : null}
       </section>
@@ -693,11 +740,24 @@ function CharacterDashboardPage() {
   );
 }
 
+function getDashboardAttunementLimit(
+  characterLevel: number,
+  classIndex: string,
+  subclassIndex: string | null,
+) {
+  if (classIndex === "rogue" && subclassIndex === "thief" && characterLevel >= 13) {
+    return 4;
+  }
+
+  return 3;
+}
+
 export function buildCharacterSavePayload(
   character: Character,
   builderState: NonNullable<ReturnType<typeof useCharacterBuilder>["builderState"]>,
   classOption: ClassOption,
   backgroundOption: BackgroundOption,
+  speciesOption: SpeciesOption,
   selectedSkillIndexes: string[],
   featureChoices: FeatureChoiceSelections,
   spellcastingState: CharacterSpellcastingState,
@@ -749,7 +809,10 @@ export function buildCharacterSavePayload(
           featureChoices,
           builderState.level,
         ),
-      ).concat(buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices)),
+      ).concat(
+        buildGenericBackgroundFeatureChoices(backgroundOption, backgroundChoices),
+        buildGenericSpeciesFeatureChoices(speciesOption, speciesChoices),
+      ),
     ),
     abilityScores: buildAbilityScorePayload(character, builderState),
   };
@@ -973,31 +1036,6 @@ function shouldClearSubclassForLevel(
   return Boolean(subclassChoiceFeature);
 }
 
-function getProgressionChoiceSummaries(
-  classOption: ClassOption,
-  characterLevel: number,
-  featureChoices: FeatureChoiceSelections,
-): ProgressionChoiceSummary[] {
-  return classOption.features
-    .filter((feature) => feature.level <= characterLevel)
-    .flatMap((feature) =>
-      getVisibleChoiceFieldsForSelection(feature.id, feature.choiceFields, featureChoices)
-        .filter((field) => isProgressionChoiceField(feature, field))
-        .map((field) => {
-          const selectedValue = featureChoices[`${feature.id}:${field.id}`];
-          const selectedOption = field.options.find((option) => option.value === selectedValue);
-
-          return {
-            id: `${feature.id}:${field.id}`,
-            label: `${feature.title}: ${field.label}`,
-            level: field.level ?? feature.level,
-            status: selectedOption ? "selected" as const : "missing" as const,
-            value: selectedOption?.label ?? "Missing required choice",
-          };
-        }),
-    );
-}
-
 function getResourceActionSummaries(
   classOption: ClassOption,
   characterLevel: number,
@@ -1121,97 +1159,6 @@ function getResourceActionSummary(
     };
   }
 
-  if (key.includes("wild-shape")) {
-    return {
-      ...base,
-      automationNote: "Summary only; beast forms and transformation stats are not implemented.",
-      category: "resource",
-      maxUsesValue: 2,
-      maxUses: "Uses follow class progression",
-      name: "Wild Shape",
-      recharge: "Short or Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("second-wind")) {
-    return {
-      ...base,
-      automationNote: "Summary only; healing roll and use tracking are not automated.",
-      category: "bonus action",
-      maxUsesValue: 2,
-      maxUses: "Uses follow class progression",
-      name: "Second Wind",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("action-surge")) {
-    return {
-      ...base,
-      automationNote: "Summary only; extra action timing is not automated.",
-      category: "resource",
-      maxUsesValue: characterLevel >= 17 ? 2 : 1,
-      maxUses: key.includes("2-use") ? "2 uses" : "1 use",
-      name: "Action Surge",
-      recharge: "Short or Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("indomitable")) {
-    return {
-      ...base,
-      automationNote: "Summary only; reroll timing and save replacement are not automated.",
-      category: "resource",
-      maxUsesValue: characterLevel >= 17 ? 3 : characterLevel >= 13 ? 2 : 1,
-      maxUses: "Uses follow class progression",
-      name: "Indomitable",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("superiority-dice")) {
-    return {
-      ...base,
-      automationNote: "Summary only; maneuver spend and die size upgrades are not automated.",
-      category: "resource",
-      maxUsesValue: characterLevel >= 15 ? 6 : characterLevel >= 7 ? 5 : 4,
-      maxUses: "Uses follow class progression",
-      name: "Superiority Dice",
-      recharge: "Short or Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("monks-focus") || key.includes("monk's focus")) {
-    return {
-      ...base,
-      automationNote: "Summary only; Focus spenders are not automated.",
-      category: "resource",
-      maxUsesValue: characterLevel,
-      maxUses: `${characterLevel} Focus Points`,
-      name: "Monk's Focus",
-      recharge: "Short or Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("lay-on-hands")) {
-    return {
-      ...base,
-      automationNote: "Summary only; healing pool spending is not automated.",
-      category: "bonus action",
-      maxUsesValue: characterLevel * 5,
-      maxUses: `${characterLevel * 5} HP pool`,
-      name: "Lay on Hands",
-      recharge: "Long Rest",
-      trackingMode: "pool",
-    };
-  }
-
   if (key.includes("cunning-action")) {
     return {
       ...base,
@@ -1230,43 +1177,6 @@ function getResourceActionSummary(
       category: "passive",
       name: key.includes("improved") ? "Improved Cunning Strike" : "Cunning Strike",
       trackingMode: "none",
-    };
-  }
-
-  if (key.includes("font-of-magic")) {
-    return {
-      ...base,
-      automationNote: "Summary only; Sorcery Point spending and conversion are not automated.",
-      category: "resource",
-      maxUsesValue: characterLevel,
-      maxUses: `${characterLevel} Sorcery Points`,
-      name: "Font of Magic",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("pact-magic")) {
-    return {
-      ...base,
-      automationNote: "Spell slot details appear in the Spells tab when reference data provides them.",
-      category: "resource",
-      name: "Pact Magic",
-      recharge: "Short or Long Rest",
-      trackingMode: "none",
-    };
-  }
-
-  if (key.includes("mystic-arcanum")) {
-    return {
-      ...base,
-      automationNote: "Summary only; arcanum spell choice and casting are not automated.",
-      category: "resource",
-      maxUsesValue: 1,
-      maxUses: "1 use",
-      name: "Mystic Arcanum",
-      recharge: "Long Rest",
-      trackingMode: "uses",
     };
   }
 
@@ -1360,44 +1270,6 @@ function getProficiencyBonus(level: number) {
         : level <= 16
           ? 5
           : 6;
-}
-
-function isProgressionChoiceField(feature: ClassFeature, field: FeatureChoiceField) {
-  if (field.choiceKind === "asi-feat" || field.choiceKind === "epic-boon") {
-    return true;
-  }
-
-  const normalizedChoiceKey = field.choiceKey?.toLowerCase() ?? field.id.toLowerCase();
-
-  if (
-    normalizedChoiceKey.startsWith("feat-ability-") ||
-    normalizedChoiceKey.startsWith("feat-save-") ||
-    normalizedChoiceKey.startsWith("feat-skill-") ||
-    normalizedChoiceKey.startsWith("feat-expertise-") ||
-    normalizedChoiceKey.startsWith("feat-weapon-")
-  ) {
-    return true;
-  }
-
-  const searchableText = [
-    feature.id,
-    feature.title,
-    field.choiceKey,
-    field.choiceLabel,
-    field.choiceGroupLabel,
-    field.choicePath,
-    field.label,
-    field.sourceIndex,
-  ]
-    .filter((value): value is string => Boolean(value))
-    .join(" ")
-    .toLowerCase();
-
-  return (
-    searchableText.includes("ability score improvement") ||
-    searchableText.includes("epic boon") ||
-    searchableText.includes("asi-feat")
-  );
 }
 
 function buildClassSkillChoices(
@@ -1812,6 +1684,25 @@ function normalizeBooleanRecord(value: unknown) {
         : [],
     ),
   ) as Record<string, boolean>;
+}
+
+function normalizePersistedWorkspaceTab(value: unknown): WorkspaceTab {
+  if (
+    value === "actions" ||
+    value === "spells" ||
+    value === "inventory" ||
+    value === "features" ||
+    value === "notes" ||
+    value === "extras"
+  ) {
+    return value;
+  }
+
+  if (value === "background") {
+    return "features";
+  }
+
+  return "actions";
 }
 
 export { CharacterDashboardPage };

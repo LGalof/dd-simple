@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbilityScoreKey } from "@dd-simple/shared";
 import type { Character, CharacterFeatureChoiceSelection } from "../../../types/character";
 import type { ReferenceBackground, ReferenceClass, ReferenceSpecies } from "../../../types/reference";
-import type { BackgroundOption, ClassOption } from "../types/characterBuilder";
+import type { BackgroundOption, ClassOption, SpeciesOption } from "../types/characterBuilder";
 import { buildCharacterSavePayload } from "../../../pages/CharacterDashboardPage";
 import { useCharacterBuilder } from "./useCharacterBuilder";
 
@@ -60,9 +60,9 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
     backgroundIndex: "acolyte",
     choices: [],
     class: {
-      name: "Fighter",
+      name: "Rogue",
     },
-    classIndex: "fighter",
+    classIndex: "rogue",
     conditions: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     currentHp: 10,
@@ -126,7 +126,20 @@ describe("useCharacterBuilder", () => {
   });
 
   it("keeps unsaved local builder edits when the same character refreshes from stale server data", () => {
-    const { rerender } = render(<BuilderHarness character={createCharacter()} />);
+    const stableHitPointState = {
+      bonusHp: 0,
+      calculationMode: "override" as const,
+      overrideMaxHp: 10,
+      rolledHitPoints: [10],
+      tempHp: 0,
+    };
+    const { rerender } = render(
+      <BuilderHarness
+        character={createCharacter({
+          hitPointState: stableHitPointState,
+        })}
+      />,
+    );
 
     expect(screen.getByTestId("current-hp").textContent).toBe("10");
 
@@ -140,6 +153,7 @@ describe("useCharacterBuilder", () => {
       <BuilderHarness
         character={createCharacter({
           currentHp: 10,
+          hitPointState: stableHitPointState,
           updatedAt: "2026-01-01T00:00:01.000Z",
         })}
       />,
@@ -271,7 +285,7 @@ describe("useCharacterBuilder", () => {
         })),
         backgroundChoices: {},
         backgroundIndex: "soldier",
-        classIndex: "fighter",
+        classIndex: "rogue",
         currentHp: 7,
         hitPointSettings: {
           bonusHp: 0,
@@ -285,8 +299,9 @@ describe("useCharacterBuilder", () => {
         subclassIndex: null,
         tempHp: 0,
       },
-      createClassOption("fighter"),
+      createClassOption("rogue"),
       createSoldierBackgroundOption(),
+      createHumanSpeciesOption(),
       [],
       [],
       {},
@@ -349,7 +364,7 @@ describe("useCharacterBuilder", () => {
         })),
         backgroundChoices: {},
         backgroundIndex: "sage",
-        classIndex: "fighter",
+        classIndex: "rogue",
         currentHp: 6,
         hitPointSettings: {
           bonusHp: 0,
@@ -363,8 +378,9 @@ describe("useCharacterBuilder", () => {
         subclassIndex: null,
         tempHp: 0,
       },
-      createClassOption("fighter"),
+      createClassOption("rogue"),
       createSageBackgroundOption(),
+      createHumanSpeciesOption(),
       [],
       [],
       {},
@@ -395,22 +411,22 @@ describe("useCharacterBuilder", () => {
     );
   });
 
-  it("rehydrates a saved class that is not present in the built-in fallback options", async () => {
-    referenceMocks.fetchClasses.mockResolvedValue([createSorcererReference()]);
+  it("rehydrates a saved class from reference data", async () => {
+    referenceMocks.fetchClasses.mockResolvedValue([createWizardReference()]);
 
     render(
       <BuilderHarness
         character={createCharacter({
           class: {
-            name: "Sorcerer",
+            name: "Wizard",
           },
-          classIndex: "sorcerer",
+          classIndex: "wizard",
         })}
       />,
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId("class-index").textContent).toBe("sorcerer");
+      expect(screen.getByTestId("class-index").textContent).toBe("wizard");
     });
   });
 });
@@ -440,6 +456,20 @@ function createElfReference(): ReferenceSpecies {
         },
       },
     ],
+  };
+}
+
+function createHumanSpeciesOption(): SpeciesOption {
+  return {
+    creatureType: "Humanoid",
+    description: "Human",
+    index: "human",
+    languages: ["Common"],
+    name: "Human",
+    previewSections: [],
+    size: "Medium",
+    speed: 30,
+    traits: ["Skillful", "Versatile"],
   };
 }
 
@@ -513,28 +543,28 @@ function createBackgroundAbilityOption(
   };
 }
 
-function createSorcererReference(): ReferenceClass {
+function createWizardReference(): ReferenceClass {
   return {
-    description: "Sorcerer",
+    description: "Wizard",
     hitDie: 6,
-    index: "sorcerer",
-    name: "Sorcerer",
+    index: "wizard",
+    name: "Wizard",
     primaryAbilities: [
       {
         abilityScore: {
-          fullName: "Charisma",
-          index: "cha",
-          name: "Charisma",
+          fullName: "Intelligence",
+          index: "int",
+          name: "Intelligence",
         },
-        abilityScoreIndex: "cha",
-        classIndex: "sorcerer",
-        id: "sorcerer-cha",
+        abilityScoreIndex: "int",
+        classIndex: "wizard",
+        id: "wizard-int",
       },
     ],
     sourceJson: {
       hit_die: 6,
-      index: "sorcerer",
-      name: "Sorcerer",
+      index: "wizard",
+      name: "Wizard",
     },
   };
 }

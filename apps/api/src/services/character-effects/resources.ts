@@ -7,10 +7,12 @@ import type {
 function deriveResourceEntries(
   activeSources: ResolvedFeatureSource[],
   characterLevel: number,
+  context: {
+    abilityScoresByIndex?: Record<string, number>;
+  } = {},
 ) {
   const resources = activeSources
-    .map((source) => inferResourceEntry(source, characterLevel))
-    .filter((resource): resource is CharacterResourceEntry => Boolean(resource));
+    .flatMap((source) => inferResourceEntries(source, characterLevel, context));
   const byName = new Map<string, CharacterResourceEntry>();
 
   for (const resource of resources) {
@@ -29,13 +31,71 @@ function deriveResourceEntries(
   );
 }
 
-function inferResourceEntry(
+function inferResourceEntries(
   source: ResolvedFeatureSource,
   characterLevel: number,
-): CharacterResourceEntry | null {
+  context: {
+    abilityScoresByIndex?: Record<string, number>;
+  },
+): CharacterResourceEntry[] {
   const key = `${source.sourceIndex} ${source.title}`.toLowerCase();
-  const giantAncestryResource = getGiantAncestryResource(source);
-  const base = {
+  const base = getResourceBase(source);
+
+  if (key.includes("phantasmal-creatures")) {
+    return ["Summon Beast", "Summon Fey"].map((spellName) => ({
+      ...base,
+      automationNote: `Track the once-per-Long-Rest slot-free Illusion version of ${spellName}.`,
+      category: "resource",
+      id: `${base.id}:${slugify(spellName)}`,
+      maxUses: "1 free cast",
+      maxUsesValue: 1,
+      name: `${spellName} (Phantasmal Creatures)`,
+      recharge: "Long Rest",
+      resourceKey: `${base.resourceKey}-${slugify(spellName)}`,
+      trackingMode: "uses",
+    }));
+  }
+
+  if (key.includes("the-third-eye")) {
+    return [
+      {
+        ...base,
+        automationNote: "Track The Third Eye use; the selected perception benefit lasts until your next Short or Long Rest.",
+        category: "bonus action",
+        maxUses: "1 use",
+        maxUsesValue: 1,
+        name: "The Third Eye",
+        recharge: "Short or Long Rest",
+        trackingMode: "uses",
+      },
+    ];
+  }
+
+  const signatureSpellName = getSignatureSpellName(source);
+
+  if (signatureSpellName) {
+    return [
+      {
+        ...base,
+        automationNote: `Track the free level 3 cast of ${signatureSpellName} from Signature Spells.`,
+        category: "resource",
+        id: `${base.id}:signature:${slugify(signatureSpellName)}`,
+        maxUses: "1 free cast",
+        maxUsesValue: 1,
+        name: `Signature Spell: ${signatureSpellName}`,
+        recharge: "Short or Long Rest",
+        resourceKey: `signature-spell-${slugify(signatureSpellName)}`,
+        trackingMode: "uses",
+      },
+    ];
+  }
+
+  const resource = inferResourceEntry(source, characterLevel, context);
+  return resource ? [resource] : [];
+}
+
+function getResourceBase(source: ResolvedFeatureSource) {
+  return {
     id: `resource:${source.sourceType}:${source.sourceIndex}`,
     level: source.level,
     resourceKey: slugify(source.sourceIndex || source.title),
@@ -43,6 +103,39 @@ function inferResourceEntry(
     sourceIndex: source.sourceIndex,
     sourceType: source.sourceType,
   };
+}
+
+function getSignatureSpellName(source: ResolvedFeatureSource) {
+  const key = `${source.sourceIndex} ${source.title} ${source.description}`.toLowerCase();
+
+  if (key.includes("wizard-signature-spells") || key.includes("signature spells")) {
+    const directSpellMatch = source.description.match(
+      /(?:learn or gain access to|gain access to|add|choose) (?:the )?(?:level 3 )?spell ([^.]+?)(?: through|\.|$)/i,
+    );
+    const matchedSpellName = directSpellMatch?.[1]?.trim().replace(/\.$/, "");
+
+    if (matchedSpellName) {
+      return matchedSpellName;
+    }
+
+    if (source.title.toLowerCase() !== "signature spells") {
+      return source.title;
+    }
+  }
+
+  return null;
+}
+
+function inferResourceEntry(
+  source: ResolvedFeatureSource,
+  characterLevel: number,
+  context: {
+    abilityScoresByIndex?: Record<string, number>;
+  },
+): CharacterResourceEntry | null {
+  const key = `${source.sourceIndex} ${source.title}`.toLowerCase();
+  const giantAncestryResource = getGiantAncestryResource(source);
+  const base = getResourceBase(source);
 
   if (key.includes("adrenaline-rush")) {
     return {
@@ -85,6 +178,74 @@ function inferResourceEntry(
     };
   }
 
+  if (key.includes("large-form")) {
+    return {
+      ...base,
+      automationNote: "Track Large Form use and active state. While active, walking Speed increases by 10 feet.",
+      category: "bonus action",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Large Form",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("relentless-endurance")) {
+    return {
+      ...base,
+      automationNote: "Track the once-per-Long-Rest use that lets you drop to 1 Hit Point instead of 0.",
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Relentless Endurance",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("boon-of-fate")) {
+    return {
+      ...base,
+      automationNote: "Track Improve Fate use. It refreshes when you roll Initiative or finish a Short or Long Rest.",
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Boon of Fate",
+      recharge: "Initiative / Short or Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("gnomish-lineage-forest-gnome")) {
+    return {
+      ...base,
+      automationNote:
+        "Track slot-free Speak with Animals casts from Forest Gnome lineage. You can also cast the spell with spell slots.",
+      category: "resource",
+      maxUses: "Uses equal Proficiency Bonus",
+      maxUsesValue: getProficiencyBonus(characterLevel),
+      name: "Speak with Animals",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  const fiendishLegacySpellResource = getFiendishLegacySpellResource(source);
+
+  if (fiendishLegacySpellResource) {
+    return {
+      ...base,
+      automationNote: `Track the slot-free ${fiendishLegacySpellResource.name} cast from Fiendish Legacy. You can also cast it with spell slots.`,
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: fiendishLegacySpellResource.name,
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
   if (giantAncestryResource) {
     return {
       ...base,
@@ -98,19 +259,6 @@ function inferResourceEntry(
     };
   }
 
-  if (key.includes("travel-along-the-tree")) {
-    return {
-      ...base,
-      automationNote: "Track the once-per-Rage extended teleport to 150 feet with up to six willing creatures.",
-      category: "bonus action",
-      maxUses: "1 extended teleport per Rage",
-      maxUsesValue: 1,
-      name: "Travel Along the Tree: Extended Teleport",
-      recharge: "Rage",
-      trackingMode: "uses",
-    };
-  }
-
   if (key.includes("intimidating-presence")) {
     return {
       ...base,
@@ -120,6 +268,88 @@ function inferResourceEntry(
       maxUsesValue: 1,
       name: "Intimidating Presence",
       recharge: "Long Rest / expend Rage",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("rage-of-the-gods")) {
+    return {
+      ...base,
+      automationNote: "Track Rage of the Gods transformation use. While active, its flight, resistance, and revivification rules are shown from the feature text.",
+      category: "bonus action",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Rage of the Gods",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("persistent-rage")) {
+    return {
+      ...base,
+      automationNote: "Track the once-per-Long-Rest initiative trigger that restores all expended Rage uses.",
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Persistent Rage",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("warrior-of-the-gods")) {
+    const diceCount = getWarriorOfTheGodsDice(characterLevel);
+
+    return {
+      ...base,
+      automationNote: "Track d12 healing dice from Warrior of the Gods. Spend any number as a Bonus Action and regain all expended dice on a Long Rest.",
+      category: "bonus action",
+      maxUses: `${diceCount}d12 pool`,
+      maxUsesValue: diceCount,
+      name: "Warrior of the Gods",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("psionic-power")) {
+    const psionicEnergyDice = getSoulknifeEnergyDice(characterLevel);
+
+    return {
+      ...base,
+      automationNote: "Track Psionic Energy Dice for Psi-Bolstered Knack, Psychic Whispers, Soul Blades, Psychic Veil restoration, and Rend Mind restoration.",
+      category: "resource",
+      maxUses: `${psionicEnergyDice.count} ${psionicEnergyDice.die} dice`,
+      maxUsesValue: psionicEnergyDice.count,
+      name: `Psionic Energy Dice (${psionicEnergyDice.die})`,
+      recharge: "Short Rest (1 die) / Long Rest (all dice)",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("psychic-veil")) {
+    return {
+      ...base,
+      automationNote: "Track the free Psychic Veil use. You can restore the use by expending a Psionic Energy Die.",
+      category: "action",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Psychic Veil",
+      recharge: "Long Rest / expend Psionic Energy Die",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("rend-mind")) {
+    return {
+      ...base,
+      automationNote: "Track the free Rend Mind use. You can restore the use by expending three Psionic Energy Dice.",
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Rend Mind",
+      recharge: "Long Rest / expend 3 Psionic Energy Dice",
       trackingMode: "uses",
     };
   }
@@ -176,6 +406,48 @@ function inferResourceEntry(
     };
   }
 
+  if (key.includes("mantle-of-majesty")) {
+    return {
+      ...base,
+      automationNote:
+        "Track the Mantle of Majesty use. While active, Command can be cast as a Bonus Action without expending a spell slot.",
+      category: "bonus action",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Mantle of Majesty",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("beguiling-magic")) {
+    return {
+      ...base,
+      automationNote:
+        "Track the free Beguiling Magic use after casting an Enchantment or Illusion spell with a spell slot. You can restore it by expending Bardic Inspiration.",
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Beguiling Magic",
+      recharge: "Long Rest / expend Bardic Inspiration",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("unbreakable-majesty")) {
+    return {
+      ...base,
+      automationNote:
+        "Track Unbreakable Majesty use; the saving throw and miss effect are shown from the feature text.",
+      category: "bonus action",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Unbreakable Majesty",
+      recharge: "Short or Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
   if (key.includes("lucky")) {
     return {
       ...base,
@@ -202,94 +474,51 @@ function inferResourceEntry(
     };
   }
 
-  if (key.includes("wild-shape")) {
+  if (key.includes("warding-flare")) {
+    const hasImprovedRecovery = key.includes("improved-warding-flare");
+    const wisdomUses = getWisdomModifierUseCount(context);
+
     return {
       ...base,
-      automationNote: "Track Wild Shape uses. Form stat replacement is still handled manually.",
-      category: "resource",
-      maxUses: "2 uses",
-      maxUsesValue: 2,
-      name: "Wild Shape",
-      recharge: "Short or Long Rest",
+      automationNote: hasImprovedRecovery
+        ? "Track Warding Flare uses. Improved Warding Flare also grants temporary Hit Points to the triggering target."
+        : "Track Warding Flare uses for imposing Disadvantage on a visible attack.",
+      category: "reaction",
+      maxUses: "Uses equal Wisdom modifier (minimum 1)",
+      maxUsesValue: wisdomUses,
+      name: "Warding Flare",
+      recharge: hasImprovedRecovery ? "Short or Long Rest" : "Long Rest",
       trackingMode: "uses",
     };
   }
 
-  if (key.includes("second-wind")) {
+  if (key.includes("corona-of-light")) {
+    const wisdomUses = getWisdomModifierUseCount(context);
+
     return {
       ...base,
-      automationNote: "Track Second Wind uses; roll and healing application are still manual.",
+      automationNote: "Track Corona of Light uses; aura effects are shown from the feature text.",
+      category: "action",
+      maxUses: "Uses equal Wisdom modifier (minimum 1)",
+      maxUsesValue: wisdomUses,
+      name: "Corona of Light",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("war-priest")) {
+    const wisdomUses = getWisdomModifierUseCount(context);
+
+    return {
+      ...base,
+      automationNote: "Track War Priest bonus action attacks.",
       category: "bonus action",
-      maxUses: "2 uses",
-      maxUsesValue: 2,
-      name: "Second Wind",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("action-surge")) {
-    return {
-      ...base,
-      automationNote: "Track Action Surge uses.",
-      category: "resource",
-      maxUses: characterLevel >= 17 ? "2 uses" : "1 use",
-      maxUsesValue: characterLevel >= 17 ? 2 : 1,
-      name: "Action Surge",
+      maxUses: "Uses equal Wisdom modifier (minimum 1)",
+      maxUsesValue: wisdomUses,
+      name: "War Priest",
       recharge: "Short or Long Rest",
       trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("indomitable")) {
-    return {
-      ...base,
-      automationNote: "Track Indomitable uses; save reroll timing is still manual.",
-      category: "resource",
-      maxUses: "Uses follow class progression",
-      maxUsesValue: characterLevel >= 17 ? 3 : characterLevel >= 13 ? 2 : 1,
-      name: "Indomitable",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("superiority-dice")) {
-    return {
-      ...base,
-      automationNote: "Track superiority dice. Maneuver-specific effects are displayed from selected feature text.",
-      category: "resource",
-      maxUses: "Uses follow class progression",
-      maxUsesValue: characterLevel >= 15 ? 6 : characterLevel >= 7 ? 5 : 4,
-      name: "Superiority Dice",
-      recharge: "Short or Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("monks-focus") || key.includes("monk's focus")) {
-    return {
-      ...base,
-      automationNote: "Track Focus Points. Individual Focus spenders remain separate actions/features.",
-      category: "resource",
-      maxUses: `${characterLevel} Focus Points`,
-      maxUsesValue: characterLevel,
-      name: "Monk's Focus",
-      recharge: "Short or Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("lay-on-hands")) {
-    return {
-      ...base,
-      automationNote: "Track Lay on Hands healing pool.",
-      category: "bonus action",
-      maxUses: `${characterLevel * 5} HP pool`,
-      maxUsesValue: characterLevel * 5,
-      name: "Lay on Hands",
-      recharge: "Long Rest",
-      trackingMode: "pool",
     };
   }
 
@@ -314,43 +543,6 @@ function inferResourceEntry(
     };
   }
 
-  if (key.includes("font-of-magic")) {
-    return {
-      ...base,
-      automationNote: "Track Sorcery Points.",
-      category: "resource",
-      maxUses: `${characterLevel} Sorcery Points`,
-      maxUsesValue: characterLevel,
-      name: "Font of Magic",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
-  if (key.includes("pact-magic")) {
-    return {
-      ...base,
-      automationNote: "Pact slots are tracked in the Spells tab.",
-      category: "resource",
-      name: "Pact Magic",
-      recharge: "Short or Long Rest",
-      trackingMode: "none",
-    };
-  }
-
-  if (key.includes("mystic-arcanum")) {
-    return {
-      ...base,
-      automationNote: "Track Mystic Arcanum use.",
-      category: "resource",
-      maxUses: "1 use",
-      maxUsesValue: 1,
-      name: "Mystic Arcanum",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
   if (key.includes("arcane-recovery")) {
     return {
       ...base,
@@ -359,6 +551,45 @@ function inferResourceEntry(
       maxUses: "1 use",
       maxUsesValue: 1,
       name: "Arcane Recovery",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("arcane-ward")) {
+    return {
+      ...base,
+      automationNote: "Track Arcane Ward creation/ward pool manually. Maximum ward HP equals twice your Wizard level plus your Intelligence modifier.",
+      category: "resource",
+      maxUses: "Ward HP = 2 x Wizard level + Intelligence modifier",
+      maxUsesValue: null,
+      name: "Arcane Ward",
+      recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("illusory-self")) {
+    return {
+      ...base,
+      automationNote: "Track the free Illusory Self reaction. You can also restore it by expending a level 2+ spell slot.",
+      category: "reaction",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Illusory Self",
+      recharge: "Short or Long Rest / expend level 2+ spell slot",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("spell-thief")) {
+    return {
+      ...base,
+      automationNote: "Track Spell Thief after you negate and steal a spell.",
+      category: "reaction",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Spell Thief",
       recharge: "Long Rest",
       trackingMode: "uses",
     };
@@ -404,6 +635,19 @@ function inferResourceEntry(
   }
 
   return null;
+}
+
+function getFiendishLegacySpellResource(source: ResolvedFeatureSource) {
+  const resourcesBySourceIndex: Record<string, { name: string }> = {
+    "fiendish-spell-darkness": { name: "Darkness" },
+    "fiendish-spell-false-life": { name: "False Life" },
+    "fiendish-spell-hellish-rebuke": { name: "Hellish Rebuke" },
+    "fiendish-spell-hold-person": { name: "Hold Person" },
+    "fiendish-spell-ray-of-enfeeblement": { name: "Ray of Enfeeblement" },
+    "fiendish-spell-ray-of-sickness": { name: "Ray of Sickness" },
+  };
+
+  return resourcesBySourceIndex[source.sourceIndex.toLowerCase()] ?? null;
 }
 
 function getGiantAncestryResource(source: ResolvedFeatureSource): {
@@ -464,6 +708,38 @@ function getChannelDivinityUses(level: number) {
   return 1;
 }
 
+function getSoulknifeEnergyDice(level: number) {
+  if (level >= 17) {
+    return { count: 12, die: "d12" };
+  }
+  if (level >= 13) {
+    return { count: 10, die: "d10" };
+  }
+  if (level >= 11) {
+    return { count: 8, die: "d10" };
+  }
+  if (level >= 9) {
+    return { count: 8, die: "d8" };
+  }
+  if (level >= 5) {
+    return { count: 6, die: "d8" };
+  }
+  return { count: 4, die: "d6" };
+}
+
+function getWarriorOfTheGodsDice(level: number) {
+  if (level >= 17) {
+    return 7;
+  }
+  if (level >= 12) {
+    return 6;
+  }
+  if (level >= 6) {
+    return 5;
+  }
+  return 4;
+}
+
 function getProficiencyBonus(level: number) {
   if (level <= 4) {
     return 2;
@@ -478,6 +754,18 @@ function getProficiencyBonus(level: number) {
     return 5;
   }
   return 6;
+}
+
+function getWisdomModifierUseCount(context: {
+  abilityScoresByIndex?: Record<string, number>;
+}) {
+  const wisdomScore = context.abilityScoresByIndex?.wis;
+
+  if (typeof wisdomScore !== "number") {
+    return null;
+  }
+
+  return Math.max(1, Math.floor((wisdomScore - 10) / 2));
 }
 
 export { deriveResourceEntries };

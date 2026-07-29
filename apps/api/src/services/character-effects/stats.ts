@@ -21,7 +21,6 @@ function deriveCharacterStats(
     (stats, source) => {
       const passiveEffect = getLevelAwarePassiveEffect(
         source,
-        characterLevel,
         context,
       );
 
@@ -76,7 +75,6 @@ function abilityModifier(score: number) {
 
 function getLevelAwarePassiveEffect(
   source: ResolvedFeatureSource,
-  characterLevel: number,
   context: PassiveEffectContext,
 ) {
   const passiveEffect = getPassiveEffect(source, context);
@@ -85,30 +83,7 @@ function getLevelAwarePassiveEffect(
     return null;
   }
 
-  if (source.sourceIndex === "monk-unarmored-movement") {
-    return {
-      ...passiveEffect,
-      speedBonus: getMonkUnarmoredMovementBonus(characterLevel),
-    };
-  }
-
   return passiveEffect;
-}
-
-function getMonkUnarmoredMovementBonus(level: number) {
-  if (level >= 18) {
-    return 30;
-  }
-  if (level >= 14) {
-    return 25;
-  }
-  if (level >= 10) {
-    return 20;
-  }
-  if (level >= 6) {
-    return 15;
-  }
-  return 10;
 }
 
 export { deriveCharacterStats };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AbilityScore } from "../../../types/character";
 import type {
@@ -67,9 +67,6 @@ function CharacterBuilderSidebar({
   species,
 }: CharacterBuilderSidebarProps) {
   const [expandedFeatureIds, setExpandedFeatureIds] = useState<Record<string, boolean>>({});
-  const [manuallyCompletedFeatureIds, setManuallyCompletedFeatureIds] = useState<
-    Record<string, boolean>
-  >({});
   const [isHitPointPanelOpen, setIsHitPointPanelOpen] = useState(false);
   const [draftBonusHp, setDraftBonusHp] = useState("0");
   const [draftCalculationMode, setDraftCalculationMode] = useState<"fixed" | "rolled" | "override">("fixed");
@@ -150,21 +147,6 @@ function CharacterBuilderSidebar({
   );
 
   useEffect(() => {
-    setManuallyCompletedFeatureIds((currentState) => {
-      const visibleFeatureIds = new Set(visibleFeatures.map((feature) => feature.id));
-      const nextStateEntries = Object.entries(currentState).filter(([featureId, isCompleted]) =>
-        isCompleted && visibleFeatureIds.has(featureId)
-      );
-
-      if (nextStateEntries.length === Object.keys(currentState).length) {
-        return currentState;
-      }
-
-      return Object.fromEntries(nextStateEntries);
-    });
-  }, [visibleFeatures]);
-
-  useEffect(() => {
     onFeatureChoicesChange((currentChoices) => {
       let changed = false;
       const nextChoices = { ...currentChoices };
@@ -203,37 +185,16 @@ function CharacterBuilderSidebar({
     });
   }, [onFeatureChoicesChange, selectedChoices, selectedSkillProficiencyLabels, visibleFeatures]);
 
-  const highestCompletedRequiredFeatureLevel = useMemo(
-    () =>
-      visibleFeatures.reduce((highestLevel, feature) => {
-        if (featureRequiresSelection(feature, selectedChoices) &&
-          isFeatureChoiceComplete(feature, selectedChoices)
-        ) {
-          return Math.max(highestLevel, feature.level);
-        }
-
-        return highestLevel;
-      }, -1),
-    [selectedChoices, visibleFeatures],
-  );
-
   const featureCountLabel = useMemo(() => {
     const completedCount = visibleFeatures.filter((feature) =>
-      isFeatureMarkedComplete(feature, selectedChoices, highestCompletedRequiredFeatureLevel),
+      isFeatureMarkedComplete(feature, selectedChoices),
     ).length;
 
     return `${completedCount} completed - levels 1-${characterLevel}`;
-  }, [characterLevel, highestCompletedRequiredFeatureLevel, selectedChoices, visibleFeatures]);
+  }, [characterLevel, selectedChoices, visibleFeatures]);
 
   function toggleFeature(featureId: string) {
     setExpandedFeatureIds((currentState) => ({
-      ...currentState,
-      [featureId]: !currentState[featureId],
-    }));
-  }
-
-  function toggleManualFeatureCompletion(featureId: string) {
-    setManuallyCompletedFeatureIds((currentState) => ({
       ...currentState,
       [featureId]: !currentState[featureId],
     }));
@@ -558,13 +519,7 @@ function CharacterBuilderSidebar({
           <div className="builder-feature-accordion">
             {visibleFeatures.map((feature) => {
               const isExpanded = Boolean(expandedFeatureIds[feature.id]);
-              const isAutoComplete = isFeatureMarkedComplete(
-                feature,
-                selectedChoices,
-                highestCompletedRequiredFeatureLevel,
-              );
-              const isManuallyComplete = Boolean(manuallyCompletedFeatureIds[feature.id]);
-              const isComplete = isAutoComplete || isManuallyComplete;
+              const isComplete = isFeatureMarkedComplete(feature, selectedChoices);
 
               return (
                 <article
@@ -599,24 +554,19 @@ function CharacterBuilderSidebar({
 
                   {isExpanded && (
                     <div className="builder-feature-body">
-                      <p className="builder-feature-summary">{feature.summary}</p>
+                      {renderReadableFeatureText(
+                        feature.summary,
+                        "builder-feature-summary",
+                        `${feature.id}-summary`,
+                      )}
 
                       {feature.details?.map((detail) => (
-                        <p key={`${feature.id}-${detail}`} className="builder-feature-detail">
-                          {detail}
-                        </p>
+                        renderReadableFeatureText(
+                          detail,
+                          "builder-feature-detail",
+                          `${feature.id}-${detail}`,
+                        )
                       ))}
-
-                      <label className="builder-feature-manual-toggle">
-                        <input
-                          type="checkbox"
-                          checked={isManuallyComplete}
-                          onChange={() => toggleManualFeatureCompletion(feature.id)}
-                        />
-                        <span>
-                          {isAutoComplete ? "Marked complete automatically" : "Mark as complete"}
-                        </span>
-                      </label>
 
                       {getVisibleChoiceFieldsForSelection(
                         feature.id,
@@ -702,7 +652,11 @@ function CharacterBuilderSidebar({
                                   <div className="builder-feature-option-help-list">
                                     <div className="builder-feature-option-help builder-feature-option-help-selected">
                                       <strong>{selectedOption.label}</strong>
-                                      <p>{selectedOption.description}</p>
+                                      {renderReadableFeatureText(
+                                        selectedOption.description,
+                                        "builder-feature-option-description",
+                                        `${choiceKey}-${selectedOption.value}`,
+                                      )}
                                     </div>
                                   </div>
                                 ) : null}
@@ -1000,14 +954,12 @@ function featureRequiresSelection(feature: ClassFeature, selectedChoices: Record
 function isFeatureMarkedComplete(
   feature: ClassFeature,
   selectedChoices: Record<string, string>,
-  highestCompletedRequiredFeatureLevel: number,
 ) {
   if (featureRequiresSelection(feature, selectedChoices)) {
     return isFeatureChoiceComplete(feature, selectedChoices);
   }
 
-  return highestCompletedRequiredFeatureLevel !== -1 &&
-    feature.level <= highestCompletedRequiredFeatureLevel;
+  return true;
 }
 
 function getVisibleChoiceFieldsForSelection(
@@ -1053,9 +1005,20 @@ function getSelectableChoiceOptions(
   );
 
   if (field.choiceKind === "expertise") {
-    return field.options.filter((option) =>
-      selectedSkillProficiencyLabels.has(normalizeSkillLabel(option.label)),
+    const selectedExpertiseLabels = getSelectedExpertiseLabels(
+      visibleFeatures,
+      selectedChoices,
+      choiceKey,
     );
+
+    return field.options.filter((option) => {
+      const normalizedLabel = normalizeSkillLabel(option.label);
+
+      return (
+        selectedSkillProficiencyLabels.has(normalizedLabel) &&
+        !selectedExpertiseLabels.has(normalizedLabel)
+      );
+    });
   }
 
   if (field.choiceKind === "eldritch-invocation") {
@@ -1113,6 +1076,41 @@ function getSelectedSkillProficiencyLabels(
       }
 
       const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
+      const selectedOption = field.options.find((option) => option.value === selectedValue);
+
+      if (selectedOption) {
+        labels.add(normalizeSkillLabel(selectedOption.label));
+      }
+    }
+  }
+
+  return labels;
+}
+
+function getSelectedExpertiseLabels(
+  visibleFeatures: ClassFeature[],
+  selectedChoices: Record<string, string>,
+  currentChoiceKey: string,
+) {
+  const labels = new Set<string>();
+
+  for (const feature of visibleFeatures) {
+    for (const field of getVisibleChoiceFieldsForSelection(
+      feature.id,
+      feature.choiceFields,
+      selectedChoices,
+    )) {
+      if (field.choiceKind !== "expertise") {
+        continue;
+      }
+
+      const choiceKey = `${feature.id}:${field.id}`;
+
+      if (choiceKey === currentChoiceKey) {
+        continue;
+      }
+
+      const selectedValue = selectedChoices[choiceKey];
       const selectedOption = field.options.find((option) => option.value === selectedValue);
 
       if (selectedOption) {
@@ -1353,6 +1351,111 @@ function isChoiceOptionSelectedElsewhere(
   return optionValue !== selectedValue && groupSelectedValues.includes(optionValue);
 }
 
+function renderReadableFeatureText(
+  text: string | null | undefined,
+  className: string,
+  keyPrefix: string,
+): ReactNode[] {
+  if (!text?.trim()) {
+    return [];
+  }
+
+  return createReadableFeatureParagraphs(text).map((paragraph, index) => (
+    <p key={`${keyPrefix}-${index}`} className={className}>
+      {renderFeatureParagraphContent(paragraph)}
+    </p>
+  ));
+}
+
+function createReadableFeatureParagraphs(text: string) {
+  const normalizedText = text
+    .replace(/\r\n/g, "\n")
+    .replace(/\s+\n/g, "\n")
+    .replace(/\n\s+/g, "\n")
+    .trim();
+  const explicitParagraphs = normalizedText
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return explicitParagraphs.flatMap((paragraph) =>
+    paragraph.length > 260 ? splitLongFeatureParagraph(paragraph) : [paragraph],
+  );
+}
+
+function splitLongFeatureParagraph(paragraph: string) {
+  const sentences = paragraph.match(/[^.!?]+[.!?](?:\s+|$)|[^.!?]+$/g) ?? [paragraph];
+  const paragraphs: string[] = [];
+  let currentParagraph = "";
+
+  for (const sentence of sentences.map((value) => value.trim()).filter(Boolean)) {
+    const headingMatch = sentence.match(/^([^.!?]{3,46})[.!?]\s+/);
+    const shouldStartNewParagraph =
+      currentParagraph.length > 0 && headingMatch && isFeatureHeadingText(headingMatch[1]);
+
+    if (shouldStartNewParagraph) {
+      paragraphs.push(currentParagraph.trim());
+      currentParagraph = sentence;
+      continue;
+    }
+
+    currentParagraph = currentParagraph ? `${currentParagraph} ${sentence}` : sentence;
+  }
+
+  if (currentParagraph.trim()) {
+    paragraphs.push(currentParagraph.trim());
+  }
+
+  return paragraphs.length > 0 ? paragraphs : [paragraph];
+}
+
+function renderFeatureParagraphContent(paragraph: string): ReactNode {
+  const headingMatch = paragraph.match(/^([^.!?]{3,46})([.!?])\s+(.+)$/);
+
+  if (!headingMatch || !isFeatureHeadingText(headingMatch[1])) {
+    return paragraph;
+  }
+
+  return (
+    <>
+      <strong className="builder-feature-text-heading">
+        {headingMatch[1]}
+        {headingMatch[2]}
+      </strong>{" "}
+      {headingMatch[3]}
+    </>
+  );
+}
+
+function isFeatureHeadingText(value: string) {
+  const normalizedValue = value.trim();
+  const lowerValue = normalizedValue.toLowerCase();
+  const sentenceStarters = new Set([
+    "as",
+    "at",
+    "each",
+    "for",
+    "if",
+    "immediately",
+    "in",
+    "once",
+    "the",
+    "this",
+    "when",
+    "whenever",
+    "while",
+    "you",
+    "your",
+  ]);
+  const firstWord = lowerValue.split(/\s+/)[0] ?? "";
+
+  if (sentenceStarters.has(firstWord)) {
+    return false;
+  }
+
+  return /^[A-Z0-9][A-Za-z0-9'’/\-\s]+$/.test(normalizedValue);
+}
+
 function getSelectedSubclassIndex(
   classOption: ClassOption,
   selectedChoices: FeatureChoiceSelections,
@@ -1488,19 +1591,15 @@ function compareVisibleFeatures(left: ClassFeature, right: ClassFeature) {
 }
 
 function visibleFeaturePriority(feature: ClassFeature) {
-  if (feature.choiceFields?.length && feature.id.includes("subclass")) {
+  if (feature.choiceFields?.some((field) => field.choiceKind === "subclass")) {
     return 0;
   }
 
-  if (feature.subclassIndex) {
+  if (feature.subclassIndex || feature.id.includes("subclass-feature")) {
     return 1;
   }
 
-  if (feature.id.includes("subclass-feature")) {
-    return 2;
-  }
-
-  return 3;
+  return 2;
 }
 
 function formatOrdinal(value: number) {

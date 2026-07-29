@@ -45,6 +45,7 @@ function useCharacterDerivedState(
 
     void loadDerivedState();
   }, [
+    JSON.stringify(previewState.abilityScores ?? {}),
     previewState.backgroundIndex,
     characterId,
     previewState.classIndex,

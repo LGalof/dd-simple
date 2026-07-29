@@ -41,6 +41,7 @@ import { getVisibleFeatureChoiceFields } from "../utils/featureChoiceVisibility"
 import {
   extractSpellAttackDamage,
   findSpellLibraryRecordByName,
+  formatSpellLibraryDescription,
   formatSpellAttackNotes,
   formatSpellAttackRange,
   formatSpellAttackSubtitle,
@@ -72,7 +73,6 @@ type CharacterSheetProps = {
   onOpenSpellLibrary: () => void;
   onResourceStateChange: (state: CharacterResourceState) => void;
   onSpellcastingStateChange: (state: CharacterSpellcastingState) => void;
-  progressionChoiceSummaries: ProgressionChoiceSummary[];
   resolvedFeatureChoices: CharacterFeatureChoiceSelection[];
   resourceActionSummaries: ResourceActionSummary[];
   selectedHeritage?: SpeciesHeritageOption | null;
@@ -96,7 +96,6 @@ type WorkspaceTab =
   | "spells"
   | "inventory"
   | "features"
-  | "background"
   | "notes"
   | "extras";
 
@@ -137,17 +136,10 @@ type FeatureChoiceEffectSummary = {
   featIndexes: Set<string>;
   languageNames: string[];
   savingThrowProficiencyIndexes: Set<AbilityIndex>;
+  skillAbilityModifierBonusByIndex: Record<string, AbilityIndex>;
   skillProficiencyIndexes: Set<string>;
   toolNames: string[];
   weaponNames: string[];
-};
-
-type ProgressionChoiceSummary = {
-  id: string;
-  label: string;
-  level: number;
-  status: "missing" | "selected";
-  value: string;
 };
 
 type SpellcastingSummary = {
@@ -181,6 +173,14 @@ type ResourceActionSummary = {
   resourceKey: string;
   sourceFeature: string;
   trackingMode: "none" | "pool" | "uses";
+};
+
+const CLASS_SAVING_THROW_PROFICIENCIES: Record<string, AbilityIndex[]> = {
+  barbarian: ["str", "con"],
+  bard: ["dex", "cha"],
+  cleric: ["wis", "cha"],
+  rogue: ["dex", "int"],
+  wizard: ["int", "wis"],
 };
 
 type ProficiencySourceJson = {
@@ -270,7 +270,6 @@ function CharacterSheet({
   onOpenSpellLibrary,
   onResourceStateChange,
   onSpellcastingStateChange,
-  progressionChoiceSummaries,
   resolvedFeatureChoices,
   resourceActionSummaries,
   selectedHeritage,
@@ -483,6 +482,15 @@ function CharacterSheet({
               : 0;
           const proficiencyModifier =
             proficiencyBonus * proficiencyMultiplier + halfProficiencyModifier;
+          const abilityBonusSource =
+            featureChoiceEffects.skillAbilityModifierBonusByIndex[skillIndex];
+          const abilityBonusScore = abilityBonusSource
+            ? abilityScoreMap.get(abilityBonusSource)?.score
+            : undefined;
+          const abilityModifierBonus =
+            typeof abilityBonusScore === "number"
+              ? Math.max(1, abilityModifier(abilityBonusScore))
+              : 0;
 
           return {
             ability: characterSkill.skill.ability.index.toUpperCase(),
@@ -490,7 +498,11 @@ function CharacterSheet({
             isProficient,
             name: characterSkill.skill.name,
             proficiencyMultiplier,
-            total: baseModifier + proficiencyModifier + characterSkill.customBonus,
+            total:
+              baseModifier +
+              proficiencyModifier +
+              abilityModifierBonus +
+              characterSkill.customBonus,
           };
         })
         .sort(compareSkills),
@@ -503,7 +515,11 @@ function CharacterSheet({
     ],
   );
   const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
-  const saveProficiencies = getSavingThrowProficiencyIndexes(character, featureChoiceEffects);
+  const saveProficiencies = getSavingThrowProficiencyIndexes(
+    character,
+    featureChoiceEffects,
+    derivedState?.activeSources ?? [],
+  );
   const savingThrows = sortedAbilityScores.map((abilityScore) => {
     const modifier = abilityModifier(abilityScore.score);
     const hasSaveProficiency = saveProficiencies.includes(abilityScore.abilityIndex as AbilityIndex);
@@ -562,7 +578,6 @@ function CharacterSheet({
         nonBodyArmorClassBonus: previewNonBodyArmorClassBonusDelta,
         equippedArmorClassBonus: previewArmorClassBonusDelta,
         isBodyArmorEquipped,
-        wisdomModifier,
       }),
     [
       character.armorClass,
@@ -574,7 +589,6 @@ function CharacterSheet({
       previewArmorClassBonusDelta,
       isBodyArmorEquipped,
       previewNonBodyArmorClassBonusDelta,
-      wisdomModifier,
     ],
   );
   const spellEntries = derivedState?.spells ?? [];
@@ -591,6 +605,7 @@ function CharacterSheet({
   const training = getTrainingProfile(
     character,
     featureChoiceEffects,
+    derivedState?.activeSources ?? [],
     selectedClass,
     selectedSpecies,
     selectedBackground,
@@ -630,18 +645,10 @@ function CharacterSheet({
       selectedClass.subclasses?.find((subclass) => subclass.index === selectedSubclassIndex) ?? null,
     [selectedClass.subclasses, selectedSubclassIndex],
   );
-  const highestCompletedRequiredClassFeatureLevel = useMemo(() => {
-    const requiredFeatures = visibleClassFeatureRecords
-      .map(({ baseFeature }) => baseFeature)
-      .filter((feature, index, features) => features.findIndex((candidate) => candidate.id === feature.id) === index)
-      .filter((feature) => dashboardFeatureRequiresSelection(feature, featureChoices))
-      .filter((feature) => dashboardFeatureChoiceComplete(feature, featureChoices));
-
-    return requiredFeatures.reduce(
-      (highestLevel, feature) => Math.max(highestLevel, feature.level),
-      -1,
-    );
-  }, [featureChoices, visibleClassFeatureRecords]);
+  const effectiveSpellLibraryClassIndex =
+    selectedClass.index === "rogue" && selectedSubclassIndex === "arcane-trickster"
+      ? "arcane-trickster"
+      : selectedClass.index;
   const classFeatureEntries = useMemo(
     () =>
       visibleClassFeatureRecords
@@ -649,16 +656,21 @@ function CharacterSheet({
           isDashboardFeatureMarkedComplete(
             baseFeature,
             featureChoices,
-            highestCompletedRequiredClassFeatureLevel,
           ),
         )
         .map(({ feature }) => ({
         feature,
-        selections: getSelectedClassFeatureSummaries(feature, featureChoices),
+        selections: getSelectedClassFeatureSummaries(
+          feature,
+          featureChoices,
+          resolvedFeatureChoices,
+          character.level,
+        ),
       })),
     [
+      character.level,
       featureChoices,
-      highestCompletedRequiredClassFeatureLevel,
+      resolvedFeatureChoices,
       visibleClassFeatureRecords,
     ],
   );
@@ -730,36 +742,6 @@ function CharacterSheet({
       backgroundSectionEntries.filter((section) => section.selections.length > 0),
     [backgroundSectionEntries],
   );
-  const passiveDerivedSources = useMemo(
-    () =>
-      getPassiveDerivedSources(
-        derivedState?.activeSources ?? [],
-        normalizedActions,
-        spellEntries,
-      ),
-    [derivedState?.activeSources, normalizedActions, spellEntries],
-  );
-  const savedFeatureChoices = useMemo(
-    () =>
-      resolvedFeatureChoices.filter((choice) =>
-        isSupplementalSavedFeatureChoice(choice),
-      ),
-    [resolvedFeatureChoices],
-  );
-  const savedFeatureChoiceRows = useMemo(
-    () =>
-      savedFeatureChoices.map((choice) => ({
-        id: `${choice.sourceType}:${choice.sourceIndex}:${choice.choicePath}`,
-        label: choice.choiceLabel ?? choice.choiceKey ?? choice.choicePath,
-        status: getSavedFeatureChoiceStatus(choice, featureChoiceEffects, character),
-        value:
-          choice.selectedOptionName ??
-          choice.selectedOptionIndex ??
-          choice.selectedOptionType ??
-          "Unknown",
-      })),
-    [character, featureChoiceEffects, savedFeatureChoices],
-  );
   const characterOverviewRows = useMemo(
     () =>
       [
@@ -774,15 +756,17 @@ function CharacterSheet({
   );
   const spellEntriesForDisplay = useMemo(
     () => {
-      const derivedEntries = spellEntries.filter((entry) => entry.kind !== "spellcasting");
-      const managedEntries = getManagedSpellEntriesForClass(selectedClass.index, spellcastingState);
+      const derivedEntries = spellEntries.filter(
+        (entry) => entry.kind !== "spellcasting" && !isSpellChoicePlaceholderEntry(entry),
+      );
+      const managedEntries = getManagedSpellEntriesForClass(effectiveSpellLibraryClassIndex, spellcastingState);
       const entriesById = new Map<string, CharacterSpellEntry>();
       const entriesByTitle = new Set(
         derivedEntries.map((entry) => entry.title.trim().toLowerCase()),
       );
 
       for (const entry of derivedEntries) {
-        entriesById.set(entry.id, entry);
+        entriesById.set(entry.id, withReferenceSpellDescription(entry));
       }
 
       for (const entry of managedEntries) {
@@ -790,12 +774,12 @@ function CharacterSheet({
           continue;
         }
 
-        entriesById.set(entry.id, entry);
+        entriesById.set(entry.id, withReferenceSpellDescription(entry));
       }
 
       return [...entriesById.values()];
     },
-    [selectedClass.index, spellEntries, spellcastingState],
+    [effectiveSpellLibraryClassIndex, spellEntries, spellcastingState],
   );
   const spellAttackRows = useMemo<ActionDisplayRow[]>(
     () =>
@@ -858,7 +842,10 @@ function CharacterSheet({
         return {
           activationType: action.activationType,
           damage: combatSummary?.damage ?? "--",
-          displayMode: hasCombatSummary ? ("table" as const) : ("detail" as const),
+          displayMode:
+            action.activationType === "attack" && hasCombatSummary
+              ? ("table" as const)
+              : ("detail" as const),
           hit: combatSummary?.hit ?? "--",
           id: action.id,
           notes: combatSummary?.notes ?? action.description,
@@ -899,17 +886,13 @@ function CharacterSheet({
       activeActionFilter === "action") &&
     attackActionRows.length > 0;
   const hasVisibleActionContent = attackActionRows.length > 0 || detailActionRows.length > 0;
-  const preparedSpellIdSet = useMemo(
-    () => new Set<string>(spellcastingState.preparedSpellIds ?? []),
-    [spellcastingState.preparedSpellIds],
-  );
   const spellFeatureEntries = useMemo(
     () => spellEntriesForDisplay.filter((entry) => !isConcreteSpellEntry(entry)),
     [spellEntriesForDisplay],
   );
   const spellLevelSections = useMemo(
-    () => groupSpellEntriesByLevel(spellEntriesForDisplay, preparedSpellIdSet),
-    [preparedSpellIdSet, spellEntriesForDisplay],
+    () => groupSpellEntriesByLevel(spellEntriesForDisplay),
+    [spellEntriesForDisplay],
   );
   const spellSlotUsage = spellcastingState.slotUsageByLevel ?? {};
   const spellSlotSummary = useMemo(
@@ -980,7 +963,6 @@ function CharacterSheet({
     { id: "spells", label: "Spells" },
     { id: "inventory", label: "Inventory" },
     { id: "features", label: "Features & Traits" },
-    { id: "background", label: "Background" },
     { id: "notes", label: "Notes" },
     { id: "extras", label: "Extras" },
   ];
@@ -1014,24 +996,10 @@ function CharacterSheet({
       ...spellcastingState,
       slotUsageByLevel: {},
     });
-  }
-
-  function togglePreparedSpell(entry: CharacterSpellEntry) {
-    if (!canPrepareSpell(entry)) {
-      return;
-    }
-
-    const currentPreparedSpellIds = new Set(spellcastingState.preparedSpellIds ?? []);
-
-    if (currentPreparedSpellIds.has(entry.id)) {
-      currentPreparedSpellIds.delete(entry.id);
-    } else {
-      currentPreparedSpellIds.add(entry.id);
-    }
-
-    onSpellcastingStateChange({
-      ...spellcastingState,
-      preparedSpellIds: [...currentPreparedSpellIds].sort(),
+    onResourceStateChange({
+      ...resourceState,
+      activeByResourceKey: {},
+      usageByResourceKey: {},
     });
   }
 
@@ -1089,6 +1057,7 @@ function CharacterSheet({
           <button
             type="button"
             className="character-hit-points-action"
+            data-right-rail-trigger
             onClick={onOpenConditions}
           >
             Add Condition
@@ -1323,6 +1292,7 @@ function CharacterSheet({
             <button
               type="button"
               className="character-status-panel character-status-panel-interactive"
+              data-right-rail-trigger
               onClick={onOpenConditions}
             >
               <h3>Conditions</h3>
@@ -1378,31 +1348,25 @@ function CharacterSheet({
               {activeTab === "spells" && (
                 <SpellsTab
                   activeSpellLevelFilter={activeSpellLevelFilter}
-                  canPrepareSpell={canPrepareSpell}
                   derivedStateError={derivedStateError}
                   derivedStateLoading={derivedStateLoading}
                   filteredSpellFeatureEntries={filteredSpellFeatureEntries}
                   filteredSpellLevelSections={filteredSpellLevelSections}
                   formatModifier={formatModifier}
                   formatSpellFilterLabel={formatSpellFilterLabel}
-                  formatSpellPreparationLabel={getSpellPreparationLabel}
                   formatSpellSlotTitle={formatSpellSlotTitle}
                   getSpellEntrySubtitle={getSpellEntrySubtitle}
-                  isSpellPrepared={isSpellPrepared}
                   onActiveSpellLevelFilterChange={setActiveSpellLevelFilter}
                   onOpenSpellLibrary={onOpenSpellLibrary}
                   onRestoreSpellSlot={restoreSpellSlot}
                   onSetUsedSpellSlots={setUsedSpellSlots}
                   onSpellSearchTextChange={setSpellSearchText}
-                  onTogglePreparedSpell={togglePreparedSpell}
                   onUseSpellSlot={spendSpellSlot}
-                  preparedSpellIds={preparedSpellIdSet}
                   spellEntriesForDisplayCount={spellEntriesForDisplay.length}
                   spellLevelFilterOptions={spellLevelFilterOptions}
                   spellModifierValue={spellModifierValue}
                   spellSearchText={spellSearchText}
                   spellSlotSummary={spellSlotSummary}
-                  spellcastingState={spellcastingState}
                   spellcastingSummary={spellcastingSummary}
                 />
               )}
@@ -1421,13 +1385,9 @@ function CharacterSheet({
                   backgroundName={selectedBackground.name}
                   backgroundSectionEntries={backgroundSectionEntries}
                   coreClassFeatureEntries={coreClassFeatureEntries}
-                  formatDerivedSourceSubtitle={formatDerivedSourceSubtitle}
                   formatFeatureLevel={formatFeatureLevel}
-                  passiveDerivedSources={passiveDerivedSources}
-                  progressionChoiceSummaries={progressionChoiceSummaries}
                   resourceState={resourceState}
                   resourceActionSummaries={resourceActionSummaries}
-                  savedFeatureChoiceRows={savedFeatureChoiceRows}
                   selectedHeritage={selectedHeritage}
                   selectedSubclassName={selectedSubclass?.name ?? null}
                   speciesIdentityEntries={speciesIdentityEntries}
@@ -1435,81 +1395,6 @@ function CharacterSheet({
                   subclassFeatureEntries={subclassFeatureEntries}
                   onResourceStateChange={onResourceStateChange}
                 />
-              )}
-
-              {activeTab === "background" && (
-                <div className="character-tab-scroll-stage">
-                  <div className="workspace-card-grid">
-                    <Card title="Origin Summary">
-                      <div className="list">
-                        {characterOverviewRows.map((entry) => (
-                          <div key={entry.label} className="list-row">
-                            <span>{entry.label}</span>
-                            <strong>{entry.value}</strong>
-                          </div>
-                        ))}
-                        <div className="list-row">
-                          <span>Alignment</span>
-                          <strong>{character.alignment ?? "Unaligned"}</strong>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card title="Background Summary">
-                      <div className="list">
-                        <div className="character-feature-entry">
-                          <strong>{selectedBackground.name}</strong>
-                          <p>{selectedBackground.description}</p>
-                          <p className="muted">Signature feature: {selectedBackground.feature}</p>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card title="Background Proficiencies">
-                      <div className="list">
-                        <div className="list-row">
-                          <span>Skills</span>
-                          <strong>{selectedBackground.skillProficiencies.join(", ") || "--"}</strong>
-                        </div>
-                        <div className="list-row">
-                          <span>Tools</span>
-                          <strong>{selectedBackground.toolProficiencies.join(", ") || "--"}</strong>
-                        </div>
-                        <div className="list-row">
-                          <span>Reference Tags</span>
-                          <strong>{selectedBackground.proficiencies.join(", ") || "--"}</strong>
-                        </div>
-                      </div>
-                    </Card>
-
-                    <Card title="Background Details">
-                      <div className="list">
-                        {backgroundSectionEntries.map((section) => (
-                          <div key={section.id} className="character-feature-entry">
-                            <strong>{section.title}</strong>
-                            {section.subtitle ? <p className="muted">{section.subtitle}</p> : null}
-                            {section.details.map((detail) => (
-                              <p key={`${section.id}-${detail}`}>{detail}</p>
-                            ))}
-                            {section.selections.length > 0 ? (
-                              <div className="list">
-                                {section.selections.map((selection) => (
-                                  <div
-                                    key={`${section.id}-${selection.label}-${selection.value}`}
-                                    className="list-row"
-                                  >
-                                    <span>{selection.label}</span>
-                                    <strong>{selection.value}</strong>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  </div>
-                </div>
               )}
 
               {activeTab === "notes" && (
@@ -1709,8 +1594,10 @@ function TrainingBlock({ label, values }: TrainingBlockProps) {
 function getSelectedClassFeatureSummaries(
   feature: ClassFeature,
   selectedChoices: FeatureChoiceSelections,
+  resolvedChoices: CharacterFeatureChoiceSelection[] = [],
+  characterLevel = 20,
 ) {
-  return getVisibleChoiceFieldsForFeature(feature, selectedChoices)
+  const fieldSelections = getVisibleChoiceFieldsForFeature(feature, selectedChoices)
     .map((field) => {
       const selectedValue = selectedChoices[`${feature.id}:${field.id}`];
 
@@ -1728,6 +1615,98 @@ function getSelectedClassFeatureSummaries(
         : null;
     })
     .filter(isPresent);
+
+  return mergeDisplaySelections([
+    ...fieldSelections,
+    ...getResolvedClassFeatureChoiceSummaries(feature, resolvedChoices, characterLevel),
+  ]);
+}
+
+function getResolvedClassFeatureChoiceSummaries(
+  feature: ClassFeature,
+  resolvedChoices: CharacterFeatureChoiceSelection[],
+  characterLevel: number,
+) {
+  return resolvedChoices
+    .filter((choice) =>
+      !isInactiveFeatureChoice(choice, characterLevel) &&
+      !isEquipmentChoice(choice) &&
+      doesResolvedChoiceBelongToFeature(feature, choice),
+    )
+    .map((choice) => {
+      const value =
+        getSelectedChoiceReference(choice)?.name ??
+        choice.selectedOptionName ??
+        choice.selectedOptionIndex ??
+        null;
+
+      if (!value) {
+        return null;
+      }
+
+      return {
+        label: choice.choiceLabel ?? formatChoicePathLabel(choice.choicePath),
+        value,
+      };
+    })
+    .filter(isPresent);
+}
+
+function doesResolvedChoiceBelongToFeature(
+  feature: ClassFeature,
+  choice: CharacterFeatureChoiceSelection,
+) {
+  const featureIdParts = feature.id.split(":");
+  const featureSlug = slugifyFeatureName(feature.title);
+  const candidateFeatureIndexes = new Set(
+    [
+      feature.id,
+      featureIdParts[0],
+      featureIdParts[featureIdParts.length - 1],
+      featureSlug,
+    ]
+      .filter(isPresent)
+      .map(normalizeChoiceMatchText),
+  );
+
+  const choiceFeatureIndex = normalizeChoiceMatchText(choice.featureIndex ?? "");
+  const choiceSourceIndex = normalizeChoiceMatchText(choice.sourceIndex ?? "");
+
+  if (candidateFeatureIndexes.has(choiceFeatureIndex) || candidateFeatureIndexes.has(choiceSourceIndex)) {
+    return true;
+  }
+
+  const choicePath = normalizeChoiceMatchText(choice.choicePath);
+  const choiceLabel = normalizeChoiceMatchText(choice.choiceLabel ?? "");
+
+  return candidateFeatureIndexes.has(choicePath) || choicePath.includes(featureSlug) || choiceLabel.includes(featureSlug);
+}
+
+function formatChoicePathLabel(choicePath: string) {
+  const lastSegment = choicePath.split(".").filter(Boolean).at(-1) ?? "Choice";
+
+  return lastSegment
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function mergeDisplaySelections(selections: Array<{ label: string; value: string }>) {
+  const seenSelections = new Set<string>();
+
+  return selections.filter((selection) => {
+    const key = `${selection.label.toLowerCase()}::${selection.value.toLowerCase()}`;
+
+    if (seenSelections.has(key)) {
+      return false;
+    }
+
+    seenSelections.add(key);
+    return true;
+  });
+}
+
+function normalizeChoiceMatchText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
 function getSectionSelectionSummaries(
@@ -1756,45 +1735,8 @@ function getSectionSelectionSummaries(
     .filter(isPresent);
 }
 
-function getPassiveDerivedSources(
-  activeSources: CharacterDerivedSource[],
-  normalizedActions: CharacterActionEntry[],
-  spellEntries: CharacterSpellEntry[],
-) {
-  const actionSourceKeys = new Set(
-    normalizedActions.map((action) => `${action.sourceType}:${action.sourceIndex}`),
-  );
-  const spellSourceKeys = new Set(
-    spellEntries.map((entry) => `${entry.sourceType}:${entry.sourceIndex}`),
-  );
-
-  return activeSources.filter((source) => {
-    const sourceKey = `${source.sourceType}:${source.sourceIndex}`;
-
-    return (
-      source.sourceType !== "species_trait" &&
-      !actionSourceKeys.has(sourceKey) &&
-      !spellSourceKeys.has(sourceKey)
-    );
-  });
-}
-
 function formatFeatureLevel(level: number) {
   return `${formatOrdinal(level)} level`;
-}
-
-function formatDerivedSourceSubtitle(source: CharacterDerivedSource) {
-  const sourceLabel =
-    source.sourceType === "class_feature"
-      ? "Class Feature"
-      : source.sourceType === "subclass_feature"
-        ? "Subclass Feature"
-        : source.sourceType === "item"
-          ? "Equipped Item"
-          : "Species Trait";
-  const levelLabel = source.level ? `Level ${source.level}` : null;
-
-  return [sourceLabel, levelLabel].filter(isPresent).join(" - ");
 }
 
 function getSelectedSubclassIndex(
@@ -1897,14 +1839,12 @@ function dashboardFeatureRequiresSelection(
 function isDashboardFeatureMarkedComplete(
   feature: ClassFeature,
   selectedChoices: FeatureChoiceSelections,
-  highestCompletedRequiredFeatureLevel: number,
 ) {
   if (dashboardFeatureRequiresSelection(feature, selectedChoices)) {
     return dashboardFeatureChoiceComplete(feature, selectedChoices);
   }
 
-  return highestCompletedRequiredFeatureLevel !== -1 &&
-    feature.level <= highestCompletedRequiredFeatureLevel;
+  return true;
 }
 
 function getVisibleBackgroundChoiceFields(
@@ -1984,16 +1924,8 @@ function getCreatureSize(speciesName: string) {
 function getSavingThrowProficiencyIndexes(
   character: Character,
   effects?: FeatureChoiceEffectSummary,
+  activeSources: CharacterDerivedSource[] = [],
 ): AbilityIndex[] {
-  const persistedSaveIndexes = (character.proficiencies ?? [])
-    .map((proficiency) =>
-      savingThrowAbilityIndexFromReference(
-        proficiency.proficiency.index,
-        proficiency.proficiency.name,
-      ),
-    )
-    .filter(isPresent);
-
   const trainingCharacter = character as TrainingReferenceCharacter;
   const classSourceJson = getProficiencySourceJson(trainingCharacter.class.sourceJson);
   const sourceSaveIndexes = (classSourceJson.proficiencies ?? [])
@@ -2004,14 +1936,44 @@ function getSavingThrowProficiencyIndexes(
       ),
     )
     .filter(isPresent);
+  const classReference = trainingCharacter.class as TrainingReferenceCharacter["class"] & {
+    index?: string | null;
+  };
+  const classSaveIndexes =
+    CLASS_SAVING_THROW_PROFICIENCIES[
+      slugifyFeatureName(classReference.index ?? classReference.name)
+    ] ?? sourceSaveIndexes;
 
   return [
     ...new Set([
-      ...persistedSaveIndexes,
-      ...sourceSaveIndexes,
+      ...classSaveIndexes,
       ...(effects ? [...effects.savingThrowProficiencyIndexes] : []),
+      ...getPassiveFeatureSavingThrowProficiencies(activeSources),
     ]),
   ];
+}
+
+function getPassiveFeatureSavingThrowProficiencies(
+  activeSources: CharacterDerivedSource[],
+): AbilityIndex[] {
+  const proficiencies: AbilityIndex[] = [];
+
+  for (const source of activeSources) {
+    const sourceIndex = source.sourceIndex.toLowerCase();
+    const description = source.description.toLowerCase();
+
+    if (
+      sourceIndex === "slippery-mind" ||
+      (source.title.toLowerCase() === "slippery mind" &&
+        description.includes("wisdom") &&
+        description.includes("charisma") &&
+        description.includes("saving throws"))
+    ) {
+      proficiencies.push("wis", "cha");
+    }
+  }
+
+  return proficiencies;
 }
 
 function savingThrowAbilityIndexFromReference(
@@ -2091,7 +2053,7 @@ function getDerivedSourceSenseDetails(sources: CharacterDerivedSource[]) {
     const description = `${source.title}. ${source.description}`;
     const matches = [
       ...description.matchAll(
-        /\b(darkvision|blindsight|tremorsense|truesight)\b[^.]*?(?:(\d+)\s*-?\s*foot|\((\d+)\s*ft\.?\))/gi,
+        /\b(darkvision|blindsight|tremorsense|truesight)\b[^.]*?(?:(\d+)\s*-?\s*(?:feet|foot|ft\.?)|\((\d+)\s*ft\.?\))/gi,
       ),
     ];
 
@@ -2102,10 +2064,6 @@ function getDerivedSourceSenseDetails(sources: CharacterDerivedSource[]) {
 
         return range ? `${senseName} ${range} ft.` : senseName;
       });
-    }
-
-    if (hasSenseKeyword(description)) {
-      return [source.title];
     }
 
     return [];
@@ -2167,28 +2125,43 @@ function getSpellEntrySubtitle(entry: CharacterSpellEntry) {
 
 function isConcreteSpellEntry(entry: CharacterSpellEntry) {
   return (
+    !isSpellChoicePlaceholderEntry(entry) &&
     entry.preparationMode !== "feature" &&
     entry.preparationMode !== "spellcasting"
   );
 }
 
-function canPrepareSpell(entry: CharacterSpellEntry) {
-  return (
-    isConcreteSpellEntry(entry) &&
-    !entry.isCantrip &&
-    entry.preparationMode !== "always_prepared" &&
-    entry.sourceType !== "species_trait"
-  );
+function withReferenceSpellDescription(entry: CharacterSpellEntry) {
+  if (!isConcreteSpellEntry(entry)) {
+    return entry;
+  }
+
+  const spellRecord = findSpellLibraryRecordByName(entry.title);
+
+  if (!spellRecord) {
+    return entry;
+  }
+
+  return {
+    ...entry,
+    description: formatSpellLibraryDescription(spellRecord),
+  };
 }
 
-function isSpellPrepared(
-  entry: CharacterSpellEntry,
-  preparedSpellIds: Set<string>,
-) {
+function isSpellChoicePlaceholderEntry(entry: CharacterSpellEntry) {
+  const normalizedTitle = entry.title.trim().toLowerCase();
+
+  if (normalizedTitle !== "cantrip" && normalizedTitle !== "spell") {
+    return false;
+  }
+
+  const normalizedDescription = entry.description.trim().toLowerCase();
+
   return (
-    entry.preparationMode === "always_prepared" ||
-    entry.preparationMode === "prepared" ||
-    preparedSpellIds.has(entry.id)
+    normalizedDescription.includes("choose") ||
+    normalizedDescription.includes("additional") ||
+    normalizedDescription.includes("cantrip") ||
+    normalizedDescription.includes("spell")
   );
 }
 
@@ -2241,33 +2214,7 @@ function matchesSpellFilters(
     .includes(normalizedSearch);
 }
 
-function getSpellPreparationLabel(
-  entry: CharacterSpellEntry,
-  preparedSpellIds: Set<string>,
-) {
-  switch (entry.preparationMode) {
-    case "always_prepared":
-      return "Always Prepared";
-    case "prepared":
-      return "Prepared";
-    case "known":
-      if (entry.isCantrip) {
-        return "Cantrip";
-      }
-
-      return isSpellPrepared(entry, preparedSpellIds) ? "Prepared" : "Known";
-    case "spellcasting":
-      return "Spellcasting";
-    case "feature":
-    default:
-      return "Feature";
-  }
-}
-
-function groupSpellEntriesByLevel(
-  entries: CharacterSpellEntry[],
-  preparedSpellIds: Set<string>,
-) {
+function groupSpellEntriesByLevel(entries: CharacterSpellEntry[]) {
   // The spells tab mixes persistent spell-library picks with derived spell features.
   // Only concrete spells are grouped here; passive spell features stay in their own section.
   const concreteEntries = entries.filter(isConcreteSpellEntry);
@@ -2304,16 +2251,7 @@ function groupSpellEntriesByLevel(
     .sort((left, right) => left.sortLevel - right.sortLevel)
     .map((section) => ({
       ...section,
-      entries: [...section.entries].sort((left, right) => {
-        const leftPrepared = isSpellPrepared(left, preparedSpellIds);
-        const rightPrepared = isSpellPrepared(right, preparedSpellIds);
-
-        if (leftPrepared !== rightPrepared) {
-          return leftPrepared ? -1 : 1;
-        }
-
-        return left.title.localeCompare(right.title);
-      }),
+      entries: [...section.entries].sort((left, right) => left.title.localeCompare(right.title)),
     }));
 }
 
@@ -2331,7 +2269,6 @@ function calculateDisplayedArmorClass({
   nonBodyArmorClassBonus,
   equippedArmorClassBonus,
   isBodyArmorEquipped,
-  wisdomModifier,
 }: {
   baseArmorClass: number;
   constitutionModifier: number;
@@ -2342,7 +2279,6 @@ function calculateDisplayedArmorClass({
   isBodyArmorEquipped: boolean;
   mode: DerivedArmorClassMode;
   nonBodyArmorClassBonus: number;
-  wisdomModifier: number;
 }) {
   // AC shown on the dashboard is the final blend of base character data,
   // backend-derived class rules, and live inventory sandbox bonuses.
@@ -2352,13 +2288,6 @@ function calculateDisplayedArmorClass({
     return Math.max(
       baseWithBonuses,
       10 + dexterityModifier + constitutionModifier + nonBodyArmorClassBonus + derivedArmorClassBonus,
-    );
-  }
-
-  if (mode === "monk_unarmored" && !isBodyArmorEquipped) {
-    return Math.max(
-      baseWithBonuses,
-      10 + dexterityModifier + wisdomModifier + nonBodyArmorClassBonus + derivedArmorClassBonus,
     );
   }
 
@@ -2426,6 +2355,7 @@ function compareSkills(left: SkillWithTotal, right: SkillWithTotal) {
 function getTrainingProfile(
   character: Character,
   featureChoiceEffects: FeatureChoiceEffectSummary,
+  activeSources: CharacterDerivedSource[],
   selectedClass: ClassOption,
   selectedSpecies: SpeciesOption,
   selectedBackground: BackgroundOption,
@@ -2438,6 +2368,7 @@ function getTrainingProfile(
     getReferenceNames(classSourceJson.proficiencies),
   );
   const persistedTraining = getPersistedTrainingProficiencies(character);
+  const passiveFeatureTraining = getPassiveFeatureTrainingProficiencies(activeSources);
   const armor = withFallbackLabel(
     mergeTrainingValues(
       groupedClassProficiencies.armor.length > 0
@@ -2447,6 +2378,7 @@ function getTrainingProfile(
           [],
       persistedTraining.armor,
       featureChoiceEffects.armorNames,
+      passiveFeatureTraining.armor,
     ),
     "None",
   );
@@ -2459,6 +2391,7 @@ function getTrainingProfile(
           [],
       persistedTraining.weapons,
       featureChoiceEffects.weaponNames,
+      passiveFeatureTraining.weapons,
     ),
     "None",
   );
@@ -2489,6 +2422,7 @@ function getTrainingProfile(
       persistedTraining.tools,
       featureChoiceEffects.toolNames,
       featureChoiceEffects.expertiseToolNames.map((toolName) => `${toolName} (Expertise)`),
+      passiveFeatureTraining.tools,
     ),
     "None",
   );
@@ -2514,6 +2448,47 @@ function getTrainingProfile(
   };
 }
 
+function getPassiveFeatureTrainingProficiencies(activeSources: CharacterDerivedSource[]) {
+  const training = {
+    armor: [] as string[],
+    tools: [] as string[],
+    weapons: [] as string[],
+  };
+
+  for (const source of activeSources) {
+    const sourceIndex = source.sourceIndex.toLowerCase();
+    const title = source.title.toLowerCase();
+    const description = source.description.toLowerCase();
+
+    if (
+      sourceIndex === "martial-training" ||
+      title === "martial training" ||
+      (
+        description.includes("martial weapons") &&
+        description.includes("medium armor") &&
+        description.includes("shields")
+      )
+    ) {
+      training.armor.push("Medium Armor", "Shields");
+      training.weapons.push("Martial Weapons");
+    }
+
+    if (
+      sourceIndex === "assassins-tools" ||
+      title === "assassin's tools" ||
+      (
+        description.includes("disguise kit") &&
+        description.includes("poisoner's kit") &&
+        description.includes("proficiency")
+      )
+    ) {
+      training.tools.push("Disguise Kit", "Poisoner's Kit");
+    }
+  }
+
+  return training;
+}
+
 function getFeatureChoiceEffects(
   featureChoices: CharacterFeatureChoiceSelection[],
   characterLevel: number,
@@ -2526,6 +2501,7 @@ function getFeatureChoiceEffects(
     featIndexes: new Set(),
     languageNames: [],
     savingThrowProficiencyIndexes: new Set(),
+    skillAbilityModifierBonusByIndex: {},
     skillProficiencyIndexes: new Set(),
     toolNames: [],
     weaponNames: [],
@@ -2543,6 +2519,10 @@ function getFeatureChoiceEffects(
     effects.expertiseToolNames.push(...grantSummary.expertiseToolNames);
     grantSummary.savingThrowProficiencyIndexes.forEach((index) =>
       effects.savingThrowProficiencyIndexes.add(index),
+    );
+    Object.assign(
+      effects.skillAbilityModifierBonusByIndex,
+      grantSummary.skillAbilityModifierBonusByIndex,
     );
     grantSummary.skillProficiencyIndexes.forEach((index) => effects.skillProficiencyIndexes.add(index));
     effects.toolNames.push(...grantSummary.toolNames);
@@ -2636,6 +2616,7 @@ function getFeatureChoiceGrantSummary(grantsRawJson: unknown) {
     expertiseToolNames: [] as string[],
     languageNames: [] as string[],
     savingThrowProficiencyIndexes: new Set<AbilityIndex>(),
+    skillAbilityModifierBonusByIndex: {} as Record<string, AbilityIndex>,
     skillProficiencyIndexes: new Set<string>(),
     toolNames: [] as string[],
     weaponNames: [] as string[],
@@ -2668,74 +2649,46 @@ function getFeatureChoiceGrantSummary(grantsRawJson: unknown) {
         .map(normalizeSavingThrowGrantAbilityIndex)
         .filter(isPresent),
     ),
+    skillAbilityModifierBonusByIndex: abilityModifierBonusRecord(
+      grantsRawJson.skillAbilityModifierBonusByIndex,
+    ),
     skillProficiencyIndexes: new Set(stringArray(grantsRawJson.skillProficiencyIndexes)),
     toolNames: stringArray(grantsRawJson.toolNames),
     weaponNames: stringArray(grantsRawJson.weaponNames),
   };
 }
 
+function abilityModifierBonusRecord(value: unknown): Record<string, AbilityIndex> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([skillIndex, abilityIndex]) => [
+        canonicalSkillIndex(skillIndex),
+        normalizeAbilityIndex(abilityIndex),
+      ] as const)
+      .filter((entry): entry is [string, AbilityIndex] => Boolean(entry[0] && entry[1])),
+  );
+}
+
+function normalizeAbilityIndex(value: unknown): AbilityIndex | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.toLowerCase();
+
+  return isAbilityIndex(normalized) ? normalized : null;
+}
+
+function isAbilityIndex(value: string): value is AbilityIndex {
+  return ["str", "dex", "con", "int", "wis", "cha"].includes(value);
+}
+
 function normalizeSavingThrowGrantAbilityIndex(value: string): AbilityIndex | null {
   return savingThrowAbilityIndexFromReference(value, value);
-}
-
-function getSavedFeatureChoiceStatus(
-  choice: CharacterFeatureChoiceSelection,
-  effects: FeatureChoiceEffectSummary,
-  character: Character,
-) {
-  const reference = getSelectedChoiceReference(choice);
-  const category = !isInactiveFeatureChoice(choice, character.level) &&
-    !isEquipmentChoice(choice) &&
-    reference
-    ? classifyChoiceReference(reference)
-    : null;
-
-  if (isInactiveFeatureChoice(choice, character.level)) {
-    return `${choice.selectedOptionType} - Choice selected; inactive until level ${choice.level}.`;
-  }
-
-  if (isExpertiseFeatureChoice(choice)) {
-    if (category === "skill") {
-      const skillIndex = canonicalSkillIndex(reference?.index ?? reference?.name);
-
-      return skillIndex &&
-        effects.expertiseSkillIndexes.has(skillIndex) &&
-        isCharacterProficientInSkill(character, effects, skillIndex)
-        ? `${choice.selectedOptionType} - Expertise applied where proficient.`
-        : `${choice.selectedOptionType} - Expertise choice selected; inactive until proficient.`;
-    }
-
-    if (category === "tool") {
-      return `${choice.selectedOptionType} - Expertise choice selected; tool roll mechanics are not automated yet.`;
-    }
-  }
-
-  if (category) {
-    return category === "saving-throw"
-      ? `${choice.selectedOptionType} - Applied as saving throw proficiency.`
-      : `${choice.selectedOptionType} - Applied as ${category} proficiency.`;
-  }
-
-  const combatOptionIndex = getCombatOptionIndex(choice, reference);
-
-  if (combatOptionIndex && effects.combatOptionIndexes.has(combatOptionIndex)) {
-    return `${choice.selectedOptionType} - Applied as an active combat feature.`;
-  }
-
-  return `${choice.selectedOptionType} - Choice selected; mechanics are not automated yet.`;
-}
-
-function isCharacterProficientInSkill(
-  character: Character,
-  effects: FeatureChoiceEffectSummary,
-  skillIndex: string,
-) {
-  return (
-    effects.skillProficiencyIndexes.has(skillIndex) ||
-    character.skills.some(
-      (skill) => skill.isProficient && canonicalSkillIndex(skill.skillIndex) === skillIndex,
-    )
-  );
 }
 
 function getSelectedChoiceReference(
@@ -2858,36 +2811,6 @@ function isEquipmentChoice(choice: CharacterFeatureChoiceSelection) {
         normalizedValue.includes("starting-equipment")
       );
     });
-}
-
-function isSupplementalSavedFeatureChoice(
-  choice: CharacterFeatureChoiceSelection,
-) {
-  const searchableText = [
-    choice.choiceKey,
-    choice.choiceLabel,
-    choice.choicePath,
-    choice.sourceIndex,
-    choice.featureIndex,
-  ]
-    .filter(isPresent)
-    .join(" ")
-    .toLowerCase();
-
-  if (
-    searchableText.includes("asi-mode") ||
-    searchableText.includes("asi-feat") ||
-    searchableText.includes("epic-boon") ||
-    searchableText.includes("feat-ability-") ||
-    searchableText.includes("feat-save-") ||
-    searchableText.includes("feat-skill-") ||
-    searchableText.includes("feat-expertise-") ||
-    searchableText.includes("feat-weapon-")
-  ) {
-    return false;
-  }
-
-  return true;
 }
 
 function isWeaponLikeProficiency(index: string, name: string) {
@@ -3431,4 +3354,4 @@ function mergeDefenseSummaryEntries(
 
 export { CharacterSheet };
 export type { WorkspaceTab };
-export type { ProgressionChoiceSummary, ResourceActionSummary, SpellcastingSummary };
+export type { ResourceActionSummary, SpellcastingSummary };

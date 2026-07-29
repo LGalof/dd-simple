@@ -12,6 +12,7 @@ async function fetchCharacterDerivedState(
 ) {
   const hasBodyPreviewOverrides =
     Boolean(query.backgroundIndex) ||
+    Boolean(query.abilityScores) ||
     Boolean(query.classIndex) ||
     Boolean(query.speciesIndex) ||
     Boolean(query.subspeciesIndex) ||

@@ -155,6 +155,7 @@ type BackendCharacterInventoryItem = Awaited<ReturnType<typeof fetchCharacterInv
 const inventoryStorageKey = "dd-simple.inventory-sandbox.v1";
 const inventoryDashboardStoragePrefix = "dd-simple.character-inventory.v1";
 const inventoryBackendAutosaveDelayMs = 1200;
+const defaultAttunementLimit = 3;
 
 const inventoryLibraryTypeOptions: Array<{ id: InventoryLibraryType; label: string }> = [
   { id: "armor", label: "Armor" },
@@ -553,7 +554,11 @@ const itemTemplates: ItemTemplate[] = [
   },
 ];
 
-function useInventorySandboxController(storageScope = "sandbox", backendCharacterId?: string) {
+function useInventorySandboxController(
+  storageScope = "sandbox",
+  backendCharacterId?: string,
+  attunementLimit = defaultAttunementLimit,
+) {
   const { token } = useAuth();
   const storageKey = useMemo(() => getInventoryStorageKey(storageScope), [storageScope]);
   const savedInventoryState = useMemo(() => loadSavedInventoryState(storageKey), [storageKey]);
@@ -596,7 +601,6 @@ function useInventorySandboxController(storageScope = "sandbox", backendCharacte
     () => items.filter((item) => item.requiresAttunement && item.attuned),
     [items],
   );
-  const attunementLimit = 3;
   const equippedItems = useMemo(
     () => new Map(items.filter((item) => item.location === "equipped").map((item) => [item.equippedSlot, item])),
     [items],
@@ -1838,7 +1842,7 @@ function InventoryDetailsContent({
             </label>
             <p>
               Magic items that require attunement only grant their special benefits while attuned.
-              A character can normally maintain three attuned items.
+              This character can maintain {attunementLimit} attuned items.
             </p>
           </div>
           <div className="inventory-tool-row">

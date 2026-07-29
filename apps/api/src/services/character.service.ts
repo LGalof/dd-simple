@@ -968,6 +968,7 @@ function isSyntheticFeatureChoiceSelection(choice: CharacterFeatureChoiceSelecti
 
   if (
     normalizedChoiceKey.startsWith("feat-magic-initiate-") ||
+    normalizedChoiceKey.startsWith("feat-selection-") ||
     normalizedChoiceKey.startsWith("feat-tool-") ||
     normalizedChoiceKey.startsWith("feat-proficiency-")
   ) {

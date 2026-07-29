@@ -42,17 +42,11 @@ const passiveEffectRegistry: Record<string, PassiveEffect> = {
   defense: {
     armorClassBonus: 1,
   },
-  "monk-unarmored-defense": {
-    armorClassMode: "monk_unarmored",
-  },
   dueling: {
     oneHandedMeleeDamageBonus: 2,
   },
   "fast-movement": {
     speedBonus: 10,
-  },
-  "feral-instinct": {
-    initiativeBonus: 2,
   },
   "jack-of-all-trades": {
     initiativeHalfProficiencyBonusMultiplier: 0.5,
@@ -61,11 +55,11 @@ const passiveEffectRegistry: Record<string, PassiveEffect> = {
   "unarmored-movement": {
     speedBonus: 10,
   },
+  "wood-elf-speed-increase": {
+    speedBonus: 5,
+  },
   "draconic-resilience": {
     armorClassBase: 13,
-  },
-  "ranger-roving": {
-    speedBonus: 10,
   },
 };
 
@@ -368,10 +362,6 @@ function chooseArmorClassMode(
   currentMode: DerivedArmorClassMode,
   nextMode: DerivedArmorClassMode,
 ): DerivedArmorClassMode {
-  if (currentMode === "monk_unarmored" || nextMode === "monk_unarmored") {
-    return nextMode;
-  }
-
   if (currentMode === "bard_dance_unarmored" || nextMode === "bard_dance_unarmored") {
     return nextMode;
   }
@@ -471,14 +461,6 @@ function inferPassiveEffectFromDescription(description: string): PassiveEffect |
     )
   ) {
     effect.armorClassMode = "barbarian_unarmored";
-  }
-
-  if (
-    normalizedDescription.includes(
-      "armor class equals 10 plus your dexterity modifier and wisdom modifier",
-    )
-  ) {
-    effect.armorClassMode = "monk_unarmored";
   }
 
   if (

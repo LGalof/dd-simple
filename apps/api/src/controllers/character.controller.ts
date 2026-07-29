@@ -223,6 +223,7 @@ type ValidResourceStateRequestBody = {
 };
 
 type CharacterPreviewOverrides = {
+  abilityScores?: AbilityScoreRequestBody;
   backgroundIndex?: string;
   classIndex?: string;
   featIndexes?: string[];
@@ -805,6 +806,8 @@ function isCharacterDerivedPreviewRequestBody(
         candidate.featIndexes.every((entry) => typeof entry === "string"))) &&
     (candidate.featureChoices === undefined ||
       isValidFeatureChoiceSelectionArray(candidate.featureChoices)) &&
+    (candidate.abilityScores === undefined ||
+      isAbilityScoresBody(candidate.abilityScores)) &&
     (candidate.resourceState === undefined ||
       isResourceStateRequestBody(candidate.resourceState)) &&
     (candidate.level === undefined ||
@@ -822,6 +825,7 @@ function normalizeCharacterPreviewOverrides(
   overrides: CharacterPreviewOverrides,
 ) {
   return {
+    abilityScores: overrides.abilityScores,
     backgroundIndex: normalizeOptionalString(overrides.backgroundIndex) ?? undefined,
     classIndex: normalizeOptionalString(overrides.classIndex) ?? undefined,
     featIndexes: overrides.featIndexes?.map((entry) => entry.trim()).filter((entry) => entry.length > 0) ?? [],

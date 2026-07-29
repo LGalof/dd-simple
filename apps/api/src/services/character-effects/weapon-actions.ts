@@ -62,6 +62,7 @@ function deriveWeaponActionEntries(options: {
   const sneakAttackDice = activeSourceIndexes.has("sneak-attack")
     ? getSneakAttackDice(characterLevel)
     : "";
+  const psychicBladesActive = activeSourceIndexes.has("psychic-blades");
   const tavernBrawlerActive = activeSourceIndexes.has("tavern-brawler");
   const twoWeaponFightingActive =
     activeSourceIndexes.has("two-weapon-fighting") && attackItemNames.length >= 2;
@@ -122,6 +123,22 @@ function deriveWeaponActionEntries(options: {
     };
   });
 
+  const psychicBladeActions: CharacterActionEntry[] = psychicBladesActive
+    ? [
+        createPsychicBladeAction({
+          dexterityModifier,
+          proficiencyBonus: stats.proficiencyBonus,
+          sneakAttackDice,
+          strengthModifier,
+        }),
+        createPsychicBladeBonusAction({
+          dexterityModifier,
+          proficiencyBonus: stats.proficiencyBonus,
+          strengthModifier,
+        }),
+      ]
+    : [];
+
   const unarmedStrike: CharacterActionEntry = {
     activationType: "attack",
     combat: {
@@ -154,7 +171,61 @@ function deriveWeaponActionEntries(options: {
     title: tavernBrawlerActive ? "Enhanced Unarmed Strike" : "Unarmed Strike",
   };
 
-  return [...weaponActions, unarmedStrike];
+  return [...weaponActions, ...psychicBladeActions, unarmedStrike];
+}
+
+function createPsychicBladeAction(options: {
+  dexterityModifier: number;
+  proficiencyBonus: number;
+  sneakAttackDice: string;
+  strengthModifier: number;
+}): CharacterActionEntry {
+  const modifier = Math.max(options.dexterityModifier, options.strengthModifier);
+
+  return {
+    activationType: "attack",
+    combat: {
+      damage: appendExtraDamage(`1d6 psychic ${formatInlineModifier(modifier)}`, options.sneakAttackDice),
+      hit: formatModifier(modifier + options.proficiencyBonus),
+      notes: options.sneakAttackDice
+        ? "Finesse, thrown, Vex - Sneak Attack eligible"
+        : "Finesse, thrown, Vex",
+      range: "60/120 ft.",
+      subtitle: "Simple Melee / Thrown",
+    },
+    description: "You manifest a Psychic Blade in your free hand and make an attack with it.",
+    id: "soulknife:psychic-blade:weapon-attack",
+    level: 3,
+    sourceIndex: "psychic-blades",
+    sourceType: "subclass_feature",
+    title: "Psychic Blade",
+  };
+}
+
+function createPsychicBladeBonusAction(options: {
+  dexterityModifier: number;
+  proficiencyBonus: number;
+  strengthModifier: number;
+}): CharacterActionEntry {
+  const modifier = Math.max(options.dexterityModifier, options.strengthModifier);
+
+  return {
+    activationType: "bonus_action",
+    combat: {
+      damage: `1d4 psychic ${formatInlineModifier(modifier)}`,
+      hit: formatModifier(modifier + options.proficiencyBonus),
+      notes: "After attacking with a Psychic Blade; other hand must be free",
+      range: "60/120 ft.",
+      subtitle: "Bonus Psychic Blade",
+    },
+    description:
+      "After you attack with a Psychic Blade on your turn, you can make a second Psychic Blade attack as a Bonus Action if your other hand is free.",
+    id: "soulknife:psychic-blade:bonus-attack",
+    level: 3,
+    sourceIndex: "psychic-blades",
+    sourceType: "subclass_feature",
+    title: "Psychic Blade (Bonus Action)",
+  };
 }
 
 function getAttackProfile(options: {

@@ -1,6 +1,6 @@
+import { useState } from "react";
 import { Card } from "../../../../components/ui/Card";
 import type { CharacterResourceState } from "../../../../types/character";
-import type { CharacterDerivedSource } from "../../../../types/characterDerived";
 import type { SpeciesHeritageOption } from "../../types/characterBuilder";
 
 type DisplaySelection = {
@@ -27,13 +27,6 @@ type SectionEntry = {
   title: string;
 };
 
-type SavedFeatureChoiceRow = {
-  id: string;
-  label: string;
-  status: string;
-  value: string;
-};
-
 type BackgroundChoiceEntry = {
   id: string;
   selections: DisplaySelection[];
@@ -54,14 +47,6 @@ type ResourceActionSummary = {
   trackingMode: "none" | "pool" | "uses";
 };
 
-type ProgressionChoiceSummary = {
-  id: string;
-  label: string;
-  level: number;
-  status: "missing" | "selected";
-  value: string;
-};
-
 type FeaturesTabProps = {
   backgroundChoiceEntries: BackgroundChoiceEntry[];
   backgroundDescription: string;
@@ -69,14 +54,10 @@ type FeaturesTabProps = {
   backgroundName: string;
   backgroundSectionEntries: SectionEntry[];
   coreClassFeatureEntries: FeatureCardEntry[];
-  formatDerivedSourceSubtitle: (source: CharacterDerivedSource) => string;
   formatFeatureLevel: (level: number) => string;
   onResourceStateChange: (state: CharacterResourceState) => void;
-  passiveDerivedSources: CharacterDerivedSource[];
-  progressionChoiceSummaries: ProgressionChoiceSummary[];
   resourceState: CharacterResourceState;
   resourceActionSummaries: ResourceActionSummary[];
-  savedFeatureChoiceRows: SavedFeatureChoiceRow[];
   selectedHeritage?: SpeciesHeritageOption | null;
   selectedSubclassName?: string | null;
   speciesIdentityEntries: SectionEntry[];
@@ -84,16 +65,16 @@ type FeaturesTabProps = {
   subclassFeatureEntries: FeatureCardEntry[];
 };
 
+type FeatureInfoFilter = "all" | "class" | "species" | "background" | "resources";
+
 function FeaturesTab({
   backgroundDescription,
   backgroundFeature,
   backgroundName,
   backgroundSectionEntries,
   coreClassFeatureEntries,
-  formatDerivedSourceSubtitle,
   formatFeatureLevel,
   onResourceStateChange,
-  passiveDerivedSources,
   resourceState,
   resourceActionSummaries,
   selectedHeritage,
@@ -102,50 +83,59 @@ function FeaturesTab({
   speciesTraitEntries,
   subclassFeatureEntries,
 }: FeaturesTabProps) {
-  const uniquePassiveDerivedSources = dedupePassiveDerivedSources(passiveDerivedSources);
+  const [activeInfoFilter, setActiveInfoFilter] = useState<FeatureInfoFilter>("all");
+  const classAndSubclassFeatureEntries = mergeFeatureCardEntries(
+    coreClassFeatureEntries,
+    subclassFeatureEntries,
+    selectedSubclassName,
+  );
+  const trackedResourceActionSummaries = resourceActionSummaries.filter(
+    (resource) => resource.trackingMode !== "none",
+  );
+  const filters = getFeatureInfoFilters({
+    hasBackground: Boolean(backgroundDescription || backgroundSectionEntries.length),
+    hasClassFeatures: classAndSubclassFeatureEntries.length > 0,
+    hasResources: trackedResourceActionSummaries.length > 0,
+    hasSpecies: Boolean(
+      selectedHeritage ||
+        speciesIdentityEntries.length > 0 ||
+        speciesTraitEntries.length > 0,
+    ),
+  });
+  const showClassFeatures = activeInfoFilter === "all" || activeInfoFilter === "class";
+  const showSpecies = activeInfoFilter === "all" || activeInfoFilter === "species";
+  const showBackground = activeInfoFilter === "all" || activeInfoFilter === "background";
+  const showResources = activeInfoFilter === "all" || activeInfoFilter === "resources";
 
   return (
     <div className="character-tab-scroll-stage">
-      <div className="workspace-card-grid workspace-card-grid-masonry">
-        {coreClassFeatureEntries.length > 0 ? (
-          <Card title="Class Features">
-            <div className="list">
-              {coreClassFeatureEntries.map(({ feature, selections }) => (
-                <div key={feature.id} className="character-feature-entry">
-                  <strong>{feature.title}</strong>
-                  <p className="muted">{formatFeatureLevel(feature.level)}</p>
-                  <p>{feature.summary}</p>
-                  {feature.details?.map((detail) => (
-                    <p key={`${feature.id}-${detail}`}>{detail}</p>
-                  ))}
-                  {selections.length > 0 ? (
-                    <div className="list">
-                      {selections.map((selection) => (
-                        <div
-                          key={`${feature.id}-${selection.label}-${selection.value}`}
-                          className="list-row"
-                        >
-                          <span>{selection.label}</span>
-                          <strong>{selection.value}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </Card>
-        ) : null}
+      <div className="character-action-filter-bar">
+        {filters.map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={
+              activeInfoFilter === filter.id
+                ? "character-action-filter-pill character-action-filter-pill-active"
+                : "character-action-filter-pill"
+            }
+            onClick={() => setActiveInfoFilter(filter.id)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
 
-        {subclassFeatureEntries.length > 0 ? (
-          <Card title={selectedSubclassName ? `${selectedSubclassName} Features` : "Subclass Features"}>
+      <div className="workspace-card-grid workspace-card-grid-wide">
+        {showClassFeatures && classAndSubclassFeatureEntries.length > 0 ? (
+          <Card title="Class & Subclass Features">
             <div className="list">
-              {subclassFeatureEntries.map(({ feature, selections }) => (
+              {classAndSubclassFeatureEntries.map(({ feature, selections, subtitle }) => (
                 <div key={feature.id} className="character-feature-entry">
                   <strong>{feature.title}</strong>
                   <p className="muted">
                     {formatFeatureLevel(feature.level)}
-                    {selectedSubclassName ? ` - ${selectedSubclassName}` : ""}
+                    {subtitle ? ` - ${subtitle}` : ""}
                   </p>
                   <p>{feature.summary}</p>
                   {feature.details?.map((detail) => (
@@ -170,6 +160,7 @@ function FeaturesTab({
           </Card>
         ) : null}
 
+        {showSpecies ? (
         <Card title="Species & Heritage">
           <div className="list">
             {selectedHeritage ? (
@@ -212,7 +203,9 @@ function FeaturesTab({
             ))}
           </div>
         </Card>
+        ) : null}
 
+        {showBackground ? (
         <Card title="Background Benefits">
           <div className="list">
             <div className="character-feature-entry">
@@ -245,32 +238,12 @@ function FeaturesTab({
             ))}
           </div>
         </Card>
+        ) : null}
 
-        <Card title="Passive Effects">
-          <div className="list">
-            {uniquePassiveDerivedSources.length > 0 ? (
-              uniquePassiveDerivedSources.map((source) => (
-                <div
-                  key={`${source.sourceType}:${source.sourceIndex}`}
-                  className="character-feature-entry"
-                >
-                  <strong>{source.title}</strong>
-                  <p className="muted">{formatDerivedSourceSubtitle(source)}</p>
-                  <p>{source.description}</p>
-                </div>
-              ))
-            ) : (
-              <p className="muted">
-                No passive feature descriptions are available for the current build.
-              </p>
-            )}
-          </div>
-        </Card>
-
-        {resourceActionSummaries.length > 0 ? (
+        {showResources && trackedResourceActionSummaries.length > 0 ? (
           <Card title="Resource Tracking">
             <div className="list">
-              {resourceActionSummaries.map((resource) => (
+              {trackedResourceActionSummaries.map((resource) => (
                 <div key={resource.id} className="character-feature-entry">
                   <strong>
                     {resource.name}
@@ -328,15 +301,6 @@ function FeaturesTab({
                           / {resource.recharge ?? "Manual"}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        className="character-inline-button"
-                        onClick={() =>
-                          onResourceStateChange(resetResourceUsage(resourceState, resource))
-                        }
-                      >
-                        Reset
-                      </button>
                     </div>
                   ) : null}
                   <p className="muted">Source: {resource.sourceFeature}</p>
@@ -351,15 +315,87 @@ function FeaturesTab({
   );
 }
 
+function getFeatureInfoFilters({
+  hasBackground,
+  hasClassFeatures,
+  hasResources,
+  hasSpecies,
+}: {
+  hasBackground: boolean;
+  hasClassFeatures: boolean;
+  hasResources: boolean;
+  hasSpecies: boolean;
+}) {
+  return [
+    { id: "all" as const, label: "All" },
+    hasClassFeatures ? { id: "class" as const, label: "Class & Subclass" } : null,
+    hasSpecies ? { id: "species" as const, label: "Species & Heritage" } : null,
+    hasBackground ? { id: "background" as const, label: "Background" } : null,
+    hasResources ? { id: "resources" as const, label: "Resources" } : null,
+  ].filter((filter): filter is { id: FeatureInfoFilter; label: string } => Boolean(filter));
+}
+
+function mergeFeatureCardEntries(
+  classEntries: FeatureCardEntry[],
+  subclassEntries: FeatureCardEntry[],
+  selectedSubclassName?: string | null,
+) {
+  return [
+    ...classEntries.map((entry) => ({
+      ...entry,
+      subtitle: null as string | null,
+    })),
+    ...subclassEntries.map((entry) => ({
+      ...entry,
+      subtitle: selectedSubclassName ?? "Subclass",
+    })),
+  ].sort((left, right) => {
+    const levelDifference = left.feature.level - right.feature.level;
+
+    if (levelDifference !== 0) {
+      return levelDifference;
+    }
+
+    return left.feature.title.localeCompare(right.feature.title);
+  });
+}
+
 function getResourceMaximum(
   resource: ResourceActionSummary,
   resourceState: CharacterResourceState,
 ) {
-  return (
+  if (isDerivedResourceMaximum(resource)) {
+    return normalizeResourceMaximum(resource.maxUsesValue, resource.trackingMode);
+  }
+
+  const configuredMaximum =
     resourceState.customMaxByResourceKey[resource.resourceKey] ??
-    resource.maxUsesValue ??
-    0
+    resource.maxUsesValue;
+
+  return normalizeResourceMaximum(configuredMaximum, resource.trackingMode);
+}
+
+function isDerivedResourceMaximum(resource: ResourceActionSummary) {
+  const maxUses = resource.maxUses?.toLowerCase() ?? "";
+
+  return (
+    typeof resource.maxUsesValue === "number" &&
+    (maxUses.includes("modifier") ||
+      maxUses.includes("proficiency bonus") ||
+      maxUses.includes("class progression") ||
+      maxUses.includes("barbarian level"))
   );
+}
+
+function normalizeResourceMaximum(
+  value: number | null | undefined,
+  trackingMode: ResourceActionSummary["trackingMode"],
+) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+
+  return trackingMode === "uses" ? 1 : 0;
 }
 
 function getResourceRemaining(
@@ -404,34 +440,6 @@ function setResourceUsage(
       [resource.resourceKey]: normalizedUsed,
     },
   };
-}
-
-function resetResourceUsage(
-  resourceState: CharacterResourceState,
-  resource: ResourceActionSummary,
-) {
-  return {
-    ...resourceState,
-    usageByResourceKey: {
-      ...resourceState.usageByResourceKey,
-      [resource.resourceKey]: 0,
-    },
-  };
-}
-
-function dedupePassiveDerivedSources(sources: CharacterDerivedSource[]) {
-  const seen = new Set<string>();
-
-  return sources.filter((source) => {
-    const key = `${source.title}:${source.description}`.toLowerCase();
-
-    if (seen.has(key)) {
-      return false;
-    }
-
-    seen.add(key);
-    return true;
-  });
 }
 
 export { FeaturesTab };

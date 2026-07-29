@@ -67,6 +67,38 @@ test("deriveCharacterStats infers speed bonuses from descriptive passive text", 
   assert.equal(stats.speedBonus, 10);
 });
 
+test("deriveCharacterStats applies Wood Elf lineage speed bonus", () => {
+  const stats = deriveCharacterStats(
+    [
+      createSource({
+        description: "Your Speed increases by 5 feet, to 35 feet.",
+        sourceIndex: "wood-elf-speed-increase",
+        sourceType: "species_trait",
+        title: "Wood Elf Speed",
+      }),
+    ],
+    1,
+  );
+
+  assert.equal(stats.speedBonus, 5);
+});
+
+test("deriveCharacterStats applies active Goliath Large Form speed bonus", () => {
+  const stats = deriveCharacterStats(
+    [
+      createSource({
+        description: "While Large Form is active, your Speed increases by 10 feet.",
+        sourceIndex: "large-form-active",
+        sourceType: "species_trait",
+        title: "Large Form (Active)",
+      }),
+    ],
+    5,
+  );
+
+  assert.equal(stats.speedBonus, 10);
+});
+
 test("deriveCharacterStats suppresses Barbarian Fast Movement while wearing Heavy armor", () => {
   const source = createSource({
     description: "Your speed increases by 10 feet while you aren't wearing Heavy armor.",
@@ -83,24 +115,6 @@ test("deriveCharacterStats suppresses Barbarian Fast Movement while wearing Heav
   );
 });
 
-test("deriveCharacterStats scales Monk Unarmored Movement by character level", () => {
-  const sources = [
-    {
-      description: "Your speed increases by 10 feet while you aren't wearing armor or wielding a shield.",
-      level: 2,
-      sourceIndex: "monk-unarmored-movement",
-      sourceType: "class_feature" as const,
-      title: "Unarmored Movement",
-    },
-  ];
-
-  assert.equal(deriveCharacterStats(sources, 5).speedBonus, 10);
-  assert.equal(deriveCharacterStats(sources, 6).speedBonus, 15);
-  assert.equal(deriveCharacterStats(sources, 10).speedBonus, 20);
-  assert.equal(deriveCharacterStats(sources, 14).speedBonus, 25);
-  assert.equal(deriveCharacterStats(sources, 18).speedBonus, 30);
-});
-
 test("deriveCharacterStats infers unarmored defense modes from feature descriptions", () => {
   const barbarianStats = deriveCharacterStats(
     [
@@ -113,20 +127,8 @@ test("deriveCharacterStats infers unarmored defense modes from feature descripti
     ],
     1,
   );
-  const monkStats = deriveCharacterStats(
-    [
-      createSource({
-        description:
-          "While you aren't wearing armor or wielding a shield, your Armor Class equals 10 plus your Dexterity modifier and Wisdom modifier.",
-        sourceIndex: "custom-monk-unarmored",
-        title: "Unarmored Defense",
-      }),
-    ],
-    1,
-  );
 
   assert.equal(barbarianStats.armorClassMode, "barbarian_unarmored");
-  assert.equal(monkStats.armorClassMode, "monk_unarmored");
 });
 
 test("deriveCharacterStats infers College of Dance armor class mode", () => {

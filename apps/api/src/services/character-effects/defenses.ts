@@ -22,6 +22,7 @@ function inferDefenseEffects(source: ResolvedFeatureSource) {
   addDamageDefenseEntries(entries, seen, source, "vulnerability", /vulnerability to ([^.]+?) damage/gi);
   addHeavyArmorMasterReduction(entries, seen, source);
   addWildHeartBearResistance(entries, seen, source);
+  addNightSpiritResistance(entries, seen, source);
   addConditionDefenseEntries(
     entries,
     seen,
@@ -75,6 +76,26 @@ function addWildHeartBearResistance(
   });
 }
 
+function addNightSpiritResistance(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  if (source.sourceIndex.toLowerCase() !== "boon-of-the-night-spirit") {
+    return;
+  }
+
+  pushDefenseEntry(entries, seen, {
+    description: source.description,
+    kind: "resistance",
+    level: source.level,
+    sourceIndex: source.sourceIndex,
+    sourceType: source.sourceType,
+    target: "All except Psychic and Radiant while in Dim Light or Darkness",
+    title: "Boon of the Night Spirit: Shadowy Form",
+  });
+}
+
 function addHeavyArmorMasterReduction(
   entries: CharacterDefenseEntry[],
   seen: Set<string>,
@@ -104,7 +125,17 @@ function addHeavyArmorMasterReduction(
 }
 
 function deriveDefenseEntries(activeSources: ResolvedFeatureSource[]) {
-  return dedupeDefenses(activeSources.flatMap(inferDefenseEffects)).sort(compareDefenseEntries);
+  return dedupeDefenses(
+    activeSources
+      .filter(shouldShowInDefensePanel)
+      .flatMap(inferDefenseEffects),
+  ).sort(compareDefenseEntries);
+}
+
+function shouldShowInDefensePanel(source: ResolvedFeatureSource) {
+  // Class and subclass features are already represented by feature/action/resource
+  // tabs. The Defense panel should stay focused on innate and equipped defenses.
+  return source.sourceType !== "class_feature" && source.sourceType !== "subclass_feature";
 }
 
 function addDamageDefenseEntries(
@@ -114,6 +145,10 @@ function addDamageDefenseEntries(
   kind: Extract<CharacterDefenseKind, "immunity" | "resistance" | "vulnerability">,
   pattern: RegExp,
 ) {
+  if (source.sourceIndex.toLowerCase() === "boon-of-the-night-spirit") {
+    return;
+  }
+
   const matches = [...source.description.matchAll(pattern)];
 
   matches.forEach((match) => {

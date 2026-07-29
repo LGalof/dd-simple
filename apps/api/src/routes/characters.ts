@@ -21,7 +21,7 @@ import { requireAuth } from "../middleware/auth.js";
 
 const charactersRouter = Router();
 
-charactersRouter.use(requireAuth);
+charactersRouter.use("/characters", requireAuth);
 
 charactersRouter.post("/characters", createCharacter);
 

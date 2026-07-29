@@ -104,10 +104,6 @@ const magicInitiateClassSpellListOptions = [
   "Bard",
   "Cleric",
   "Druid",
-  "Paladin",
-  "Ranger",
-  "Sorcerer",
-  "Warlock",
   "Wizard",
 ].map((name) => ({
   label: name,

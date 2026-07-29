@@ -16,7 +16,7 @@ function createSource(
   };
 }
 
-test("deriveDefenseEntries extracts condition immunities from feature text", () => {
+test("deriveDefenseEntries ignores class and subclass feature defenses", () => {
   const defenses = deriveDefenseEntries([
     createSource({
       description:
@@ -28,13 +28,7 @@ test("deriveDefenseEntries extracts condition immunities from feature text", () 
     }),
   ]);
 
-  assert.deepEqual(
-    defenses.map((entry) => [entry.kind, entry.target]),
-    [
-      ["condition_immunity", "Charmed"],
-      ["condition_immunity", "Frightened"],
-    ],
-  );
+  assert.deepEqual(defenses, []);
 });
 
 test("deriveDefenseEntries supports 'immune to' and 'resistant to' phrasing", () => {
@@ -43,6 +37,7 @@ test("deriveDefenseEntries supports 'immune to' and 'resistant to' phrasing", ()
       description:
         "You are immune to fire damage and resistant to cold damage while this blessing lasts.",
       sourceIndex: "fire-shielding",
+      sourceType: "species_trait",
       title: "Fire Shielding",
     }),
   ]);
@@ -62,13 +57,14 @@ test("deriveDefenseEntries supports aura-style condition and spell damage defens
       description:
         "Your courage radiates outward. While in your aura, you and allies can't be Frightened.",
       sourceIndex: "aura-of-courage",
+      sourceType: "species_trait",
       title: "Aura of Courage",
     }),
     createSource({
       description:
         "While in your aura, you and allies have resistance to all damage from spells.",
       sourceIndex: "ancients-aura-of-warding",
-      sourceType: "subclass_feature",
+      sourceType: "item",
       title: "Aura of Warding",
     }),
   ]);
@@ -82,7 +78,7 @@ test("deriveDefenseEntries supports aura-style condition and spell damage defens
   );
 });
 
-test("deriveDefenseEntries turns active Rage into physical damage resistances", () => {
+test("deriveDefenseEntries does not show active Rage in the Defense panel", () => {
   const defenses = deriveDefenseEntries([
     createSource({
       description:
@@ -92,22 +88,16 @@ test("deriveDefenseEntries turns active Rage into physical damage resistances", 
     }),
   ]);
 
-  assert.deepEqual(
-    defenses.map((entry) => [entry.kind, entry.target]),
-    [
-      ["resistance", "Bludgeoning"],
-      ["resistance", "Piercing"],
-      ["resistance", "Slashing"],
-    ],
-  );
+  assert.deepEqual(defenses, []);
 });
 
-test("deriveDefenseEntries exposes Heavy Armor Master damage reduction", () => {
+test("deriveDefenseEntries keeps equipped item damage reduction", () => {
   const defenses = deriveDefenseEntries([
     createSource({
       description:
         "Damage Reduction. When you're hit by an attack while you're wearing Heavy armor, any Bludgeoning, Piercing, and Slashing damage dealt to you by that attack is reduced by an amount equal to your Proficiency Bonus.",
       sourceIndex: "heavy-armor-master",
+      sourceType: "item",
       title: "Heavy Armor Master",
     }),
   ]);
@@ -123,7 +113,7 @@ test("deriveDefenseEntries exposes Heavy Armor Master damage reduction", () => {
   );
 });
 
-test("deriveDefenseEntries exposes Wild Heart Bear rage resistances", () => {
+test("deriveDefenseEntries does not show subclass feature resistances in the Defense panel", () => {
   const defenses = deriveDefenseEntries([
     createSource({
       description:
@@ -135,14 +125,5 @@ test("deriveDefenseEntries exposes Wild Heart Bear rage resistances", () => {
     }),
   ]);
 
-  assert.deepEqual(
-    defenses.map((entry) => [entry.kind, entry.target, entry.title]),
-    [
-      [
-        "resistance",
-        "All except Force, Necrotic, Psychic, Radiant while raging",
-        "Rage of the Wilds: Bear",
-      ],
-    ],
-  );
+  assert.deepEqual(defenses, []);
 });

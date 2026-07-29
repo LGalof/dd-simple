@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { CharacterSpellcastingState } from "../../../types/character";
+import type { CharacterSpellEntry } from "../../../types/characterDerived";
 import type { SpellcastingSummary } from "./CharacterSheet";
 import {
   findSpellLibraryRecordByName,
@@ -14,6 +15,7 @@ type SpellLibrarySidebarProps = {
   isOpen: boolean;
   selectedClassIndex: string;
   selectedClassName: string;
+  spellEntries: CharacterSpellEntry[];
   spellcastingState: CharacterSpellcastingState;
   spellcastingSummary: SpellcastingSummary | null;
   onSpellcastingStateChange: (state: CharacterSpellcastingState) => void;
@@ -23,12 +25,14 @@ function SpellLibrarySidebar({
   isOpen,
   selectedClassIndex,
   selectedClassName,
+  spellEntries,
   spellcastingState,
   spellcastingSummary,
   onSpellcastingStateChange,
 }: SpellLibrarySidebarProps) {
   const [isAddSpellsOpen, setIsAddSpellsOpen] = useState(true);
   const [isPreparedSpellsOpen, setIsPreparedSpellsOpen] = useState(true);
+  const [isSpellbookOpen, setIsSpellbookOpen] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [activeLevelFilter, setActiveLevelFilter] = useState<"all" | number>("all");
   const [activeSourceFilter, setActiveSourceFilter] = useState<string>("all");
@@ -38,6 +42,7 @@ function SpellLibrarySidebar({
     () => getSpellManagementMode(selectedClassIndex),
     [selectedClassIndex],
   );
+  const isWizardSpellbookMode = managementMode === "known";
   const learnedSpellIds = useMemo(
     () => new Set<string>(spellcastingState.learnedSpellIds ?? []),
     [spellcastingState.learnedSpellIds],
@@ -55,21 +60,52 @@ function SpellLibrarySidebar({
 
     return slotLevels.reduce((highestLevel, slot) => Math.max(highestLevel, slot.level), 0);
   }, [spellcastingSummary?.slotLevels]);
-  const classLibrarySpells = useMemo(
+  const baseClassLibrarySpells = useMemo(
     () => getReferenceSpellsForClass(selectedClassIndex, maxSpellLevel),
     [maxSpellLevel, selectedClassIndex],
   );
+  const classLibrarySpells = useMemo(() => {
+    const entriesById = new Map(
+      baseClassLibrarySpells.map((entry) => [entry.id, entry]),
+    );
+
+    for (const entry of spellEntries) {
+      if (entry.spellLevel === null || isPlaceholderSpellChoiceTitle(entry.title)) {
+        continue;
+      }
+
+      const libraryRecord = findSpellLibraryRecordByName(entry.title);
+
+      if (!libraryRecord) {
+        continue;
+      }
+
+      entriesById.set(libraryRecord.id, libraryRecord);
+    }
+
+    return [...entriesById.values()].sort(compareSpellLibraryRecords);
+  }, [baseClassLibrarySpells, spellEntries]);
   const selectedManagedSpells = useMemo(
     () => getManagedSpellEntriesForClass(selectedClassIndex, spellcastingState),
     [selectedClassIndex, spellcastingState],
   );
-  const selectedManagedSpellIds = useMemo(
-    () => new Set(selectedManagedSpells.map((entry) => entry.id)),
-    [selectedManagedSpells],
+  const spellbookEntries = useMemo(
+    () =>
+      isWizardSpellbookMode
+        ? selectedManagedSpells.sort(compareManagedSpellEntries)
+        : [],
+    [isWizardSpellbookMode, selectedManagedSpells],
   );
   const preparedEntries = useMemo(
-    () => selectedManagedSpells.sort(compareManagedSpellEntries),
-    [selectedManagedSpells],
+    () =>
+      selectedManagedSpells
+        .filter((entry) =>
+          isWizardSpellbookMode
+            ? !entry.isCantrip && preparedSpellIds.has(entry.id)
+            : true,
+        )
+        .sort(compareManagedSpellEntries),
+    [isWizardSpellbookMode, preparedSpellIds, selectedManagedSpells],
   );
   const sourceCategories = useMemo(
     () => [
@@ -112,27 +148,36 @@ function SpellLibrarySidebar({
   }, [activeLevelFilter, activeSourceFilter, classLibrarySpells, searchText]);
   const cantripCount = useMemo(
     () =>
-      preparedEntries.filter((entry) => entry.isCantrip).length,
-    [preparedEntries],
+      (isWizardSpellbookMode ? spellbookEntries : preparedEntries).filter((entry) => entry.isCantrip).length,
+    [isWizardSpellbookMode, preparedEntries, spellbookEntries],
   );
   const selectedSpellCount = useMemo(
     () => preparedEntries.filter((entry) => !entry.isCantrip).length,
     [preparedEntries],
   );
+  const knownLeveledSpellCount = useMemo(
+    () => spellbookEntries.filter((entry) => !entry.isCantrip).length,
+    [spellbookEntries],
+  );
+  const preparedSpellLimit = useMemo(
+    () => getPreparedSpellLimit(spellcastingSummary),
+    [spellcastingSummary],
+  );
 
-  function updateSpellSelection(spell: SpellLibraryRecord) {
+  function toggleLibrarySpell(spell: SpellLibraryRecord) {
     const nextLearnedIds = new Set(spellcastingState.learnedSpellIds ?? []);
     const nextPreparedIds = new Set(spellcastingState.preparedSpellIds ?? []);
     const isSelectedAsLearned = nextLearnedIds.has(spell.id);
     const isSelectedAsPrepared = nextPreparedIds.has(spell.id);
 
-    if (spell.level === 0) {
+    if (isWizardSpellbookMode) {
       if (isSelectedAsLearned) {
         nextLearnedIds.delete(spell.id);
+        nextPreparedIds.delete(spell.id);
       } else {
         nextLearnedIds.add(spell.id);
       }
-    } else if (managementMode === "known") {
+    } else if (spell.level === 0) {
       if (isSelectedAsLearned) {
         nextLearnedIds.delete(spell.id);
       } else {
@@ -147,6 +192,21 @@ function SpellLibrarySidebar({
     onSpellcastingStateChange({
       ...spellcastingState,
       learnedSpellIds: [...nextLearnedIds].sort(),
+      preparedSpellIds: [...nextPreparedIds].sort(),
+    });
+  }
+
+  function toggleWizardPreparedSpell(spellId: string) {
+    const nextPreparedIds = new Set(spellcastingState.preparedSpellIds ?? []);
+
+    if (nextPreparedIds.has(spellId)) {
+      nextPreparedIds.delete(spellId);
+    } else if (preparedSpellLimit === null || nextPreparedIds.size < preparedSpellLimit) {
+      nextPreparedIds.add(spellId);
+    }
+
+    onSpellcastingStateChange({
+      ...spellcastingState,
       preparedSpellIds: [...nextPreparedIds].sort(),
     });
   }
@@ -181,7 +241,13 @@ function SpellLibrarySidebar({
           <strong>{selectedClassName.toUpperCase()}</strong>
         </div>
 
-        <div className="inventory-library-shell">
+        <div
+          className={
+            isWizardSpellbookMode
+              ? "inventory-library-shell spells-library-wizard-shell"
+              : "inventory-library-shell"
+          }
+        >
           <section className="inventory-library-group">
             <button
               type="button"
@@ -197,7 +263,9 @@ function SpellLibrarySidebar({
                 <div className="spells-library-copy-grid">
                   <p>Cantrips: {cantripCount}</p>
                   <p>
-                    {managementMode === "known" ? "Known Spells" : "Prepared Spells"}: {selectedSpellCount}
+                    {isWizardSpellbookMode
+                      ? `Prepared Spells: ${selectedSpellCount} (${knownLeveledSpellCount} Known)`
+                      : `Prepared Spells: ${selectedSpellCount}`}
                   </p>
                 </div>
 
@@ -306,7 +374,7 @@ function SpellLibrarySidebar({
                               <button
                                 type="button"
                                 className="inventory-library-add-button"
-                                onClick={() => updateSpellSelection(spell)}
+                                onClick={() => toggleLibrarySpell(spell)}
                               >
                                 {actionLabel}
                               </button>
@@ -314,7 +382,7 @@ function SpellLibrarySidebar({
 
                             {isExpanded ? (
                               <div className="inventory-library-result-expanded">
-                                <p>{formatSpellLibraryDescription(spell) || "No spell description available yet."}</p>
+                                <SpellLibraryDetail spell={spell} />
                               </div>
                             ) : null}
                           </div>
@@ -331,14 +399,24 @@ function SpellLibrarySidebar({
             ) : null}
           </section>
 
-          <section className="inventory-library-group">
+          <section
+            className={
+              isWizardSpellbookMode
+                ? "inventory-library-group spells-library-prepared-group"
+                : "inventory-library-group"
+            }
+          >
             <button
               type="button"
               className="spells-library-section-toggle"
               onClick={() => setIsPreparedSpellsOpen((currentValue) => !currentValue)}
             >
               <strong>
-                {managementMode === "known" ? "Known Spells" : "Prepared Spells"} ({preparedEntries.length})
+                Prepared Spells ({preparedEntries.length}
+                {isWizardSpellbookMode && preparedSpellLimit !== null
+                  ? `/${preparedSpellLimit}`
+                  : ""}
+                )
               </strong>
               <span aria-hidden="true">{isPreparedSpellsOpen ? "^" : "v"}</span>
             </button>
@@ -360,30 +438,34 @@ function SpellLibrarySidebar({
                           type="button"
                           className="inventory-library-add-button"
                           onClick={() => {
-                            const spellRecord = findSpellLibraryRecordByName(entry.title);
+                            if (isWizardSpellbookMode) {
+                              toggleWizardPreparedSpell(entry.id);
+                            } else {
+                              const spellRecord = findSpellLibraryRecordByName(entry.title);
 
-                            updateSpellSelection(
-                              spellRecord ?? {
-                                castingTime: "",
-                                classIndexes: [selectedClassIndex],
-                                components: "",
-                                description: entry.description,
-                                duration: "",
-                                higherLevels: "",
-                                id: entry.id,
-                                level: entry.spellLevel ?? 0,
-                                name: entry.title,
-                                range: "",
-                                ritual: false,
-                                school: "",
-                                sourceCategory: "5.5E Core Rules",
-                                tags: [],
-                                type: "",
-                              },
-                            );
+                              toggleLibrarySpell(
+                                spellRecord ?? {
+                                  castingTime: "",
+                                  classIndexes: [selectedClassIndex],
+                                  components: "",
+                                  description: entry.description,
+                                  duration: "",
+                                  higherLevels: "",
+                                  id: entry.id,
+                                  level: entry.spellLevel ?? 0,
+                                  name: entry.title,
+                                  range: "",
+                                  ritual: false,
+                                  school: "",
+                                  sourceCategory: "5.5E Core Rules",
+                                  tags: [],
+                                  type: "",
+                                },
+                              );
+                            }
                           }}
                         >
-                          {entry.isCantrip || managementMode === "known" ? "Delete" : "Unprepare"}
+                          {isWizardSpellbookMode ? "Unprepare" : entry.isCantrip ? "Delete" : "Unprepare"}
                         </button>
                       </div>
                     </div>
@@ -391,16 +473,133 @@ function SpellLibrarySidebar({
                 ) : (
                   <p className="inventory-library-empty-state">
                     {managementMode === "known"
-                      ? "No known spells are currently selected."
+                      ? "No prepared spells are currently selected."
                       : "No prepared spells are currently selected."}
                   </p>
                 )}
               </div>
             ) : null}
           </section>
+
+          {isWizardSpellbookMode ? (
+            <section className="inventory-library-group spells-library-spellbook-group">
+              <button
+                type="button"
+                className="spells-library-section-toggle"
+                onClick={() => setIsSpellbookOpen((currentValue) => !currentValue)}
+              >
+                <strong>Spellbook ({spellbookEntries.length})</strong>
+                <span aria-hidden="true">{isSpellbookOpen ? "^" : "v"}</span>
+              </button>
+
+              {isSpellbookOpen ? (
+                <div className="inventory-library-result-list">
+                  {spellbookEntries.length > 0 ? (
+                    spellbookEntries.map((entry) => {
+                      const isPrepared = preparedSpellIds.has(entry.id);
+                      const spellRecord = findSpellLibraryRecordByName(entry.title);
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className="inventory-library-result-card spells-library-result-card"
+                        >
+                          <div className="inventory-library-result-main">
+                            <div className="inventory-library-result-copy">
+                              <strong>{entry.title}</strong>
+                              <span>{formatSpellSidebarLevelLabel(entry.spellLevel ?? 0)}</span>
+                            </div>
+                            <div className="spells-library-inline-actions">
+                              {!entry.isCantrip ? (
+                                <button
+                                  type="button"
+                                  className="inventory-library-add-button"
+                                  onClick={() => toggleWizardPreparedSpell(entry.id)}
+                                  disabled={
+                                    !isPrepared &&
+                                    preparedSpellLimit !== null &&
+                                    preparedEntries.length >= preparedSpellLimit
+                                  }
+                                >
+                                  {isPrepared ? "Unprepare" : "Prepare"}
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="inventory-library-add-button"
+                                onClick={() => {
+                                  if (spellRecord) {
+                                    toggleLibrarySpell(spellRecord);
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="inventory-library-empty-state">
+                      No spells are currently written in your spellbook.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       </section>
     </aside>
+  );
+}
+
+function SpellLibraryDetail({ spell }: { spell: SpellLibraryRecord }) {
+  const detailRows = [
+    ["Casting Time", spell.castingTime],
+    ["Range/Area", spell.range],
+    ["Components", spell.components],
+    ["Duration", spell.duration],
+    ["School", spell.school],
+  ].filter(([, value]) => value.length > 0);
+
+  return (
+    <div className="spells-library-detail">
+      <div className="spells-library-detail-heading">
+        <strong>{spell.type || formatSpellSidebarLevelLabel(spell.level)}</strong>
+        {spell.ritual ? <span>Ritual</span> : null}
+      </div>
+
+      {detailRows.length > 0 ? (
+        <dl className="spells-library-detail-list">
+          {detailRows.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {spell.description ? (
+        <div className="spells-library-detail-copy">
+          {spell.description.split(/\n{2,}/).map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
+      ) : (
+        <p className="inventory-library-empty-state">No spell description available yet.</p>
+      )}
+
+      {spell.higherLevels ? (
+        <div className="spells-library-detail-copy spells-library-detail-higher">
+          <p>
+            <strong>Using a Higher-Level Spell Slot.</strong> {spell.higherLevels}
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -419,6 +618,15 @@ function getSpellActionLabel(
   }
 
   return preparedSpellIds.has(spell.id) ? "Unprepare" : "Prepare";
+}
+
+function getPreparedSpellLimit(spellcastingSummary: SpellcastingSummary | null) {
+  const preparedValue = spellcastingSummary?.knownPrepared.find(
+    (entry) => entry.label.toLowerCase().includes("prepared"),
+  )?.value;
+  const parsedValue = preparedValue ? Number.parseInt(preparedValue, 10) : NaN;
+
+  return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
 function formatSpellLevelPillLabel(level: number) {
@@ -458,6 +666,16 @@ function compareManagedSpellEntries(
   right: ReturnType<typeof getManagedSpellEntriesForClass>[number],
 ) {
   return (left.spellLevel ?? 99) - (right.spellLevel ?? 99) || left.title.localeCompare(right.title);
+}
+
+function compareSpellLibraryRecords(left: SpellLibraryRecord, right: SpellLibraryRecord) {
+  return left.level - right.level || left.name.localeCompare(right.name);
+}
+
+function isPlaceholderSpellChoiceTitle(title: string) {
+  const normalizedTitle = title.trim().toLowerCase();
+
+  return normalizedTitle === "cantrip" || normalizedTitle === "spell";
 }
 
 export { SpellLibrarySidebar };

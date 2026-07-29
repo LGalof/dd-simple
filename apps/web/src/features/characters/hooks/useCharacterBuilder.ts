@@ -119,11 +119,18 @@ function createBuilderStateFromOptions(
     level: character.level,
     currentHp: character.currentHp,
     tempHp: character.hitPointState?.tempHp ?? 0,
-    speciesChoices: getSavedSpeciesChoices(character, {
-      speciesIndex:
-        initialSpeciesIndex,
-      speciesOptions: options.speciesOptions,
-    }),
+    speciesChoices: {
+      ...getSavedSpeciesChoices(character, {
+        speciesIndex:
+          initialSpeciesIndex,
+        speciesOptions: options.speciesOptions,
+      }),
+      ...getSavedGenericSpeciesChoices(character, {
+        speciesIndex:
+          initialSpeciesIndex,
+        speciesOptions: options.speciesOptions,
+      }),
+    },
     backgroundChoices: getSavedBackgroundAbilityChoices(character, {
       backgroundIndex: initialBackgroundIndex,
       backgroundOptions: options.backgroundOptions,
@@ -451,6 +458,49 @@ function getSavedSpeciesChoices(
     }
 
     speciesChoices[choiceKey] = choice.selectedIndex;
+  }
+
+  return speciesChoices;
+}
+
+function getSavedGenericSpeciesChoices(
+  character: Character,
+  options: {
+    speciesIndex: string;
+    speciesOptions: SpeciesOption[];
+  },
+) {
+  const speciesOption =
+    options.speciesOptions.find((species) => species.index === options.speciesIndex) ??
+    options.speciesOptions[0];
+  const speciesChoices: Record<string, string> = {};
+
+  if (!speciesOption) {
+    return speciesChoices;
+  }
+
+  for (const choice of character.featureChoices ?? []) {
+    if (choice.sourceType.toUpperCase() !== "SPECIES" || choice.sourceIndex !== options.speciesIndex) {
+      continue;
+    }
+
+    for (const section of speciesOption.previewSections) {
+      const field = section.choiceFields?.find(
+        (choiceField) =>
+          choiceField.sourceType === choice.sourceType &&
+          choiceField.sourceIndex === choice.sourceIndex &&
+          choiceField.choicePath === choice.choicePath,
+      );
+      const option = field?.options.find((candidate) =>
+        savedFeatureChoiceOptionMatches(candidate, choice),
+      );
+
+      if (!field || !option) {
+        continue;
+      }
+
+      speciesChoices[`${options.speciesIndex}:${section.id}:${field.id}`] = option.value;
+    }
   }
 
   return speciesChoices;
@@ -1249,13 +1299,20 @@ function normalizeStringRecord(
     return fallback;
   }
 
-  return Object.fromEntries(
+  const normalized = Object.fromEntries(
     Object.entries(value).flatMap(([key, entryValue]) =>
       typeof key === "string" && typeof entryValue === "string"
         ? [[key, entryValue] as const]
         : [],
     ),
   );
+
+  // Early autosave drafts can be empty while reference data is still loading.
+  // Keep server-hydrated choices unless the draft has a matching replacement.
+  return {
+    ...fallback,
+    ...normalized,
+  };
 }
 
 function getClassOptionByIndex(classIndex: string, options: ClassOption[]) {
@@ -1411,7 +1468,10 @@ function useCharacterBuilder(character: Character | undefined) {
       }
 
       if (persistedDraft) {
-        return normalizePersistedFeatureChoices(persistedDraft.featureChoices);
+        return {
+          ...hydratedFeatureChoices,
+          ...normalizePersistedFeatureChoices(persistedDraft.featureChoices),
+        };
       }
 
       if (hydratedCount > 0 || savedCount === 0) {

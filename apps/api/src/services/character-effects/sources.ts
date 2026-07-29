@@ -33,6 +33,31 @@ type DerivedFeatureChoiceSourceRecord = {
   title?: unknown;
 };
 
+const HERITAGE_SPECIFIC_SPECIES_TRAIT_INDEXES = new Set([
+  "darkvision-120",
+  "fiendish-legacy-abyssal",
+  "fiendish-legacy-chthonic",
+  "fiendish-legacy-infernal",
+  "fiendish-spell-darkness",
+  "fiendish-spell-false-life",
+  "fiendish-spell-hellish-rebuke",
+  "fiendish-spell-hold-person",
+  "fiendish-spell-ray-of-enfeeblement",
+  "fiendish-spell-ray-of-sickness",
+  "gnomish-lineage-forest-gnome",
+  "gnomish-lineage-rock-gnome",
+  "high-elf-cantrip-versatility",
+  "lineage-spell-dancing-lights",
+  "lineage-spell-darkness",
+  "lineage-spell-detect-magic",
+  "lineage-spell-druidcraft",
+  "lineage-spell-faerie-fire",
+  "lineage-spell-longstrider",
+  "lineage-spell-misty-step",
+  "lineage-spell-pass-without-trace",
+  "wood-elf-speed-increase",
+]);
+
 function resolveClassFeatureSources(
   activeFeatureIndexes: string[],
   featureDocuments: RuleDocumentRecord[],
@@ -319,8 +344,11 @@ function getActiveSpeciesTraitIndexes(
   const subspeciesTraitIndexes = (subspeciesSourceJson.traits ?? [])
     .map((trait) => stringValue(trait.index))
     .filter(isPresent);
+  const baseNonHeritageTraitIndexes = baseTraitIndexes.filter(
+    (traitIndex) => !HERITAGE_SPECIFIC_SPECIES_TRAIT_INDEXES.has(traitIndex),
+  );
 
-  return [...new Set([...baseTraitIndexes, ...subspeciesTraitIndexes])];
+  return [...new Set([...baseNonHeritageTraitIndexes, ...subspeciesTraitIndexes])];
 }
 
 function getSelectedFeatIndexes(

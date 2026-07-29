@@ -13,6 +13,90 @@ import type {
 function inferActionEffects(source: ResolvedFeatureSource): CharacterActionEntry[] {
   const normalizedSourceIndex = source.sourceIndex.toLowerCase();
 
+  if (normalizedSourceIndex === "boon-of-combat-prowess") {
+    return [
+      {
+        activationType: "attack",
+        combat: {
+          damage: null,
+          hit: "Miss becomes hit",
+          notes: "Peerless Aim; once used, unavailable until the start of your next turn",
+          range: null,
+          subtitle: "Epic Boon",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:attack`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "boon-of-fate") {
+    return [
+      {
+        activationType: "other",
+        combat: {
+          damage: null,
+          hit: "2d4 bonus or penalty",
+          notes: "Apply to a D20 Test within 60 feet; refreshes on Initiative, Short Rest, or Long Rest",
+          range: "60 ft.",
+          subtitle: "Epic Boon",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:other`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "boon-of-irresistible-offense") {
+    return [
+      {
+        activationType: "attack",
+        combat: {
+          damage: "Increased ability score",
+          hit: "Natural 20",
+          notes: "Bludgeoning, Piercing, and Slashing damage you deal ignores Resistance",
+          range: null,
+          subtitle: "Epic Boon",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:attack`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "boon-of-the-night-spirit") {
+    return [
+      {
+        activationType: "bonus_action",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "While within Dim Light or Darkness, become Invisible until you take an action, Bonus Action, or Reaction",
+          range: null,
+          subtitle: "Epic Boon",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:bonus_action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
   if (normalizedSourceIndex === "barbarian-brutal-strike") {
     return [
       {
@@ -150,6 +234,262 @@ function inferActionEffects(source: ResolvedFeatureSource): CharacterActionEntry
         sourceIndex: source.sourceIndex,
         sourceType: source.sourceType,
         title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "radiance-of-the-dawn") {
+    return [
+      {
+        activationType: "action",
+        combat: {
+          damage: "2d10 + Cleric level Radiant",
+          hit: "Constitution save",
+          notes: "Channel Divinity; dispels magical Darkness in the 30-foot Emanation; save for half damage",
+          range: "30 ft. emanation",
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "corona-of-light") {
+    return [
+      {
+        activationType: "action",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "Bright Light 60 ft., Dim Light +30 ft.; enemies have Disadvantage on saves against Radiance of the Dawn and Fire or Radiant spells",
+          range: "60 ft. bright / 90 ft. total",
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "blessing-of-the-trickster") {
+    return [
+      {
+        activationType: "action",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "Grant Advantage on Dexterity (Stealth) checks until Long Rest or until you use this feature again",
+          range: "30 ft.",
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "invoke-duplicity") {
+    return [
+      {
+        activationType: "bonus_action",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "Expend Channel Divinity; create or move the illusion. Cast from its space and gain Advantage when distracting a nearby target.",
+          range: "30 ft. create / 120 ft. move",
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:bonus_action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "tricksters-transposition") {
+    return [
+      {
+        activationType: "bonus_action",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "When you create or move Invoke Duplicity, swap places with the illusion",
+          range: null,
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:bonus_action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "guided-strike") {
+    return [
+      {
+        activationType: "reaction",
+        combat: {
+          damage: null,
+          hit: "+10 to missed attack roll",
+          notes: "Expend Channel Divinity. Reaction required when benefiting another creature's attack roll.",
+          range: "30 ft.",
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:reaction`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "war-priest") {
+    return [
+      {
+        activationType: "bonus_action",
+        combat: {
+          damage: null,
+          hit: "Weapon or Unarmed Strike",
+          notes: "Make one attack as a Bonus Action; uses tracked separately",
+          range: null,
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:bonus_action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "war-gods-blessing") {
+    return [
+      {
+        activationType: "action",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "Expend Channel Divinity to cast Shield of Faith or Spiritual Weapon without a spell slot or Concentration",
+          range: null,
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "arcane-ward") {
+    return [
+      {
+        activationType: "bonus_action",
+        combat: null,
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:bonus_action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: "Arcane Ward: Restore Ward",
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "projected-ward") {
+    return [
+      {
+        activationType: "reaction",
+        combat: {
+          damage: null,
+          hit: null,
+          notes: "Arcane Ward absorbs damage for a creature you can see",
+          range: "30 ft.",
+          subtitle: "Subclass Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:reaction`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "improved-abjuration") {
+    return [
+      {
+        activationType: "bonus_action",
+        combat: null,
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:bonus_action`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: "Spell Breaker: Dispel Magic",
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "channel-divinity") {
+    return [
+      {
+        activationType: "action",
+        combat: {
+          damage: "1d8 + WIS (scales at Cleric 7, 13, 18)",
+          hit: "Spell save DC",
+          notes: "Constitution save; Necrotic or Radiant damage, save for half. Can heal instead.",
+          range: "30 ft.",
+          subtitle: "Channel Divinity",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:divine-spark`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: "Divine Spark",
+      },
+      {
+        activationType: "action",
+        combat: {
+          damage: null,
+          hit: "Spell save DC",
+          notes: "Wisdom save; failed Undead are Frightened and Incapacitated for 1 minute",
+          range: "30 ft.",
+          subtitle: "Channel Divinity",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:turn-undead`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: "Turn Undead",
       },
     ];
   }

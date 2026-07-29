@@ -1,6 +1,6 @@
 import { CURATED_2024_FEAT_REFERENCES } from "./feats2024.js";
 
-type CuratedFeatureReference = {
+export type CuratedFeatureReference = {
   index: string;
   level: number;
   name: string;
@@ -13,19 +13,19 @@ type CuratedFeatureReference = {
   };
 };
 
-type CuratedLevelReference = {
+export type CuratedLevelReference = {
   index: string;
   level: number;
   features: string[];
 };
 
-type CuratedSubclassFeatureReference = {
+export type CuratedSubclassFeatureReference = {
   name: string;
   level: number;
   description: string;
 };
 
-type CuratedSubclassReference = {
+export type CuratedSubclassReference = {
   index: string;
   name: string;
   subclass_flavor: string;
@@ -34,8 +34,8 @@ type CuratedSubclassReference = {
   features: CuratedSubclassFeatureReference[];
 };
 
-type CuratedSubclassOptionTuple = readonly [string, string];
-type CuratedReferenceTuple = readonly [string, string];
+export type CuratedSubclassOptionTuple = readonly [string, string];
+export type CuratedReferenceTuple = readonly [string, string];
 
 const COMMON_ABILITY_SCORE_OPTIONS = [
   ["str", "Strength"],
