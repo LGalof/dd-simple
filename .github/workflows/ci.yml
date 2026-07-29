@@ -25,6 +25,9 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate --workspace @dd-simple/api
 
+      - name: Build shared
+        run: npm run build --workspace @dd-simple/shared
+
       - name: Build web
         run: npm run build --workspace @dd-simple/web
 
