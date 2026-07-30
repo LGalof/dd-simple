@@ -398,33 +398,6 @@ function normalizeResourceMaximum(
   return trackingMode === "uses" ? 1 : 0;
 }
 
-function getResourceRemaining(
-  resource: ResourceActionSummary,
-  resourceState: CharacterResourceState,
-) {
-  const max = getResourceMaximum(resource, resourceState);
-  const used = resourceState.usageByResourceKey[resource.resourceKey] ?? 0;
-  return Math.max(0, max - used);
-}
-
-function updateResourceUsage(
-  resourceState: CharacterResourceState,
-  resource: ResourceActionSummary,
-  delta: number,
-) {
-  const currentUsage = resourceState.usageByResourceKey[resource.resourceKey] ?? 0;
-  const max = getResourceMaximum(resource, resourceState);
-  const nextUsage = Math.max(0, Math.min(max, currentUsage + delta));
-
-  return {
-    ...resourceState,
-    usageByResourceKey: {
-      ...resourceState.usageByResourceKey,
-      [resource.resourceKey]: nextUsage,
-    },
-  };
-}
-
 function setResourceUsage(
   resourceState: CharacterResourceState,
   resource: ResourceActionSummary,

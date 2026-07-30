@@ -680,7 +680,6 @@ function CharacterDashboardPage() {
               resourceState={resourceState}
               resourceActionSummaries={resourceActionSummaries}
               selectedHeritage={selectedHeritage}
-              selectedSubclassName={selectedSubclass?.name ?? null}
               spellcastingSummary={spellcastingSummary}
               spellcastingState={spellcastingState}
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
@@ -1467,19 +1466,6 @@ function getSelectedSpeciesHeritageIndex(
   const choiceKey = `${species.index}:${species.index}-heritage-choice:heritage`;
 
   return speciesChoices[choiceKey];
-}
-
-function getSelectedClassSubclassIndex(
-  classOption: ClassOption | undefined,
-  featureChoices: Record<string, string>,
-) {
-  if (!classOption?.subclasses?.length) {
-    return undefined;
-  }
-
-  const subclassIndexes = new Set(classOption.subclasses.map((subclassOption) => subclassOption.index));
-
-  return Object.values(featureChoices).find((selectedIndex) => subclassIndexes.has(selectedIndex));
 }
 
 function buildConditionStateFromCharacter(character: Character | undefined): ConditionState {

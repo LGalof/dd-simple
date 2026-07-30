@@ -2318,7 +2318,7 @@ function inferFeatureChoiceKind({
   return "option";
 }
 
-function choiceGroupLabel(choose: number, optionKind: string, fallbackLabel: string) {
+function choiceGroupLabel(choose: number, optionKind: string, _fallbackLabel: string) {
   if (optionKind === "equipment choice") {
     return "Choose starting equipment";
   }

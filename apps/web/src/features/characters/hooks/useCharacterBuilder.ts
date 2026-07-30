@@ -82,14 +82,6 @@ type PersistedCharacterBuilderDraft = {
   version: 2;
 };
 
-function createInitialBuilderState(character: Character): CharacterBuilderState {
-  return createBuilderStateFromOptions(character, {
-    backgroundOptions,
-    classOptions,
-    speciesOptions,
-  });
-}
-
 function createBuilderStateFromOptions(
   character: Character,
   options: {

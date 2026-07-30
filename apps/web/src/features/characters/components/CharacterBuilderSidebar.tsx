@@ -923,10 +923,6 @@ function formatFeatureMeta(feature: ClassFeature, selectedChoices: Record<string
   return parts.join(" - ");
 }
 
-function isFeatureComplete(feature: ClassFeature, selectedChoices: Record<string, string>) {
-  return isFeatureChoiceComplete(feature, selectedChoices);
-}
-
 function isFeatureChoiceComplete(feature: ClassFeature, selectedChoices: Record<string, string>) {
   const visibleChoiceFields = getVisibleChoiceFieldsForSelection(
     feature.id,

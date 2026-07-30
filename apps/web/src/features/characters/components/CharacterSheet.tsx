@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { ActionsTab } from "./character-sheet/ActionsTab";
 import { FeaturesTab } from "./character-sheet/FeaturesTab";
@@ -48,12 +48,8 @@ import {
   getManagedSpellEntriesForClass,
   inferSpellActionActivationType,
   isAttackRollSpell,
-  type SpellLibraryRecord,
 } from "../utils/spellLibrary";
-import {
-  deriveReferenceEquipmentEffects,
-  itemRequiresAttunement,
-} from "../utils/inventoryReferenceEffects";
+import { deriveReferenceEquipmentEffects } from "../utils/inventoryReferenceEffects";
 
 type CharacterSheetProps = {
   activeTab: WorkspaceTab;
@@ -79,7 +75,6 @@ type CharacterSheetProps = {
   selectedBackground: BackgroundOption;
   selectedClass: ClassOption;
   selectedSpecies: SpeciesOption;
-  selectedSubclassName?: string | null;
   speciesChoices: Record<string, string>;
   spellcastingSummary: SpellcastingSummary | null;
   spellcastingState: CharacterSpellcastingState;
@@ -276,7 +271,6 @@ function CharacterSheet({
   selectedBackground,
   selectedClass,
   selectedSpecies,
-  selectedSubclassName,
   speciesChoices,
   spellcastingSummary,
   spellcastingState,
@@ -293,7 +287,6 @@ function CharacterSheet({
   const [spellSearchText, setSpellSearchText] = useState("");
   const [hitPointAmountInput, setHitPointAmountInput] = useState("");
   const [tempHpInput, setTempHpInput] = useState("");
-  const equippedItems = character.inventory.filter((item) => item.equipped);
   const liveEquippedInventoryItems = useMemo(
     () => inventoryController.items.filter((item) => item.location === "equipped"),
     [inventoryController.items],
@@ -407,12 +400,10 @@ function CharacterSheet({
   const dexterityScore = abilityScoreMap.get("dex")?.score ?? 10;
   const strengthScore = abilityScoreMap.get("str")?.score ?? 10;
   const constitutionScore = abilityScoreMap.get("con")?.score ?? 10;
-  const wisdomScore = abilityScoreMap.get("wis")?.score ?? 10;
   const charismaScore = abilityScoreMap.get("cha")?.score ?? 10;
   const dexterityModifier = abilityModifier(dexterityScore);
   const strengthModifier = abilityModifier(strengthScore);
   const constitutionModifier = abilityModifier(constitutionScore);
-  const wisdomModifier = abilityModifier(wisdomScore);
   const charismaModifier = abilityModifier(charismaScore);
   const previewArmorClassBonusDelta = useMemo(
     () => liveEquippedItemEffectTotals.armorClassBonus - persistedEquippedItemEffectTotals.armorClassBonus,
@@ -451,10 +442,6 @@ function CharacterSheet({
   const featureChoiceEffects = useMemo(
     () => getFeatureChoiceEffects(resolvedFeatureChoices, character.level),
     [character.level, resolvedFeatureChoices],
-  );
-  const activeCombatOptionIndexes = useMemo(
-    () => getActiveCombatOptionIndexes(featureChoiceEffects, derivedState?.activeSources ?? []),
-    [derivedState?.activeSources, featureChoiceEffects],
   );
   const skillCheckHalfProficiencyBonusMultiplier = Math.max(
     derivedState?.stats.skillCheckHalfProficiencyBonusMultiplier ?? 0,
@@ -514,7 +501,6 @@ function CharacterSheet({
       skillCheckHalfProficiencyBonusMultiplier,
     ],
   );
-  const sizeLabel = useMemo(() => getCreatureSize(character.species.name), [character.species.name]);
   const saveProficiencies = getSavingThrowProficiencyIndexes(
     character,
     featureChoiceEffects,
@@ -741,18 +727,6 @@ function CharacterSheet({
     () =>
       backgroundSectionEntries.filter((section) => section.selections.length > 0),
     [backgroundSectionEntries],
-  );
-  const characterOverviewRows = useMemo(
-    () =>
-      [
-        { label: "Species", value: character.species.name },
-        selectedHeritage ? { label: "Heritage", value: selectedHeritage.name } : null,
-        { label: "Class", value: character.class.name },
-        selectedSubclassName ? { label: "Subclass", value: selectedSubclassName } : null,
-        { label: "Background", value: character.background.name },
-        { label: "Size", value: sizeLabel },
-      ].filter((entry): entry is { label: string; value: string } => entry !== null),
-    [character.background.name, character.class.name, character.species.name, selectedHeritage, selectedSubclassName, sizeLabel],
   );
   const spellEntriesForDisplay = useMemo(
     () => {
@@ -1908,19 +1882,6 @@ function formatOrdinal(value: number) {
   }
 }
 
-function getCreatureSize(speciesName: string) {
-  switch (speciesName.toLowerCase()) {
-    case "halfling":
-      return "Small";
-    case "dwarf":
-    case "human":
-    case "elf":
-    case "tiefling":
-    default:
-      return "Medium";
-  }
-}
-
 function getSavingThrowProficiencyIndexes(
   character: Character,
   effects?: FeatureChoiceEffectSummary,
@@ -2070,21 +2031,6 @@ function getDerivedSourceSenseDetails(sources: CharacterDerivedSource[]) {
   });
 
   return uniqueTrainingValues(senseMatches);
-}
-
-function getActionSubtitle(action: CharacterActionEntry) {
-  const sourceLabel =
-    action.sourceType === "class_feature"
-      ? "Class Feature"
-      : action.sourceType === "subclass_feature"
-        ? "Subclass Feature"
-        : action.sourceType === "item"
-          ? "Equipped Item"
-          : "Species Trait";
-  const activationLabel = formatActivationLabel(action.activationType);
-  const levelLabel = action.level ? `Level ${action.level}` : null;
-
-  return [activationLabel, sourceLabel, levelLabel].filter(isPresent).join(" - ");
 }
 
 function getReadableActionSubtitle(action: CharacterActionEntry) {
@@ -2318,25 +2264,6 @@ function formatActivationLabel(activationType: ActionActivationType) {
     case "other":
     default:
       return "Other";
-  }
-}
-
-function formatActionFilterLabel(filter: ActionFilter) {
-  if (filter === "all") {
-    return "All Actions";
-  }
-
-  return formatActivationLabel(filter);
-}
-
-function formatEquipmentSlotLabel(slotId: string) {
-  switch (slotId) {
-    case "mainHand":
-      return "Main Hand";
-    case "offHand":
-      return "Off Hand";
-    default:
-      return slotId.charAt(0).toUpperCase() + slotId.slice(1);
   }
 }
 
@@ -2912,17 +2839,6 @@ function getCombatOptionIndex(
   }
 
   return (reference?.index ?? reference?.name ?? null)?.toLowerCase().replace(/[^a-z0-9-]+/g, "-") ?? null;
-}
-
-function getActiveCombatOptionIndexes(
-  effects: FeatureChoiceEffectSummary,
-  activeSources: CharacterDerivedSource[],
-) {
-  return new Set([
-    ...effects.featIndexes,
-    ...effects.combatOptionIndexes,
-    ...activeSources.map((source) => source.sourceIndex.toLowerCase()),
-  ]);
 }
 
 function canonicalSkillIndex(value: string | null | undefined) {

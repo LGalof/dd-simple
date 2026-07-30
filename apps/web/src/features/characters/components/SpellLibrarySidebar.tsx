@@ -4,7 +4,6 @@ import type { CharacterSpellEntry } from "../../../types/characterDerived";
 import type { SpellcastingSummary } from "./CharacterSheet";
 import {
   findSpellLibraryRecordByName,
-  formatSpellLibraryDescription,
   getManagedSpellEntriesForClass,
   getReferenceSpellsForClass,
   getSpellManagementMode,
