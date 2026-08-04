@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:4000";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.DEV ? "http://127.0.0.1:4000" : "");
 
 type RequestOptions = {
   keepalive?: boolean;
@@ -112,8 +114,13 @@ async function fetchApi(path: string, init: RequestInit) {
   try {
     return await fetch(`${API_BASE_URL}${path}`, init);
   } catch {
+    const target = API_BASE_URL || window.location.origin;
+    const help = import.meta.env.DEV
+      ? "In a VS Code terminal, run .\\.tools\\node22\\npm.cmd run dev and keep it open."
+      : "Check that the Render API service is running and that VITE_API_BASE_URL points to it if the frontend is deployed separately.";
+
     throw new Error(
-      `API server is unreachable at ${API_BASE_URL}. In a VS Code terminal, run .\\.tools\\node22\\npm.cmd run dev and keep it open.`,
+      `API server is unreachable at ${target}. ${help}`,
     );
   }
 }
