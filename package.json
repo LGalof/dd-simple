@@ -12,6 +12,7 @@
     "postinstall": "npm run prisma:generate --workspace @dd-simple/api && node scripts/render-postinstall.mjs",
     "dev:web": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-web.ps1",
     "dev:api": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-api.ps1",
+    "db:copy:render": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/copy-local-db-to-render.ps1",
     "audit:class-feature-choices": "npm --workspace @dd-simple/api run audit:class-feature-choices"
   }
 }
