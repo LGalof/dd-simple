@@ -24,7 +24,7 @@ if ($RenderDatabaseUrl -notmatch "sslmode=") {
 }
 
 $containerName = "dd-simple-postgres"
-$localDatabaseUrl = "postgresql://ddsimple:ddsimple@localhost:5432/ddsimple?schema=public"
+$localDatabaseUrl = "postgresql://ddsimple:ddsimple@localhost:5432/ddsimple"
 
 docker inspect $containerName *> $null
 
