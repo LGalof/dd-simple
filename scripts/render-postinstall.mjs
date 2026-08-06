@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
 
 console.log("Running Prisma migrations for Render deployment...");
 
-const result = spawnSync(
+const migrationResult = spawnSync(
   "npm",
   ["--workspace", "@dd-simple/api", "run", "prisma:migrate:deploy"],
   {
@@ -23,4 +23,19 @@ const result = spawnSync(
   },
 );
 
-process.exit(result.status ?? 1);
+if (migrationResult.status !== 0) {
+  process.exit(migrationResult.status ?? 1);
+}
+
+console.log("Seeding D&D reference data for Render deployment...");
+
+const seedResult = spawnSync(
+  "npm",
+  ["--workspace", "@dd-simple/api", "run", "prisma:seed"],
+  {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  },
+);
+
+process.exit(seedResult.status ?? 1);
