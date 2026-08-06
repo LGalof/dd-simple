@@ -14,6 +14,19 @@ if (!process.env.DATABASE_URL) {
 
 console.log("Running Prisma migrations for Render deployment...");
 
+const repairResult = spawnSync(
+  "node",
+  ["scripts/repair-render-migrations.mjs"],
+  {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  },
+);
+
+if (repairResult.status !== 0) {
+  process.exit(repairResult.status ?? 1);
+}
+
 const migrationResult = spawnSync(
   "npm",
   ["--workspace", "@dd-simple/api", "run", "prisma:migrate:deploy"],

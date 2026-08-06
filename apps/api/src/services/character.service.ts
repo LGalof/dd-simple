@@ -205,6 +205,28 @@ const fallbackSpeciesLanguageIndexes: Record<string, string[]> = {
   tiefling: ["common", "infernal"],
 };
 
+const referenceLanguageNames: Record<string, string> = {
+  abyssal: "Abyssal",
+  celestial: "Celestial",
+  common: "Common",
+  "common-sign-language": "Common Sign Language",
+  "deep-speech": "Deep Speech",
+  draconic: "Draconic",
+  druidic: "Druidic",
+  dwarvish: "Dwarvish",
+  elvish: "Elvish",
+  giant: "Giant",
+  gnomish: "Gnomish",
+  goblin: "Goblin",
+  halfling: "Halfling",
+  infernal: "Infernal",
+  orc: "Orc",
+  primordial: "Primordial",
+  sylvan: "Sylvan",
+  "thieves-cant": "Thieves' Cant",
+  undercommon: "Undercommon",
+};
+
 async function attachCharacterRuntimeState<T extends { id: string }>(
   executor: Prisma.TransactionClient | typeof prisma,
   character: T | null,
@@ -1696,7 +1718,29 @@ async function replaceSpeciesLanguageChoicesAndRows(
     );
 
     if (missingLanguageIndexes.length > 0) {
-      throw new CharacterReferenceNotFoundError("Language not found");
+      const unsupportedLanguageIndexes = missingLanguageIndexes.filter(
+        (languageIndex) => !referenceLanguageNames[languageIndex],
+      );
+
+      if (unsupportedLanguageIndexes.length > 0) {
+        throw new CharacterReferenceNotFoundError("Language not found");
+      }
+
+      // Reference data is normally created by the seed script. Restore any
+      // known language rows here as a safeguard for databases deployed before
+      // the language-reference migration was added.
+      for (const languageIndex of missingLanguageIndexes) {
+        await tx.refLanguage.upsert({
+          where: {
+            index: languageIndex,
+          },
+          update: {},
+          create: {
+            index: languageIndex,
+            name: referenceLanguageNames[languageIndex],
+          },
+        });
+      }
     }
   }
 
