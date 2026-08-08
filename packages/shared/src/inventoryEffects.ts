@@ -14,6 +14,8 @@ type SharedReferenceEquipmentEffects = {
   damageBonus: number;
   resistances: string[];
   savingThrowBonus: number;
+  spellAttackBonus: number;
+  spellSaveDcBonus: number;
   speedPenalty: number;
   strengthMinimum: number | null;
 };
@@ -76,6 +78,7 @@ function deriveReferenceEquipmentEffects(referenceItem: SharedEquipmentLike): Sh
   const armorClassBonus = deriveArmorClassBonus(referenceItem, normalizedName);
   const attackBonus = deriveAttackBonus(normalizedName, description);
   const damageBonus = deriveDamageBonus(normalizedName, description);
+  const spellcastingBonus = deriveSpellcastingBonus(description);
 
   return {
     armorClassBonus,
@@ -84,6 +87,8 @@ function deriveReferenceEquipmentEffects(referenceItem: SharedEquipmentLike): Sh
     damageBonus,
     resistances: deriveResistanceTargets(description),
     savingThrowBonus: deriveSavingThrowBonus(normalizedName),
+    spellAttackBonus: spellcastingBonus.spellAttackBonus,
+    spellSaveDcBonus: spellcastingBonus.spellSaveDcBonus,
     speedPenalty: 0,
     strengthMinimum: deriveStrengthMinimum(normalizedName),
   };
@@ -106,61 +111,77 @@ function deriveArmorClassBonus(referenceItem: SharedEquipmentLike, normalizedNam
     referenceItem.sourceJson && typeof referenceItem.sourceJson === "object"
       ? (referenceItem.sourceJson as Record<string, unknown>)
       : null;
+  const description = extractEquipmentDescription(referenceItem);
+  const normalizedDescription = description.toLowerCase();
   const armorClass =
     sourceJson?.armor_class && typeof sourceJson.armor_class === "object"
       ? (sourceJson.armor_class as Record<string, unknown>)
       : null;
   const baseArmorClass = typeof armorClass?.base === "number" ? armorClass.base : null;
+  const shieldBonus = parseNamedMagicBonus(normalizedName, "shield");
 
-  if (baseArmorClass !== null) {
-    if (normalizedName.includes("shield")) {
-      return baseArmorClass;
-    }
-
-    return Math.max(0, baseArmorClass - 10);
+  if (shieldBonus > 0) {
+    return 2 + shieldBonus;
   }
 
-  if (normalizedName.includes("shield +1")) {
-    return 3;
+  if (normalizedName.includes("shield")) {
+    return 2;
+  }
+
+  if (baseArmorClass !== null) {
+    return Math.max(0, baseArmorClass - 10);
   }
 
   if (
     normalizedName.includes("ring of protection") ||
-    normalizedName.includes("cloak of protection") ||
-    normalizedName.includes("armor +1")
+    normalizedName.includes("cloak of protection")
   ) {
     return 1;
   }
 
-  return 0;
+  return (
+    parseDescriptionBonus(normalizedDescription, "armor class") ||
+    parseNamedMagicBonus(normalizedName, "armor")
+  );
 }
 
 function deriveAttackBonus(normalizedName: string, description: string) {
   const normalizedDescription = description.toLowerCase();
 
-  if (
-    normalizedName.includes("weapon +1") ||
-    normalizedName.includes("ammunition, +1") ||
-    normalizedDescription.includes("+1 bonus to attack rolls")
-  ) {
-    return 1;
+  const namedBonus =
+    parseNamedMagicBonus(normalizedName, "weapon") ||
+    parseNamedMagicBonus(normalizedName, "ammunition");
+
+  if (namedBonus > 0) {
+    return namedBonus;
   }
 
-  return 0;
+  return parseWeaponAttackBonus(normalizedDescription);
 }
 
 function deriveDamageBonus(normalizedName: string, description: string) {
   const normalizedDescription = description.toLowerCase();
 
-  if (
-    normalizedName.includes("weapon +1") ||
-    normalizedName.includes("ammunition, +1") ||
-    normalizedDescription.includes("+1 bonus to attack rolls and damage rolls")
-  ) {
-    return 1;
+  const namedBonus =
+    parseNamedMagicBonus(normalizedName, "weapon") ||
+    parseNamedMagicBonus(normalizedName, "ammunition");
+
+  if (namedBonus > 0) {
+    return namedBonus;
   }
 
-  return 0;
+  return parseWeaponDamageBonus(normalizedDescription);
+}
+
+function deriveSpellcastingBonus(description: string) {
+  const normalizedDescription = description.toLowerCase();
+  const attackMatch = normalizedDescription.match(/\+(\d+)\s+bonus to spell attack rolls/);
+  const dcMatch = normalizedDescription.match(/\+(\d+)\s+bonus to [^.]*saving throw dcs?/);
+
+  return {
+    spellAttackBonus: attackMatch ? Number.parseInt(attackMatch[1] ?? "0", 10) : 0,
+    spellSaveDcBonus: dcMatch ? Number.parseInt(dcMatch[1] ?? "0", 10) : 0,
+  };
 }
 
 function deriveWeaponDamage(referenceItem: SharedEquipmentLike, normalizedName: string) {
@@ -193,7 +214,7 @@ function deriveWeaponDamage(referenceItem: SharedEquipmentLike, normalizedName: 
     return damageTypeName ? `${damageDice} ${damageTypeName.toLowerCase()}` : damageDice;
   }
 
-  if (normalizedName.includes("weapon +1")) {
+  if (parseNamedMagicBonus(normalizedName, "weapon") > 0) {
     return "1d6";
   }
 
@@ -237,12 +258,43 @@ function deriveStrengthMinimum(normalizedName: string) {
   return null;
 }
 
+function parseNamedMagicBonus(normalizedName: string, itemName: string) {
+  const escapedItemName = itemName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = normalizedName.match(new RegExp(`\\b${escapedItemName}\\b[^+]*\\+(\\d+)\\b`));
+
+  return match ? Number.parseInt(match[1] ?? "0", 10) : 0;
+}
+
+function parseDescriptionBonus(normalizedDescription: string, target: string) {
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = normalizedDescription.match(new RegExp(`\\+(\\d+)\\s+bonus to [^.]*${escapedTarget}`));
+
+  return match ? Number.parseInt(match[1] ?? "0", 10) : 0;
+}
+
+function parseWeaponAttackBonus(normalizedDescription: string) {
+  const match = normalizedDescription.match(/\+(\d+)\s+bonus to attack rolls\b/);
+
+  return match ? Number.parseInt(match[1] ?? "0", 10) : 0;
+}
+
+function parseWeaponDamageBonus(normalizedDescription: string) {
+  const combinedMatch = normalizedDescription.match(
+    /\+(\d+)\s+bonus to attack rolls and damage rolls\b/,
+  );
+  const damageOnlyMatch = normalizedDescription.match(/\+(\d+)\s+bonus to damage rolls\b/);
+  const match = combinedMatch ?? damageOnlyMatch;
+
+  return match ? Number.parseInt(match[1] ?? "0", 10) : 0;
+}
+
 function buildReferenceEquipmentEffectLines(
   referenceItem: SharedEquipmentLike,
   effects: SharedReferenceEquipmentEffects,
 ) {
   const lines: string[] = [];
   const requiresAttunement = itemRequiresAttunement(referenceItem);
+  const normalizedName = referenceItem.name.trim().toLowerCase();
 
   if (requiresAttunement) {
     lines.push("Requires attunement to grant its magical benefits.");
@@ -274,8 +326,24 @@ function buildReferenceEquipmentEffectLines(
     lines.push(`Grants +${effects.savingThrowBonus} to saving throws.`);
   }
 
+  if (effects.spellAttackBonus > 0) {
+    lines.push(`Grants +${effects.spellAttackBonus} to spell attack rolls.`);
+  }
+
+  if (effects.spellSaveDcBonus > 0) {
+    lines.push(`Grants +${effects.spellSaveDcBonus} to spell save DCs.`);
+  }
+
   if (effects.resistances.length > 0) {
     lines.push(`Grants resistance to ${effects.resistances.join(", ")} damage.`);
+  }
+
+  if (normalizedName.includes("mantle of spell resistance")) {
+    lines.push("Grants advantage on saving throws against spells.");
+  }
+
+  if (normalizedName.includes("serpent scale armor")) {
+    lines.push("Allows your full Dexterity modifier for Armor Class and does not impose Stealth disadvantage.");
   }
 
   if (effects.strengthMinimum !== null) {

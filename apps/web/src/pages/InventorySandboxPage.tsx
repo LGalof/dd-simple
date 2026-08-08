@@ -2319,6 +2319,11 @@ function InventoryDetailsContent({
         <div>
           <span className="inventory-sidebar-summary-label">Selected Item</span>
           <strong>{selectedItem?.name ?? "Nothing selected"}</strong>
+          {selectedItem && getSelectedItemReferenceDescription(selectedItem) && (
+            <p className="inventory-sidebar-summary-description">
+              {getSelectedItemReferenceDescription(selectedItem)}
+            </p>
+          )}
           <p>{selectedItem ? `${selectedItem.kind} · ${selectedItem.rarity}` : "Choose an equipped or stored item."}</p>
         </div>
         {selectedItem && (
@@ -3225,14 +3230,25 @@ function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): Equipme
     text.includes("dagger") ||
     text.includes("bow") ||
     text.includes("crossbow") ||
-    text.includes("blowgun") ||
-    text.includes("sling") ||
-    text.includes("javelin") ||
-    text.includes("spear") ||
-    text.includes("staff") ||
-    text.includes("wand") ||
-    text.includes("rod")
-  ) {
+      text.includes("blowgun") ||
+      text.includes("sling") ||
+      text.includes("club") ||
+      text.includes("dart") ||
+      text.includes("flail") ||
+      text.includes("glaive") ||
+      text.includes("halberd") ||
+      text.includes("javelin") ||
+      text.includes("lance") ||
+      text.includes("maul") ||
+      text.includes("morningstar") ||
+      text.includes("pike") ||
+      text.includes("spear") ||
+      text.includes("staff") ||
+      text.includes("trident") ||
+      text.includes("whip") ||
+      text.includes("wand") ||
+      text.includes("rod")
+    ) {
     return "mainHand";
   }
 
@@ -3370,12 +3386,26 @@ function inferReferenceLibraryType(referenceItem: ReferenceEquipment): Inventory
     text.includes("axe") ||
     text.includes("hammer") ||
     text.includes("mace") ||
-    text.includes("dagger") ||
-    text.includes("bow") ||
-    text.includes("crossbow") ||
-    text.includes("blowgun") ||
-    text.includes("sling")
-  ) {
+      text.includes("dagger") ||
+      text.includes("bow") ||
+      text.includes("crossbow") ||
+      text.includes("blowgun") ||
+      text.includes("sling") ||
+      text.includes("club") ||
+      text.includes("dart") ||
+      text.includes("flail") ||
+      text.includes("glaive") ||
+      text.includes("halberd") ||
+      text.includes("javelin") ||
+      text.includes("lance") ||
+      text.includes("maul") ||
+      text.includes("morningstar") ||
+      text.includes("pike") ||
+      text.includes("spear") ||
+      text.includes("staff") ||
+      text.includes("trident") ||
+      text.includes("whip")
+    ) {
     return "weapon";
   }
 

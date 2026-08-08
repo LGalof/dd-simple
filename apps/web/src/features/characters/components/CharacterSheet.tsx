@@ -405,17 +405,23 @@ function CharacterSheet({
   const strengthModifier = abilityModifier(strengthScore);
   const constitutionModifier = abilityModifier(constitutionScore);
   const charismaModifier = abilityModifier(charismaScore);
-  const previewArmorClassBonusDelta = useMemo(
-    () => liveEquippedItemEffectTotals.armorClassBonus - persistedEquippedItemEffectTotals.armorClassBonus,
-    [liveEquippedItemEffectTotals.armorClassBonus, persistedEquippedItemEffectTotals.armorClassBonus],
+  const nonInventoryArmorClassBonus = useMemo(
+    () =>
+      Math.max(
+        0,
+        (derivedState?.stats.armorClassBonus ?? 0) -
+          persistedEquippedItemEffectTotals.armorClassBonus,
+      ),
+    [derivedState?.stats.armorClassBonus, persistedEquippedItemEffectTotals.armorClassBonus],
   );
-  const previewNonBodyArmorClassBonusDelta = useMemo(
-    () => liveEquippedItemEffectTotals.nonBodyArmorClassBonus - persistedEquippedItemEffectTotals.nonBodyArmorClassBonus,
-    [liveEquippedItemEffectTotals.nonBodyArmorClassBonus, persistedEquippedItemEffectTotals.nonBodyArmorClassBonus],
-  );
-  const previewSavingThrowBonusDelta = useMemo(
-    () => liveEquippedItemEffectTotals.savingThrowBonus - persistedEquippedItemEffectTotals.savingThrowBonus,
-    [liveEquippedItemEffectTotals.savingThrowBonus, persistedEquippedItemEffectTotals.savingThrowBonus],
+  const nonInventorySavingThrowBonus = useMemo(
+    () =>
+      Math.max(
+        0,
+        (derivedState?.stats.savingThrowBonus ?? 0) -
+          persistedEquippedItemEffectTotals.savingThrowBonus,
+      ),
+    [derivedState?.stats.savingThrowBonus, persistedEquippedItemEffectTotals.savingThrowBonus],
   );
   const equippedSpeedPenalty = useMemo(
     () =>
@@ -515,8 +521,8 @@ function CharacterSheet({
       total:
         modifier +
         (hasSaveProficiency ? proficiencyBonus : 0) +
-        (derivedState?.stats.savingThrowBonus ?? 0) +
-        previewSavingThrowBonusDelta,
+        nonInventorySavingThrowBonus +
+        liveEquippedItemEffectTotals.savingThrowBonus,
     };
   });
   const passiveStats = [
@@ -559,10 +565,10 @@ function CharacterSheet({
         charismaModifier,
         constitutionModifier,
         dexterityModifier,
-        derivedArmorClassBonus: derivedState?.stats.armorClassBonus ?? 0,
+        derivedArmorClassBonus: nonInventoryArmorClassBonus,
         mode: derivedState?.stats.armorClassMode ?? "base",
-        nonBodyArmorClassBonus: previewNonBodyArmorClassBonusDelta,
-        equippedArmorClassBonus: previewArmorClassBonusDelta,
+        nonBodyArmorClassBonus: liveEquippedItemEffectTotals.nonBodyArmorClassBonus,
+        equippedArmorClassBonus: liveEquippedItemEffectTotals.armorClassBonus,
         isBodyArmorEquipped,
       }),
     [
@@ -570,11 +576,11 @@ function CharacterSheet({
       charismaModifier,
       constitutionModifier,
       dexterityModifier,
-      derivedState?.stats.armorClassBonus,
       derivedState?.stats.armorClassMode,
-      previewArmorClassBonusDelta,
+      liveEquippedItemEffectTotals.armorClassBonus,
+      liveEquippedItemEffectTotals.nonBodyArmorClassBonus,
       isBodyArmorEquipped,
-      previewNonBodyArmorClassBonusDelta,
+      nonInventoryArmorClassBonus,
     ],
   );
   const spellEntries = derivedState?.spells ?? [];

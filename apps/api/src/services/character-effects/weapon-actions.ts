@@ -3,6 +3,7 @@ import type {
   CharacterDerivedStats,
   ResolvedFeatureSource,
 } from "./types.js";
+import { deriveReferenceEquipmentEffects } from "@dd-simple/shared";
 
 type EquippedInventoryItem = {
   customName?: string | null;
@@ -29,6 +30,8 @@ type CharacterProficiency = {
   };
 };
 
+type WeaponKind = "bow" | "crossbow" | "dagger" | "finesseMelee" | "ranged" | "simpleMelee" | "sling";
+
 function deriveWeaponActionEntries(options: {
   abilityScores: CharacterAbilityScore[];
   activeSources: ResolvedFeatureSource[];
@@ -43,7 +46,7 @@ function deriveWeaponActionEntries(options: {
     Math.max(getAbilityScore(abilityScores, "str"), stats.strengthMinimum ?? 0),
   );
   const weaponProficiencies = proficiencies.map((entry) => entry.proficiency.name);
-  const attackItems = inventory.filter((item) => isAttackItem(item.equipment.name));
+  const attackItems = inventory.filter(isAttackItem);
   const attackItemNames = attackItems.map((item) => item.customName?.trim() || item.equipment.name);
   const activeSourceIndexes = new Set(
     activeSources.map((source) => source.sourceIndex.toLowerCase()),
@@ -71,6 +74,7 @@ function deriveWeaponActionEntries(options: {
     const itemName = item.customName?.trim() || item.equipment.name;
     const profile = getAttackProfile({
       dexterityModifier,
+      item,
       itemName,
       proficiencyBonus: stats.proficiencyBonus,
       rangedAttackBonus: stats.rangedAttackBonus,
@@ -230,6 +234,7 @@ function createPsychicBladeBonusAction(options: {
 
 function getAttackProfile(options: {
   dexterityModifier: number;
+  item: EquippedInventoryItem;
   itemName: string;
   proficiencyBonus: number;
   rangedAttackBonus: number;
@@ -238,6 +243,7 @@ function getAttackProfile(options: {
 }) {
   const {
     dexterityModifier,
+    item,
     itemName,
     proficiencyBonus,
     rangedAttackBonus,
@@ -248,6 +254,7 @@ function getAttackProfile(options: {
   const weaponKind = getWeaponKind(normalizedName) ?? "simpleMelee";
   const isProficient = hasWeaponProficiency(normalizedName, weaponKind, weaponProficiencies);
   const archeryBonus = isRangedWeaponKind(weaponKind) ? rangedAttackBonus : 0;
+  const sourceRange = extractWeaponRange(item);
 
   if (weaponKind === "bow") {
     return {
@@ -256,7 +263,7 @@ function getAttackProfile(options: {
       damage: `1d6 ${formatInlineModifier(dexterityModifier)}`,
       damageModifier: dexterityModifier,
       notes: "Ranged weapon",
-      range: normalizedName.includes("longbow") ? "150/600 ft." : "80/320 ft.",
+      range: sourceRange ?? (normalizedName.includes("longbow") ? "150/600 ft." : "80/320 ft."),
       type: "Ranged Attack",
     };
   }
@@ -268,7 +275,7 @@ function getAttackProfile(options: {
       damage: `1d6 ${formatInlineModifier(dexterityModifier)}`,
       damageModifier: dexterityModifier,
       notes: "Ranged weapon",
-      range: normalizedName.includes("hand") ? "30/120 ft." : "80/320 ft.",
+      range: sourceRange ?? (normalizedName.includes("hand") ? "30/120 ft." : "80/320 ft."),
       type: "Ranged Attack",
     };
   }
@@ -282,7 +289,7 @@ function getAttackProfile(options: {
       damage: `1d4 ${formatInlineModifier(modifier)}`,
       damageModifier: modifier,
       notes: "Finesse, light, thrown",
-      range: "20/60 ft.",
+      range: sourceRange ?? "20/60 ft.",
       type: "Melee / Thrown",
     };
   }
@@ -308,7 +315,19 @@ function getAttackProfile(options: {
       damage: `1d4 ${formatInlineModifier(dexterityModifier)}`,
       damageModifier: dexterityModifier,
       notes: "Ranged weapon",
-      range: "30/120 ft.",
+      range: sourceRange ?? "30/120 ft.",
+      type: "Ranged Attack",
+    };
+  }
+
+  if (weaponKind === "ranged") {
+    return {
+      ability: "dex" as const,
+      attackBonus: dexterityModifier + (isProficient ? proficiencyBonus : 0) + archeryBonus,
+      damage: `1d4 ${formatInlineModifier(dexterityModifier)}`,
+      damageModifier: dexterityModifier,
+      notes: "Ranged weapon",
+      range: sourceRange ?? "30/120 ft.",
       type: "Ranged Attack",
     };
   }
@@ -325,77 +344,35 @@ function getAttackProfile(options: {
 }
 
 function getItemCombatModifiers(item: EquippedInventoryItem) {
-  const normalizedName = (item.customName?.trim() || item.equipment.name).toLowerCase();
-  const description = extractEquipmentDescription(item).toLowerCase();
-  const sourceJson =
-    item.equipment.sourceJson && typeof item.equipment.sourceJson === "object"
-      ? (item.equipment.sourceJson as Record<string, unknown>)
-      : null;
-  const damage =
-    sourceJson?.damage && typeof sourceJson.damage === "object"
-      ? (sourceJson.damage as Record<string, unknown>)
-      : null;
-  const damageDice =
-    typeof damage?.damage_dice === "string"
-      ? damage.damage_dice
-      : typeof damage?.damageDice === "string"
-        ? damage.damageDice
-        : "";
-  const damageType =
-    damage?.damage_type && typeof damage.damage_type === "object"
-      ? (damage.damage_type as Record<string, unknown>)
-      : null;
-  const damageTypeName =
-    typeof damageType?.name === "string"
-      ? damageType.name
-      : typeof damage?.damageType === "string"
-        ? damage.damageType
-        : "";
+  const effects = deriveReferenceEquipmentEffects({
+    description:
+      typeof item.notes === "string" && item.notes.trim().length > 0
+        ? item.notes.trim()
+        : item.equipment.description ?? null,
+    name: item.customName?.trim() || item.equipment.name,
+    sourceJson: item.equipment.sourceJson,
+  });
 
   return {
-    attackBonus:
-      normalizedName.includes("weapon +1") ||
-      normalizedName.includes("ammunition, +1") ||
-      description.includes("+1 bonus to attack rolls")
-        ? 1
-        : 0,
-    damage: damageDice ? `${damageDice}${damageTypeName ? ` ${damageTypeName.toLowerCase()}` : ""}` : "",
-    damageBonus:
-      normalizedName.includes("weapon +1") ||
-      normalizedName.includes("ammunition, +1") ||
-      description.includes("+1 bonus to attack rolls and damage rolls")
-        ? 1
-        : 0,
+    attackBonus: effects.attackBonus,
+    damage: effects.damage,
+    damageBonus: effects.damageBonus,
   };
 }
 
-function extractEquipmentDescription(item: EquippedInventoryItem) {
-  if (typeof item.notes === "string" && item.notes.trim().length > 0) {
-    return item.notes.trim();
+function isAttackItem(item: EquippedInventoryItem) {
+  const itemName = item.customName?.trim() || item.equipment.name;
+  const normalizedItemType = item.equipment.itemType?.trim().toLowerCase() ?? "";
+  const normalizedName = itemName.toLowerCase();
+
+  if (normalizedName.includes("shield")) {
+    return false;
   }
 
-  if (typeof item.equipment.description === "string" && item.equipment.description.trim().length > 0) {
-    return item.equipment.description.trim();
-  }
-
-  const sourceJson =
-    item.equipment.sourceJson && typeof item.equipment.sourceJson === "object"
-      ? (item.equipment.sourceJson as Record<string, unknown>)
-      : null;
-  const desc = sourceJson?.desc;
-
-  if (Array.isArray(desc)) {
-    return desc.filter((entry): entry is string => typeof entry === "string").join(" ");
-  }
-
-  return typeof desc === "string" ? desc : "";
+  return normalizedItemType.includes("weapon") || getWeaponKind(normalizedName) !== null;
 }
 
-function isAttackItem(name: string) {
-  return getWeaponKind(name.toLowerCase()) !== null;
-}
-
-function getWeaponKind(normalizedName: string) {
+function getWeaponKind(normalizedName: string): WeaponKind | null {
   if (normalizedName.includes("shield")) {
     return null;
   }
@@ -414,10 +391,29 @@ function getWeaponKind(normalizedName: string) {
   if (normalizedName.includes("sling")) {
     return "sling";
   }
+  if (["blowgun", "dart", "net"].some((keyword) => normalizedName.includes(keyword))) {
+    return "ranged";
+  }
   if (
-    ["sword", "warhammer", "hammer", "mace", "axe", "staff", "club", "spear"].some((keyword) =>
-      normalizedName.includes(keyword),
-    )
+    [
+      "sword",
+      "warhammer",
+      "hammer",
+      "mace",
+      "axe",
+      "staff",
+      "club",
+      "spear",
+      "flail",
+      "glaive",
+      "halberd",
+      "javelin",
+      "lance",
+      "maul",
+      "morningstar",
+      "pike",
+      "trident",
+    ].some((keyword) => normalizedName.includes(keyword))
   ) {
     return "simpleMelee";
   }
@@ -427,34 +423,114 @@ function getWeaponKind(normalizedName: string) {
 
 function hasWeaponProficiency(
   normalizedName: string,
-  weaponKind: string,
+  weaponKind: WeaponKind,
   weaponProficiencies: string[],
 ) {
   const proficiencies = weaponProficiencies.map((entry) => entry.toLowerCase());
+  const hasSimpleWeaponTraining = proficiencies.some((entry) => entry.includes("simple weapon"));
+  const hasMartialWeaponTraining = proficiencies.some((entry) => entry.includes("martial weapon"));
 
   if (proficiencies.some((entry) => normalizedName.includes(entry) || entry.includes(normalizedName))) {
     return true;
   }
-  if (
-    ["dagger", "sling", "bow", "crossbow", "simpleMelee"].includes(weaponKind) &&
-    proficiencies.some((entry) => entry.includes("simple weapon"))
-  ) {
+  if (hasSimpleWeaponTraining && isSimpleWeaponName(normalizedName, weaponKind)) {
     return true;
   }
-  if (
-    ["finesseMelee"].includes(weaponKind) &&
-    proficiencies.some((entry) => entry.includes("martial weapon"))
-  ) {
-    return true;
-  }
-  if (
-    normalizedName.includes("warhammer") &&
-    proficiencies.some((entry) => entry.includes("martial weapon"))
-  ) {
+  if (hasMartialWeaponTraining && isMartialWeaponName(normalizedName)) {
     return true;
   }
 
   return false;
+}
+
+function isSimpleWeaponName(normalizedName: string, weaponKind: WeaponKind) {
+  return [
+    "club",
+    "dagger",
+    "dart",
+    "greatclub",
+    "handaxe",
+    "javelin",
+    "light hammer",
+    "mace",
+    "quarterstaff",
+    "shortbow",
+    "sickle",
+    "sling",
+    "spear",
+  ].some((keyword) => normalizedName.includes(keyword)) ||
+    (weaponKind === "simpleMelee" && !isMartialWeaponName(normalizedName));
+}
+
+function isMartialWeaponName(normalizedName: string) {
+  return [
+    "battleaxe",
+    "blowgun",
+    "flail",
+    "glaive",
+    "greataxe",
+    "greatsword",
+    "halberd",
+    "hand crossbow",
+    "heavy crossbow",
+    "lance",
+    "longbow",
+    "longsword",
+    "maul",
+    "morningstar",
+    "pike",
+    "rapier",
+    "scimitar",
+    "shortsword",
+    "trident",
+    "war pick",
+    "warhammer",
+    "whip",
+  ].some((keyword) => normalizedName.includes(keyword));
+}
+
+function extractWeaponRange(item: EquippedInventoryItem) {
+  const sourceJson =
+    item.equipment.sourceJson && typeof item.equipment.sourceJson === "object"
+      ? (item.equipment.sourceJson as Record<string, unknown>)
+      : null;
+
+  if (!sourceJson) {
+    return null;
+  }
+
+  const range = sourceJson.range && typeof sourceJson.range === "object"
+    ? (sourceJson.range as Record<string, unknown>)
+    : null;
+  const normalRange =
+    typeof range?.normal === "number"
+      ? range.normal
+      : typeof range?.normalRange === "number"
+        ? range.normalRange
+        : null;
+  const longRange =
+    typeof range?.long === "number"
+      ? range.long
+      : typeof range?.longRange === "number"
+        ? range.longRange
+        : null;
+
+  if (normalRange !== null && longRange !== null) {
+    return `${normalRange}/${longRange} ft.`;
+  }
+
+  if (normalRange !== null) {
+    return `${normalRange} ft.`;
+  }
+
+  const rangeText =
+    typeof sourceJson.range === "string"
+      ? sourceJson.range
+      : typeof sourceJson.rangeText === "string"
+        ? sourceJson.rangeText
+        : "";
+
+  return rangeText.trim().length > 0 ? rangeText.trim() : null;
 }
 
 function getAbilityScore(abilityScores: CharacterAbilityScore[], abilityIndex: string) {
@@ -519,7 +595,7 @@ function isSneakAttackEligibleProfile(profile: {
 }
 
 function isRangedWeaponKind(weaponKind: ReturnType<typeof getWeaponKind> | "simpleMelee") {
-  return weaponKind === "bow" || weaponKind === "crossbow" || weaponKind === "sling";
+  return weaponKind === "bow" || weaponKind === "crossbow" || weaponKind === "sling" || weaponKind === "ranged";
 }
 
 function isRangedWeaponName(name: string) {

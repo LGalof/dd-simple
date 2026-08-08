@@ -65,6 +65,18 @@ type CuratedClassOverride = {
   subclassReferences: readonly CuratedSubclassReference[];
 };
 
+type ExtraReferenceEquipmentSeed = {
+  costQuantity?: number | null;
+  costUnit?: string | null;
+  description: string;
+  equipmentCategory: string;
+  index: string;
+  itemType: string;
+  name: string;
+  sourceJson: AnyRecord;
+  weight?: number | null;
+};
+
 const SUPPORTED_CLASS_INDEXES = new Set(["barbarian", "bard", "cleric", "rogue", "wizard"]);
 
 function isSupportedClassIndex(index: string | null | undefined) {
@@ -1491,6 +1503,35 @@ async function seedEquipment() {
   }
 }
 
+async function upsertExtraReferenceEquipment(item: ExtraReferenceEquipmentSeed) {
+  await prisma.refEquipment.upsert({
+    where: {
+      index: item.index,
+    },
+    update: {
+      name: item.name,
+      equipmentCategory: item.equipmentCategory,
+      itemType: item.itemType,
+      costQuantity: item.costQuantity ?? null,
+      costUnit: item.costUnit ?? null,
+      weight: item.weight ?? null,
+      description: item.description,
+      sourceJson: sourceJson(item.sourceJson),
+    },
+    create: {
+      index: item.index,
+      name: item.name,
+      equipmentCategory: item.equipmentCategory,
+      itemType: item.itemType,
+      costQuantity: item.costQuantity ?? null,
+      costUnit: item.costUnit ?? null,
+      weight: item.weight ?? null,
+      description: item.description,
+      sourceJson: sourceJson(item.sourceJson),
+    },
+  });
+}
+
 async function seedCuratedOglMagicItems() {
   console.log("Seeding curated OGL magic items into RefEquipment...");
 
@@ -1530,6 +1571,247 @@ async function seedCuratedOglMagicItems() {
         sourceJson: sourceJson(item),
       },
     });
+  }
+
+  const extraReferenceEquipment: ExtraReferenceEquipmentSeed[] = [
+    {
+      index: "shield",
+      name: "Shield",
+      equipmentCategory: "armor",
+      itemType: "Shield",
+      costQuantity: 10,
+      costUnit: "gp",
+      weight: 6,
+      description: "Shield. While equipped in one hand, this shield grants a +2 bonus to Armor Class.",
+      sourceJson: {
+        index: "shield",
+        name: "Shield",
+        equipment_category: { index: "armor", name: "Armor" },
+        armor_category: "Shield",
+        armor_class: { base: 2, dex_bonus: false },
+        cost: { quantity: 10, unit: "gp" },
+        weight: 6,
+        source: "5E Core Rules",
+        desc: ["Shield. While equipped in one hand, this shield grants a +2 bonus to Armor Class."],
+      },
+    },
+    {
+      index: "shield-1",
+      name: "Shield +1",
+      equipmentCategory: "armor",
+      itemType: "Shield",
+      weight: 6,
+      description: "Shield, uncommon. While equipped in one hand, this magic shield grants a +3 bonus to Armor Class.",
+      sourceJson: {
+        index: "shield-1",
+        name: "Shield +1",
+        equipment_category: { index: "armor", name: "Armor" },
+        armor_category: "Shield",
+        armor_class: { base: 3, dex_bonus: false },
+        rarity: { name: "Uncommon" },
+        source: "5E Core Rules",
+        weight: 6,
+        desc: ["Shield, uncommon. While equipped in one hand, this magic shield grants a +3 bonus to Armor Class."],
+      },
+    },
+    {
+      index: "shield-2",
+      name: "Shield +2",
+      equipmentCategory: "armor",
+      itemType: "Shield",
+      weight: 6,
+      description: "Shield, rare. While equipped in one hand, this magic shield grants a +4 bonus to Armor Class.",
+      sourceJson: {
+        index: "shield-2",
+        name: "Shield +2",
+        equipment_category: { index: "armor", name: "Armor" },
+        armor_category: "Shield",
+        armor_class: { base: 4, dex_bonus: false },
+        rarity: { name: "Rare" },
+        source: "5E Core Rules",
+        weight: 6,
+        desc: ["Shield, rare. While equipped in one hand, this magic shield grants a +4 bonus to Armor Class."],
+      },
+    },
+    {
+      index: "cloak-of-protection",
+      name: "Cloak of Protection",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item, uncommon (requires attunement). While you wear this cloak, you gain a +1 bonus to Armor Class and saving throws.",
+      sourceJson: {
+        index: "cloak-of-protection",
+        name: "Cloak of Protection",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Uncommon" },
+        attunement: true,
+        source: "Dungeon Master's Guide",
+        desc: [
+          "Wondrous item, uncommon (requires attunement). While you wear this cloak, you gain a +1 bonus to Armor Class and saving throws.",
+        ],
+      },
+    },
+    {
+      index: "arcane-grimoire",
+      name: "Arcane Grimoire",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item (requires attunement by a wizard). This leather-bound book can serve as a spellcasting focus and spellbook for your Wizard spells.",
+      sourceJson: {
+        index: "arcane-grimoire",
+        name: "Arcane Grimoire",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Common" },
+        attunement: true,
+        source: "Tasha's Cauldron of Everything",
+        desc: [
+          "Wondrous item (requires attunement by a wizard). This leather-bound book can serve as a spellcasting focus and spellbook for your Wizard spells.",
+        ],
+      },
+    },
+    {
+      index: "arcane-grimoire-1",
+      name: "Arcane Grimoire +1",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item, uncommon (requires attunement by a wizard). While holding this book, you gain a +1 bonus to spell attack rolls and the saving throw DCs of your Wizard spells. It can also serve as your spellbook and spellcasting focus.",
+      sourceJson: {
+        index: "arcane-grimoire-1",
+        name: "Arcane Grimoire +1",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Uncommon" },
+        attunement: true,
+        source: "Tasha's Cauldron of Everything",
+        desc: [
+          "Wondrous item, uncommon (requires attunement by a wizard). While holding this book, you gain a +1 bonus to spell attack rolls and the saving throw DCs of your Wizard spells. It can also serve as your spellbook and spellcasting focus.",
+        ],
+      },
+    },
+    {
+      index: "arcane-grimoire-2",
+      name: "Arcane Grimoire +2",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item, rare (requires attunement by a wizard). While holding this book, you gain a +2 bonus to spell attack rolls and the saving throw DCs of your Wizard spells. It can also serve as your spellbook and spellcasting focus.",
+      sourceJson: {
+        index: "arcane-grimoire-2",
+        name: "Arcane Grimoire +2",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Rare" },
+        attunement: true,
+        source: "Tasha's Cauldron of Everything",
+        desc: [
+          "Wondrous item, rare (requires attunement by a wizard). While holding this book, you gain a +2 bonus to spell attack rolls and the saving throw DCs of your Wizard spells. It can also serve as your spellbook and spellcasting focus.",
+        ],
+      },
+    },
+    {
+      index: "amulet-of-the-devout",
+      name: "Amulet of the Devout",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item (requires attunement by a cleric or paladin). This holy symbol can serve as a spellcasting focus for divine magic.",
+      sourceJson: {
+        index: "amulet-of-the-devout",
+        name: "Amulet of the Devout",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Common" },
+        attunement: true,
+        source: "Tasha's Cauldron of Everything",
+        desc: [
+          "Wondrous item (requires attunement by a cleric or paladin). This holy symbol can serve as a spellcasting focus for divine magic.",
+        ],
+      },
+    },
+    {
+      index: "amulet-of-the-devout-1",
+      name: "Amulet of the Devout +1",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item, uncommon (requires attunement by a cleric or paladin). While wearing this holy symbol, you gain a +1 bonus to spell attack rolls and the saving throw DCs of your spells. You can also regain one use of Channel Divinity once until the next dawn.",
+      sourceJson: {
+        index: "amulet-of-the-devout-1",
+        name: "Amulet of the Devout +1",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Uncommon" },
+        attunement: true,
+        source: "Tasha's Cauldron of Everything",
+        desc: [
+          "Wondrous item, uncommon (requires attunement by a cleric or paladin). While wearing this holy symbol, you gain a +1 bonus to spell attack rolls and the saving throw DCs of your spells. You can also regain one use of Channel Divinity once until the next dawn.",
+        ],
+      },
+    },
+    {
+      index: "amulet-of-the-devout-2",
+      name: "Amulet of the Devout +2",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item, rare (requires attunement by a cleric or paladin). While wearing this holy symbol, you gain a +2 bonus to spell attack rolls and the saving throw DCs of your spells. You can also regain one use of Channel Divinity once until the next dawn.",
+      sourceJson: {
+        index: "amulet-of-the-devout-2",
+        name: "Amulet of the Devout +2",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Rare" },
+        attunement: true,
+        source: "Tasha's Cauldron of Everything",
+        desc: [
+          "Wondrous item, rare (requires attunement by a cleric or paladin). While wearing this holy symbol, you gain a +2 bonus to spell attack rolls and the saving throw DCs of your spells. You can also regain one use of Channel Divinity once until the next dawn.",
+        ],
+      },
+    },
+    {
+      index: "mantle-of-spell-resistance",
+      name: "Mantle of Spell Resistance",
+      equipmentCategory: "wondrous-items",
+      itemType: "Wondrous Item",
+      description:
+        "Wondrous item, rare (requires attunement). While wearing this mantle, you have advantage on saving throws against spells.",
+      sourceJson: {
+        index: "mantle-of-spell-resistance",
+        name: "Mantle of Spell Resistance",
+        equipment_category: { index: "wondrous-items", name: "Wondrous Items" },
+        rarity: { name: "Rare" },
+        attunement: true,
+        source: "Dungeon Master's Guide",
+        desc: [
+          "Wondrous item, rare (requires attunement). While wearing this mantle, you have advantage on saving throws against spells.",
+        ],
+      },
+    },
+    {
+      index: "serpent-scale-armor",
+      name: "Serpent Scale Armor",
+      equipmentCategory: "armor",
+      itemType: "Armor",
+      weight: 45,
+      description:
+        "Armor (scale mail), uncommon. While wearing this magic armor, your base Armor Class is 14 plus your full Dexterity modifier, and the armor does not impose disadvantage on Dexterity (Stealth) checks.",
+      sourceJson: {
+        index: "serpent-scale-armor",
+        name: "Serpent Scale Armor",
+        equipment_category: { index: "armor", name: "Armor" },
+        armor_category: "Medium",
+        armor_class: { base: 14, dex_bonus: true, max_bonus: null },
+        stealth_disadvantage: false,
+        rarity: { name: "Uncommon" },
+        source: "Candlekeep Mysteries",
+        weight: 45,
+        desc: [
+          "Armor (scale mail), uncommon. While wearing this magic armor, your base Armor Class is 14 plus your full Dexterity modifier, and the armor does not impose disadvantage on Dexterity (Stealth) checks.",
+        ],
+      },
+    },
+  ];
+
+  for (const item of extraReferenceEquipment) {
+    await upsertExtraReferenceEquipment(item);
   }
 
   await prisma.refEquipment.upsert({

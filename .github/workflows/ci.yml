@@ -6,8 +6,25 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ddsimple
+          POSTGRES_PASSWORD: ddsimple
+          POSTGRES_DB: ddsimple_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ddsimple -d ddsimple_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ddsimple:ddsimple@localhost:5432/ddsimple_ci
 
     steps:
       - name: Checkout repository
@@ -22,8 +39,20 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Validate Prisma schema
+        run: npx prisma validate --schema apps/api/prisma/schema.prisma
+
       - name: Generate Prisma client
         run: npm run prisma:generate --workspace @dd-simple/api
+
+      - name: Verify database migrations
+        run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+
+      - name: Test api
+        run: npm --workspace @dd-simple/api run test
+
+      - name: Test web
+        run: npm --workspace @dd-simple/web run test
 
       - name: Build shared
         run: npm run build --workspace @dd-simple/shared

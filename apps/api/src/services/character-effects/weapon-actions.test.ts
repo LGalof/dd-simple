@@ -71,6 +71,156 @@ test("deriveWeaponActionEntries adds active Rage damage to Strength melee attack
   assert.equal(warhammer?.combat?.notes, "Weapon attack • Rage +3 damage");
 });
 
+test("deriveWeaponActionEntries uses reference weapon data for ranged equipment", () => {
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [
+      {
+        abilityIndex: "dex",
+        score: 16,
+      },
+    ],
+    activeSources: [],
+    characterLevel: 5,
+    inventory: [
+      {
+        customName: null,
+        equipmentIndex: "blowgun",
+        notes: null,
+        equipment: {
+          description: null,
+          index: "blowgun",
+          itemType: "weapon",
+          name: "Blowgun",
+          sourceJson: {
+            damage: {
+              damage_dice: "1",
+              damage_type: {
+                name: "Piercing",
+              },
+            },
+            range: {
+              long: 100,
+              normal: 25,
+            },
+          },
+        },
+      },
+    ],
+    proficiencies: [
+      {
+        proficiency: {
+          index: "martial-weapons",
+          name: "Martial Weapons",
+        },
+      },
+    ],
+    stats: createBaseDerivedStats(5),
+  });
+
+  const blowgun = actions.find((action) => action.title === "Blowgun");
+
+  assert.equal(blowgun?.activationType, "attack");
+  assert.equal(blowgun?.combat?.hit, "+6");
+  assert.equal(blowgun?.combat?.range, "25/100 ft.");
+  assert.equal(blowgun?.combat?.subtitle, "Ranged Attack");
+});
+
+test("deriveWeaponActionEntries applies magic weapon attack and damage bonuses", () => {
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [
+      {
+        abilityIndex: "str",
+        score: 16,
+      },
+    ],
+    activeSources: [],
+    characterLevel: 4,
+    inventory: [
+      {
+        customName: null,
+        equipmentIndex: "longsword-plus-one",
+        notes: null,
+        equipment: {
+          description: "You have a +1 bonus to attack rolls and damage rolls made with this magic weapon.",
+          index: "longsword-plus-one",
+          itemType: "weapon",
+          name: "Longsword +1",
+          sourceJson: {
+            damage: {
+              damage_dice: "1d8",
+              damage_type: {
+                name: "Slashing",
+              },
+            },
+          },
+        },
+      },
+    ],
+    proficiencies: [
+      {
+        proficiency: {
+          index: "martial-weapons",
+          name: "Martial Weapons",
+        },
+      },
+    ],
+    stats: createBaseDerivedStats(4),
+  });
+
+  const longsword = actions.find((action) => action.title === "Longsword +1");
+
+  assert.equal(longsword?.combat?.hit, "+6");
+  assert.equal(longsword?.combat?.damage, "1d8 + 4");
+});
+
+test("deriveWeaponActionEntries applies higher magic weapon bonuses", () => {
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [
+      {
+        abilityIndex: "str",
+        score: 16,
+      },
+    ],
+    activeSources: [],
+    characterLevel: 4,
+    inventory: [
+      {
+        customName: null,
+        equipmentIndex: "longsword-plus-two",
+        notes: null,
+        equipment: {
+          description: "You have a +2 bonus to attack rolls and damage rolls made with this magic weapon.",
+          index: "longsword-plus-two",
+          itemType: "weapon",
+          name: "Longsword +2",
+          sourceJson: {
+            damage: {
+              damage_dice: "1d8",
+              damage_type: {
+                name: "Slashing",
+              },
+            },
+          },
+        },
+      },
+    ],
+    proficiencies: [
+      {
+        proficiency: {
+          index: "martial-weapons",
+          name: "Martial Weapons",
+        },
+      },
+    ],
+    stats: createBaseDerivedStats(4),
+  });
+
+  const longsword = actions.find((action) => action.title === "Longsword +2");
+
+  assert.equal(longsword?.combat?.hit, "+7");
+  assert.equal(longsword?.combat?.damage, "1d8 + 5");
+});
+
 test("deriveWeaponActionEntries adds Soulknife Psychic Blade attacks", () => {
   const actions = deriveWeaponActionEntries({
     abilityScores: [
