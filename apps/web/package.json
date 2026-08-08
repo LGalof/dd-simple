@@ -7,7 +7,7 @@
     "dev": "node ../../node_modules/vite/bin/vite.js",
     "build": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.app.json && node ../../node_modules/vite/bin/vite.js build",
     "preview": "node ../../node_modules/vite/bin/vite.js preview",
-    "test": "vitest run --environment jsdom"
+    "test": "npm --prefix ../.. --workspace @dd-simple/shared run build && vitest run --environment jsdom"
   },
   "dependencies": {
     "lucide-react": "^1.14.0",
