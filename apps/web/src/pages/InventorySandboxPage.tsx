@@ -117,6 +117,7 @@ type NewItemForm = {
 
 type SavedInventoryState = {
   containers: InventoryContainer[];
+  itemSizeVersion?: number;
   items: InventoryItem[];
   selectedItemId: string;
   updatedAt?: number;
@@ -161,6 +162,7 @@ type BackendCharacterInventoryItem = Awaited<ReturnType<typeof fetchCharacterInv
 const inventoryStorageKey = "dd-simple.inventory-sandbox.v1";
 const inventoryDashboardStoragePrefix = "dd-simple.character-inventory.v1";
 const inventoryBackendAutosaveDelayMs = 1200;
+const inventoryItemSizeVersion = 2;
 const defaultAttunementLimit = 3;
 const inventoryDragScrollEdge = 88;
 const inventoryDragScrollMaxSpeed = 18;
@@ -648,6 +650,7 @@ function useInventorySandboxController(
 
     const state: SavedInventoryState = {
       containers,
+      itemSizeVersion: inventoryItemSizeVersion,
       items,
       selectedItemId,
       updatedAt: Date.now(),
@@ -736,6 +739,7 @@ function useInventorySandboxController(
         const nextItems = backendItems.map(mapBackendInventoryItemToGridItem);
         const fallbackState: SavedInventoryState = {
           containers: initialContainers,
+          itemSizeVersion: inventoryItemSizeVersion,
           items: nextItems,
           selectedItemId: nextItems[0]?.id ?? "",
           updatedAt: Date.now(),
@@ -772,6 +776,7 @@ function useInventorySandboxController(
       .filter((item): item is CharacterInventorySaveItem => Boolean(item));
     const stateToSave: SavedInventoryState = {
       containers,
+      itemSizeVersion: inventoryItemSizeVersion,
       items,
       selectedItemId,
       updatedAt: Date.now(),
@@ -934,6 +939,7 @@ function useInventorySandboxController(
   function exportShareCode() {
     const state: SavedInventoryState = {
       containers,
+      itemSizeVersion: inventoryItemSizeVersion,
       items,
       selectedItemId,
       updatedAt: Date.now(),
@@ -1315,12 +1321,13 @@ function useInventorySandboxController(
     const stackable = kind === "consumable";
     const maxStack = stackable ? 10 : 1;
     const effects = deriveReferenceEquipmentEffects(referenceItem);
+    const itemSize = inferReferenceItemSize(referenceItem);
     const baseItem: InventoryItem = {
       id: `ref-item-${secureRandomId()}`,
       name: referenceItem.name,
       kind,
-      width: inferReferenceItemWidth(referenceItem),
-      height: inferReferenceItemHeight(referenceItem),
+      width: itemSize.width,
+      height: itemSize.height,
       location: container.id,
       x: 0,
       y: 0,
@@ -3331,6 +3338,7 @@ function InventoryGrid({
               selectedItemId === item.id ? "inventory-item-selected" : "",
               mergeTargetId === item.id ? "inventory-item-merge-target" : "",
               item.rotated ? "inventory-item-rotated" : "",
+              getItemHeight(item) === 1 && getItemWidth(item) > 1 ? "inventory-item-flat" : "",
             ]
               .filter(Boolean)
               .join(" ")}
@@ -3439,6 +3447,7 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
   const kind = inferReferenceItemKind(referenceItem);
   const equipmentSlot = inferReferenceEquipmentSlot(referenceItem);
   const effects = deriveReferenceEquipmentEffects(referenceItem);
+  const itemSize = inferReferenceItemSize(referenceItem);
 
   return {
     armorClassBonus: effects.armorClassBonus,
@@ -3447,7 +3456,7 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
     damage: kind === "weapon" ? effects.damage || "1d6" : "",
     equipmentSlot,
     equippedSlot: item.equipped ? equipmentSlot : undefined,
-    height: inferReferenceItemHeight(referenceItem),
+    height: itemSize.height,
     id: item.id,
     kind,
     location: item.equipped && equipmentSlot ? "equipped" : "inventory",
@@ -3463,7 +3472,7 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
     value: item.equipment.costQuantity ?? 0,
     valueUnit: item.equipment.costUnit ?? "gp",
     weight: Number(item.equipment.weight ?? 1),
-    width: inferReferenceItemWidth(referenceItem),
+    width: itemSize.width,
     x: item.gridX ?? 0,
     y: item.gridY ?? 0,
   };
@@ -3672,6 +3681,7 @@ function inferReferenceItemKind(referenceItem: ReferenceEquipment): ItemKind {
 }
 
 function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): EquipmentSlotId | undefined {
+  const name = referenceItem.name.toLowerCase();
   const text = `${referenceItem.name} ${referenceItem.equipmentCategory ?? ""} ${referenceItem.itemType ?? ""}`.toLowerCase();
 
   if (text.includes("shield")) {
@@ -3720,7 +3730,7 @@ function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): Equipme
     return "hands";
   }
 
-  if (text.includes("ring")) {
+  if (includesWord(name, "ring")) {
     return "accessory1";
   }
 
@@ -3742,41 +3752,201 @@ function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): Equipme
   return undefined;
 }
 
-function inferReferenceItemWidth(referenceItem: ReferenceEquipment) {
+function inferReferenceItemSize(referenceItem: ReferenceEquipment) {
+  const name = referenceItem.name.toLowerCase();
+  const text = `${name} ${referenceItem.equipmentCategory ?? ""} ${referenceItem.itemType ?? ""}`.toLowerCase();
   const type = inferReferenceLibraryType(referenceItem);
-
-  if (type === "weapon") {
-    return 1;
-  }
+  const weight =
+    typeof referenceItem.weight === "number" && Number.isFinite(referenceItem.weight)
+      ? Math.max(0, referenceItem.weight)
+      : 0;
 
   if (type === "armor") {
-    return 2;
+    if (name.includes("shield")) {
+      return { width: 2, height: 2 };
+    }
+
+    if (
+      text.includes("light-armor") ||
+      name.includes("leather") ||
+      name.includes("padded") ||
+      name.includes("hide armor")
+    ) {
+      return { width: 2, height: 2 };
+    }
+
+    return { width: 2, height: 3 };
   }
 
   if (isReferenceEquipmentContainer(referenceItem)) {
-    return 3;
+    if (includesAny(name, ["barrel", "basket", "bucket", "chest", "crate"])) {
+      return { width: 3, height: 2 };
+    }
+
+    if (
+      name.endsWith(" pack") ||
+      includesAny(name, [
+        "burglar's pack",
+        "diplomat's pack",
+        "dungeoneer's pack",
+        "entertainer's pack",
+        "explorer's pack",
+        "priest's pack",
+        "scholar's pack",
+        "bag of holding",
+      ])
+    ) {
+      return { width: 3, height: 2 };
+    }
+
+    if (includesAny(name, ["case", "pouch", "quiver", "sack"])) {
+      return { width: 1, height: 2 };
+    }
+
+    return { width: 2, height: 2 };
   }
 
-  return 1;
+  if (type === "potion" || type === "ring") {
+    return { width: 1, height: 1 };
+  }
+
+  if (type === "scroll" || type === "wand" || type === "rod") {
+    return { width: 1, height: 2 };
+  }
+
+  if (type === "staff") {
+    return { width: 1, height: 3 };
+  }
+
+  if (text.includes("ammunition")) {
+    return includesAny(name, ["arrow", "bolt"])
+      ? { width: 1, height: 2 }
+      : { width: 1, height: 1 };
+  }
+
+  if (type === "weapon") {
+    if (
+      includesAny(name, [
+        "glaive",
+        "greataxe",
+        "greatclub",
+        "greatsword",
+        "halberd",
+        "heavy crossbow",
+        "lance",
+        "maul",
+        "pike",
+      ])
+    ) {
+      return { width: 2, height: 3 };
+    }
+
+    if (
+      includesAny(name, [
+        "blowgun",
+        "javelin",
+        "light crossbow",
+        "longbow",
+        "longsword",
+        "musket",
+        "polearm",
+        "quarterstaff",
+        "shortbow",
+        "spear",
+        "trident",
+      ])
+    ) {
+      return { width: 1, height: 3 };
+    }
+
+    if (includesAny(name, ["ammunition", "dagger", "dart", "needle", "pistol", "sling"])) {
+      return { width: 1, height: 1 };
+    }
+
+    return weight >= 5
+      ? { width: 2, height: 2 }
+      : { width: 1, height: 2 };
+  }
+
+  if (name.includes("robe")) {
+    return { width: 2, height: 3 };
+  }
+
+  if (includesAny(name, ["blanket", "cloak", "clothes", "costume", "mantle"])) {
+    return { width: 2, height: 2 };
+  }
+
+  if (includesAny(name, ["boot", "gauntlet", "glove"])) {
+    return { width: 2, height: 1 };
+  }
+
+  if (includesAny(name, ["bagpipes", "drum", "dulcimer", "lute", "lyre", "viol"])) {
+    return { width: 2, height: 2 };
+  }
+
+  if (includesAny(name, ["flute", "horn", "pan flute", "shawm"])) {
+    return { width: 1, height: 2 };
+  }
+
+  if (text.includes("tools") || includesAny(name, ["kit", "supplies", "utensils"])) {
+    return weight >= 5
+      ? { width: 2, height: 2 }
+      : { width: 2, height: 1 };
+  }
+
+  if (includesAny(name, ["ladder", "pole", "shovel"])) {
+    return { width: 1, height: 3 };
+  }
+
+  if (includesAny(name, ["bedroll", "hunting trap", "portable ram", "tent"])) {
+    return { width: 3, height: 2 };
+  }
+
+  if (includesAny(name, ["block and tackle", "chain", "grappling hook", "manacles", "net", "rope"])) {
+    return { width: 2, height: 2 };
+  }
+
+  if (includesAny(name, ["book", "spellbook"])) {
+    return { width: 2, height: 2 };
+  }
+
+  if (includesAny(name, ["crowbar", "lamp", "lantern", "torch"])) {
+    return { width: 1, height: 2 };
+  }
+
+  if (includesAny(name, ["bottle", "flask", "jug", "waterskin"])) {
+    return { width: 1, height: 2 };
+  }
+
+  if (weight >= 15) {
+    return { width: 3, height: 2 };
+  }
+
+  if (weight >= 5) {
+    return { width: 2, height: 2 };
+  }
+
+  if (weight >= 1.5) {
+    return { width: 2, height: 1 };
+  }
+
+  return { width: 1, height: 1 };
+}
+
+function includesAny(text: string, keywords: string[]) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function includesWord(text: string, word: string) {
+  return text.split(/[^a-z0-9]+/).includes(word);
+}
+
+function inferReferenceItemWidth(referenceItem: ReferenceEquipment) {
+  return inferReferenceItemSize(referenceItem).width;
 }
 
 function inferReferenceItemHeight(referenceItem: ReferenceEquipment) {
-  const text = `${referenceItem.name} ${referenceItem.equipmentCategory ?? ""} ${referenceItem.itemType ?? ""}`.toLowerCase();
-  const type = inferReferenceLibraryType(referenceItem);
-
-  if (text.includes("longsword") || text.includes("longbow") || text.includes("polearm")) {
-    return 3;
-  }
-
-  if (type === "armor") {
-    return text.includes("shield") ? 2 : 3;
-  }
-
-  if (isReferenceEquipmentContainer(referenceItem)) {
-    return 2;
-  }
-
-  return 1;
+  return inferReferenceItemSize(referenceItem).height;
 }
 
 function inferReferenceItemColor(referenceItem: ReferenceEquipment) {
@@ -3817,33 +3987,36 @@ function inferReferenceRequiresAttunement(referenceItem: ReferenceEquipment) {
 }
 
 function inferReferenceLibraryType(referenceItem: ReferenceEquipment): InventoryLibraryType {
-  const text = `${referenceItem.name} ${referenceItem.equipmentCategory ?? ""} ${referenceItem.itemType ?? ""}`.toLowerCase();
+  const name = referenceItem.name.toLowerCase();
+  const category = (referenceItem.equipmentCategory ?? "").toLowerCase();
+  const itemType = (referenceItem.itemType ?? "").toLowerCase();
+  const text = `${name} ${category} ${itemType}`;
 
-  if (text.includes("armor") || text.includes("mail") || text.includes("breastplate") || text.includes("shield")) {
+  if (category.includes("armor") || itemType.includes("armor") || includesAny(name, ["armor", "mail", "breastplate", "shield"])) {
     return "armor";
   }
 
-  if (text.includes("potion")) {
+  if (name.includes("potion") || category.includes("potion") || itemType === "potion") {
     return "potion";
   }
 
-  if (text.includes("ring")) {
+  if (includesWord(name, "ring") || category === "ring" || category === "rings" || itemType === "ring") {
     return "ring";
   }
 
-  if (text.includes("rod")) {
+  if (name.includes("rod") || category === "rod" || category === "rods" || itemType === "rod") {
     return "rod";
   }
 
-  if (text.includes("scroll")) {
+  if (name.includes("scroll") || category.includes("scroll") || itemType === "scroll") {
     return "scroll";
   }
 
-  if (text.includes("staff")) {
+  if (name.includes("staff") || category === "staff" || category === "staves" || itemType === "staff") {
     return "staff";
   }
 
-  if (text.includes("wand")) {
+  if (name.includes("wand") || category === "wand" || category === "wands" || itemType === "wand") {
     return "wand";
   }
 
@@ -4069,6 +4242,107 @@ function enforceAttunementLimit(items: InventoryItem[], limit: number) {
   });
 }
 
+function normalizeSavedInventoryState(parsedState: SavedInventoryState): SavedInventoryState | null {
+  if (!Array.isArray(parsedState.containers) || !Array.isArray(parsedState.items)) {
+    return null;
+  }
+
+  const normalizedItems = parsedState.items.map((item) => ({
+    ...item,
+    maxStack: item.maxStack ?? (item.stackable ? 999 : 1),
+    quantity: item.quantity ?? 1,
+    valueUnit: item.valueUnit ?? "gp",
+  }));
+  const items =
+    parsedState.itemSizeVersion === inventoryItemSizeVersion
+      ? normalizedItems
+      : migrateReferenceItemDimensions(normalizedItems, parsedState.containers);
+
+  return {
+    containers: parsedState.containers,
+    itemSizeVersion: inventoryItemSizeVersion,
+    items,
+    selectedItemId: parsedState.selectedItemId ?? items[0]?.id ?? "",
+    updatedAt: normalizeInventoryUpdatedAt(parsedState.updatedAt),
+  };
+}
+
+function migrateReferenceItemDimensions(
+  items: InventoryItem[],
+  containers: InventoryContainer[],
+) {
+  const placedItems: InventoryItem[] = [];
+
+  return items.map((item) => {
+    if (!item.referenceEquipmentIndex) {
+      placedItems.push(item);
+      return item;
+    }
+
+    const size = inferReferenceItemSize({
+      costQuantity: null,
+      costUnit: null,
+      description: item.notes,
+      equipmentCategory:
+        item.kind === "armor"
+          ? "armor"
+          : item.kind === "weapon"
+            ? "weapon"
+            : item.kind === "consumable"
+              ? "consumable"
+              : null,
+      index: item.referenceEquipmentIndex,
+      itemType: item.kind,
+      name: item.name,
+      sourceJson: null,
+      weight: item.weight,
+    });
+    const resizedItem = {
+      ...item,
+      height: size.height,
+      width: size.width,
+    };
+
+    if (resizedItem.location === "equipped") {
+      placedItems.push(resizedItem);
+      return resizedItem;
+    }
+
+    const container = containers.find((candidate) => candidate.id === resizedItem.location);
+
+    if (!container || canPlaceItem(resizedItem, container, placedItems)) {
+      placedItems.push(resizedItem);
+      return resizedItem;
+    }
+
+    const openPosition = findFirstAvailableSlot(resizedItem, container, placedItems);
+
+    if (openPosition) {
+      const repositionedItem = { ...resizedItem, ...openPosition };
+      placedItems.push(repositionedItem);
+      return repositionedItem;
+    }
+
+    if (resizedItem.width !== resizedItem.height) {
+      const rotatedItem = { ...resizedItem, rotated: !resizedItem.rotated };
+      const rotatedPosition = findFirstAvailableSlot(rotatedItem, container, placedItems);
+
+      if (rotatedPosition) {
+        const repositionedRotatedItem = { ...rotatedItem, ...rotatedPosition };
+        placedItems.push(repositionedRotatedItem);
+        return repositionedRotatedItem;
+      }
+    }
+
+    const originalPosition = canPlaceItem(item, container, placedItems)
+      ? { x: item.x, y: item.y }
+      : findFirstAvailableSlot(item, container, placedItems);
+    const fallbackItem = originalPosition ? { ...item, ...originalPosition } : item;
+    placedItems.push(fallbackItem);
+    return fallbackItem;
+  });
+}
+
 function loadSavedInventoryState(storageKey = inventoryStorageKey): SavedInventoryState | null {
   try {
     const rawState = localStorage.getItem(storageKey);
@@ -4079,21 +4353,7 @@ function loadSavedInventoryState(storageKey = inventoryStorageKey): SavedInvento
 
     const parsedState = JSON.parse(rawState) as SavedInventoryState;
 
-    if (!Array.isArray(parsedState.containers) || !Array.isArray(parsedState.items)) {
-      return null;
-    }
-
-    return {
-      containers: parsedState.containers,
-      items: parsedState.items.map((item) => ({
-        ...item,
-        maxStack: item.maxStack ?? (item.stackable ? 999 : 1),
-        quantity: item.quantity ?? 1,
-        valueUnit: item.valueUnit ?? "gp",
-      })),
-      selectedItemId: parsedState.selectedItemId ?? parsedState.items[0]?.id ?? "",
-      updatedAt: normalizeInventoryUpdatedAt(parsedState.updatedAt),
-    };
+    return normalizeSavedInventoryState(parsedState);
   } catch {
     return null;
   }
@@ -4123,21 +4383,7 @@ function decodeInventoryState(code: string): SavedInventoryState | null {
     const json = new TextDecoder().decode(bytes);
     const parsedState = JSON.parse(json) as SavedInventoryState;
 
-    if (!Array.isArray(parsedState.containers) || !Array.isArray(parsedState.items)) {
-      return null;
-    }
-
-    return {
-      containers: parsedState.containers,
-      items: parsedState.items.map((item) => ({
-        ...item,
-        maxStack: item.maxStack ?? (item.stackable ? 999 : 1),
-        quantity: item.quantity ?? 1,
-        valueUnit: item.valueUnit ?? "gp",
-      })),
-      selectedItemId: parsedState.selectedItemId ?? parsedState.items[0]?.id ?? "",
-      updatedAt: normalizeInventoryUpdatedAt(parsedState.updatedAt),
-    };
+    return normalizeSavedInventoryState(parsedState);
   } catch {
     return null;
   }

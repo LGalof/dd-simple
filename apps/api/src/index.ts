@@ -187,139 +187,51 @@ function tokenMatchesExcept(
   return true;
 }
 
-function onlyActiveTokenMoved(currentState: BoardStateRecord, nextState: BoardStateRecord, activeTokenId: string) {
-  if (!stateMatchesExcept(currentState, nextState, ["tokens", "selectedTokenId"])) {
-    return false;
-  }
+const activePlayerTokenFields = [
+  "x",
+  "y",
+  "turn",
+  "deathSaves",
+  "hp",
+  "lifeStatus",
+] as const;
 
-  const currentTokens = getTokenMap(currentState);
-  const nextTokens = getTokenMap(nextState);
-
-  if (currentTokens.size !== nextTokens.size) {
-    return false;
-  }
-
-  for (const [tokenId, currentToken] of currentTokens) {
-    const nextToken = nextTokens.get(tokenId);
-
-    if (!nextToken) {
-      return false;
-    }
-
-    if (tokenId === activeTokenId) {
-      if (!tokenMatchesExcept(currentToken, nextToken, ["x", "y", "turn"])) {
-        return false;
-      }
-      continue;
-    }
-
-    if (!valuesMatch(currentToken, nextToken)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function onlyActiveTokenDeathSaveChanged(
+function buildActivePlayerBoardState(
   currentState: BoardStateRecord,
   nextState: BoardStateRecord,
   activeTokenId: string,
 ) {
-  if (!stateMatchesExcept(currentState, nextState, ["tokens"])) {
-    return false;
+  const nextActiveToken = getTokenMap(nextState).get(activeTokenId);
+
+  if (!nextActiveToken) {
+    return null;
   }
 
-  const currentTokens = getTokenMap(currentState);
-  const nextTokens = getTokenMap(nextState);
-
-  if (currentTokens.size !== nextTokens.size) {
-    return false;
-  }
-
-  for (const [tokenId, currentToken] of currentTokens) {
-    const nextToken = nextTokens.get(tokenId);
-
-    if (!nextToken) {
-      return false;
+  const sanitizedState = cloneBoardState(currentState);
+  sanitizedState.selectedTokenId = activeTokenId;
+  sanitizedState.tokens = getBoardTokens(currentState).map((currentToken) => {
+    if (currentToken.id !== activeTokenId) {
+      return currentToken;
     }
 
-    if (tokenId === activeTokenId) {
-      if (
-        !tokenMatchesExcept(currentToken, nextToken, [
-          "deathSaves",
-          "hp",
-          "lastDeathSaveRoll",
-          "lifeStatus",
-        ])
-      ) {
-        return false;
+    const sanitizedToken = { ...currentToken };
+
+    for (const field of activePlayerTokenFields) {
+      if (Object.hasOwn(nextActiveToken, field)) {
+        sanitizedToken[field] = nextActiveToken[field];
       }
-      continue;
     }
 
-    if (!valuesMatch(currentToken, nextToken)) {
-      return false;
-    }
-  }
-
-  return (
-    Number.isInteger(nextTokens.get(activeTokenId)?.lastDeathSaveRoll) &&
-    Number(nextTokens.get(activeTokenId)?.lastDeathSaveRoll) >= 1 &&
-    Number(nextTokens.get(activeTokenId)?.lastDeathSaveRoll) <= 20
-  );
-}
-
-function onlyActiveTokenHpChanged(
-  currentState: BoardStateRecord,
-  nextState: BoardStateRecord,
-  activeTokenId: string,
-) {
-  if (!stateMatchesExcept(currentState, nextState, ["tokens"])) {
-    return false;
-  }
-
-  const currentTokens = getTokenMap(currentState);
-  const nextTokens = getTokenMap(nextState);
-
-  if (currentTokens.size !== nextTokens.size) {
-    return false;
-  }
-
-  for (const [tokenId, currentToken] of currentTokens) {
-    const nextToken = nextTokens.get(tokenId);
-
-    if (!nextToken) {
-      return false;
+    if (Object.hasOwn(nextActiveToken, "lastDeathSaveRoll")) {
+      sanitizedToken.lastDeathSaveRoll = nextActiveToken.lastDeathSaveRoll;
+    } else {
+      delete sanitizedToken.lastDeathSaveRoll;
     }
 
-    if (tokenId === activeTokenId) {
-      if (
-        !tokenMatchesExcept(currentToken, nextToken, [
-          "deathSaves",
-          "hp",
-          "lastDeathSaveRoll",
-          "lifeStatus",
-        ])
-      ) {
-        return false;
-      }
-      continue;
-    }
+    return sanitizedToken;
+  });
 
-    if (!valuesMatch(currentToken, nextToken)) {
-      return false;
-    }
-  }
-
-  const nextToken = nextTokens.get(activeTokenId);
-
-  return (
-    typeof nextToken?.hp === "number" &&
-    Number.isFinite(nextToken.hp) &&
-    nextToken.hp >= 0 &&
-    nextToken.lastDeathSaveRoll === undefined
-  );
+  return sanitizedState;
 }
 
 function onlyActivePlayerAdvancedTurn(currentState: BoardStateRecord, nextState: BoardStateRecord) {
@@ -461,14 +373,18 @@ function onlyOwnTokenInitiativeChanged(
   );
 }
 
+type BoardStateAuthorization =
+  | { allowed: true; boardState: unknown }
+  | { allowed: false; error: string };
+
 function authorizeBoardStateSync(
   room: Room,
   userId: string,
   characterId: string | undefined,
   nextBoardState: unknown,
-) {
+): BoardStateAuthorization {
   if (room.creatorUserId === userId) {
-    return { allowed: true };
+    return { allowed: true, boardState: nextBoardState };
   }
 
   const currentState = asBoardState(room.boardState);
@@ -477,23 +393,24 @@ function authorizeBoardStateSync(
   const activeToken = getTokenMap(currentState).get(activeTokenId);
 
   if (onlyOwnTokenInitiativeChanged(currentState, nextState, characterId)) {
-    return { allowed: true };
+    return { allowed: true, boardState: nextBoardState };
   }
 
   if (!activeTokenId || typeof activeToken?.characterId !== "string" || activeToken.characterId !== characterId) {
     return { allowed: false, error: "Only the DM or the active player can update the board." };
   }
 
-  if (
-    onlyActiveTokenMoved(currentState, nextState, activeTokenId) ||
-    onlyActiveTokenDeathSaveChanged(currentState, nextState, activeTokenId) ||
-    onlyActiveTokenHpChanged(currentState, nextState, activeTokenId) ||
-    onlyActivePlayerAdvancedTurn(currentState, nextState)
-  ) {
-    return { allowed: true };
+  if (onlyActivePlayerAdvancedTurn(currentState, nextState)) {
+    return { allowed: true, boardState: nextBoardState };
   }
 
-  return { allowed: false, error: "Only the DM can edit the board outside your active turn." };
+  const activePlayerBoardState = buildActivePlayerBoardState(currentState, nextState, activeTokenId);
+
+  if (!activePlayerBoardState) {
+    return { allowed: false, error: "The active player token is missing from the board update." };
+  }
+
+  return { allowed: true, boardState: activePlayerBoardState };
 }
 
 async function emitRoomUpdate(roomCode: string) {
@@ -648,7 +565,7 @@ io.on("connection", (socket) => {
         return;
       }
 
-      const nextRoom = await saveRoomBoardState(room.code, boardState);
+      const nextRoom = await saveRoomBoardState(room.code, authorization.boardState);
 
       io.to(`room:${room.code}`).emit("board:update", {
         boardState: nextRoom.boardState,

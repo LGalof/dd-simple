@@ -145,6 +145,29 @@ describe("InventorySandboxPage helpers", () => {
     expect(decodeInventoryState("not valid")).toBeNull();
     localStorage.setItem("inventory-test", JSON.stringify({ containers: null, items: [] }));
     expect(loadSavedInventoryState("inventory-test")).toBeNull();
+
+    localStorage.setItem(
+      "inventory-size-migration",
+      JSON.stringify({
+        containers: [{ id: "inventory", name: "Pack", columns: 10, rows: 6 }],
+        items: [
+          item({
+            height: 1,
+            id: "legacy-greatsword",
+            kind: "weapon",
+            name: "Greatsword",
+            referenceEquipmentIndex: "greatsword",
+            weight: 6,
+            width: 1,
+          }),
+        ],
+        selectedItemId: "legacy-greatsword",
+      }),
+    );
+    expect(loadSavedInventoryState("inventory-size-migration")).toMatchObject({
+      itemSizeVersion: 2,
+      items: [{ id: "legacy-greatsword", width: 2, height: 3 }],
+    });
   });
 
   it("infers reference equipment categories, dimensions, colors, and metadata", () => {
@@ -157,6 +180,7 @@ describe("InventorySandboxPage helpers", () => {
     });
     const pack = reference({ equipmentCategory: "Adventuring Gear", name: "Explorer Pack" });
     const scroll = reference({ itemType: "Scroll", name: "Spell Scroll", sourceJson: { desc: ["A copied spell."] } });
+    const string = reference({ equipmentCategory: "Adventuring Gear", name: "String", weight: 0 });
 
     expect(inferReferenceLibraryType(shield)).toBe("armor");
     expect(inferReferenceItemKind(shield)).toBe("armor");
@@ -178,6 +202,35 @@ describe("InventorySandboxPage helpers", () => {
     expect(inferReferenceItemHeight(pack)).toBe(2);
     expect(extractReferenceDescription(scroll)).toBe("A copied spell.");
     expect(formatReferenceEquipmentMeta(reference({ costQuantity: 25, costUnit: "gp", equipmentCategory: "Gear", name: "Spyglass" }))).toBe("Gear · 25 gp");
+    expect(inferReferenceLibraryType(string)).toBe("other");
+    expect(inferReferenceEquipmentSlot(string)).toBeUndefined();
+
+    const sizeCases: Array<[string, Partial<ReferenceEquipment>, number, number]> = [
+      ["potion", { itemType: "Potion", name: "Potion of Healing", weight: 0.5 }, 1, 1],
+      ["scroll", { itemType: "Scroll", name: "Spell Scroll" }, 1, 2],
+      ["wand", { itemType: "Wand", name: "Wand of Magic Missiles", weight: 1 }, 1, 2],
+      ["staff", { itemType: "Staff", name: "Staff of Healing", weight: 4 }, 1, 3],
+      ["ring", { itemType: "Ring", name: "Ring of Protection" }, 1, 1],
+      ["light armor", { equipmentCategory: "Armor", itemType: "light-armor", name: "Leather Armor", weight: 10 }, 2, 2],
+      ["heavy armor", { equipmentCategory: "Armor", itemType: "heavy-armor", name: "Chain Mail", weight: 55 }, 2, 3],
+      ["great weapon", { equipmentCategory: "Weapons", name: "Greatsword", weight: 6 }, 2, 3],
+      ["long weapon", { equipmentCategory: "Weapons", name: "Longbow", weight: 2 }, 1, 3],
+      ["regular weapon", { equipmentCategory: "Weapons", name: "Battleaxe", weight: 4 }, 1, 2],
+      ["small weapon", { equipmentCategory: "Weapons", name: "Dagger", weight: 1 }, 1, 1],
+      ["tool kit", { equipmentCategory: "Tools", name: "Thieves' Tools", weight: 1 }, 2, 1],
+      ["heavy supplies", { equipmentCategory: "Tools", name: "Alchemist's Supplies", weight: 8 }, 2, 2],
+      ["rope", { equipmentCategory: "Adventuring Gear", name: "Rope", weight: 5 }, 2, 2],
+      ["bedroll", { equipmentCategory: "Adventuring Gear", name: "Bedroll", weight: 25 }, 3, 2],
+      ["lantern", { equipmentCategory: "Adventuring Gear", name: "Hooded Lantern", weight: 2 }, 1, 2],
+      ["cloak", { equipmentCategory: "Wondrous Item", name: "Cloak of Protection", weight: 1 }, 2, 2],
+      ["boots", { equipmentCategory: "Wondrous Item", name: "Boots of Elvenkind", weight: 1 }, 2, 1],
+      ["gem", { equipmentCategory: "Treasure", name: "Ruby", weight: 0 }, 1, 1],
+    ];
+
+    sizeCases.forEach(([label, patch, width, height]) => {
+      const sizedItem = reference(patch);
+      expect([inferReferenceItemWidth(sizedItem), inferReferenceItemHeight(sizedItem)], label).toEqual([width, height]);
+    });
   });
 
   it("maps inventory items between backend and grid payloads", () => {

@@ -7547,6 +7547,32 @@ h1 {
   line-height: 1.05;
 }
 
+.inventory-item-flat {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+}
+
+.inventory-item-flat .inventory-item-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.inventory-item-flat .inventory-item-name {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.64rem;
+  line-height: 1;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.inventory-item-flat em {
+  display: none;
+}
+
 .inventory-item-quantity {
   z-index: 1;
   position: absolute;
