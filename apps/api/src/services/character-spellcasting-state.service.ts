@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 
 type SpellcastingStateInput = {
   learnedSpellIds?: unknown;
@@ -22,10 +22,10 @@ type SpellcastingStateModel = {
   slotUsageByLevel: Record<string, number>;
 };
 
-type RawSqlExecutor = {
-  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<unknown>;
-  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T>;
-};
+type SpellcastingStateExecutor = Pick<
+  Prisma.TransactionClient,
+  "characterSpellcastingState"
+>;
 
 function normalizeSpellcastingStateInput({
   data,
@@ -91,58 +91,19 @@ function normalizeSpellSlotUsageMap(value: unknown) {
   return Object.fromEntries(normalizedEntries) as Record<string, number>;
 }
 
-async function ensureCharacterSpellcastingStateTable(executor: RawSqlExecutor) {
-  await executor.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "character_spellcasting_states" (
-      "id" UUID NOT NULL,
-      "characterId" UUID NOT NULL,
-      "learnedSpellIds" JSONB,
-      "preparedSpellIds" JSONB,
-      "slotUsageByLevel" JSONB,
-      CONSTRAINT "character_spellcasting_states_pkey" PRIMARY KEY ("id")
-    );
-  `);
-  await executor.$executeRawUnsafe(`
-    ALTER TABLE "character_spellcasting_states"
-    ADD COLUMN IF NOT EXISTS "learnedSpellIds" JSONB;
-  `);
-  await executor.$executeRawUnsafe(`
-    CREATE UNIQUE INDEX IF NOT EXISTS "character_spellcasting_states_characterId_key"
-    ON "character_spellcasting_states"("characterId");
-  `);
-  await executor.$executeRawUnsafe(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'character_spellcasting_states_characterId_fkey'
-      ) THEN
-        ALTER TABLE "character_spellcasting_states"
-        ADD CONSTRAINT "character_spellcasting_states_characterId_fkey"
-        FOREIGN KEY ("characterId") REFERENCES "characters"("id")
-        ON DELETE CASCADE ON UPDATE CASCADE;
-      END IF;
-    END $$;
-  `);
+function toJsonInput(value: string[] | Record<string, number>) {
+  return value as Prisma.InputJsonValue;
 }
 
 async function findSpellcastingStateForCharacter(
-  executor: RawSqlExecutor,
+  executor: SpellcastingStateExecutor,
   characterId: string,
 ): Promise<SpellcastingStateModel | null> {
-  await ensureCharacterSpellcastingStateTable(executor);
-
-  const rows = await executor.$queryRawUnsafe<SpellcastingStateRow[]>(
-    `
-      SELECT "id", "characterId", "learnedSpellIds", "preparedSpellIds", "slotUsageByLevel"
-      FROM "character_spellcasting_states"
-      WHERE "characterId" = $1::uuid
-      LIMIT 1
-    `,
-    characterId,
-  );
-  const row = rows[0];
+  const row = await executor.characterSpellcastingState.findUnique({
+    where: {
+      characterId,
+    },
+  });
 
   if (!row) {
     return null;
@@ -158,38 +119,30 @@ async function findSpellcastingStateForCharacter(
 }
 
 async function upsertCharacterSpellcastingState(
-  executor: RawSqlExecutor,
+  executor: SpellcastingStateExecutor,
   characterId: string,
   state: SpellcastingStateModel,
 ) {
-  await ensureCharacterSpellcastingStateTable(executor);
-
-  await executor.$executeRawUnsafe(
-    `
-      INSERT INTO "character_spellcasting_states" (
-        "id",
-        "characterId",
-        "learnedSpellIds",
-        "preparedSpellIds",
-        "slotUsageByLevel"
-      )
-      VALUES ($1::uuid, $2::uuid, $3::jsonb, $4::jsonb, $5::jsonb)
-      ON CONFLICT ("characterId")
-      DO UPDATE SET
-        "learnedSpellIds" = EXCLUDED."learnedSpellIds",
-        "preparedSpellIds" = EXCLUDED."preparedSpellIds",
-        "slotUsageByLevel" = EXCLUDED."slotUsageByLevel"
-    `,
-    randomUUID(),
-    characterId,
-    JSON.stringify(state.learnedSpellIds),
-    JSON.stringify(state.preparedSpellIds),
-    JSON.stringify(state.slotUsageByLevel),
-  );
+  await executor.characterSpellcastingState.upsert({
+    where: {
+      characterId,
+    },
+    update: {
+      learnedSpellIds: toJsonInput(state.learnedSpellIds),
+      preparedSpellIds: toJsonInput(state.preparedSpellIds),
+      slotUsageByLevel: toJsonInput(state.slotUsageByLevel),
+    },
+    create: {
+      characterId,
+      learnedSpellIds: toJsonInput(state.learnedSpellIds),
+      preparedSpellIds: toJsonInput(state.preparedSpellIds),
+      slotUsageByLevel: toJsonInput(state.slotUsageByLevel),
+    },
+  });
 }
 
 async function attachSpellcastingStateToCharacter<T extends { id: string }>(
-  executor: RawSqlExecutor,
+  executor: SpellcastingStateExecutor,
   character: T | null,
 ): Promise<(T & { spellcastingState: SpellcastingStateModel | null }) | null> {
   if (!character) {
@@ -205,7 +158,7 @@ async function attachSpellcastingStateToCharacter<T extends { id: string }>(
 }
 
 async function attachSpellcastingStateToCharacters<T extends { id: string }>(
-  executor: RawSqlExecutor,
+  executor: SpellcastingStateExecutor,
   characters: T[],
 ): Promise<Array<T & { spellcastingState: SpellcastingStateModel | null }>> {
   return Promise.all(
@@ -225,4 +178,9 @@ export {
   normalizeSpellSlotUsageMap,
   upsertCharacterSpellcastingState,
 };
-export type { RawSqlExecutor, SpellcastingStateInput, SpellcastingStateModel, SpellcastingStateRow };
+export type {
+  SpellcastingStateExecutor,
+  SpellcastingStateInput,
+  SpellcastingStateModel,
+  SpellcastingStateRow,
+};

@@ -25,6 +25,7 @@ import {
   type DashboardAutosaveSaveOptions,
 } from "../features/characters/hooks/useDashboardAutosave";
 import { updateCharacter } from "../features/characters/api/updateCharacter";
+import type { CharacterPreviewQuery } from "../features/characters/api/characterPreviewQuery";
 import { useAuth } from "../features/auth/AuthContext";
 import type {
   BackgroundOption,
@@ -62,6 +63,7 @@ const abilityScoreIndexes = ["str", "dex", "con", "int", "wis", "cha"] as const;
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
 const maxLocalRollCount = 3;
 const dashboardUiStateStoragePrefix = "dd-simple.dashboardUiState";
+const emptyCharacterPreviewQuery: CharacterPreviewQuery = {};
 const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
   str: "str",
   strength: "str",
@@ -166,13 +168,18 @@ function CharacterDashboardPage() {
     updateLevel,
   } = useCharacterBuilder(character);
   const resolvedSubclassIndex = useMemo(
-    () =>
-      getSelectedSubclassIndexForSave(
+    () => {
+      if (!selectedClass) {
+        return null;
+      }
+
+      return getSelectedSubclassIndexForSave(
         builderState?.subclassIndex ?? character?.subclassIndex ?? null,
         selectedClass,
         featureChoices,
         builderState?.level ?? character?.level ?? 1,
-      ),
+      );
+    },
     [
       builderState?.level,
       builderState?.subclassIndex,
@@ -183,23 +190,25 @@ function CharacterDashboardPage() {
     ],
   );
   const resolvedFeatureChoiceSelections = useMemo<CharacterFeatureChoiceSelection[]>(
-    () =>
-      buildGenericClassFeatureChoices(
-        builderState?.classIndex ?? character?.classIndex ?? selectedClass.index,
+    () => {
+      if (!builderState || !selectedBackground || !selectedClass || !selectedSpecies) {
+        return [];
+      }
+
+      return buildGenericClassFeatureChoices(
+        builderState.classIndex,
         selectedClass,
-        builderState?.level ?? character?.level ?? 1,
+        builderState.level,
         featureChoices,
         resolvedSubclassIndex,
       ).concat(
         buildGenericBackgroundFeatureChoices(selectedBackground, backgroundChoices),
         buildGenericSpeciesFeatureChoices(selectedSpecies, speciesChoices),
-      ),
+      );
+    },
     [
       backgroundChoices,
-      builderState?.classIndex,
-      builderState?.level,
-      character?.classIndex,
-      character?.level,
+      builderState,
       featureChoices,
       resolvedSubclassIndex,
       selectedBackground,
@@ -209,79 +218,93 @@ function CharacterDashboardPage() {
     ],
   );
 
-  const builderActionPreview = useMemo(
-    () => ({
-      abilityScores: builderState?.abilityAssignments
-        ? Object.fromEntries(
+  const builderActionPreview = useMemo<CharacterPreviewQuery>(
+    () => {
+      if (!builderState || !selectedBackground || !selectedClass || !selectedSpecies) {
+        return emptyCharacterPreviewQuery;
+      }
+
+      return {
+        abilityScores: Object.fromEntries(
             builderState.abilityAssignments.map((assignment) => [
               assignment.abilityIndex,
               assignment.score,
             ]),
-          )
-        : undefined,
-      backgroundIndex: builderState?.backgroundIndex ?? character?.backgroundIndex,
-      classIndex: builderState?.classIndex ?? character?.classIndex,
-      featIndexes: getSelectedFeatIndexesForPreview(
-        selectedClass,
-        featureChoices,
-        builderState?.level ?? character?.level ?? 1,
-      ),
-      featureChoices: resolvedFeatureChoiceSelections,
-      level: builderState?.level ?? character?.level,
-      resourceState,
-      speciesIndex: builderState?.speciesIndex ?? character?.speciesIndex,
-      subclassIndex: resolvedSubclassIndex ?? undefined,
-      subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
-    }),
+          ),
+        backgroundIndex: builderState.backgroundIndex,
+        classIndex: builderState.classIndex,
+        featIndexes: getSelectedFeatIndexesForPreview(
+          selectedClass,
+          featureChoices,
+          builderState.level,
+        ),
+        featureChoices: resolvedFeatureChoiceSelections,
+        level: builderState.level,
+        resourceState,
+        speciesIndex: builderState.speciesIndex,
+        subclassIndex: resolvedSubclassIndex ?? undefined,
+        subspeciesIndex: getSelectedSpeciesHeritageIndex(selectedSpecies, speciesChoices),
+      };
+    },
     [
       builderState?.abilityAssignments,
       builderState?.backgroundIndex,
       builderState?.classIndex,
       builderState?.level,
       builderState?.speciesIndex,
-      character?.backgroundIndex,
-      character?.classIndex,
-      character?.level,
-      character?.speciesIndex,
       featureChoices,
       resolvedFeatureChoiceSelections,
       resolvedSubclassIndex,
       resourceState,
+      selectedBackground,
       selectedClass,
       selectedSpecies,
       speciesChoices,
     ],
   );
   const selectedHeritage = useMemo(
-    () => getSelectedSpeciesHeritage(selectedSpecies, speciesChoices),
+    () => getSelectedSpeciesHeritage(selectedSpecies ?? undefined, speciesChoices),
     [selectedSpecies, speciesChoices],
   );
   const selectedSubclass = useMemo(
     () =>
-      selectedClass.subclasses?.find(
+      selectedClass?.subclasses?.find(
         (subclass) => subclass.index === resolvedSubclassIndex,
       ) ?? null,
-    [resolvedSubclassIndex, selectedClass.subclasses],
+    [resolvedSubclassIndex, selectedClass],
   );
+  const hydratedDashboardCharacterId =
+    character &&
+    builderState &&
+    previewCharacter &&
+    selectedBackground &&
+    selectedClass &&
+    selectedSpecies
+      ? character.id
+      : null;
   const inventoryController = useInventorySandboxController(
-    character ? `character-${character.id}` : "dashboard",
-    character?.id,
-    getDashboardAttunementLimit(builderState?.level ?? 1, selectedClass.index, selectedSubclass?.index ?? null),
+    hydratedDashboardCharacterId ? `character-${hydratedDashboardCharacterId}` : "dashboard",
+    hydratedDashboardCharacterId ?? undefined,
+    getDashboardAttunementLimit(
+      builderState?.level ?? 1,
+      selectedClass?.index ?? "",
+      selectedSubclass?.index ?? null,
+    ),
   );
   const effectiveSpellLibraryClassIndex =
-    selectedClass.index === "rogue" && selectedSubclass?.index === "arcane-trickster"
+    selectedClass?.index === "rogue" && selectedSubclass?.index === "arcane-trickster"
       ? "arcane-trickster"
-      : selectedClass.index;
+      : selectedClass?.index ?? "";
   const spellcastingSummary = useMemo(
     () =>
-      previewCharacter && builderState
+      previewCharacter && builderState && selectedClass
         ? getDashboardSpellcastingSummary(previewCharacter, selectedClass, selectedSubclass)
         : null,
     [builderState, previewCharacter, selectedClass, selectedSubclass],
   );
   const fallbackResourceActionSummaries = useMemo(
     () =>
-      builderState
+      builderState && selectedClass
         ? getResourceActionSummaries(
             selectedClass,
             builderState.level,
@@ -294,7 +317,7 @@ function CharacterDashboardPage() {
     derivedState: characterDerivedStateWithPreview,
     error: characterDerivedStateErrorWithPreview,
     loading: characterDerivedStateLoadingWithPreview,
-  } = useCharacterDerivedState(character?.id ?? null, builderActionPreview);
+  } = useCharacterDerivedState(hydratedDashboardCharacterId, builderActionPreview);
   const resourceActionSummaries = useMemo(
     () =>
       mergeResourceActionSummaries(
@@ -314,7 +337,7 @@ function CharacterDashboardPage() {
   const isSavingBuild = Boolean(character && savingCharacterId === character.id);
   const dashboardSavePayload = useMemo(
     () =>
-      character && builderState
+      character && builderState && selectedBackground && selectedClass && selectedSpecies
         ? buildCharacterSavePayload(
             character,
             builderState,
@@ -361,7 +384,7 @@ function CharacterDashboardPage() {
   );
   const getSavedDashboardPayload = useCallback(
     (updatedCharacter: Character, requestPayload: CharacterSavePayload) =>
-      builderState
+      builderState && selectedBackground && selectedClass && selectedSpecies
         ? buildCharacterSavePayload(
             updatedCharacter,
             builderState,
@@ -582,7 +605,11 @@ function CharacterDashboardPage() {
         {error && <p className="error-message">Error: {error}</p>}
         {!loading && !error && !character && <p>No characters found.</p>}
 
-        {previewCharacter && builderState ? (
+        {previewCharacter &&
+        builderState &&
+        selectedBackground &&
+        selectedClass &&
+        selectedSpecies ? (
           <div
             className={
               isBuilderSidebarHidden
@@ -609,8 +636,8 @@ function CharacterDashboardPage() {
               </button>
 
               <div className="dashboard-builder-panel">
-                {dashboardAutosave.saveStatus !== "saved" &&
-                dashboardAutosave.saveStatus !== "idle" ? (
+                {dashboardAutosave.saveStatus === "saving" ||
+                dashboardAutosave.saveStatus === "error" ? (
                   <p
                     className={dashboardAutosave.saveStatus === "error" ? "error-message" : "muted"}
                     data-testid="dashboard-autosave-status"

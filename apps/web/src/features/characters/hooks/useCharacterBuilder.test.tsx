@@ -27,15 +27,21 @@ vi.mock("../../references/api/fetchReferences", () => ({
   fetchSpecies: referenceMocks.fetchSpecies,
 }));
 
-function BuilderHarness({ character }: { character: Character }) {
+function BuilderHarness({ character }: { character?: Character }) {
   const builder = useCharacterBuilder(character);
 
   return (
     <div>
       <span data-testid="current-hp">{builder.builderState?.currentHp ?? ""}</span>
       <span data-testid="class-index">{builder.builderState?.classIndex ?? ""}</span>
+      <span data-testid="selected-class-index">{builder.selectedClass?.index ?? ""}</span>
+      <span data-testid="preview-class-name">{builder.previewCharacter?.class.name ?? ""}</span>
       <span data-testid="species-index">{builder.builderState?.speciesIndex ?? ""}</span>
+      <span data-testid="selected-species-index">{builder.selectedSpecies?.index ?? ""}</span>
+      <span data-testid="preview-species-name">{builder.previewCharacter?.species.name ?? ""}</span>
       <span data-testid="background-index">{builder.builderState?.backgroundIndex ?? ""}</span>
+      <span data-testid="selected-background-index">{builder.selectedBackground?.index ?? ""}</span>
+      <span data-testid="preview-background-name">{builder.previewCharacter?.background.name ?? ""}</span>
       <span data-testid="species-choices">{JSON.stringify(builder.speciesChoices)}</span>
       <span data-testid="background-choices">{JSON.stringify(builder.backgroundChoices)}</span>
       <span data-testid="feature-choices">{JSON.stringify(builder.featureChoices)}</span>
@@ -178,6 +184,18 @@ function saveDraftToLocalStorage(
   );
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+
+  return {
+    promise,
+    resolve,
+  };
+}
+
 describe("useCharacterBuilder", () => {
   beforeEach(() => {
     if (typeof window !== "undefined") {
@@ -263,6 +281,131 @@ describe("useCharacterBuilder", () => {
       expect(screen.getByTestId("background-index").textContent).toBe("soldier");
       expect(screen.getByTestId("class-index").textContent).toBe("wizard");
       expect(screen.getByTestId("species-index").textContent).toBe("elf");
+    });
+  });
+
+  it("does not expose Rogue while a Cleric character waits for class reference hydration", async () => {
+    const classReferences = createDeferred<ReferenceClass[]>();
+
+    referenceMocks.fetchClasses.mockReturnValue(classReferences.promise);
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          class: {
+            name: "Cleric",
+          },
+          classIndex: "cleric",
+          id: "cleric-1",
+          name: "Refresh Cleric",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(referenceMocks.fetchClasses).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId("class-index").textContent).toBe("");
+    expect(screen.getByTestId("selected-class-index").textContent).toBe("");
+    expect(screen.getByTestId("preview-class-name").textContent).toBe("");
+
+    await act(async () => {
+      classReferences.resolve([createClericReference()]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("class-index").textContent).toBe("cleric");
+      expect(screen.getByTestId("selected-class-index").textContent).toBe("cleric");
+      expect(screen.getByTestId("preview-class-name").textContent).toBe("Cleric");
+    });
+  });
+
+  it("does not expose the first species option while a persisted species waits for hydration", async () => {
+    const speciesReferences = createDeferred<ReferenceSpecies[]>();
+
+    referenceMocks.fetchSpecies.mockReturnValue(speciesReferences.promise);
+    saveDraftToLocalStorage("dragonborn-1", {
+      builderState: createDraftBuilderState({
+        currentHp: 4,
+        speciesIndex: "human",
+      }),
+      updatedAt: "2026-01-01T00:03:00.000Z",
+    });
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          id: "dragonborn-1",
+          name: "Refresh Dragonborn",
+          species: {
+            name: "Dragonborn",
+          },
+          speciesIndex: "dragonborn",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(referenceMocks.fetchSpecies).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId("species-index").textContent).toBe("");
+    expect(screen.getByTestId("selected-species-index").textContent).toBe("");
+    expect(screen.getByTestId("preview-species-name").textContent).toBe("");
+
+    await act(async () => {
+      speciesReferences.resolve([createDragonbornReference()]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("species-index").textContent).toBe("dragonborn");
+      expect(screen.getByTestId("selected-species-index").textContent).toBe("dragonborn");
+      expect(screen.getByTestId("preview-species-name").textContent).toBe("Dragonborn");
+    });
+  });
+
+  it("does not expose the first background option while a persisted background waits for hydration", async () => {
+    const backgroundReferences = createDeferred<ReferenceBackground[]>();
+
+    referenceMocks.fetchBackgrounds.mockReturnValue(backgroundReferences.promise);
+    saveDraftToLocalStorage("artisan-1", {
+      builderState: createDraftBuilderState({
+        backgroundIndex: "criminal",
+        currentHp: 4,
+      }),
+      updatedAt: "2026-01-01T00:03:00.000Z",
+    });
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Artisan",
+          },
+          backgroundIndex: "artisan",
+          id: "artisan-1",
+          name: "Refresh Artisan",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(referenceMocks.fetchBackgrounds).toHaveBeenCalled();
+    });
+
+    expect(screen.getByTestId("background-index").textContent).toBe("");
+    expect(screen.getByTestId("selected-background-index").textContent).toBe("");
+    expect(screen.getByTestId("preview-background-name").textContent).toBe("");
+
+    await act(async () => {
+      backgroundReferences.resolve([createArtisanReference()]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("background-index").textContent).toBe("artisan");
+      expect(screen.getByTestId("selected-background-index").textContent).toBe("artisan");
+      expect(screen.getByTestId("preview-background-name").textContent).toBe("Artisan");
     });
   });
 
@@ -725,6 +868,22 @@ function createElfReference(): ReferenceSpecies {
   };
 }
 
+function createDragonbornReference(): ReferenceSpecies {
+  return {
+    baseSpeed: 30,
+    description: "Dragonborn",
+    index: "dragonborn",
+    name: "Dragonborn",
+    size: "Small",
+    sourceJson: {
+      index: "dragonborn",
+      name: "Dragonborn",
+      speed: 30,
+      type: "Humanoid",
+    },
+  };
+}
+
 function createHumanSpeciesOption(): SpeciesOption {
   return {
     creatureType: "Humanoid",
@@ -751,6 +910,25 @@ function createSageReference(): ReferenceBackground {
     index: "sage",
     name: "Sage",
     proficiencies: [],
+  };
+}
+
+function createArtisanReference(): ReferenceBackground {
+  return {
+    abilityOptions: [
+      createBackgroundAbilityOption("dex", "Dexterity", "artisan"),
+      createBackgroundAbilityOption("int", "Intelligence", "artisan"),
+      createBackgroundAbilityOption("cha", "Charisma", "artisan"),
+    ],
+    description: "Artisan",
+    feature: "Crafter",
+    index: "artisan",
+    name: "Artisan",
+    proficiencies: [],
+    sourceJson: {
+      index: "artisan",
+      name: "Artisan",
+    },
   };
 }
 
@@ -831,6 +1009,42 @@ function createWizardReference(): ReferenceClass {
       hit_die: 6,
       index: "wizard",
       name: "Wizard",
+    },
+  };
+}
+
+function createClericReference(): ReferenceClass {
+  return {
+    description: "Cleric",
+    hitDie: 8,
+    index: "cleric",
+    name: "Cleric",
+    primaryAbilities: [
+      {
+        abilityScore: {
+          fullName: "Wisdom",
+          index: "wis",
+          name: "Wisdom",
+        },
+        abilityScoreIndex: "wis",
+        classIndex: "cleric",
+        id: "cleric-wis",
+      },
+    ],
+    sourceJson: {
+      hit_die: 8,
+      index: "cleric",
+      name: "Cleric",
+      saving_throws: [
+        {
+          index: "wis",
+          name: "Wisdom",
+        },
+        {
+          index: "cha",
+          name: "Charisma",
+        },
+      ],
     },
   };
 }

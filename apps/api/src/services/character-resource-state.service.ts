@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 
 type ResourceStateInput = {
   activeByResourceKey?: unknown;
@@ -22,10 +22,7 @@ type ResourceStateModel = {
   usageByResourceKey: Record<string, number>;
 };
 
-type RawSqlExecutor = {
-  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<unknown>;
-  $queryRawUnsafe<T = unknown>(query: string, ...values: unknown[]): Promise<T>;
-};
+type ResourceStateExecutor = Pick<Prisma.TransactionClient, "characterResourceState">;
 
 function normalizeResourceStateInput({
   data,
@@ -97,54 +94,19 @@ function normalizeResourceKey(value: string) {
   return trimmedValue.length > 0 ? trimmedValue : null;
 }
 
-async function ensureCharacterResourceStateTable(executor: RawSqlExecutor) {
-  await executor.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "character_resource_states" (
-      "id" UUID NOT NULL,
-      "characterId" UUID NOT NULL,
-      "usageByResourceKey" JSONB,
-      "customMaxByResourceKey" JSONB,
-      "activeByResourceKey" JSONB,
-      CONSTRAINT "character_resource_states_pkey" PRIMARY KEY ("id")
-    );
-  `);
-  await executor.$executeRawUnsafe(`
-    CREATE UNIQUE INDEX IF NOT EXISTS "character_resource_states_characterId_key"
-    ON "character_resource_states"("characterId");
-  `);
-  await executor.$executeRawUnsafe(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM pg_constraint
-        WHERE conname = 'character_resource_states_characterId_fkey'
-      ) THEN
-        ALTER TABLE "character_resource_states"
-        ADD CONSTRAINT "character_resource_states_characterId_fkey"
-        FOREIGN KEY ("characterId") REFERENCES "characters"("id")
-        ON DELETE CASCADE ON UPDATE CASCADE;
-      END IF;
-    END $$;
-  `);
+function toJsonInput(value: Record<string, boolean> | Record<string, number>) {
+  return value as Prisma.InputJsonValue;
 }
 
 async function findResourceStateForCharacter(
-  executor: RawSqlExecutor,
+  executor: ResourceStateExecutor,
   characterId: string,
 ): Promise<ResourceStateModel | null> {
-  await ensureCharacterResourceStateTable(executor);
-
-  const rows = await executor.$queryRawUnsafe<ResourceStateRow[]>(
-    `
-      SELECT "id", "characterId", "usageByResourceKey", "customMaxByResourceKey", "activeByResourceKey"
-      FROM "character_resource_states"
-      WHERE "characterId" = $1::uuid
-      LIMIT 1
-    `,
-    characterId,
-  );
-  const row = rows[0];
+  const row = await executor.characterResourceState.findUnique({
+    where: {
+      characterId,
+    },
+  });
 
   if (!row) {
     return null;
@@ -160,38 +122,30 @@ async function findResourceStateForCharacter(
 }
 
 async function upsertCharacterResourceState(
-  executor: RawSqlExecutor,
+  executor: ResourceStateExecutor,
   characterId: string,
   state: ResourceStateModel,
 ) {
-  await ensureCharacterResourceStateTable(executor);
-
-  await executor.$executeRawUnsafe(
-    `
-      INSERT INTO "character_resource_states" (
-        "id",
-        "characterId",
-        "usageByResourceKey",
-        "customMaxByResourceKey",
-        "activeByResourceKey"
-      )
-      VALUES ($1::uuid, $2::uuid, $3::jsonb, $4::jsonb, $5::jsonb)
-      ON CONFLICT ("characterId")
-      DO UPDATE SET
-        "usageByResourceKey" = EXCLUDED."usageByResourceKey",
-        "customMaxByResourceKey" = EXCLUDED."customMaxByResourceKey",
-        "activeByResourceKey" = EXCLUDED."activeByResourceKey"
-    `,
-    randomUUID(),
-    characterId,
-    JSON.stringify(state.usageByResourceKey),
-    JSON.stringify(state.customMaxByResourceKey),
-    JSON.stringify(state.activeByResourceKey),
-  );
+  await executor.characterResourceState.upsert({
+    where: {
+      characterId,
+    },
+    update: {
+      usageByResourceKey: toJsonInput(state.usageByResourceKey),
+      customMaxByResourceKey: toJsonInput(state.customMaxByResourceKey),
+      activeByResourceKey: toJsonInput(state.activeByResourceKey),
+    },
+    create: {
+      characterId,
+      usageByResourceKey: toJsonInput(state.usageByResourceKey),
+      customMaxByResourceKey: toJsonInput(state.customMaxByResourceKey),
+      activeByResourceKey: toJsonInput(state.activeByResourceKey),
+    },
+  });
 }
 
 async function attachResourceStateToCharacter<T extends { id: string }>(
-  executor: RawSqlExecutor,
+  executor: ResourceStateExecutor,
   character: T | null,
 ): Promise<(T & { resourceState: ResourceStateModel | null }) | null> {
   if (!character) {
@@ -207,7 +161,7 @@ async function attachResourceStateToCharacter<T extends { id: string }>(
 }
 
 async function attachResourceStateToCharacters<T extends { id: string }>(
-  executor: RawSqlExecutor,
+  executor: ResourceStateExecutor,
   characters: T[],
 ): Promise<Array<T & { resourceState: ResourceStateModel | null }>> {
   return Promise.all(
@@ -227,4 +181,9 @@ export {
   normalizeResourceStateInput,
   upsertCharacterResourceState,
 };
-export type { RawSqlExecutor, ResourceStateInput, ResourceStateModel, ResourceStateRow };
+export type {
+  ResourceStateExecutor,
+  ResourceStateInput,
+  ResourceStateModel,
+  ResourceStateRow,
+};

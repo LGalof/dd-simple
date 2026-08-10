@@ -230,7 +230,7 @@ function formatDashboardSaveStatus(
   lastSavedAt: Date | null,
 ) {
   if (status === "dirty") {
-    return "Unsaved changes";
+    return "";
   }
 
   if (status === "saving") {

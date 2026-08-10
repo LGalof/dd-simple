@@ -72,6 +72,9 @@ const abilityScoreIndexAliases: Record<string, string> = {
   charisma: "cha",
 };
 const characterBuilderDraftStoragePrefix = "dd-simple.characterBuilderDraft";
+const emptyFeatureChoiceSelections: FeatureChoiceSelections = {};
+const emptySelectionIndexes: string[] = [];
+const emptyStringSelections: Record<string, string> = {};
 
 type PersistedCharacterBuilderDraft = {
   baseCharacterUpdatedAt: string | null;
@@ -89,20 +92,21 @@ function createBuilderStateFromOptions(
     classOptions: ClassOption[];
     speciesOptions: SpeciesOption[];
   },
-): CharacterBuilderState {
-  const initialClass =
-    options.classOptions.find((classOption) => classOption.index === character.classIndex) ??
-    options.classOptions.find((classOption) => classOption.name === character.class.name) ??
-    options.classOptions[0];
+): CharacterBuilderState | null {
+  const initialClass = getClassOptionForCharacter(character, options.classOptions);
+  const initialSpecies = getSpeciesOptionForCharacter(character, options.speciesOptions);
+  const initialBackground = getBackgroundOptionForCharacter(character, options.backgroundOptions);
+
+  if (!initialClass || !initialSpecies || !initialBackground) {
+    return null;
+  }
+
   const initialSpeciesIndex =
     character.speciesIndex ??
-    options.speciesOptions.find((species) => species.name === character.species.name)?.index ??
-    options.speciesOptions[0].index;
+    initialSpecies.index;
   const initialBackgroundIndex =
     character.backgroundIndex ??
-    options.backgroundOptions.find(
-      (background) => background.name === character.background.name,
-    )?.index ?? options.backgroundOptions[0].index;
+    initialBackground.index;
   const initialClassIndex = character.classIndex ?? initialClass.index;
   const hitPointSettings = getSavedHitPointSettings(character, initialClass.hitDie);
 
@@ -183,10 +187,14 @@ function getSavedBackgroundAbilityChoices(
     backgroundOptions: BackgroundOption[];
   },
 ) {
-  const backgroundOption =
-    options.backgroundOptions.find((background) => background.index === options.backgroundIndex) ??
-    options.backgroundOptions[0];
+  const backgroundOption = options.backgroundOptions.find(
+    (background) => background.index === options.backgroundIndex,
+  );
   const backgroundChoices: Record<string, string> = {};
+
+  if (!backgroundOption) {
+    return backgroundChoices;
+  }
 
   for (const choice of character.choices ?? []) {
     if (
@@ -388,10 +396,14 @@ function getSavedSpeciesChoices(
     speciesOptions: SpeciesOption[];
   },
 ) {
-  const speciesOption =
-    options.speciesOptions.find((species) => species.index === options.speciesIndex) ??
-    options.speciesOptions[0];
+  const speciesOption = options.speciesOptions.find(
+    (species) => species.index === options.speciesIndex,
+  );
   const speciesChoices: Record<string, string> = {};
+
+  if (!speciesOption) {
+    return speciesChoices;
+  }
 
   for (const choice of character.choices ?? []) {
     if (
@@ -465,9 +477,9 @@ function getSavedGenericSpeciesChoices(
     speciesOptions: SpeciesOption[];
   },
 ) {
-  const speciesOption =
-    options.speciesOptions.find((species) => species.index === options.speciesIndex) ??
-    options.speciesOptions[0];
+  const speciesOption = options.speciesOptions.find(
+    (species) => species.index === options.speciesIndex,
+  );
   const speciesChoices: Record<string, string> = {};
 
   if (!speciesOption) {
@@ -625,6 +637,28 @@ function getSelectedSkillIndexes(
   ];
 }
 
+function getSpeciesOptionForCharacter(
+  character: Character,
+  options: SpeciesOption[],
+) {
+  return (
+    options.find((species) => species.index === character.speciesIndex) ??
+    options.find((species) => species.name === character.species.name) ??
+    null
+  );
+}
+
+function getBackgroundOptionForCharacter(
+  character: Character,
+  options: BackgroundOption[],
+) {
+  return (
+    options.find((background) => background.index === character.backgroundIndex) ??
+    options.find((background) => background.name === character.background.name) ??
+    null
+  );
+}
+
 function getClassOptionForCharacter(
   character: Character,
   options: ClassOption[],
@@ -632,7 +666,7 @@ function getClassOptionForCharacter(
   return (
     options.find((classOption) => classOption.index === character.classIndex) ??
     options.find((classOption) => classOption.name === character.class.name) ??
-    options[0]
+    null
   );
 }
 
@@ -1165,9 +1199,15 @@ function saveCharacterBuilderDraft(
 ) {
   try {
     const hydratedBuilderState = createBuilderStateFromOptions(character, options);
+    const selectedClassOption = getClassOptionForCharacter(character, options.classOptions);
+
+    if (!hydratedBuilderState || !selectedClassOption) {
+      return;
+    }
+
     const hydratedFeatureChoices = getHydratedFeatureChoiceState(
       character,
-      getClassOptionForCharacter(character, options.classOptions),
+      selectedClassOption,
     ).featureChoices;
     const draft: PersistedCharacterBuilderDraft = {
       baseCharacterUpdatedAt,
@@ -1352,6 +1392,18 @@ function normalizePersistedBuilderState(
         };
       })
     : baseState.abilityAssignments;
+  const normalizedClassIndex =
+    typeof draftState.classIndex === "string" && classIndexes.has(draftState.classIndex)
+      ? draftState.classIndex
+      : baseState.classIndex;
+  const normalizedClassOption =
+    getClassOptionByIndex(normalizedClassIndex, options.classOptions) ??
+    getClassOptionByIndex(baseState.classIndex, options.classOptions);
+
+  if (!normalizedClassOption) {
+    return baseState;
+  }
+
   const normalizedHitPointSettings =
     draftState.hitPointSettings &&
     typeof draftState.hitPointSettings === "object" &&
@@ -1377,13 +1429,7 @@ function normalizePersistedBuilderState(
                 : baseState.hitPointSettings.overrideMaxHp,
           rolledHitPoints: synchronizeHitPointRolls(
             normalizedLevel,
-            getClassOptionByIndex(
-              typeof draftState.classIndex === "string" &&
-                classIndexes.has(draftState.classIndex)
-                ? draftState.classIndex
-                : baseState.classIndex,
-              options.classOptions,
-            ).hitDie,
+            normalizedClassOption.hitDie,
             Array.isArray(draftState.hitPointSettings.rolledHitPoints)
               ? draftState.hitPointSettings.rolledHitPoints
                   .filter((entry): entry is number => typeof entry === "number" && Number.isFinite(entry))
@@ -1403,9 +1449,7 @@ function normalizePersistedBuilderState(
         ? draftState.backgroundIndex
         : baseState.backgroundIndex,
     classIndex:
-      typeof draftState.classIndex === "string" && classIndexes.has(draftState.classIndex)
-        ? draftState.classIndex
-        : baseState.classIndex,
+      normalizedClassIndex,
     currentHp: normalizedCurrentHp,
     hitPointSettings: normalizedHitPointSettings,
     level: normalizedLevel,
@@ -1447,7 +1491,7 @@ function normalizeStringRecord(
 }
 
 function getClassOptionByIndex(classIndex: string, options: ClassOption[]) {
-  return options.find((classOption) => classOption.index === classIndex) ?? options[0];
+  return options.find((classOption) => classOption.index === classIndex) ?? null;
 }
 
 function getPersistedSkillIndexes(character: Character) {
@@ -1517,6 +1561,7 @@ function useCharacterBuilder(character: Character | undefined) {
   const previousClassSkillChoiceSignatureRef = useRef("");
   const previousFeatureChoiceSignatureRef = useRef("");
   const [builderState, setBuilderState] = useState<CharacterBuilderState | null>(null);
+  const [hydratedCharacterId, setHydratedCharacterId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<BuilderSelectionKind | null>(null);
   const [pendingSelection, setPendingSelection] = useState<string | null>(null);
   const [featureChoices, setFeatureChoices] = useState<FeatureChoiceSelections>({});
@@ -1530,6 +1575,7 @@ function useCharacterBuilder(character: Character | undefined) {
   useEffect(() => {
     if (!character) {
       setBuilderState(null);
+      setHydratedCharacterId(null);
       setActivePanel(null);
       setPendingSelection(null);
       setFeatureChoices({});
@@ -1549,6 +1595,17 @@ function useCharacterBuilder(character: Character | undefined) {
       character,
       referenceOptions.classOptions,
     );
+
+    if (!nextHydratedBuilderState || !selectedClassOption) {
+      setBuilderState(null);
+      setHydratedCharacterId(null);
+      setActivePanel(null);
+      setPendingSelection(null);
+      setFeatureChoices({});
+      previousHydratedBuilderStateRef.current = null;
+      return;
+    }
+
     const classSkillChoiceSignature = getClassSkillChoiceSignature(character);
     const featureChoiceSignature = getFeatureChoiceSelectionSignature(character);
     const {
@@ -1598,6 +1655,7 @@ function useCharacterBuilder(character: Character | undefined) {
 
       return currentState;
     });
+    setHydratedCharacterId(character.id);
     setFeatureChoices((currentChoices) => {
       const hasCurrentClassSkillChoices =
         classSkillFeatureChoiceCount(currentChoices, selectedClassOption) > 0;
@@ -1758,79 +1816,102 @@ function useCharacterBuilder(character: Character | undefined) {
     };
   }, []);
 
+  const resolvedBuilderState =
+    character && builderState && hydratedCharacterId === character.id
+      ? builderState
+      : null;
   const selectedSpecies = useMemo(
     () =>
-      referenceOptions.speciesOptions.find((species) => species.index === builderState?.speciesIndex) ??
-      referenceOptions.speciesOptions[0],
-    [builderState?.speciesIndex, referenceOptions.speciesOptions],
+      resolvedBuilderState
+        ? referenceOptions.speciesOptions.find(
+            (species) => species.index === resolvedBuilderState.speciesIndex,
+          ) ?? null
+        : null,
+    [resolvedBuilderState?.speciesIndex, referenceOptions.speciesOptions],
   );
   const selectedBackground = useMemo(
     () =>
-      referenceOptions.backgroundOptions.find(
-        (background) => background.index === builderState?.backgroundIndex,
-      ) ?? referenceOptions.backgroundOptions[0],
-    [builderState?.backgroundIndex, referenceOptions.backgroundOptions],
+      resolvedBuilderState
+        ? referenceOptions.backgroundOptions.find(
+            (background) => background.index === resolvedBuilderState.backgroundIndex,
+          ) ?? null
+        : null,
+    [resolvedBuilderState?.backgroundIndex, referenceOptions.backgroundOptions],
   );
   const selectedClass = useMemo(
     () =>
-      referenceOptions.classOptions.find((classOption) => classOption.index === builderState?.classIndex) ??
-      referenceOptions.classOptions[0],
-    [builderState?.classIndex, referenceOptions.classOptions],
+      resolvedBuilderState
+        ? referenceOptions.classOptions.find(
+            (classOption) => classOption.index === resolvedBuilderState.classIndex,
+          ) ?? null
+        : null,
+    [resolvedBuilderState?.classIndex, referenceOptions.classOptions],
   );
   const hitPointPreview = useMemo(() => {
-    if (!builderState) {
+    if (!resolvedBuilderState || !selectedClass) {
       return null;
     }
 
     const constitutionScore = getAssignedAbilityScore(
-      builderState.abilityAssignments,
+      resolvedBuilderState.abilityAssignments,
       "con",
       10,
     );
     const featureBonusHp = getFeatureChoiceHitPointBonus(
       selectedClass,
       featureChoices,
-      builderState.level,
+      resolvedBuilderState.level,
     );
 
     return calculateHitPointPreview({
       constitutionScore,
       featureBonusHp,
       hitDie: selectedClass.hitDie,
-      level: builderState.level,
-      settings: builderState.hitPointSettings,
+      level: resolvedBuilderState.level,
+      settings: resolvedBuilderState.hitPointSettings,
     });
-  }, [builderState, featureChoices, selectedClass]);
+  }, [resolvedBuilderState, featureChoices, selectedClass]);
   const selectedSkillIndexes = useMemo(
-    () => getSelectedSkillIndexes(featureChoices, selectedClass),
+    () =>
+      selectedClass
+        ? getSelectedSkillIndexes(featureChoices, selectedClass)
+        : emptySelectionIndexes,
     [featureChoices, selectedClass],
   );
   const resolvedPreviewSubclassIndex = useMemo(
     () =>
-      getResolvedSubclassIndex(
-        selectedClass,
-        featureChoices,
-        builderState?.subclassIndex ?? null,
-        builderState?.level ?? 1,
-      ),
-    [builderState?.level, builderState?.subclassIndex, featureChoices, selectedClass],
+      selectedClass && resolvedBuilderState
+        ? getResolvedSubclassIndex(
+            selectedClass,
+            featureChoices,
+            resolvedBuilderState.subclassIndex,
+            resolvedBuilderState.level,
+          )
+        : null,
+    [resolvedBuilderState?.level, resolvedBuilderState?.subclassIndex, featureChoices, selectedClass],
   );
 
   const previewCharacter = useMemo(() => {
-    if (!character || !builderState) {
+    if (
+      !character ||
+      !resolvedBuilderState ||
+      !selectedBackground ||
+      !selectedClass ||
+      !selectedSpecies
+    ) {
       return null;
     }
 
     const previewFeatureSelections = buildGenericClassFeatureChoices(
-      builderState.classIndex,
+      resolvedBuilderState.classIndex,
       selectedClass,
-      builderState.level,
+      resolvedBuilderState.level,
       featureChoices,
       resolvedPreviewSubclassIndex,
     ).concat(
       buildGenericBackgroundFeatureChoices(
         selectedBackground,
-        builderState.backgroundChoices,
+        resolvedBuilderState.backgroundChoices,
       ),
     );
 
@@ -1843,10 +1924,10 @@ function useCharacterBuilder(character: Character | undefined) {
       previewSubclassIndex: resolvedPreviewSubclassIndex,
       selectedSkillIndexes,
       species: selectedSpecies,
-      state: builderState,
+      state: resolvedBuilderState,
     });
   }, [
-    builderState,
+    resolvedBuilderState,
     character,
     selectedBackground,
     selectedClass,
@@ -1857,7 +1938,7 @@ function useCharacterBuilder(character: Character | undefined) {
   ]);
 
   function updateLevel(nextLevel: number) {
-    if (!Number.isFinite(nextLevel)) {
+    if (!Number.isFinite(nextLevel) || !selectedClass) {
       return;
     }
 
@@ -1913,6 +1994,10 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function updateHitPointSettings(nextSettings: HitPointSettings) {
+    if (!selectedClass) {
+      return;
+    }
+
     setBuilderState((currentState) =>
       currentState
         ? {
@@ -1933,6 +2018,10 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function applyHitPointConfiguration(nextSettings: HitPointSettings) {
+    if (!selectedClass) {
+      return;
+    }
+
     setBuilderState((currentState) =>
       currentState
         ? (() => {
@@ -1975,7 +2064,7 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function applyCurrentHpAdjustment(mode: "heal" | "damage", amount: number) {
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0 || !selectedClass) {
       return;
     }
 
@@ -2018,6 +2107,10 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function applyLongRest() {
+    if (!selectedClass) {
+      return;
+    }
+
     setBuilderState((currentState) => {
       if (!currentState) {
         return currentState;
@@ -2105,7 +2198,7 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function openPanel(kind: BuilderSelectionKind) {
-    if (!builderState) {
+    if (!resolvedBuilderState) {
       return;
     }
 
@@ -2113,13 +2206,13 @@ function useCharacterBuilder(character: Character | undefined) {
 
     switch (kind) {
       case "species":
-        setPendingSelection(builderState.speciesIndex);
+        setPendingSelection(resolvedBuilderState.speciesIndex);
         break;
       case "background":
-        setPendingSelection(builderState.backgroundIndex);
+        setPendingSelection(resolvedBuilderState.backgroundIndex);
         break;
       case "class":
-        setPendingSelection(builderState.classIndex);
+        setPendingSelection(resolvedBuilderState.classIndex);
         break;
     }
   }
@@ -2133,7 +2226,7 @@ function useCharacterBuilder(character: Character | undefined) {
     backgroundChoices?: Record<string, string>;
     speciesChoices?: Record<string, string>;
   }) {
-    if (!builderState || !activePanel || !pendingSelection) {
+    if (!resolvedBuilderState || !activePanel || !pendingSelection) {
       closePanel();
       return;
     }
@@ -2145,7 +2238,7 @@ function useCharacterBuilder(character: Character | undefined) {
               key.startsWith(`${pendingSelection}:`),
             ),
           )
-        : builderState.speciesChoices;
+        : resolvedBuilderState.speciesChoices;
     const nextBackgroundChoices =
       activePanel === "background"
         ? Object.fromEntries(
@@ -2153,10 +2246,10 @@ function useCharacterBuilder(character: Character | undefined) {
               key.startsWith(`${pendingSelection}:`),
             ),
           )
-        : builderState.backgroundChoices;
+        : resolvedBuilderState.backgroundChoices;
 
     setBuilderState({
-      ...builderState,
+      ...resolvedBuilderState,
       ...(activePanel === "species" ? { speciesIndex: pendingSelection } : {}),
       ...(activePanel === "background" ? { backgroundIndex: pendingSelection } : {}),
       ...(activePanel === "class" ? { classIndex: pendingSelection } : {}),
@@ -2193,31 +2286,32 @@ function useCharacterBuilder(character: Character | undefined) {
     }
 
     if (activePanel === "species") {
-      return (
-        referenceOptions.speciesOptions.find((species) => species.index === pendingSelection) ??
-        referenceOptions.speciesOptions[0]
-      );
+      return referenceOptions.speciesOptions.find(
+        (species) => species.index === pendingSelection,
+      ) ?? null;
     }
 
     if (activePanel === "background") {
-      return (
-        referenceOptions.backgroundOptions.find((background) => background.index === pendingSelection) ??
-        referenceOptions.backgroundOptions[0]
-      );
+      return referenceOptions.backgroundOptions.find(
+        (background) => background.index === pendingSelection,
+      ) ?? null;
     }
 
-    return (
-      referenceOptions.classOptions.find((classOption) => classOption.index === pendingSelection) ??
-      referenceOptions.classOptions[0]
-    );
+    return referenceOptions.classOptions.find(
+      (classOption) => classOption.index === pendingSelection,
+    ) ?? null;
   }, [activePanel, pendingSelection, referenceOptions]);
 
   return {
     activePanel,
-    builderState,
+    builderState: selectedBackground && selectedClass && selectedSpecies
+      ? resolvedBuilderState
+      : null,
     closePanel,
     confirmSelection,
-    featureChoices,
+    featureChoices: resolvedBuilderState
+      ? featureChoices
+      : emptyFeatureChoiceSelections,
     openPanel,
     pendingSelection,
     previewCharacter,
@@ -2226,8 +2320,8 @@ function useCharacterBuilder(character: Character | undefined) {
     selectedPanelOption,
     selectedSkillIndexes,
     selectedSpecies,
-    speciesChoices: builderState?.speciesChoices ?? {},
-    backgroundChoices: builderState?.backgroundChoices ?? {},
+    speciesChoices: resolvedBuilderState?.speciesChoices ?? emptyStringSelections,
+    backgroundChoices: resolvedBuilderState?.backgroundChoices ?? emptyStringSelections,
     persistedSkillIndexes,
     setSelection,
     setSubclassIndex,
@@ -2237,7 +2331,7 @@ function useCharacterBuilder(character: Character | undefined) {
     classOptions: referenceOptions.classOptions,
     handleRollAbility,
     hitPointPreview,
-    hitPointSettings: builderState?.hitPointSettings ?? null,
+    hitPointSettings: resolvedBuilderState?.hitPointSettings ?? null,
     updateAbilityAssignment,
     applyHitPointConfiguration,
     applyCurrentHpAdjustment,

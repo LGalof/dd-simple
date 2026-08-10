@@ -57,11 +57,12 @@ model Character {
   featureChoices CharacterFeatureChoiceSelection[]
   languages      CharacterLanguage[]
   conditions     CharacterCondition[]
-  hitPointState  CharacterHitPointState?
+  hitPointState      CharacterHitPointState?
   spellcastingState CharacterSpellcastingState?
-  diceRolls      DiceRoll[]
-  roomPlayers    RoomPlayer[]
-  hostedRooms    Room[]                    @relation("RoomCreatorCharacter")
+  resourceState     CharacterResourceState?
+  diceRolls         DiceRoll[]
+  roomPlayers       RoomPlayer[]
+  hostedRooms       Room[]                    @relation("RoomCreatorCharacter")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -560,12 +561,26 @@ model CharacterSpellcastingState {
   id          String @id @default(uuid()) @db.Uuid
   characterId String @unique @db.Uuid
 
+  learnedSpellIds Json?
   preparedSpellIds Json?
   slotUsageByLevel Json?
 
   character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 
   @@map("character_spellcasting_states")
+}
+
+model CharacterResourceState {
+  id          String @id @default(uuid()) @db.Uuid
+  characterId String @unique @db.Uuid
+
+  usageByResourceKey     Json?
+  customMaxByResourceKey Json?
+  activeByResourceKey    Json?
+
+  character Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@map("character_resource_states")
 }
 
 model DiceRoll {
