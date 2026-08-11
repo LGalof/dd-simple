@@ -1,90 +1,65 @@
 # 00 Vision
 
-## Project
+## Project Purpose
 
-D&D Simple is a web application for supporting Dungeons & Dragons gameplay in a modern browser-based environment.
+D&D Simple is designed as a browser-based application for supporting Dungeons & Dragons 5e gameplay. The project brings together character tools, dice, inventory, sessions, and a virtual tabletop so that a group can use one shared digital environment during live play.
 
-## Vision Statement
+## Target Users
 
-The platform will provide a digital toolkit for players and Dungeon Masters during live sessions. It is intended to combine core gameplay support tools into one coherent experience while remaining accessible for a university team to design, build, test, and present.
+- Dungeons & Dragons players who need a digital character sheet and gameplay dashboard.
+- Dungeon Masters who need session, map, token, and encounter support.
+- Groups that want browser-based support during live gameplay.
 
-The long-term product vision is to combine:
+## High-Priority Functionality
 
-- character management
-- character dashboard / sheet support
-- inventory management
-- dice rolling
-- session support
-- virtual tabletop interaction
-- realtime collaboration
+- Creation and editing of D&D characters.
+- Display of key character information such as statistics, HP, initiative, armor class, and proficiency.
+- Character dashboard for use during gameplay.
+- Visual grid-based inventory with drag-and-drop item management.
+- Dice system for d4, d6, d8, d10, d12, and d20.
+- Virtual tabletop with maps, tokens, and characters.
+- Realtime tabletop synchronization between multiple users.
+- Session creation and joining through a code.
+- Managing users inside a session.
+- Dungeon Master and player roles.
+- Attack and damage calculations.
+- Modifiers, armor class, initiative, and bonus calculations.
 
-## Initial Product Direction
+## Medium-Priority Functionality
 
-The project is developed as a browser-based application with a React frontend, an Express backend, and PostgreSQL persistence.
+- Dice-roll history.
+- Character statuses.
+- NPC management.
 
-The system is built around a clear separation between user-owned data and reusable D&D reference data.
+## Lower-Priority Functionality
 
-User-owned data includes:
+- Tabletop ruler and markers.
+- Visual-interface improvements.
 
-- users
-- characters
-- character ability scores
-- character skills
-- character proficiencies
-- inventory items
-- dice rolls
+## Technical Direction
 
-Reference data includes:
+The planned technical architecture uses:
 
-- ability scores
-- skills
-- species
-- classes
-- backgrounds
-- proficiencies
-- equipment
-- generic rule documents
+- React for the browser frontend.
+- Express for the backend API.
+- PostgreSQL for persistent data.
+- Prisma for schema management and database access.
+- WebSocket or equivalent realtime communication for tabletop synchronization.
+- Drag-and-drop and graphical tabletop libraries where useful.
+- Cloud hosting for the backend, database, and realtime layer.
 
-## Current Implementation Direction
+## Data Persistence Direction
 
-The current implementation focuses on proving the core product experience:
+The application stores persistent user, character, inventory, dice, room, and board data in PostgreSQL. Reusable D&D reference data is stored separately from user-owned gameplay data so that character records can refer to shared rules, equipment, class, species, and background information.
 
-- users can register and log in using a local email/password authentication flow
-- protected routes prevent unauthenticated access to character pages
-- users can create and manage their own characters
-- the backend stores character data in PostgreSQL through Prisma
-- the frontend provides a My Characters page and a Character Dashboard
-- the Character Dashboard contains a builder sidebar and a live character sheet preview
-- the system can load D&D reference data from the backend
-- early inventory and tactical board prototypes exist for future iterations
+## Cloud Deployment Direction
 
-## Planned Product Direction
+The application is intended to run as a cloud-hosted web system with a deployed frontend, backend API, PostgreSQL database, and realtime synchronization layer. Local development remains available for implementation and testing.
 
-The initial project vision includes Google SSO/OAuth, realtime WebSocket synchronization, session management, dice rolling, inventory management, and virtual tabletop functionality.
+## Planned Integrations
 
-Some of these features are already represented as prototypes, but they are not all production-ready yet.
-
-Planned improvements include:
-
-- replacing or extending local authentication with Google SSO/OAuth
-- making the inventory system persistent per character
-- adding a real dice rolling system connected to character actions
-- implementing session creation and joining
-- adding Dungeon Master and player roles
-- implementing WebSocket-based realtime synchronization
-- connecting the tactical board to backend/session state
-- preparing production deployment
+Google SSO/OAuth was planned as an authentication integration. The product direction also allows use of supporting libraries for drag-and-drop inventory interaction, tactical-board rendering, and realtime communication.
 
 ## Product Boundaries
 
-The project is inspired by Dungeons & Dragons 5e gameplay, but it does not aim to implement the full ruleset.
-
-The system will not include:
-
-- a complete implementation of all D&D rules
-- voice or video communication
-- a dedicated mobile application
-- complex campaign management
-- every possible class, spell, feat, item, or optional rule interaction
-
-The goal is to create a focused, demonstrable system that supports the most important gameplay workflows for a university project.
+D&D Simple focuses primarily on D&D 5e and core gameplay mechanics. It does not include voice or video communication, a dedicated mobile application, complex campaign management, or complete automation of every rule, spell, feat, item, subclass, or optional interaction. Realtime synchronization focuses on important shared game state rather than every possible table interaction.

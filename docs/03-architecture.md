@@ -2,438 +2,133 @@
 
 ## Overview
 
-D&D Simple uses a monorepo architecture with separate frontend, backend, shared package, documentation, infrastructure, and CI areas.
-
-The architecture is designed to support incremental development by a student team. The system currently focuses on character management, reference data, authentication, character building, inventory prototyping, and tactical board prototyping.
-
-## Repository Layers
-
-- `apps/web`: user-facing React application
-- `apps/api`: backend API service using Express
-- `packages/shared`: shared TypeScript definitions and utilities
-- `docs`: project documentation and architecture records
-- `infra`: local infrastructure support files
-- `.github/workflows`: automated build validation
-
-## Architectural Intent
-
-This structure supports:
-
-- separation of concerns
-- easier collaboration in a student team
-- consistent TypeScript tooling
-- independent frontend and backend development
-- shared domain types where useful
-- future expansion into additional packages or services
-- clear documentation of decisions and implementation progress
-
----
-
-## Runtime Architecture
-
-The current runtime architecture contains:
-
-1. Browser-based React frontend
-2. Express backend API
-3. PostgreSQL database
-4. Prisma ORM layer
-5. Local Docker infrastructure for development
-6. GitHub Actions CI for build validation
-
-Current local development flow:
+D&D Simple is a TypeScript monorepo with a React/Vite frontend, an Express API, a Socket.IO realtime layer, a shared TypeScript package, and PostgreSQL persistence through Prisma. The application runs locally on Windows and Linux and is deployed publicly on Render.
 
 ```text
-User Browser
+Browser
   -> React/Vite frontend
-  -> Express API
-  -> Prisma Client
-  -> PostgreSQL database
-```
-
----
-
-## Frontend Architecture
-
-## Technology
-
-The frontend is implemented with:
-
-- React
-- TypeScript
-- Vite
-- React Router
-- lucide-react icons
-
-## Main frontend responsibilities
-
-The frontend is responsible for:
-
-- rendering the user interface
-- routing between pages
-- managing authentication state
-- protecting authenticated pages
-- calling backend APIs
-- displaying character data
-- managing character builder state
-- showing live character sheet previews
-- prototyping inventory interactions
-- prototyping tactical board interactions
-
-## Main frontend pages
-
-The current frontend includes:
-
-- `/prijava` – login page
-- `/registracija` – registration page
-- `/characters` – My Characters page
-- `/characters/new` – Create Character page
-- `/` – Character Dashboard page
-- `/inventory` – Inventory Sandbox page
-- `/board` – Tactical Board prototype
-
-## Authentication flow
-
-The frontend uses an `AuthProvider` to store authentication state.
-
-Current behavior:
-
-- token is stored in browser local storage
-- current user is loaded from `/auth/me`
-- invalid tokens are cleared automatically
-- protected routes redirect unauthenticated users to `/prijava`
-
-## Character state flow
-
-The Character Dashboard uses a builder hook to manage local builder state.
-
-Current flow:
-
-```text
-Loaded Character
-  -> Builder State
-  -> User changes class/species/background/ability/HP values
-  -> Preview Character is recalculated
-  -> Character Sheet updates
-  -> User clicks Save Build
-  -> Backend PATCH /characters/:id
-```
-
-Auto-save is planned, but the current implementation uses manual build saving.
-
----
-
-## Backend Architecture
-
-## Technology
-
-The backend is implemented with:
-
-- Node.js
-- TypeScript
-- Express
-- Prisma
-- PostgreSQL
-
-## Backend structure
-
-The backend follows a layered structure:
-
-```text
-src/index.ts
-  starts the API server
-
-src/app.ts
-  configures Express, middleware, and route modules
-
-src/routes/
-  defines HTTP routes
-
-src/controllers/
-  handles request validation and HTTP responses
-
-src/services/
-  contains business logic and database operations
-
-src/middleware/
-  contains reusable Express middleware
-
-src/lib/
-  contains shared backend helpers such as Prisma Client
-```
-
-## Current backend routes
-
-The backend currently exposes:
-
-- `GET /health`
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /auth/me`
-- `GET /references/ability-scores`
-- `GET /references/skills`
-- `GET /references/species`
-- `GET /references/classes`
-- `GET /references/backgrounds`
-- `GET /references/proficiencies`
-- `GET /references/equipment`
-- `GET /references/rules/:category`
-- `GET /references/rules/:category/:index`
-- `GET /characters`
-- `GET /characters/:id`
-- `POST /characters`
-- `PATCH /characters/:id`
-- `DELETE /characters/:id`
-
-Character routes are protected by authentication middleware.
-
-## Authentication architecture
-
-The original product vision plans Google SSO/OAuth.
-
-The current implementation uses local email/password authentication for MVP development.
-
-Current authentication behavior:
-
-- users register with email, password, and optional display name
-- passwords are hashed with scrypt
-- login returns a signed token
-- the frontend sends the token as a bearer token
-- `requireAuth` middleware verifies the token and attaches the authenticated user to the request
-
-This approach is sufficient for local MVP development. Google SSO/OAuth remains a planned future improvement.
-
----
-
-## Database Architecture
-
-## Technology
-
-The database layer uses:
-
-- PostgreSQL
-- Prisma ORM
-- Prisma migrations
-- Prisma seed scripts
-
-Local PostgreSQL is provided through Docker Compose.
-
-## Data model groups
-
-The current Prisma schema can be divided into two main groups:
-
-1. User-owned data
-2. Reference data
-
-## User-owned data
-
-User-owned data includes:
-
-- `User`
-- `Character`
-- `CharacterAbilityScore`
-- `CharacterSkill`
-- `CharacterProficiency`
-- `CharacterInventory`
-- `CharacterChoice`
-- `DiceRoll`
-
-These tables represent data created by or connected to a specific user.
-
-## Reference data
-
-Reference data includes:
-
-- `RefAbilityScore`
-- `RefSkill`
-- `RefSpecies`
-- `RefClass`
-- `RefBackground`
-- `RefProficiency`
-- `RefEquipment`
-- `RefRuleDocument`
-
-These tables represent reusable D&D-inspired game data that can be referenced by many characters.
-
-## Data separation principle
-
-The database separates reusable game definitions from user character data.
-
-Example:
-
-```text
-RefClass
-  describes a reusable class definition
-
-Character
-  stores which class a user selected
-```
-
-This avoids duplicating class/species/background data for every user character.
-
----
-
-## Reference Data Architecture
-
-The backend contains reference endpoints for retrieving ability scores, skills, species, classes, backgrounds, proficiencies, equipment, and rule documents.
-
-Seed scripts populate the reference tables from JSON data.
-
-The frontend Character Builder uses reference data to build selection options for:
-
-- species
-- background
-- class
-- class features
-
-If reference data is unavailable, the frontend can fall back to built-in builder reference data.
-
----
-
-## Character System Architecture
-
-## Backend character flow
-
-Character API requests follow this flow:
-
-```text
-HTTP Request
-  -> Character Route
-  -> requireAuth Middleware
-  -> Character Controller
-  -> Character Service
+  -> REST requests to Express API
+  -> Socket.IO connection for room board synchronization
+
+API service
+  -> Express routes
+  -> Socket.IO events
   -> Prisma Client
   -> PostgreSQL
 ```
 
-The controller validates incoming request bodies.
+## Monorepo Structure
 
-The service performs business logic such as:
+| Path | Role |
+|---|---|
+| `apps/web` | React frontend, routes, pages, feature modules, Vite build, and web tests. |
+| `apps/api` | Express API, Socket.IO server, Prisma services, controllers, routes, and API tests. |
+| `packages/shared` | Shared TypeScript package for reusable types and utilities. |
+| `infra` | Local PostgreSQL Docker Compose configuration. |
+| `scripts` | Development and deployment helper scripts. |
+| `.github/workflows` | GitHub Actions CI workflow. |
 
-- checking that referenced species/class/background records exist
-- validating skill indexes
-- calculating ability modifiers
-- calculating max HP
-- calculating armor class
-- setting speed from species
-- storing ability scores
-- storing skill proficiency records
-- storing class saving throw proficiencies
+## Frontend
 
-## Frontend character flow
+The frontend is a React single-page application built with Vite. Routing is handled by React Router. Protected pages use the auth context to check the logged-in user and redirect unauthenticated users to registration/login flows.
 
-Character-related frontend work is split across:
+Main frontend areas:
 
-- character pages
-- character hooks
-- character components
-- character API helpers
-- character utility functions
-- shared character types
+- authentication context and protected routes
+- My Characters and Create Character pages
+- Character Dashboard
+- inventory workspace
+- tactical board
+- room creation and room joining pages
+- Socket.IO room client
 
-The Character Dashboard constructs a preview character from persisted character data and local builder state. This allows the sheet to update immediately before the user saves the build.
+The frontend uses browser local storage for the auth token, selected character, dashboard UI preferences, character-builder drafts, standalone inventory state, and standalone tactical board saves.
 
----
+## Backend
 
-## Inventory Architecture
+The backend is a Node.js service using Express and TypeScript. `apps/api/src/app.ts` configures middleware, static frontend serving, and route registration. `apps/api/src/index.ts` attaches Socket.IO to the HTTP server and starts the process.
 
-The current inventory system exists mainly as a frontend prototype.
+Main backend areas:
 
-It supports:
+- health route
+- authentication routes
+- reference-data routes
+- character routes
+- room routes
+- character, room, inventory, and reference services
+- Prisma database access
 
-- item containers
-- item dimensions
-- equipment slots
-- drag/drop-style item movement
-- item metadata
-- local browser storage
-- dashboard inventory workspace integration
+Character build and gameplay state is persisted through Prisma-backed services.
 
-The Prisma schema already contains `CharacterInventory`, which can support backend persistence later.
+## Realtime Layer
 
-Future work should connect the frontend inventory prototype to the backend persistence layer.
+Socket.IO is used for room board synchronization. Socket connections authenticate with the same bearer token used by REST calls. After joining a room with an owned character, clients can send board state updates and receive room and board updates from other connected users.
 
----
+## Database
 
-## Tactical Board Architecture
+PostgreSQL stores application data. Prisma manages the schema, migrations, and generated client. The database separates reusable reference data from user-owned data such as users, characters, character state, inventory, dice rolls, rooms, players, and board state.
 
-The current tactical board exists as a frontend prototype.
+Database structure is applied through checked-in Prisma migrations. Runtime services operate on the generated Prisma Client models.
 
-It supports:
+## Public Deployment
 
-- a grid board
-- terrain types
-- draggable tokens
-- token HP
-- token initiative
-- initiative ordering
-- saved board states in browser local storage
-- synchronization between browser tabs through storage events
+D&D Simple is deployed publicly on Render at:
 
-This is not yet a full realtime virtual tabletop.
+[https://dd-simple.onrender.com](https://dd-simple.onrender.com)
 
-Future work should introduce:
+The same Render service hosts the React frontend, Express API, and Socket.IO
+server.
 
-- backend session state
-- WebSocket synchronization
-- shared board state
-- user roles
-- player/DM permissions
+## CI
 
----
+GitHub Actions runs on pushes to `main` and pull requests. The CI job uses PostgreSQL 16, installs dependencies, validates the Prisma schema, generates Prisma Client, applies migrations, runs API and web tests, and builds the shared, web, and API workspaces.
 
-## CI Architecture
+## Development Environment
 
-The project uses GitHub Actions for build validation.
+Windows development is supported through PowerShell helper scripts in `scripts/`. Linux development is supported through direct npm workspace commands and Docker Compose. Both workflows use the same source code, package scripts, Prisma schema, and local PostgreSQL configuration.
 
-The current CI workflow:
+## Runtime Flows
 
-1. checks out the repository
-2. sets up Node.js 22
-3. installs dependencies
-4. builds the frontend workspace
-5. builds the backend workspace
+### Authentication
 
-This ensures that TypeScript/build errors are detected when changes are pushed or submitted through pull requests.
+1. The user registers or logs in through the frontend.
+2. The API validates credentials and returns a signed bearer token.
+3. The frontend stores the token in browser local storage.
+4. REST requests include the token in the `Authorization` header.
+5. Socket.IO uses the token during connection authentication.
 
----
+### Character Loading and Autosave
 
-## Current Architectural Gaps
+1. The frontend loads the active character through protected character endpoints.
+2. The dashboard hydrates build, gameplay, and UI state.
+3. User edits update dashboard state.
+4. Autosave sends changes to the API after a short delay.
+5. The API validates ownership and persists character state through Prisma.
 
-The current architecture is functional for local development and MVP prototyping, but the following gaps remain:
+### Inventory Persistence
 
-- Google SSO/OAuth is planned but not yet implemented
-- auto-save is planned but the current builder uses manual Save Build
-- inventory persistence is modeled but not fully connected to the frontend inventory prototype
-- tactical board is local-only and not backed by sessions or WebSockets
-- production deployment configuration is not yet complete
-- full dice rolling workflow is not yet implemented
-- full rule engine behavior is not yet implemented
-- API documentation still needs to be expanded
-- UML diagrams still need to be aligned with the current implementation
+1. The dashboard inventory loads character-scoped inventory state.
+2. The frontend updates the local workspace after item movement, equipment changes, or custom item changes.
+3. Inventory state is saved locally and synchronized to the backend for authenticated character inventory.
+4. The backend stores full workspace state and normalized reference-item rows.
 
----
+### Dice Persistence
 
-## Future Architecture Direction
+1. The user rolls from the manual dice tool or from a rollable character-sheet value.
+2. The frontend evaluates the dice formula.
+3. Character-associated rolls are sent to the API.
+4. The API stores the roll in PostgreSQL and includes roll history when character data is loaded.
 
-The planned architecture should evolve toward:
+### Room Join
 
-```text
-Browser Client
-  -> React Web App
-  -> Express REST API
-  -> PostgreSQL via Prisma
-  -> WebSocket Realtime Layer
-  -> Shared Session / Tabletop State
-```
+1. The user creates a room or enters an existing room code.
+2. The API validates the authenticated user and selected character.
+3. The room stores player and character participation.
+4. The room board opens and the Socket.IO client joins the matching socket room.
 
-Planned future improvements:
+### Board Synchronization
 
-- Google SSO/OAuth integration
-- production hosting for frontend and backend
-- managed PostgreSQL database
-- WebSocket server for realtime tabletop synchronization
-- persistent inventory system
-- dice rolling API and history
-- session system with join codes
-- role-based session permissions
-- more complete automated rule calculations
+1. A room board loads the current room board state.
+2. Board edits produce updated board state.
+3. The frontend sends board updates through Socket.IO.
+4. The server stores the updated board state and broadcasts it to other clients in the room.
