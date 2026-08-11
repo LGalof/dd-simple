@@ -1,0 +1,39 @@
+@startuml
+title D&D Simple - Room Realtime Board Synchronization
+autonumber
+
+actor "User A" as UserA
+participant "Web Client A\n(Tactical Board)" as ClientA
+participant "Express API" as API
+database "PostgreSQL" as DB
+participant "Socket.IO Server" as Socket
+participant "Web Client B\n(Tactical Board)" as ClientB
+
+note over ClientB
+Already connected to the same room.
+end note
+
+UserA -> ClientA : Open or join room board
+ClientA -> API : REST load/join room
+API -> DB : Load Room, RoomPlayer, boardState via Prisma
+DB --> API : Room state
+API --> ClientA : Room state and board snapshot
+
+ClientA -> Socket : Connect with bearer token
+Socket -> DB : Verify user via Prisma
+DB --> Socket : User record
+Socket --> ClientA : Socket connected
+
+ClientA -> Socket : room:join(roomCode, characterId)
+Socket -> DB : Join room and ensure character token
+DB --> Socket : Updated room state
+Socket --> ClientA : room:update and acknowledgement
+Socket --> ClientB : room:update
+
+UserA -> ClientA : Change tactical board
+ClientA -> Socket : board:state(boardState)
+Socket -> DB : Persist boardState JSON
+DB --> Socket : Updated room
+Socket --> ClientB : board:update(boardState)
+Socket --> ClientA : Acknowledge update
+@enduml

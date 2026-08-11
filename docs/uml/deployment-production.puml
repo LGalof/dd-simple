@@ -1,0 +1,21 @@
+@startuml
+title D&D Simple - Production Deployment
+
+node "User Browser" as Browser {
+  artifact "React UI in browser" as BrowserUi
+}
+
+cloud "Render" {
+  node "Render Web Service\nhttps://dd-simple.onrender.com" as RenderService {
+    artifact "React/Vite static frontend" as StaticFrontend
+    artifact "Express REST API" as RestApi
+    artifact "Socket.IO server" as SocketServer
+  }
+
+  database "PostgreSQL Database" as Postgres
+}
+
+Browser --> RenderService : HTTPS / Socket.IO
+RestApi --> Postgres : Prisma Client
+SocketServer --> Postgres : Prisma Client\nroom board snapshots
+@enduml

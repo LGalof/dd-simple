@@ -1,0 +1,34 @@
+@startuml
+title D&D Simple - Use Case Overview
+left to right direction
+
+actor Visitor
+actor "Authenticated User" as AuthenticatedUser
+
+rectangle "D&D Simple" {
+  usecase "Register" as Register
+  usecase "Log in" as Login
+  usecase "Manage Characters" as ManageCharacters
+  usecase "Use Character Dashboard" as Dashboard
+  usecase "Manage HP and Conditions" as HpConditions
+  usecase "Manage Inventory" as Inventory
+  usecase "Roll Dice and View History" as Dice
+  usecase "Create Room" as CreateRoom
+  usecase "Join Room" as JoinRoom
+  usecase "Use Tactical Board" as TacticalBoard
+  usecase "Synchronize Room Board" as SyncBoard
+}
+
+Visitor --> Register
+Visitor --> Login
+
+AuthenticatedUser --> ManageCharacters
+AuthenticatedUser --> Dashboard
+AuthenticatedUser --> HpConditions
+AuthenticatedUser --> Inventory
+AuthenticatedUser --> Dice
+AuthenticatedUser --> CreateRoom
+AuthenticatedUser --> JoinRoom
+AuthenticatedUser --> TacticalBoard
+AuthenticatedUser --> SyncBoard
+@enduml

@@ -1,0 +1,37 @@
+@startuml
+title D&D Simple - Character Edit and Autosave Activity
+
+start
+:Open Character Dashboard;
+:Load character from Express API;
+:Initialize dashboard and builder state;
+
+repeat
+  :User edits character state;
+  :Build save payload;
+
+  if (Payload changed?) then (yes)
+    :Mark state dirty;
+
+    if (Lifecycle event before debounce?) then (yes)
+      :Flush pending save;
+    else (no)
+      :Wait 900 ms autosave debounce;
+    endif
+
+    :PATCH character update to API;
+
+    if (Save successful?) then (yes)
+      :Update saved state;
+      :Show saved status;
+    else (no)
+      :Display save error;
+      :Keep dirty state for retry;
+    endif
+  else (no)
+    :Keep saved state;
+  endif
+repeat while (Continue editing?) is (yes) not (no)
+
+stop
+@enduml

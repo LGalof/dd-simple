@@ -1,0 +1,236 @@
+@startuml
+!pragma layout smetana
+title D&D Simple - Current Prisma ER Overview
+
+hide circle
+skinparam linetype ortho
+
+together {
+entity "RefClass" as RefClass {
+  * index : String <<PK>>
+  --
+  name : String
+  hitDie : Int
+}
+
+entity "RefBackground" as RefBackground {
+  * index : String <<PK>>
+  --
+  name : String
+}
+
+entity "RefSpecies" as RefSpecies {
+  * index : String <<PK>>
+  --
+  name : String
+  baseSpeed : Int
+}
+
+entity "RefEquipment" as RefEquipment {
+  * index : String <<PK>>
+  --
+  name : String
+  itemType : String?
+}
+}
+
+together {
+entity "User" as User {
+  * id : String <<PK>>
+  --
+  email : String <<unique>>
+  displayName : String?
+}
+
+entity "Character" as Character {
+  * id : String <<PK>>
+  --
+  userId : String <<FK>>
+  name : String
+  level : Int
+  speciesIndex : String <<FK>>
+  classIndex : String <<FK>>
+  backgroundIndex : String <<FK>>
+}
+
+entity "DiceRoll" as DiceRoll {
+  * id : String <<PK>>
+  --
+  characterId : String <<FK>>
+  rolledByUserId : String <<FK>>
+  formula : String
+  total : Int
+}
+
+entity "Room" as Room {
+  * id : String <<PK>>
+  --
+  code : String <<unique>>
+  creatorUserId : String <<FK>>
+  creatorCharacterId : String <<FK>>
+  boardState : Json?
+}
+
+entity "RoomPlayer" as RoomPlayer {
+  * id : String <<PK>>
+  --
+  roomId : String <<FK>>
+  userId : String <<FK>>
+  characterId : String <<FK>>
+  characterName : String
+}
+}
+
+together {
+entity "CharacterAbilityScore" as CharacterAbilityScore {
+  * characterId : String <<PK, FK>>
+  * abilityIndex : String <<PK, FK>>
+  --
+  score : Int
+}
+
+entity "CharacterSkill" as CharacterSkill {
+  * characterId : String <<PK, FK>>
+  * skillIndex : String <<PK, FK>>
+  --
+  isProficient : Boolean
+}
+
+entity "CharacterProficiency" as CharacterProficiency {
+  * characterId : String <<PK, FK>>
+  * proficiencyIndex : String <<PK, FK>>
+  --
+  sourceType : String?
+}
+
+entity "CharacterChoice" as CharacterChoice {
+  * id : String <<PK>>
+  --
+  characterId : String <<FK>>
+  choiceType : String
+  selectedIndex : String
+}
+
+entity "CharacterFeatureChoiceSelection" as CharacterFeatureChoiceSelection {
+  * id : String <<PK>>
+  --
+  characterId : String <<FK>>
+  sourceType : String
+  choicePath : String
+}
+
+entity "CharacterLanguage" as CharacterLanguage {
+  * id : String <<PK>>
+  --
+  characterId : String <<FK>>
+  languageIndex : String <<FK>>
+}
+}
+
+together {
+entity "CharacterCondition" as CharacterCondition {
+  * id : String <<PK>>
+  --
+  characterId : String <<FK>>
+  conditionIndex : String <<FK>>
+}
+
+entity "CharacterHitPointState" as CharacterHitPointState {
+  * id : String <<PK>>
+  --
+  characterId : String <<unique FK>>
+  calculationMode : String
+  tempHp : Int
+}
+
+entity "CharacterSpellcastingState" as CharacterSpellcastingState {
+  * id : String <<PK>>
+  --
+  characterId : String <<unique FK>>
+  learnedSpellIds : Json?
+  slotUsageByLevel : Json?
+}
+
+entity "CharacterResourceState" as CharacterResourceState {
+  * id : String <<PK>>
+  --
+  characterId : String <<unique FK>>
+  usageByResourceKey : Json?
+  activeByResourceKey : Json?
+}
+}
+
+together {
+entity "CharacterInventory" as CharacterInventory {
+  * id : String <<PK>>
+  --
+  characterId : String <<FK>>
+  equipmentIndex : String <<FK>>
+  quantity : Int
+}
+
+entity "CharacterInventoryState" as CharacterInventoryState {
+  * characterId : String <<PK, FK>>
+  --
+  stateCode : String
+}
+}
+
+RefClass -[hidden]right- RefBackground
+RefBackground -[hidden]right- RefSpecies
+RefSpecies -[hidden]right- RefEquipment
+
+User -[hidden]right- Character
+User -[hidden]down- DiceRoll
+DiceRoll -[hidden]down- RoomPlayer
+RoomPlayer -[hidden]down- Room
+
+CharacterAbilityScore -[hidden]right- CharacterSkill
+CharacterSkill -[hidden]right- CharacterProficiency
+CharacterChoice -[hidden]right- CharacterFeatureChoiceSelection
+CharacterFeatureChoiceSelection -[hidden]right- CharacterLanguage
+CharacterAbilityScore -[hidden]down- CharacterChoice
+
+CharacterCondition -[hidden]right- CharacterHitPointState
+CharacterSpellcastingState -[hidden]right- CharacterResourceState
+CharacterCondition -[hidden]down- CharacterSpellcastingState
+
+RefClass -[hidden]down- Character
+Character -[hidden]down- CharacterAbilityScore
+Character -[hidden]down- CharacterCondition
+CharacterHitPointState -[hidden]down- CharacterInventory
+CharacterInventory -[hidden]down- CharacterInventoryState
+RefEquipment -[hidden]down- CharacterInventory
+
+User ||--o{ Character : owns
+User ||--o{ DiceRoll : rolled by
+User ||--o{ Room : creates
+User ||--o{ RoomPlayer : joins
+
+RefSpecies ||--o{ Character : species
+RefClass ||--o{ Character : class
+RefBackground ||--o{ Character : background
+RefEquipment ||--o{ CharacterInventory : equipment
+
+Character ||--o{ CharacterAbilityScore : ability scores
+Character ||--o{ CharacterSkill : skills
+Character ||--o{ CharacterProficiency : proficiencies
+Character ||--o{ CharacterChoice : choices
+Character ||--o{ CharacterFeatureChoiceSelection : feature choices
+Character ||--o{ CharacterLanguage : languages
+Character ||--o{ CharacterCondition : conditions
+Character ||--o| CharacterHitPointState : HP state
+Character ||--o| CharacterSpellcastingState : spell state
+Character ||--o| CharacterResourceState : resource state
+Character ||--o{ CharacterInventory : inventory rows
+Character ||--o| CharacterInventoryState : inventory workspace
+Character ||--o{ DiceRoll : roll history
+Character ||--o{ RoomPlayer : room character
+Character ||--o{ Room : created with
+
+Room ||--o{ RoomPlayer : players
+
+legend bottom
+Additional Ref* models are defined in the Prisma schema and omitted from this overview for readability.
+endlegend
+@enduml
