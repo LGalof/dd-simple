@@ -8,6 +8,7 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:16
@@ -48,17 +49,17 @@ jobs:
       - name: Verify database migrations
         run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
 
-      - name: Test api
-        run: npm --workspace @dd-simple/api run test
-
-      - name: Test web
-        run: npm --workspace @dd-simple/web run test
-
       - name: Build shared
         run: npm run build --workspace @dd-simple/shared
 
       - name: Build web
         run: npm run build --workspace @dd-simple/web
+
+      - name: Test api
+        run: npm --workspace @dd-simple/api run test
+
+      - name: Test web
+        run: npm --workspace @dd-simple/web run test
 
       - name: Build api
         run: npm run build --workspace @dd-simple/api
