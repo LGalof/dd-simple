@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node ../../node_modules/tsx/dist/cli.mjs src/index.ts",
     "build": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "npm --prefix ../.. --workspace @dd-simple/shared run build && node --import tsx --test \"src/**/*.test.ts\"",
     "start": "node dist/index.js",
     "audit:class-feature-choices": "node ../../node_modules/tsx/dist/cli.mjs src/scripts/auditClassFeatureChoices.ts",
     "prisma:generate": "node ../../node_modules/prisma/build/index.js generate",
