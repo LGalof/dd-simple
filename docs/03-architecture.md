@@ -131,4 +131,4 @@ Windows development is supported through PowerShell helper scripts in `scripts/`
 1. A room board loads the current room board state.
 2. Board edits produce updated board state.
 3. The frontend sends board updates through Socket.IO.
-4. The server stores the updated board state and broadcasts it to other clients in the room.
+4. The server stores the updated board state and broadcasts it to connected clients in the room, including the sender.

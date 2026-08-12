@@ -71,10 +71,10 @@ The GitHub Actions workflow runs on pushes to `main` and on pull requests. The C
 - validates the Prisma schema
 - generates Prisma Client
 - applies migrations to the CI database
-- runs backend tests
-- runs frontend tests
 - builds the shared package
 - builds the web app
+- runs backend tests
+- runs frontend tests
 - builds the API
 
 ## Developer Validation Workflow

@@ -59,6 +59,7 @@ Room routes require authentication.
 | Method | Route | Purpose | Rule |
 |---|---|---|---|
 | POST | `/rooms` | Create a room. | Requires a `characterId` owned by the authenticated user. |
+| GET | `/rooms` | List rooms the authenticated user created or joined. | Requires authentication. |
 | POST | `/rooms/:roomCode/join` | Join a room by code. | Requires an existing room and a character owned by the authenticated user. |
 | GET | `/rooms/:roomCode` | Load room players and board state. | Requires authentication and a valid room code. |
 
@@ -73,13 +74,14 @@ Socket connections authenticate with a bearer token provided in socket auth data
 | `room:join` | Join a socket room for a room code and character. | Token must be valid; character must belong to the user. |
 | `room:leave` | Leave the current socket room. | Socket must already be connected. |
 | `board:state` | Send updated board state for the joined room. | Socket must have joined a room. |
+| `board:advance-turn` | Advance the initiative turn for the joined room. | DM may move backward or forward; active player may advance forward. |
 
 ### Server Events
 
 | Event | Purpose |
 |---|---|
 | `room:update` | Sends room data, players, and board state after room changes. |
-| `board:update` | Sends updated board state to other clients in the room. |
+| `board:update` | Sends updated board state to connected clients in the room, including the sender after successful updates. |
 
 ## Synchronization Flow
 
@@ -88,6 +90,7 @@ Socket connections authenticate with a bearer token provided in socket auth data
 3. The client emits `room:join` with room code and character ID.
 4. The server validates the user and character, joins the socket room, and emits `room:update`.
 5. Board edits send `board:state`.
-6. The server saves the board state and emits `board:update` to other clients in the room.
+6. The server saves the board state and emits `board:update` to connected clients in the room, including the sender.
+7. The sender also receives the acknowledgement callback for the board update.
 
 Controllers return JSON error messages with HTTP status codes for validation and ownership failures. Socket events use callback error objects for join and board-update failures.

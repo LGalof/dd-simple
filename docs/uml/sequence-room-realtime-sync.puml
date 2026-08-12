@@ -32,8 +32,9 @@ Socket --> ClientB : room:update
 
 UserA -> ClientA : Change tactical board
 ClientA -> Socket : board:state(boardState)
-Socket -> DB : Persist boardState JSON
+Socket -> DB : Persist/process boardState JSON
 DB --> Socket : Updated room
+Socket --> ClientA : board:update(boardState)
 Socket --> ClientB : board:update(boardState)
-Socket --> ClientA : Acknowledge update
+Socket --> ClientA : Acknowledge update callback
 @enduml

@@ -77,7 +77,7 @@ The serialized workspace supports the grid-based inventory interface, including 
 
 ## Dice Rolls
 
-`DiceRoll` stores roll type, formula, result, mode, individual dice values, modifier, label, visibility, user, and character. Character queries include recent or full roll history depending on the endpoint.
+`DiceRoll` stores roll type, formula, result, mode, individual dice values, modifier, reason, visibility, user, and character. Character queries include recent or full roll history depending on the endpoint.
 
 ## Rooms and Board State
 

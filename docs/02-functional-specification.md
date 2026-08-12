@@ -82,7 +82,7 @@ Standalone board mode stores board state in browser local storage. Room board mo
 
 ## Realtime Synchronization
 
-Room board synchronization uses Socket.IO. A logged-in user joins a socket room with a room code and owned character. Board edits are sent as state updates to the server, saved to the room, and broadcast to other connected clients in the same room.
+Room board synchronization uses Socket.IO. A logged-in user joins a socket room with a room code and owned character. Board edits are sent as state updates to the server, saved to the room, and emitted to connected clients in the same room, including the sender.
 
 The synchronized state includes the tactical board data used during room play, including tokens, terrain, fog, pins, templates, layers, settings, and initiative order.
 
