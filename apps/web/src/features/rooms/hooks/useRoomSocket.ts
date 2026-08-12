@@ -12,6 +12,8 @@ type RoomPlayer = {
 
 type RoomDetails = {
   code: string;
+  creatorUserId: string;
+  creatorCharacterId: string;
   createdAt: number;
   updatedAt: number;
   boardState: SavedBoardState | null;
@@ -20,6 +22,8 @@ type RoomDetails = {
 
 type RoomSocketResponse = {
   room?: RoomDetails;
+  boardState?: SavedBoardState | null;
+  updatedAt?: number;
   error?: string;
 };
 
@@ -32,7 +36,14 @@ function useRoomSocket(
   const [error, setError] = useState<string | null>(null);
   const [room, setRoom] = useState<RoomDetails | null>(null);
   const [boardState, setBoardState] = useState<SavedBoardState | null>(null);
+  const [boardStateRevision, setBoardStateRevision] = useState(0);
   const socketRef = useRef<Socket | null>(null);
+  const latestRoomUpdatedAtRef = useRef<number | null>(null);
+
+  const receiveBoardState = useCallback((nextBoardState: SavedBoardState | null) => {
+    setBoardState(nextBoardState);
+    setBoardStateRevision((currentRevision) => currentRevision + 1);
+  }, []);
 
   useEffect(() => {
     if (!roomCode || !characterId || !token) {
@@ -63,11 +74,15 @@ function useRoomSocket(
 
     socket.on("room:update", (payload: { room: RoomDetails }) => {
       setRoom(payload.room);
-      setBoardState(payload.room.boardState);
+      receiveBoardState(payload.room.boardState);
+      latestRoomUpdatedAtRef.current = payload.room.updatedAt;
     });
 
-    socket.on("board:update", (payload: { boardState: SavedBoardState }) => {
-      setBoardState(payload.boardState);
+    socket.on("board:update", (payload: { boardState: SavedBoardState; updatedAt?: number }) => {
+      receiveBoardState(payload.boardState);
+      if (typeof payload.updatedAt === "number") {
+        latestRoomUpdatedAtRef.current = payload.updatedAt;
+      }
     });
 
     socket.open();
@@ -80,7 +95,8 @@ function useRoomSocket(
 
       if (response.room) {
         setRoom(response.room);
-        setBoardState(response.room.boardState);
+        receiveBoardState(response.room.boardState);
+        latestRoomUpdatedAtRef.current = response.room.updatedAt;
       }
     });
 
@@ -91,11 +107,55 @@ function useRoomSocket(
   }, [characterId, roomCode, token]);
 
   const sendBoardState = useCallback((nextBoardState: SavedBoardState) => {
-    socketRef.current?.emit("board:state", { boardState: nextBoardState });
+    socketRef.current?.emit(
+      "board:state",
+      { boardState: nextBoardState, baseUpdatedAt: latestRoomUpdatedAtRef.current },
+      (response?: RoomSocketResponse & { ok?: boolean }) => {
+        if (typeof response?.updatedAt === "number") {
+          latestRoomUpdatedAtRef.current = response.updatedAt;
+        }
+
+        if (response?.boardState) {
+          receiveBoardState(response.boardState);
+        }
+
+        if (response?.error) {
+          setError(response.error);
+          return;
+        }
+
+        setError(null);
+      },
+    );
   }, []);
 
+  const advanceTurn = useCallback((direction: 1 | -1) => {
+    socketRef.current?.emit(
+      "board:advance-turn",
+      { direction },
+      (response?: RoomSocketResponse & { ok?: boolean }) => {
+        if (typeof response?.updatedAt === "number") {
+          latestRoomUpdatedAtRef.current = response.updatedAt;
+        }
+
+        if (response?.boardState) {
+          receiveBoardState(response.boardState);
+        }
+
+        if (response?.error) {
+          setError(response.error);
+          return;
+        }
+
+        setError(null);
+      },
+    );
+  }, [receiveBoardState]);
+
   return {
+    advanceTurn,
     boardState,
+    boardStateRevision,
     connected,
     error,
     room,

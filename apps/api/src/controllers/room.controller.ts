@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { getAuthenticatedUser } from "../middleware/auth.js";
-import { createRoom, getRoom, joinRoom } from "../services/room.service.js";
+import { createRoom, getRoom, joinRoom, listRoomsForUser } from "../services/room.service.js";
 import { findCharacterByIdForUser } from "../services/character.service.js";
 import { eventBus } from "../lib/events.js";
 
@@ -34,6 +34,8 @@ async function createRoomController(req: Request, res: Response) {
     res.status(201).json({
       room: {
         code: room.code,
+        creatorUserId: room.creatorUserId,
+        creatorCharacterId: room.creatorCharacterId,
         createdAt: room.createdAt,
         updatedAt: room.updatedAt,
         players: room.players,
@@ -100,6 +102,8 @@ async function joinRoomController(req: Request, res: Response) {
     res.json({
       room: {
         code: nextRoom.code,
+        creatorUserId: nextRoom.creatorUserId,
+        creatorCharacterId: nextRoom.creatorCharacterId,
         createdAt: nextRoom.createdAt,
         updatedAt: nextRoom.updatedAt,
         players: nextRoom.players,
@@ -110,6 +114,22 @@ async function joinRoomController(req: Request, res: Response) {
     logRoomError("join room", error);
     res.status(500).json({
       error: "Failed to join room",
+    });
+  }
+}
+
+async function listRoomsForUserController(req: Request, res: Response) {
+  try {
+    const user = getAuthenticatedUser(req);
+    const rooms = await listRoomsForUser(user.id);
+
+    res.json({
+      rooms,
+    });
+  } catch (error) {
+    logRoomError("list rooms for user", error);
+    res.status(500).json({
+      error: "Failed to load rooms",
     });
   }
 }
@@ -137,6 +157,8 @@ async function getRoomController(req: Request, res: Response) {
     res.json({
       room: {
         code: room.code,
+        creatorUserId: room.creatorUserId,
+        creatorCharacterId: room.creatorCharacterId,
         createdAt: room.createdAt,
         updatedAt: room.updatedAt,
         players: room.players,
@@ -151,4 +173,4 @@ async function getRoomController(req: Request, res: Response) {
   }
 }
 
-export { createRoomController, getRoomController, joinRoomController };
+export { createRoomController, getRoomController, joinRoomController, listRoomsForUserController };

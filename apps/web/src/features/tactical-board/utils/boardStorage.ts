@@ -7,7 +7,32 @@ import {
   pinTypeLabels,
   savedBoardsStorageKey,
 } from "../data/boardConstants";
-import type { MapPin, PinType, SavedBoardEntry, SavedBoardState, TokenCondition } from "../types/board";
+import type {
+  DeathSaves,
+  LifeStatus,
+  MapPin,
+  PinType,
+  SavedBoardEntry,
+  SavedBoardState,
+  TokenCondition,
+} from "../types/board";
+
+const validLifeStatuses: LifeStatus[] = ["alive", "dying", "stable", "dead"];
+
+function normalizeDeathSaves(deathSaves?: DeathSaves): DeathSaves {
+  return {
+    successes: Math.max(0, Math.min(3, Math.trunc(deathSaves?.successes ?? 0))),
+    failures: Math.max(0, Math.min(3, Math.trunc(deathSaves?.failures ?? 0))),
+  };
+}
+
+function normalizeLifeStatus(status: LifeStatus | undefined, hp: number): LifeStatus {
+  if (hp > 0) {
+    return "alive";
+  }
+
+  return status && validLifeStatuses.includes(status) && status !== "alive" ? status : "dying";
+}
 
 export function loadSavedBoardState(): SavedBoardState | null {
   try {
@@ -66,27 +91,35 @@ export function normalizeBoardState(state: SavedBoardState): SavedBoardState | n
     return null;
   }
 
-  const tokens = state.tokens.map((token) => ({
-    ...token,
-    initiative: Number.isFinite(token.initiative) ? token.initiative : 10,
-    maxHp: Math.max(1, token.maxHp || 1),
-    hp: Math.max(0, token.hp || 0),
-    size: Math.max(1, Math.min(3, token.size || 1)),
-    speed: Math.max(5, token.speed || 30),
-    ac: Math.max(1, token.ac || 10),
-    notes: token.notes ?? "",
-    conditions: Array.isArray(token.conditions)
-      ? token.conditions.filter((condition): condition is TokenCondition =>
-          conditionOptions.includes(condition as TokenCondition),
-        )
-      : [],
-    turn: {
-      ...defaultTurnState,
-      ...(token.turn ?? {}),
-      movementUsed: Math.max(0, token.turn?.movementUsed ?? 0),
-    },
-    visionFeet: Math.max(0, token.visionFeet ?? 60),
-  }));
+  const tokens = state.tokens.map((token) => {
+    const maxHp = Math.max(1, token.maxHp || 1);
+    const hp = Math.max(0, Math.min(maxHp, token.hp || 0));
+
+    return {
+      ...token,
+      initiative: Number.isFinite(token.initiative) ? token.initiative : 10,
+      initiativeModifier: Number.isFinite(token.initiativeModifier) ? token.initiativeModifier : 0,
+      maxHp,
+      hp,
+      lifeStatus: normalizeLifeStatus(token.lifeStatus, hp),
+      deathSaves: normalizeDeathSaves(token.deathSaves),
+      size: Math.max(1, Math.min(3, token.size || 1)),
+      speed: Math.max(5, token.speed || 30),
+      ac: Math.max(1, token.ac || 10),
+      notes: token.notes ?? "",
+      conditions: Array.isArray(token.conditions)
+        ? token.conditions.filter((condition): condition is TokenCondition =>
+            conditionOptions.includes(condition as TokenCondition),
+          )
+        : [],
+      turn: {
+        ...defaultTurnState,
+        ...(token.turn ?? {}),
+        movementUsed: Math.max(0, token.turn?.movementUsed ?? 0),
+      },
+      visionFeet: Math.max(0, token.visionFeet ?? 60),
+    };
+  });
   const tokenIds = new Set(tokens.map((token) => token.id));
   const savedInitiativeOrder = Array.isArray(state.initiativeOrder) ? state.initiativeOrder : [];
   const initiativeOrder = [

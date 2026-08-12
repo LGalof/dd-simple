@@ -67,6 +67,7 @@ type CharacterSheetProps = {
   onLocalRoll: (result: RollableResult) => void;
   onOpenConditions: () => void;
   onOpenSpellLibrary: () => void;
+  onSelectSpellEntry: (entry: CharacterSpellEntry) => void;
   onResourceStateChange: (state: CharacterResourceState) => void;
   onSpellcastingStateChange: (state: CharacterSpellcastingState) => void;
   resolvedFeatureChoices: CharacterFeatureChoiceSelection[];
@@ -263,6 +264,7 @@ function CharacterSheet({
   onLocalRoll,
   onOpenConditions,
   onOpenSpellLibrary,
+  onSelectSpellEntry,
   onResourceStateChange,
   onSpellcastingStateChange,
   resolvedFeatureChoices,
@@ -1339,6 +1341,7 @@ function CharacterSheet({
                   onActiveSpellLevelFilterChange={setActiveSpellLevelFilter}
                   onOpenSpellLibrary={onOpenSpellLibrary}
                   onRestoreSpellSlot={restoreSpellSlot}
+                  onSelectSpellEntry={onSelectSpellEntry}
                   onSetUsedSpellSlots={setUsedSpellSlots}
                   onSpellSearchTextChange={setSpellSearchText}
                   onUseSpellSlot={spendSpellSlot}

@@ -54,7 +54,10 @@ import type {
   CharacterSavePayload,
   CharacterSpellcastingState,
 } from "../types/character";
-import type { CharacterDerivedState } from "../types/characterDerived";
+import type {
+  CharacterDerivedState,
+  CharacterSpellEntry,
+} from "../types/characterDerived";
 import {
   useInventorySandboxController,
 } from "./InventorySandboxPage";
@@ -93,6 +96,7 @@ function CharacterDashboardPage() {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | "spells" | null>(null);
+  const [selectedSpellEntry, setSelectedSpellEntry] = useState<CharacterSpellEntry | null>(null);
   const rightRailRef = useRef<HTMLDivElement | null>(null);
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
   const [diceRollSaveError, setDiceRollSaveError] = useState<string | null>(null);
@@ -420,6 +424,7 @@ function CharacterDashboardPage() {
     saveCharacter: saveDashboardCharacter,
   });
   const toggleConditionsRail = useCallback(() => {
+    setSelectedSpellEntry(null);
     setRightRailMode((currentMode) => (currentMode === "conditions" ? null : "conditions"));
   }, []);
 
@@ -443,6 +448,7 @@ function CharacterDashboardPage() {
         return;
       }
 
+      setSelectedSpellEntry(null);
       setRightRailMode(null);
     }
 
@@ -464,6 +470,9 @@ function CharacterDashboardPage() {
         ? null
         : currentMode,
     );
+    if (activeWorkspaceTab !== "spells") {
+      setSelectedSpellEntry(null);
+    }
   }, [activeWorkspaceTab]);
 
   useEffect(() => {
@@ -475,6 +484,7 @@ function CharacterDashboardPage() {
       setActiveWorkspaceTab("actions");
       setIsBuilderSidebarHidden(false);
       setRightRailMode(null);
+      setSelectedSpellEntry(null);
       setSpellcastingState({
         learnedSpellIds: [],
         preparedSpellIds: [],
@@ -495,6 +505,7 @@ function CharacterDashboardPage() {
     );
     setIsBuilderSidebarHidden(persistedUiState?.isBuilderSidebarHidden ?? false);
     setRightRailMode(persistedUiState?.rightRailMode ?? null);
+    setSelectedSpellEntry(null);
     setSpellcastingState(
       persistedUiState?.spellcastingState ?? {
         learnedSpellIds: character.spellcastingState?.learnedSpellIds ?? [],
@@ -536,6 +547,19 @@ function CharacterDashboardPage() {
   function handleSaveBuild() {
     void dashboardAutosave.flushSave();
   }
+
+  const handleOpenSpellLibrary = useCallback(() => {
+    setSelectedSpellEntry(null);
+    setRightRailMode((currentMode) =>
+      currentMode === "spells" && selectedSpellEntry === null ? null : "spells",
+    );
+  }, [selectedSpellEntry]);
+
+  const handleSelectSpellEntry = useCallback((entry: CharacterSpellEntry) => {
+    setActiveWorkspaceTab("spells");
+    setSelectedSpellEntry(entry);
+    setRightRailMode("spells");
+  }, []);
 
   async function toggleCondition(conditionId: ConditionId) {
     if (!character) {
@@ -712,9 +736,8 @@ function CharacterDashboardPage() {
               onApplyCurrentHpAdjustment={applyCurrentHpAdjustment}
               onApplyLongRest={applyLongRest}
               onOpenConditions={toggleConditionsRail}
-              onOpenSpellLibrary={() =>
-                setRightRailMode((currentMode) => (currentMode === "spells" ? null : "spells"))
-              }
+              onOpenSpellLibrary={handleOpenSpellLibrary}
+              onSelectSpellEntry={handleSelectSpellEntry}
               onSetTempHp={setTempHp}
               selectedBackground={selectedBackground}
               selectedClass={selectedClass}
@@ -741,6 +764,7 @@ function CharacterDashboardPage() {
                   void toggleCondition(conditionId);
                 }}
                 rightRailMode={rightRailMode}
+                selectedSpellEntry={selectedSpellEntry}
                 selectedClassIndex={effectiveSpellLibraryClassIndex}
                 selectedClassName={selectedClass.name}
                 spellEntries={characterDerivedStateWithPreview?.spells ?? []}

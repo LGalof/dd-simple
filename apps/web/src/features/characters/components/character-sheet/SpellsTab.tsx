@@ -1,4 +1,9 @@
 import type { CharacterSpellEntry } from "../../../../types/characterDerived";
+import {
+  findSpellLibraryRecordByName,
+  formatSpellAttackRange,
+  isAttackRollSpell,
+} from "../../utils/spellLibrary";
 
 type SpellcastingSummary = {
   abilityLabel: string;
@@ -45,6 +50,7 @@ type SpellsTabProps = {
   getSpellEntrySubtitle: (entry: CharacterSpellEntry) => string;
   onActiveSpellLevelFilterChange: (filter: "all" | number) => void;
   onOpenSpellLibrary: () => void;
+  onSelectSpellEntry: (entry: CharacterSpellEntry) => void;
   onSpellSearchTextChange: (value: string) => void;
   onUseSpellSlot: (level: number, max: number) => void;
   onRestoreSpellSlot: (level: number, max: number) => void;
@@ -69,6 +75,7 @@ function SpellsTab({
   getSpellEntrySubtitle,
   onActiveSpellLevelFilterChange,
   onOpenSpellLibrary,
+  onSelectSpellEntry,
   onSpellSearchTextChange,
   onUseSpellSlot,
   onRestoreSpellSlot,
@@ -170,7 +177,9 @@ function SpellsTab({
             <SpellLevelSectionCard
               key={section.id}
               getSpellEntrySubtitle={getSpellEntrySubtitle}
+              onSelectSpellEntry={onSelectSpellEntry}
               section={section}
+              spellcastingSummary={spellcastingSummary}
             />
           ))}
         </div>
@@ -239,7 +248,9 @@ function SpellsTab({
                 <SpellLevelSectionCard
                   key={section.id}
                   getSpellEntrySubtitle={getSpellEntrySubtitle}
+                  onSelectSpellEntry={onSelectSpellEntry}
                   section={section}
+                  spellcastingSummary={spellcastingSummary}
                 />
               ))}
             </div>
@@ -262,7 +273,9 @@ function SpellsTab({
             <SpellLevelSectionCard
               key={section.id}
               getSpellEntrySubtitle={getSpellEntrySubtitle}
+              onSelectSpellEntry={onSelectSpellEntry}
               section={section}
+              spellcastingSummary={spellcastingSummary}
             />
           ))}
 
@@ -303,29 +316,125 @@ function SpellsTab({
 
 function SpellLevelSectionCard({
   getSpellEntrySubtitle,
+  onSelectSpellEntry,
   section,
+  spellcastingSummary,
 }: {
   getSpellEntrySubtitle: (entry: CharacterSpellEntry) => string;
+  onSelectSpellEntry: (entry: CharacterSpellEntry) => void;
   section: SpellLevelSection;
+  spellcastingSummary: SpellcastingSummary | null;
 }) {
   return (
-    <div className="character-feature-entry">
-      <strong>{section.title}</strong>
-      <div className="list">
+    <div className="character-spell-table-card">
+      <div className="character-spell-table-title">
+        <strong>{section.title}</strong>
+      </div>
+      <div className="character-spell-table" role="table" aria-label={section.title}>
+        <div className="character-spell-table-header" role="row">
+          <span>Name</span>
+          <span>Time</span>
+          <span>Range</span>
+          <span>Hit / DC</span>
+          <span>Components</span>
+        </div>
         {section.entries.map((entry) => (
-          <div key={entry.id} className="character-spell-entry">
-            <div className="character-spell-entry-header">
-              <div className="character-spell-entry-copy">
-                <strong>{entry.title}</strong>
-                <p>{getSpellEntrySubtitle(entry)}</p>
-              </div>
-            </div>
-            <p>{entry.description}</p>
-          </div>
+          <button
+            key={entry.id}
+            type="button"
+            className="character-spell-table-row"
+            data-right-rail-trigger
+            onClick={() => onSelectSpellEntry(entry)}
+          >
+            <span className="character-spell-table-name">
+              <strong>{entry.title}</strong>
+              <small>{getSpellEntrySubtitle(entry)}</small>
+            </span>
+            <span>{getSpellCastingTimeDisplay(entry)}</span>
+            <span>{getSpellRangeDisplay(entry)}</span>
+            <span>{getSpellHitDcDisplay(entry, spellcastingSummary)}</span>
+            <span>{getSpellComponentsDisplay(entry)}</span>
+          </button>
         ))}
       </div>
     </div>
   );
+}
+
+function getSpellCastingTimeDisplay(entry: CharacterSpellEntry) {
+  const spellRecord = findSpellLibraryRecordByName(entry.title);
+  const castingTime = spellRecord?.castingTime ?? extractSpellMetaValue(entry.description, "Casting Time");
+  const normalizedCastingTime = castingTime.toLowerCase();
+
+  if (normalizedCastingTime.includes("bonus action")) {
+    return "1B";
+  }
+
+  if (normalizedCastingTime.includes("reaction")) {
+    return "1R";
+  }
+
+  if (normalizedCastingTime.includes("action")) {
+    return "1A";
+  }
+
+  return castingTime || "--";
+}
+
+function getSpellRangeDisplay(entry: CharacterSpellEntry) {
+  const spellRecord = findSpellLibraryRecordByName(entry.title);
+  const range = spellRecord?.range ?? extractSpellMetaValue(entry.description, "Range");
+
+  return range ? formatSpellAttackRange(range) : "--";
+}
+
+function getSpellComponentsDisplay(entry: CharacterSpellEntry) {
+  const spellRecord = findSpellLibraryRecordByName(entry.title);
+  const components = spellRecord?.components ?? extractSpellMetaValue(entry.description, "Components");
+
+  return components || "--";
+}
+
+function getSpellHitDcDisplay(
+  entry: CharacterSpellEntry,
+  spellcastingSummary: SpellcastingSummary | null,
+) {
+  if (!spellcastingSummary) {
+    return "--";
+  }
+
+  const spellRecord = findSpellLibraryRecordByName(entry.title);
+  const description = spellRecord?.description ?? entry.description;
+
+  if (spellRecord && isAttackRollSpell(spellRecord)) {
+    return formatSignedModifier(spellcastingSummary.attackBonus);
+  }
+
+  const saveAbility = getSpellSaveAbility(description);
+
+  return saveAbility ? `${saveAbility} ${spellcastingSummary.saveDc}` : "--";
+}
+
+function getSpellSaveAbility(description: string) {
+  const saveMatch = description.match(
+    /\b(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\s+saving throw\b/i,
+  );
+
+  if (!saveMatch?.[1]) {
+    return null;
+  }
+
+  return saveMatch[1].slice(0, 3).toUpperCase();
+}
+
+function extractSpellMetaValue(description: string, label: string) {
+  const match = description.match(new RegExp(`${label}:\\s*([^|\\n]+)`, "i"));
+
+  return match?.[1]?.trim() ?? "";
+}
+
+function formatSignedModifier(value: number) {
+  return value >= 0 ? `+${value}` : String(value);
 }
 
 export { SpellsTab };

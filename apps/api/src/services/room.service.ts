@@ -18,6 +18,20 @@ type Room = {
   boardState: unknown;
 };
 
+type CreatedRoomSummary = {
+  code: string;
+  currentUserRole: "creator" | "player";
+  currentUserCharacterId: string | null;
+  creatorUserId: string;
+  creatorCharacterId: string;
+  creatorCharacterName: string;
+  creatorDisplayName: string;
+  createdAt: number;
+  updatedAt: number;
+  playerCount: number;
+  players: Array<RoomPlayer & { role: "creator" | "player" }>;
+};
+
 type RoomCharacter = {
   id: string;
   name: string;
@@ -25,6 +39,10 @@ type RoomCharacter = {
   maxHp: number;
   armorClass: number;
   speed: number;
+  abilityScores?: Array<{
+    abilityIndex?: string;
+    score?: number;
+  }>;
 };
 
 type BoardToken = {
@@ -40,6 +58,7 @@ type BoardToken = {
   hp: number;
   maxHp: number;
   initiative: number;
+  initiativeModifier: number;
   ac: number;
   conditions: string[];
   notes: string;
@@ -108,6 +127,18 @@ const defaultTurn = {
   reactionUsed: false,
 };
 
+function getAbilityModifier(score: number) {
+  return Math.floor((score - 10) / 2);
+}
+
+function getCharacterInitiativeModifier(character: RoomCharacter) {
+  const dexterityScore = character.abilityScores?.find(
+    (abilityScore) => abilityScore.abilityIndex === "dex",
+  )?.score;
+
+  return Number.isFinite(dexterityScore) ? getAbilityModifier(dexterityScore ?? 10) : 0;
+}
+
 function generateRoomCode() {
   let code = "";
 
@@ -120,7 +151,13 @@ function generateRoomCode() {
 }
 
 function normalizeRoomCode(roomCode: string) {
-  return roomCode.trim().toUpperCase();
+  const normalizedValue = roomCode.trim().toUpperCase();
+  const explicitRoomCodeMatch =
+    normalizedValue.match(/[?&]ROOMCODE=([A-Z0-9]{6})(?:\b|$)/) ??
+    normalizedValue.match(/\/ROOM\/([A-Z0-9]{6})(?:\b|$)/);
+  const standaloneRoomCodeMatch = normalizedValue.match(/\b([A-Z0-9]{6})\b/);
+
+  return explicitRoomCodeMatch?.[1] ?? standaloneRoomCodeMatch?.[1] ?? normalizedValue;
 }
 
 function serializeRoom(room: {
@@ -196,6 +233,7 @@ function buildPlayerToken(character: RoomCharacter, playerIndex: number): BoardT
     hp: character.currentHp,
     maxHp: character.maxHp,
     initiative: 10,
+    initiativeModifier: getCharacterInitiativeModifier(character),
     ac: character.armorClass,
     conditions: [],
     notes: "",
@@ -302,6 +340,75 @@ async function getRoom(roomCode: string) {
   return room ? serializeRoom(room) : null;
 }
 
+async function listRoomsForUser(userId: string): Promise<CreatedRoomSummary[]> {
+  const rooms = await prisma.room.findMany({
+    where: {
+      OR: [
+        {
+          creatorUserId: userId,
+        },
+        {
+          players: {
+            some: {
+              userId,
+            },
+          },
+        },
+      ],
+    },
+    include: {
+      creator: {
+        select: {
+          displayName: true,
+          email: true,
+        },
+      },
+      creatorCharacter: {
+        select: {
+          name: true,
+        },
+      },
+      players: {
+        orderBy: {
+          joinedAt: "asc",
+        },
+      },
+      _count: {
+        select: {
+          players: true,
+        },
+      },
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+  });
+
+  return rooms.map((room) => {
+    const currentUserPlayer = room.players.find((player) => player.userId === userId);
+
+    return {
+      code: room.code,
+      currentUserRole: room.creatorUserId === userId ? "creator" : "player",
+      currentUserCharacterId: currentUserPlayer?.characterId ?? null,
+      creatorUserId: room.creatorUserId,
+      creatorCharacterId: room.creatorCharacterId,
+      creatorCharacterName: room.creatorCharacter.name,
+      creatorDisplayName: room.creator.displayName ?? room.creator.email,
+      createdAt: room.createdAt.getTime(),
+      updatedAt: room.updatedAt.getTime(),
+      playerCount: room._count.players,
+      players: room.players.map((player) => ({
+        userId: player.userId,
+        characterId: player.characterId,
+        characterName: player.characterName,
+        joinedAt: player.joinedAt.getTime(),
+        role: player.userId === room.creatorUserId ? "creator" : "player",
+      })),
+    };
+  });
+}
+
 async function joinRoom(roomCode: string, userId: string, character: RoomCharacter) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const room = await tx.room.findUnique({
@@ -386,4 +493,4 @@ async function saveRoomBoardState(roomCode: string, boardState: unknown) {
 }
 
 export type { Room, RoomPlayer };
-export { createRoom, getRoom, joinRoom, saveRoomBoardState };
+export { createRoom, getRoom, joinRoom, listRoomsForUser, saveRoomBoardState };

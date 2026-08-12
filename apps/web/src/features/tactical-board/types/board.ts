@@ -3,6 +3,7 @@ export type BoardMode = BoardTerrain | "move" | "target" | "ruler" | "fog" | "pi
 export type TokenTeam = "players" | "enemies" | "neutral";
 export type AoeShape = "single" | "burst" | "line" | "cone";
 export type TokenCondition = "Prone" | "Stunned" | "Poisoned" | "Hidden" | "Concentrating";
+export type LifeStatus = "alive" | "dying" | "stable" | "dead";
 export type PinType = "note" | "door" | "trap" | "loot" | "lever";
 export type LayerKey = "terrain" | "tokens" | "fog" | "pins" | "templates" | "vision" | "grid";
 
@@ -11,6 +12,11 @@ export type TurnState = {
   actionUsed: boolean;
   bonusActionUsed: boolean;
   reactionUsed: boolean;
+};
+
+export type DeathSaves = {
+  successes: number;
+  failures: number;
 };
 
 export type SpellTemplate = {
@@ -49,6 +55,7 @@ export type BoardSettings = {
 
 export type BoardToken = {
   id: string;
+  characterId?: string;
   name: string;
   team: TokenTeam;
   color: string;
@@ -58,7 +65,10 @@ export type BoardToken = {
   speed: number;
   hp: number;
   maxHp: number;
+  lifeStatus?: LifeStatus;
+  deathSaves?: DeathSaves;
   initiative: number;
+  initiativeModifier?: number;
   ac?: number;
   notes?: string;
   conditions?: TokenCondition[];

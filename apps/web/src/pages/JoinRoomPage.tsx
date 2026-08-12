@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import { useAuth } from "../features/auth/AuthContext";
-import { joinRoom } from "../features/rooms/api/roomsApi";
+import { joinRoom, normalizeRoomCodeInput } from "../features/rooms/api/roomsApi";
 
 function JoinRoomPage() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ function JoinRoomPage() {
     const roomCodeFromParams = searchParams.get("roomCode");
 
     if (roomCodeFromParams) {
-      setRoomCode(roomCodeFromParams.toUpperCase());
+      setRoomCode(normalizeRoomCodeInput(roomCodeFromParams));
     }
 
     if (characters.length > 0 && !selectedCharacterId) {
@@ -47,7 +47,8 @@ function JoinRoomPage() {
 
     try {
       setIsJoining(true);
-      const response = await joinRoom(roomCode.trim().toUpperCase(), selectedCharacterId, token);
+      const normalizedRoomCode = normalizeRoomCodeInput(roomCode);
+      const response = await joinRoom(normalizedRoomCode, selectedCharacterId, token);
       navigate(`/room/${response.room.code}?characterId=${selectedCharacterId}`);
     } catch (error) {
       setServerError(error instanceof Error ? error.message : "Failed to join room.");
@@ -69,6 +70,7 @@ function JoinRoomPage() {
             type="text"
             value={roomCode}
             onChange={(event) => setRoomCode(event.target.value.toUpperCase())}
+            onBlur={(event) => setRoomCode(normalizeRoomCodeInput(event.target.value))}
             placeholder="ABC123"
           />
         </div>

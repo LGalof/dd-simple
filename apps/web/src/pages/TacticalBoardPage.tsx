@@ -52,8 +52,10 @@ import type {
   BoardSettings,
   BoardTerrain,
   BoardToken,
+  DeathSaves,
   LayerKey,
   LayerState,
+  LifeStatus,
   MapPin,
   PinType,
   PlacedTemplate,
@@ -89,6 +91,10 @@ import {
   normalizePins,
   parseBoardState,
 } from "../features/tactical-board/utils/boardStorage";
+import {
+  getDmOnlyBoardActionIssue,
+  getTokenControlIssue,
+} from "../features/tactical-board/utils/boardPermissions";
 
 const terrainIcons = {
   normal: Sparkles,
@@ -147,13 +153,108 @@ const turnResourceLabels: Record<TurnResourceKey, string> = {
   reactionUsed: "Reaction",
 };
 
+function rollD20() {
+  return Math.floor(Math.random() * 20) + 1;
+}
+
+function formatSignedModifier(value: number) {
+  return value >= 0 ? `+${value}` : `${value}`;
+}
+
+const emptyDeathSaves: DeathSaves = { successes: 0, failures: 0 };
+
+function clampDeathSaveCount(value: number | undefined) {
+  return Math.max(0, Math.min(3, Math.trunc(value ?? 0)));
+}
+
+function normalizeTokenDeathSaves(deathSaves?: DeathSaves): DeathSaves {
+  return {
+    successes: clampDeathSaveCount(deathSaves?.successes),
+    failures: clampDeathSaveCount(deathSaves?.failures),
+  };
+}
+
+function getLifeStatus(token: BoardToken): LifeStatus {
+  if (token.hp > 0) {
+    return "alive";
+  }
+
+  if (token.lifeStatus === "stable" || token.lifeStatus === "dead" || token.lifeStatus === "dying") {
+    return token.lifeStatus;
+  }
+
+  return "dying";
+}
+
+function applyHpToLifeStatus(token: BoardToken, nextHpValue: number): BoardToken {
+  const hp = Math.max(0, Math.min(token.maxHp, nextHpValue));
+
+  if (hp > 0) {
+    return {
+      ...token,
+      hp,
+      lifeStatus: "alive",
+      deathSaves: emptyDeathSaves,
+    };
+  }
+
+  const currentStatus = getLifeStatus({ ...token, hp: 0 });
+
+  if (currentStatus === "dead") {
+    return {
+      ...token,
+      hp: 0,
+      lifeStatus: "dead",
+      deathSaves: { successes: 0, failures: 3 },
+    };
+  }
+
+  if (currentStatus === "stable") {
+    return {
+      ...token,
+      hp: 0,
+      lifeStatus: "stable",
+      deathSaves: { successes: 3, failures: 0 },
+    };
+  }
+
+  return {
+    ...token,
+    hp: 0,
+    lifeStatus: "dying",
+    deathSaves: normalizeTokenDeathSaves(token.deathSaves),
+  };
+}
+
+function formatLifeStatus(status: LifeStatus) {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function getTokenInitiativeModifier(token: BoardToken) {
+  return Number.isFinite(token.initiativeModifier) ? token.initiativeModifier ?? 0 : 0;
+}
+
+function getSortedInitiativeOrder(tokens: BoardToken[]) {
+  return [...tokens]
+    .sort((leftToken, rightToken) => {
+      if (rightToken.initiative !== leftToken.initiative) {
+        return rightToken.initiative - leftToken.initiative;
+      }
+
+      return leftToken.id.localeCompare(rightToken.id);
+    })
+    .map((token) => token.id);
+}
+
 function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   const { roomCode } = useParams();
   const [searchParams] = useSearchParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const roomCharacterId = searchParams.get("characterId");
   const {
+    advanceTurn,
     boardState: socketBoardState,
+    boardStateRevision,
     connected: socketConnected,
     error: socketError,
     room: socketRoom,
@@ -230,6 +331,21 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       ? validInitiativeOrder[activeInitiativeIndex % validInitiativeOrder.length]
       : "";
   const activeToken = tokens.find((token) => token.id === activeTokenId) ?? null;
+  const isRoomDm = roomMode && Boolean(activeRoom?.creatorUserId && user?.id === activeRoom.creatorUserId);
+  const isRoomActivePlayer =
+    roomMode &&
+    Boolean(activeToken?.characterId && roomCharacterId && activeToken.characterId === roomCharacterId);
+  const canAdvanceTurn = !roomMode || isRoomDm || isRoomActivePlayer;
+  const canEditBoard = !roomMode || isRoomDm;
+  const roomControlStatus = !roomMode
+    ? message
+    : isRoomDm
+      ? "DM controls enabled."
+      : isRoomActivePlayer
+        ? `Your turn: ${activeToken?.name ?? "active token"}.`
+        : activeToken
+          ? `Waiting for ${activeToken.name}.`
+          : "Waiting for the DM to start initiative.";
   const selectedSavedBoard =
     savedBoards.find((board) => board.id === selectedSavedBoardId) ?? null;
   const feetPerSquare = Math.max(1, boardSettings.feetPerSquare || cellDistance);
@@ -360,14 +476,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
 
     const serializedState = JSON.stringify(normalizedState);
 
-    if (serializedState === lastAppliedRemoteStateRef.current) {
-      return;
-    }
-
     lastAppliedRemoteStateRef.current = serializedState;
     lastSentRoomStateRef.current = serializedState;
     applyBoardState(normalizedState, socketBoardState ? "Board synced from room." : "Room board loaded.");
-  }, [loadedRoomBoardState, roomMode, socketBoardState]);
+  }, [boardStateRevision, loadedRoomBoardState, roomMode, socketBoardState]);
 
   useEffect(() => {
     const state: SavedBoardState = {
@@ -459,7 +571,30 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     setCombatLog((currentLog) => [entry, ...currentLog].slice(0, 8));
   }
 
+  function requireDmBoardControl(action: string) {
+    const issue = getDmOnlyBoardActionIssue({ isRoomDm, roomMode }, action);
+
+    if (!issue) {
+      return true;
+    }
+
+    setMessage(issue);
+    addCombatLog(`Rule warning: ${issue}`);
+    return false;
+  }
+
   function handleTokenDragStart(event: DragEvent<HTMLElement>, tokenId: string) {
+    const tokenToDrag = tokens.find((token) => token.id === tokenId);
+
+    if (tokenToDrag && !canControlToken(tokenToDrag)) {
+      event.preventDefault();
+      setSelectedTokenId(tokenId);
+      const issue = getTurnOwnershipIssue(tokenToDrag) || "Only the DM or the active player can move this token.";
+      setMessage(issue);
+      addCombatLog(`Rule warning: ${issue}`);
+      return;
+    }
+
     setSelectedTokenId(tokenId);
     setDragTokenId(tokenId);
     event.dataTransfer.effectAllowed = "move";
@@ -485,11 +620,129 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function getTurnOwnershipIssue(token: BoardToken) {
-    if (ruleOverride || !activeTokenId || token.id === activeTokenId) {
-      return "";
+    return getTokenControlIssue(token, {
+      activeTokenId,
+      isRoomDm,
+      roomCharacterId,
+      roomMode,
+      ruleOverride,
+    });
+  }
+
+  function canControlToken(token: BoardToken) {
+    return !getTurnOwnershipIssue(token);
+  }
+
+  function updateControlledToken(nextToken: BoardToken) {
+    if (roomMode && !isRoomDm) {
+      const issue = getDmOnlyBoardActionIssue({ isRoomDm, roomMode }, "edit token details");
+
+      setMessage(issue);
+      addCombatLog(`Rule warning: ${issue}`);
+      return;
     }
 
-    return `${token.name} is not the active turn. Enable DM override to force it.`;
+    const turnIssue = getTurnOwnershipIssue(nextToken);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
+      return;
+    }
+
+    updateToken(nextToken);
+  }
+
+  function setSelectedLifeStatus(status: LifeStatus) {
+    if (!selectedToken) {
+      return;
+    }
+
+    if (roomMode && !isRoomDm) {
+      requireDmBoardControl("change token life status");
+      return;
+    }
+
+    const nextToken =
+      status === "alive"
+        ? {
+            ...selectedToken,
+            hp: Math.max(1, selectedToken.hp || 1),
+            lifeStatus: "alive" as const,
+            deathSaves: emptyDeathSaves,
+          }
+        : {
+            ...selectedToken,
+            hp: 0,
+            lifeStatus: status,
+            deathSaves:
+              status === "dead"
+                ? { successes: 0, failures: 3 }
+                : status === "stable"
+                  ? { successes: 3, failures: 0 }
+                  : emptyDeathSaves,
+          };
+
+    updateToken(nextToken);
+    addCombatLog(`${selectedToken.name} is now ${formatLifeStatus(status)}.`);
+    setMessage(`${selectedToken.name} marked ${formatLifeStatus(status)}.`);
+  }
+
+  function rollDeathSave(tokenToRoll: BoardToken) {
+    const turnIssue = getTurnOwnershipIssue(tokenToRoll);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
+      return;
+    }
+
+    if (getLifeStatus(tokenToRoll) !== "dying") {
+      setMessage(`${tokenToRoll.name} is not making death saving throws.`);
+      return;
+    }
+
+    const roll = rollD20();
+    const currentSaves = normalizeTokenDeathSaves(tokenToRoll.deathSaves);
+    let nextSaves = { ...currentSaves };
+    let nextStatus: LifeStatus = "dying";
+    let nextHp = 0;
+    let outcome = "";
+
+    if (roll === 20) {
+      nextStatus = "alive";
+      nextHp = 1;
+      nextSaves = emptyDeathSaves;
+      outcome = "critical success and regains 1 HP";
+    } else if (roll === 1) {
+      nextSaves.failures = clampDeathSaveCount(nextSaves.failures + 2);
+      outcome = "critical failure";
+    } else if (roll >= 10) {
+      nextSaves.successes = clampDeathSaveCount(nextSaves.successes + 1);
+      outcome = "success";
+    } else {
+      nextSaves.failures = clampDeathSaveCount(nextSaves.failures + 1);
+      outcome = "failure";
+    }
+
+    if (nextStatus === "dying" && nextSaves.failures >= 3) {
+      nextStatus = "dead";
+      outcome = "dies after three failures";
+    } else if (nextStatus === "dying" && nextSaves.successes >= 3) {
+      nextStatus = "stable";
+      outcome = "stabilizes after three successes";
+    }
+
+    updateToken({
+      ...tokenToRoll,
+      hp: nextHp,
+      lifeStatus: nextStatus,
+      deathSaves: nextSaves,
+    });
+    addCombatLog(
+      `${tokenToRoll.name} rolled death save ${roll}: ${outcome} (${nextSaves.successes}S/${nextSaves.failures}F).`,
+    );
+    setMessage(`${tokenToRoll.name} death save ${roll}: ${outcome}.`);
   }
 
   function spendTurnResource(token: BoardToken, resourceKey: TurnResourceKey, activity: string) {
@@ -635,6 +888,14 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
         return;
       }
 
+      const turnIssue = getTurnOwnershipIssue(selectedToken);
+
+      if (turnIssue) {
+        setMessage(turnIssue);
+        addCombatLog(`Rule warning: ${turnIssue}`);
+        return;
+      }
+
       setWaypoints((currentWaypoints) => [...currentWaypoints, { x, y }]);
       setMessage(`Waypoint added at ${x + 1}, ${y + 1}.`);
       return;
@@ -655,11 +916,19 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     }
 
     if (mode === "fog") {
+      if (!requireDmBoardControl("edit fog of war")) {
+        return;
+      }
+
       toggleFogBrush(x, y);
       return;
     }
 
     if (mode === "pin") {
+      if (!requireDmBoardControl("edit map pins")) {
+        return;
+      }
+
       togglePin(x, y);
       return;
     }
@@ -668,6 +937,16 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       if (!spellOrigin) {
         setMessage("Select a caster token before previewing a spell.");
         return;
+      }
+
+      if (selectedToken) {
+        const turnIssue = getTurnOwnershipIssue(selectedToken);
+
+        if (turnIssue) {
+          setMessage(turnIssue);
+          addCombatLog(`Rule warning: ${turnIssue}`);
+          return;
+        }
       }
 
       const target = { x, y };
@@ -684,6 +963,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     }
 
     if (mode === "move") {
+      return;
+    }
+
+    if (!requireDmBoardControl("paint terrain")) {
       return;
     }
 
@@ -708,6 +991,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function toggleFogBrush(x: number, y: number) {
+    if (!requireDmBoardControl("edit fog of war")) {
+      return;
+    }
+
     const cells = getBrushCells(x, y, brushSize);
 
     setFog((currentFog) => {
@@ -731,6 +1018,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function togglePin(x: number, y: number) {
+    if (!requireDmBoardControl("edit map pins")) {
+      return;
+    }
+
     const key = getCellKey(x, y);
 
     setPins((currentPins) => {
@@ -761,6 +1052,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     }
 
     if (pin.type === "door" || pin.type === "lever") {
+      if (!requireDmBoardControl("toggle map pins")) {
+        return;
+      }
+
       setPins((currentPins) => ({
         ...currentPins,
         [key]: {
@@ -773,6 +1068,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     }
 
     if (pin.type === "trap") {
+      if (!requireDmBoardControl("reveal traps")) {
+        return;
+      }
+
       setPins((currentPins) => ({
         ...currentPins,
         [key]: {
@@ -798,6 +1097,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function placePersistentTemplate() {
+    if (!requireDmBoardControl("place persistent spell templates")) {
+      return;
+    }
+
     const target = spellPreviewTarget ?? targetCell;
 
     if (!target) {
@@ -834,11 +1137,19 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function clearPlacedTemplates() {
+    if (!requireDmBoardControl("clear persistent spell templates")) {
+      return;
+    }
+
     setPlacedTemplates([]);
     setMessage("Persistent spell templates cleared.");
   }
 
   function toggleLayer(layer: LayerKey) {
+    if (!requireDmBoardControl("change synced board layers")) {
+      return;
+    }
+
     setLayers((currentLayers) => ({ ...currentLayers, [layer]: !currentLayers[layer] }));
   }
 
@@ -877,29 +1188,11 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     setMessage(`${selectedToken.name} moved by waypoint path.`);
   }
 
-  function quickCombatAction(
-    action: string,
-    resourceKey?: TurnResourceKey,
-  ) {
-    if (!selectedToken) {
-      setMessage("Select a token first.");
-      return;
-    }
-
-    if (resourceKey) {
-      if (!spendTurnResource(selectedToken, resourceKey, action)) {
-        return;
-      }
-
-      setMessage(`${selectedToken.name}: ${action}.`);
-      return;
-    }
-
-    addCombatLog(`${selectedToken.name}: ${action}.`);
-    setMessage(`${selectedToken.name}: ${action}.`);
-  }
-
   function addPresetToken(preset: typeof tokenPresets[number]) {
+    if (!requireDmBoardControl("add tokens")) {
+      return;
+    }
+
     const token: BoardToken = {
       id: `token-${Date.now()}`,
       ...preset,
@@ -907,6 +1200,8 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       y: 0,
       notes: "",
       conditions: [],
+      lifeStatus: "alive",
+      deathSaves: emptyDeathSaves,
       turn: defaultTurnState,
       visionFeet: 60,
     };
@@ -927,6 +1222,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function addToken() {
+    if (!requireDmBoardControl("add tokens")) {
+      return;
+    }
+
     const name = newTokenName.trim();
 
     if (!name) {
@@ -950,6 +1249,8 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       ac: 12,
       notes: "",
       conditions: [],
+      lifeStatus: "alive",
+      deathSaves: emptyDeathSaves,
       turn: defaultTurnState,
     };
     const position = findTokenSpace(token, tokens, terrain);
@@ -971,6 +1272,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function removeSelectedToken() {
+    if (!requireDmBoardControl("remove tokens")) {
+      return;
+    }
+
     if (!selectedToken) {
       return;
     }
@@ -986,14 +1291,61 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function sortInitiative() {
-    const nextOrder = [...tokens]
-      .sort((leftToken, rightToken) => rightToken.initiative - leftToken.initiative)
-      .map((token) => token.id);
+    if (!requireDmBoardControl("sort initiative")) {
+      return;
+    }
+
+    const nextOrder = getSortedInitiativeOrder(tokens);
 
     setInitiativeOrder(nextOrder);
     setActiveInitiativeIndex(0);
     setSelectedTokenId(nextOrder[0] ?? "");
     setMessage("Initiative sorted from highest to lowest.");
+  }
+
+  function getInitiativeRollIssue(tokenToRoll: BoardToken) {
+    if (!roomMode || isRoomDm) {
+      return "";
+    }
+
+    if (!roomCharacterId || tokenToRoll.characterId !== roomCharacterId) {
+      return `Only the DM can roll initiative for ${tokenToRoll.name}.`;
+    }
+
+    return "";
+  }
+
+  function rollInitiative(tokenToRoll: BoardToken) {
+    const issue = getInitiativeRollIssue(tokenToRoll);
+
+    if (issue) {
+      setSelectedTokenId(tokenToRoll.id);
+      setMessage(issue);
+      addCombatLog(`Rule warning: ${issue}`);
+      return;
+    }
+
+    const dieRoll = rollD20();
+    const modifier = getTokenInitiativeModifier(tokenToRoll);
+    const nextInitiative = dieRoll + modifier;
+    const nextTokens = tokens.map((token) =>
+      token.id === tokenToRoll.id ? { ...token, initiative: nextInitiative } : token,
+    );
+    const nextOrder = getSortedInitiativeOrder(nextTokens);
+    const currentActiveTokenId = activeTokenId;
+    const nextActiveIndex =
+      currentActiveTokenId && nextOrder.includes(currentActiveTokenId)
+        ? nextOrder.indexOf(currentActiveTokenId)
+        : 0;
+
+    setTokens(nextTokens);
+    setInitiativeOrder(nextOrder);
+    setActiveInitiativeIndex(nextActiveIndex);
+    setSelectedTokenId(tokenToRoll.id);
+    addCombatLog(
+      `${tokenToRoll.name} rolled initiative: ${dieRoll} ${formatSignedModifier(modifier)} = ${nextInitiative}.`,
+    );
+    setMessage(`${tokenToRoll.name} initiative: ${nextInitiative}.`);
   }
 
   function getCurrentBoardState(): SavedBoardState {
@@ -1052,6 +1404,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function loadNamedBoard(boardId = selectedSavedBoardId) {
+    if (!requireDmBoardControl("load a prepared map into the room")) {
+      return;
+    }
+
     const savedBoard = savedBoards.find((board) => board.id === boardId);
 
     if (!savedBoard) {
@@ -1081,6 +1437,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function startBlankBoard() {
+    if (!requireDmBoardControl("start a blank board")) {
+      return;
+    }
+
     setTokens([]);
     setTerrain({});
     setFog({});
@@ -1105,6 +1465,17 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       return;
     }
 
+    if (!canAdvanceTurn || (roomMode && !isRoomDm && direction === -1)) {
+      setMessage("Only the DM or the active player can advance the turn.");
+      return;
+    }
+
+    if (roomMode) {
+      advanceTurn(direction);
+      setMessage("Advancing turn...");
+      return;
+    }
+
     const nextIndex =
       (activeInitiativeIndex + direction + validInitiativeOrder.length) %
       validInitiativeOrder.length;
@@ -1126,6 +1497,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function importBoardState() {
+    if (!requireDmBoardControl("import a board state")) {
+      return;
+    }
+
     const importedState = decodeBoardState(shareCode);
 
     if (!importedState) {
@@ -1137,6 +1512,10 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function resetBoardState() {
+    if (!requireDmBoardControl("reset the board")) {
+      return;
+    }
+
     setTokens(initialTokens);
     setTerrain(initialTerrain);
     setFog({});
@@ -1162,13 +1541,39 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       return;
     }
 
+    if (roomMode && !isRoomDm) {
+      requireDmBoardControl("adjust token hit points");
+      return;
+    }
+
+    const turnIssue = getTurnOwnershipIssue(selectedToken);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
+      return;
+    }
+
     const nextHp = Math.max(0, Math.min(selectedToken.maxHp, selectedToken.hp + amount));
-    updateToken({ ...selectedToken, hp: nextHp });
+    updateToken(applyHpToLifeStatus(selectedToken, nextHp));
     addCombatLog(`${selectedToken.name} ${amount < 0 ? "took" : "recovered"} ${Math.abs(amount)} HP.`);
   }
 
   function toggleCondition(condition: TokenCondition) {
     if (!selectedToken) {
+      return;
+    }
+
+    if (roomMode && !isRoomDm) {
+      requireDmBoardControl("edit token conditions");
+      return;
+    }
+
+    const turnIssue = getTurnOwnershipIssue(selectedToken);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
       return;
     }
 
@@ -1183,6 +1588,14 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   }
 
   function updateTokenTurn(token: BoardToken, partialTurn: Partial<TurnState>) {
+    const turnIssue = getTurnOwnershipIssue(token);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
+      return;
+    }
+
     updateToken({
       ...token,
       turn: {
@@ -1231,7 +1644,9 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
             )}
           </div>
           <span className="battle-board-status">
-            {roomMode ? (socketConnected ? "Live sync on" : "Loading room sync") : message}
+            {roomMode
+              ? `${socketConnected ? "Live sync on" : "Loading room sync"} - ${roomControlStatus}`
+              : message}
           </span>
         </header>
 
@@ -1270,6 +1685,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
               <button
                 type="button"
                 className={mode === "fog" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                disabled={!canEditBoard}
                 onClick={() => setMode("fog")}
               >
                 <Shield size={17} />
@@ -1278,6 +1694,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
               <button
                 type="button"
                 className={mode === "pin" ? "battle-mode-button battle-mode-button-active" : "battle-mode-button"}
+                disabled={!canEditBoard}
                 onClick={() => setMode("pin")}
               >
                 <Sparkles size={17} />
@@ -1303,6 +1720,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                         ? "battle-mode-button battle-mode-button-active"
                         : "battle-mode-button"
                     }
+                    disabled={!canEditBoard}
                     onClick={() => setMode(terrainKey)}
                   >
                     <TerrainIcon size={17} />
@@ -1339,6 +1757,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                     key={layer}
                     type="button"
                     className={layers[layer] ? "battle-layer-active" : ""}
+                    disabled={!canEditBoard}
                     onClick={() => toggleLayer(layer)}
                   >
                     {layerLabels[layer]}
@@ -1595,11 +2014,21 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                 </button>
               </div>
               <div className="battle-field-row">
-                <button type="button" className="battle-primary-button" onClick={placePersistentTemplate}>
+                <button
+                  type="button"
+                  className="battle-primary-button"
+                  disabled={!canEditBoard}
+                  onClick={placePersistentTemplate}
+                >
                   <Plus size={17} />
                   Place
                 </button>
-                <button type="button" className="battle-danger-button" onClick={clearPlacedTemplates}>
+                <button
+                  type="button"
+                  className="battle-danger-button"
+                  disabled={!canEditBoard}
+                  onClick={clearPlacedTemplates}
+                >
                   <Trash2 size={17} />
                   Clear Areas
                 </button>
@@ -1627,14 +2056,24 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   <option value="neutral">Neutral</option>
                 </select>
               </label>
-              <button type="button" className="battle-primary-button" onClick={addToken}>
+              <button
+                type="button"
+                className="battle-primary-button"
+                disabled={!canEditBoard}
+                onClick={addToken}
+              >
                 <Plus size={17} />
                 Add Token
               </button>
 
               <div className="battle-preset-grid">
                 {tokenPresets.map((preset) => (
-                  <button key={preset.name} type="button" onClick={() => addPresetToken(preset)}>
+                  <button
+                    key={preset.name}
+                    type="button"
+                    disabled={!canEditBoard}
+                    onClick={() => addPresetToken(preset)}
+                  >
                     {preset.name}
                   </button>
                 ))}
@@ -1745,7 +2184,12 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   <Save size={17} />
                   Save
                 </button>
-                <button type="button" className="battle-primary-button" onClick={() => loadNamedBoard()}>
+                <button
+                  type="button"
+                  className="battle-primary-button"
+                  disabled={!canEditBoard}
+                  onClick={() => loadNamedBoard()}
+                >
                   <Upload size={17} />
                   Load
                 </button>
@@ -1762,13 +2206,19 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                 <button
                   type="button"
                   className="battle-primary-button battle-primary-button-muted"
+                  disabled={!canEditBoard}
                   onClick={startBlankBoard}
                 >
                   <FilePlus size={17} />
                   Blank
                 </button>
               </div>
-              <button type="button" className="battle-danger-button" onClick={deleteNamedBoard}>
+              <button
+                type="button"
+                className="battle-danger-button"
+                disabled={!canEditBoard}
+                onClick={deleteNamedBoard}
+              >
                 <Trash2 size={17} />
                 Delete Saved Map
               </button>
@@ -1793,12 +2243,22 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   <Download size={17} />
                   Export
                 </button>
-                <button type="button" className="battle-primary-button" onClick={importBoardState}>
+                <button
+                  type="button"
+                  className="battle-primary-button"
+                  disabled={!canEditBoard}
+                  onClick={importBoardState}
+                >
                   <Upload size={17} />
                   Import
                 </button>
               </div>
-              <button type="button" className="battle-danger-button" onClick={resetBoardState}>
+              <button
+                type="button"
+                className="battle-danger-button"
+                disabled={!canEditBoard}
+                onClick={resetBoardState}
+              >
                 <RotateCcw size={17} />
                 Reset Board
               </button>
@@ -1808,6 +2268,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
           <TacticalBoardGrid
             activeTokenId={activeTokenId}
             boardSettings={boardSettings}
+            canDragToken={canControlToken}
             dragTokenId={dragTokenId}
             fog={fog}
             handleBoardDragOver={handleBoardDragOver}
@@ -1859,6 +2320,11 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                 <div>
                   <span>Now Acting</span>
                   <strong>{activeToken.name}</strong>
+                  {getLifeStatus(activeToken) !== "alive" && (
+                    <em className={`battle-life-status battle-life-status-${getLifeStatus(activeToken)}`}>
+                      {formatLifeStatus(getLifeStatus(activeToken))}
+                    </em>
+                  )}
                   <em>
                     Init {activeToken.initiative} · HP {activeToken.hp}/{activeToken.maxHp}
                   </em>
@@ -1915,6 +2381,18 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   />
                   DM override
                 </label>
+                {getLifeStatus(activeToken) === "dying" && (
+                  <button
+                    type="button"
+                    className="battle-death-save-button"
+                    onClick={() => {
+                      setSelectedTokenId(activeToken.id);
+                      rollDeathSave(activeToken);
+                    }}
+                  >
+                    Death Save
+                  </button>
+                )}
               </div>
             )}
 
@@ -1922,17 +2400,24 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
               <button
                 type="button"
                 className="battle-mode-button"
+                disabled={!canAdvanceTurn || (roomMode && !isRoomDm)}
                 onClick={() => advanceInitiative(-1)}
               >
                 <ChevronLeft size={17} />
                 Prev
               </button>
-              <button type="button" className="battle-mode-button" onClick={sortInitiative}>
+              <button
+                type="button"
+                className="battle-mode-button"
+                disabled={!canEditBoard}
+                onClick={sortInitiative}
+              >
                 Sort
               </button>
               <button
                 type="button"
                 className="battle-mode-button"
+                disabled={!canAdvanceTurn}
                 onClick={() => advanceInitiative(1)}
               >
                 Next
@@ -1948,26 +2433,58 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   return null;
                 }
 
+                const initiativeRollIssue = getInitiativeRollIssue(token);
+                const activateTokenTurn = () => {
+                  if (roomMode && !isRoomDm) {
+                    setSelectedTokenId(token.id);
+                    setMessage("Only the DM can set the active initiative turn.");
+                    return;
+                  }
+
+                  setActiveInitiativeIndex(index);
+                  setSelectedTokenId(token.id);
+                  setMessage(`${token.name}'s turn.`);
+                };
+
                 return (
-                  <button
+                  <div
                     key={token.id}
-                    type="button"
                     className={[
                       "battle-initiative-item",
                       activeTokenId === token.id ? "battle-initiative-item-active" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={() => {
-                      setActiveInitiativeIndex(index);
-                      setSelectedTokenId(token.id);
-                      setMessage(`${token.name}'s turn.`);
-                    }}
                   >
-                    <span>{index + 1}</span>
-                    <strong>{token.name}</strong>
-                    <em>{token.initiative}</em>
-                  </button>
+                    <button
+                      type="button"
+                      className="battle-initiative-select"
+                      onClick={activateTokenTurn}
+                    >
+                      <span>{index + 1}</span>
+                      <strong>{token.name}</strong>
+                      <em>
+                        {token.initiative}
+                        <small>{formatSignedModifier(getTokenInitiativeModifier(token))}</small>
+                      </em>
+                      {getLifeStatus(token) !== "alive" && (
+                        <small className={`battle-initiative-status battle-life-status-${getLifeStatus(token)}`}>
+                          {formatLifeStatus(getLifeStatus(token))}
+                        </small>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="battle-initiative-roll"
+                      disabled={Boolean(initiativeRollIssue)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        rollInitiative(token);
+                      }}
+                    >
+                      Roll
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -2017,6 +2534,66 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   )}
                 </div>
 
+                <div className="battle-death-panel">
+                  <div className="battle-death-panel-header">
+                    <span>Life Status</span>
+                    <strong className={`battle-life-status battle-life-status-${getLifeStatus(selectedToken)}`}>
+                      {formatLifeStatus(getLifeStatus(selectedToken))}
+                    </strong>
+                  </div>
+                  <div className="battle-death-track">
+                    <span>Successes</span>
+                    <div className="battle-death-pips">
+                      {[0, 1, 2].map((index) => (
+                        <span
+                          key={`success-${index}`}
+                          className={
+                            index < normalizeTokenDeathSaves(selectedToken.deathSaves).successes
+                              ? "battle-death-pip battle-death-pip-filled battle-death-pip-success"
+                              : "battle-death-pip"
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="battle-death-track">
+                    <span>Failures</span>
+                    <div className="battle-death-pips">
+                      {[0, 1, 2].map((index) => (
+                        <span
+                          key={`failure-${index}`}
+                          className={
+                            index < normalizeTokenDeathSaves(selectedToken.deathSaves).failures
+                              ? "battle-death-pip battle-death-pip-filled battle-death-pip-failure"
+                              : "battle-death-pip"
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="battle-death-actions">
+                    <button
+                      type="button"
+                      disabled={getLifeStatus(selectedToken) !== "dying"}
+                      onClick={() => rollDeathSave(selectedToken)}
+                    >
+                      Roll Death Save
+                    </button>
+                    <button type="button" onClick={() => setSelectedLifeStatus("dying")}>
+                      Dying
+                    </button>
+                    <button type="button" onClick={() => setSelectedLifeStatus("stable")}>
+                      Stable
+                    </button>
+                    <button type="button" onClick={() => setSelectedLifeStatus("dead")}>
+                      Dead
+                    </button>
+                    <button type="button" onClick={() => setSelectedLifeStatus("alive")}>
+                      Revive
+                    </button>
+                  </div>
+                </div>
+
                 <div className="battle-field-row">
                   <label className="battle-field">
                     <span>HP</span>
@@ -2025,10 +2602,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       type="number"
                       value={selectedToken.hp}
                       onChange={(event) =>
-                        updateToken({
-                          ...selectedToken,
-                          hp: Math.max(0, Number(event.target.value)),
-                        })
+                        updateControlledToken(applyHpToLifeStatus(selectedToken, Number(event.target.value)))
                       }
                     />
                   </label>
@@ -2039,7 +2613,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       type="number"
                       value={selectedToken.maxHp}
                       onChange={(event) =>
-                        updateToken({
+                        updateControlledToken({
                           ...selectedToken,
                           maxHp: Math.max(1, Number(event.target.value)),
                         })
@@ -2071,26 +2645,6 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                   })}
                 </div>
 
-                <div className="battle-quick-actions">
-                  <button type="button" onClick={() => quickCombatAction("Attack roll", "actionUsed")}>Attack</button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      quickCombatAction(
-                        `${spellName || "Spell"} cast`,
-                        spellResource === "free" ? undefined : spellResource,
-                      )
-                    }
-                  >
-                    Cast
-                  </button>
-                  <button type="button" onClick={() => quickCombatAction("Bonus action", "bonusActionUsed")}>Bonus</button>
-                  <button type="button" onClick={() => quickCombatAction("Reaction", "reactionUsed")}>React</button>
-                  <button type="button" onClick={() => quickCombatAction("Saving throw")}>Save</button>
-                  <button type="button" onClick={() => quickCombatAction("Concentration check")}>Conc.</button>
-                  <button type="button" onClick={() => quickCombatAction("Death save")}>Death</button>
-                </div>
-
                 <details className="battle-compact-section">
                   <summary>
                     <span>Details</span>
@@ -2102,7 +2656,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                     <input
                       value={selectedToken.name}
                       onChange={(event) =>
-                        updateToken({
+                        updateControlledToken({
                           ...selectedToken,
                           name: event.target.value,
                         })
@@ -2117,7 +2671,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                         type="number"
                         value={selectedToken.ac ?? 10}
                         onChange={(event) =>
-                          updateToken({
+                          updateControlledToken({
                             ...selectedToken,
                             ac: Math.max(1, Number(event.target.value)),
                           })
@@ -2132,7 +2686,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                         type="number"
                         value={selectedToken.speed}
                         onChange={(event) =>
-                          updateToken({
+                          updateControlledToken({
                             ...selectedToken,
                             speed: Math.max(5, Number(event.target.value)),
                           })
@@ -2144,7 +2698,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       <select
                         value={selectedToken.size}
                         onChange={(event) =>
-                          updateToken({
+                          updateControlledToken({
                             ...selectedToken,
                             size: Number(event.target.value),
                           })
@@ -2162,13 +2716,22 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       type="number"
                       value={selectedToken.initiative}
                       onChange={(event) =>
-                        updateToken({
+                        updateControlledToken({
                           ...selectedToken,
                           initiative: Number(event.target.value),
                         })
                       }
                     />
                   </label>
+                  <button
+                    type="button"
+                    className="battle-mode-button battle-roll-initiative-button"
+                    disabled={Boolean(getInitiativeRollIssue(selectedToken))}
+                    onClick={() => rollInitiative(selectedToken)}
+                  >
+                    Roll Initiative
+                    <small>d20 {formatSignedModifier(getTokenInitiativeModifier(selectedToken))}</small>
+                  </button>
                   <label className="battle-field">
                     <span>Vision ft</span>
                     <input
@@ -2177,7 +2740,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       type="number"
                       value={selectedToken.visionFeet ?? 60}
                       onChange={(event) =>
-                        updateToken({
+                        updateControlledToken({
                           ...selectedToken,
                           visionFeet: Math.max(0, Number(event.target.value)),
                         })
@@ -2189,7 +2752,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                     <textarea
                       value={selectedToken.notes ?? ""}
                       onChange={(event) =>
-                        updateToken({
+                        updateControlledToken({
                           ...selectedToken,
                           notes: event.target.value,
                         })
@@ -2219,7 +2782,12 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       </strong>
                     </div>
                   </div>
-                  <button type="button" className="battle-danger-button" onClick={removeSelectedToken}>
+                  <button
+                    type="button"
+                    className="battle-danger-button"
+                    disabled={!canEditBoard}
+                    onClick={removeSelectedToken}
+                  >
                     <Trash2 size={17} />
                     Remove Token
                   </button>

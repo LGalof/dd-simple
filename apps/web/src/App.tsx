@@ -41,6 +41,11 @@ const JoinRoomPage = lazy(() =>
     default: module.JoinRoomPage,
   })),
 );
+const MyRoomsPage = lazy(() =>
+  import("./pages/MyRoomsPage").then((module) => ({
+    default: module.MyRoomsPage,
+  })),
+);
 
 function RouteFallback() {
   return <div className="page-shell">Loading...</div>;
@@ -77,6 +82,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CreateCharacterPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/rooms"
+              element={
+                <ProtectedRoute>
+                  <MyRoomsPage />
                 </ProtectedRoute>
               }
             />

@@ -42,6 +42,7 @@ type TacticalBoardGridProps = {
   terrain: Record<string, BoardTerrain>;
   tokens: BoardToken[];
   waypointCells: BoardCell[];
+  canDragToken: (token: BoardToken) => boolean;
   movementPathCells: BoardCell[];
   handleBoardDragOver: (event: DragEvent<HTMLDivElement>) => void;
   handleBoardDrop: (event: DragEvent<HTMLDivElement>) => void;
@@ -58,6 +59,7 @@ type TacticalBoardGridProps = {
 function TacticalBoardGrid({
   activeTokenId,
   boardSettings,
+  canDragToken,
   dragTokenId,
   fog,
   handleBoardDragOver,
@@ -263,16 +265,20 @@ function TacticalBoardGrid({
         />
       )}
 
-      {layers.tokens && tokens.map((token) => (
+      {layers.tokens && tokens.map((token) => {
+        const tokenCanBeDragged = canDragToken(token);
+
+        return (
         <button
           key={token.id}
           type="button"
-          draggable
+          draggable={tokenCanBeDragged}
           className={[
             "battle-token",
             `battle-token-${token.team}`,
             selectedTokenId === token.id ? "battle-token-selected" : "",
             activeTokenId === token.id ? "battle-token-active-turn" : "",
+            !tokenCanBeDragged ? "battle-token-locked" : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -293,7 +299,8 @@ function TacticalBoardGrid({
           <em>{token.hp}/{token.maxHp}</em>
           {(token.conditions ?? []).length > 0 && <b>{token.conditions?.length}</b>}
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }
