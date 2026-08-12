@@ -35,13 +35,14 @@ io.use(async (socket, next) => {
 });
 
 async function emitRoomUpdate(roomCode: string) {
-  const room = await getRoom(roomCode);
+  const normalizedRoomCode = roomCode.trim().toUpperCase();
+  const room = await getRoom(normalizedRoomCode);
 
   if (!room) {
     return;
   }
 
-  io.to(`room:${roomCode}`).emit("room:update", {
+  io.to(`room:${normalizedRoomCode}`).emit("room:update", {
     room: {
       code: room.code,
       createdAt: room.createdAt,
