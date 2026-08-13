@@ -6,9 +6,11 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 import { prisma } from "../lib/prisma.js";
+import { resolveAuthSecret } from "./auth-config.js";
 
 const scrypt = promisify(scryptCallback);
 const TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const authSecret = resolveAuthSecret(process.env);
 
 type AuthUser = {
   id: string;
@@ -29,10 +31,6 @@ class AuthError extends Error {
   }
 }
 
-function getAuthSecret() {
-  return process.env.AUTH_SECRET ?? "dd-simple-local-development-secret";
-}
-
 function toAuthUser(user: AuthUser): AuthUser {
   return {
     id: user.id,
@@ -50,7 +48,7 @@ function base64UrlDecode(value: string) {
 }
 
 function signTokenPayload(payload: string) {
-  return createHmac("sha256", getAuthSecret()).update(payload).digest("base64url");
+  return createHmac("sha256", authSecret).update(payload).digest("base64url");
 }
 
 function createAuthToken(user: AuthUser) {

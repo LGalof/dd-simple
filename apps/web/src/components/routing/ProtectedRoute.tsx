@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { loading, user } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -14,7 +15,13 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/registracija" replace />;
+    return (
+      <Navigate
+        to="/prijava"
+        replace
+        state={{ returnTo: `${location.pathname}${location.search}` }}
+      />
+    );
   }
 
   return <>{children}</>;

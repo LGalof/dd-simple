@@ -4,9 +4,10 @@ import { useAuth } from "../AuthContext";
 
 type AuthFormProps = {
   mode: "login" | "register";
+  returnTo?: string;
 };
 
-function AuthForm({ mode }: AuthFormProps) {
+function AuthForm({ mode, returnTo }: AuthFormProps) {
   const isRegisterMode = mode === "register";
   const navigate = useNavigate();
   const { login, register } = useAuth();
@@ -35,7 +36,7 @@ function AuthForm({ mode }: AuthFormProps) {
         });
       }
 
-      navigate("/", {
+      navigate(returnTo ?? "/", {
         replace: true,
       });
     } catch (err) {
@@ -109,7 +110,10 @@ function AuthForm({ mode }: AuthFormProps) {
 
           <p className="auth-switch">
             {isRegisterMode ? "Ze imas racun?" : "Nov uporabnik?"}
-            <Link to={isRegisterMode ? "/prijava" : "/registracija"}>
+            <Link
+              to={isRegisterMode ? "/prijava" : "/registracija"}
+              state={returnTo ? { returnTo } : undefined}
+            >
               {isRegisterMode ? "Prijava" : "Registracija"}
             </Link>
           </p>

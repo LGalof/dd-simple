@@ -1,6 +1,13 @@
 import type { Request, Response } from "express";
 import { getAuthenticatedUser } from "../middleware/auth.js";
-import { createRoom, getRoom, joinRoom, listRoomsForUser } from "../services/room.service.js";
+import {
+  createRoom,
+  deleteRoomForCreator,
+  getRoom,
+  joinRoom,
+  listRoomsForUser,
+  RoomLimitError,
+} from "../services/room.service.js";
 import { findCharacterByIdForUser } from "../services/character.service.js";
 import { eventBus } from "../lib/events.js";
 
@@ -43,10 +50,38 @@ async function createRoomController(req: Request, res: Response) {
       },
     });
   } catch (error) {
+    if (error instanceof RoomLimitError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+
     logRoomError("create room", error);
     res.status(500).json({
       error: "Failed to create room",
     });
+  }
+}
+
+async function deleteRoomController(req: Request, res: Response) {
+  try {
+    const { roomCode } = req.params;
+
+    if (!roomCode || typeof roomCode !== "string") {
+      res.status(400).json({ error: "A valid room code is required" });
+      return;
+    }
+
+    const deleted = await deleteRoomForCreator(roomCode, getAuthenticatedUser(req).id);
+
+    if (!deleted) {
+      res.status(404).json({ error: "Room not found or you are not its creator" });
+      return;
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    logRoomError("delete room", error);
+    res.status(500).json({ error: "Failed to delete room" });
   }
 }
 
@@ -173,4 +208,10 @@ async function getRoomController(req: Request, res: Response) {
   }
 }
 
-export { createRoomController, getRoomController, joinRoomController, listRoomsForUserController };
+export {
+  createRoomController,
+  deleteRoomController,
+  getRoomController,
+  joinRoomController,
+  listRoomsForUserController,
+};

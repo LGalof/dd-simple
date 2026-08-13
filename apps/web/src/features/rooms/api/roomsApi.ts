@@ -79,5 +79,10 @@ async function getCreatedRooms(token: string) {
   return api.get<CreatedRoomsResponse>("/rooms", { token });
 }
 
-export { createRoom, getCreatedRooms, getRoom, joinRoom, normalizeRoomCodeInput };
+async function deleteRoom(roomCode: string, token: string) {
+  const normalizedRoomCode = normalizeRoomCodeInput(roomCode);
+  return api.delete(`/rooms/${encodeURIComponent(normalizedRoomCode)}`, { token });
+}
+
+export { createRoom, deleteRoom, getCreatedRooms, getRoom, joinRoom, normalizeRoomCodeInput };
 export type { CreatedRoomSummary, RoomDetails };

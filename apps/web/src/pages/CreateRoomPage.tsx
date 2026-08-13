@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import { useAuth } from "../features/auth/AuthContext";
-import { createRoom } from "../features/rooms/api/roomsApi";
+import { createRoom, getCreatedRooms } from "../features/rooms/api/roomsApi";
 
 function CreateRoomPage() {
   const navigate = useNavigate();
@@ -19,6 +19,21 @@ function CreateRoomPage() {
   const [selectedError, setSelectedError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [hasReachedRoomLimit, setHasReachedRoomLimit] = useState(false);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    void getCreatedRooms(token)
+      .then(({ rooms }) => {
+        setHasReachedRoomLimit(
+          rooms.filter((room) => room.currentUserRole === "creator").length >= 3,
+        );
+      })
+      .catch(() => undefined);
+  }, [token]);
 
   async function handleCreateRoom() {
     setSelectedError(null);
@@ -77,11 +92,16 @@ function CreateRoomPage() {
 
         {selectedError ? <p className="error-message">{selectedError}</p> : null}
         {serverError ? <p className="error-message">{serverError}</p> : null}
+        {hasReachedRoomLimit && (
+          <p className="error-message">
+            You already have 3 rooms. Delete one from the Rooms page before creating another.
+          </p>
+        )}
 
         <button
           type="button"
           className="primary-button"
-          disabled={isCreating || loading || characters.length === 0}
+          disabled={isCreating || loading || characters.length === 0 || hasReachedRoomLimit}
           onClick={handleCreateRoom}
         >
           {isCreating ? "Creating room…" : "Create room"}

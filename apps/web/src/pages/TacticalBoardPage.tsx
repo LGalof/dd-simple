@@ -21,11 +21,12 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useAuth } from "../features/auth/AuthContext";
 import { getRoom } from "../features/rooms/api/roomsApi";
 import { useRoomSocket } from "../features/rooms/hooks/useRoomSocket";
+import { copyRoomInviteUrl } from "../features/rooms/utils/roomInvite";
 import { TacticalBoardGrid } from "../features/tactical-board/components/TacticalBoardGrid";
 import {
   aoeShapeLabels,
@@ -195,6 +196,7 @@ function applyHpToLifeStatus(token: BoardToken, nextHpValue: number): BoardToken
       hp,
       lifeStatus: "alive",
       deathSaves: emptyDeathSaves,
+      lastDeathSaveRoll: undefined,
     };
   }
 
@@ -206,6 +208,7 @@ function applyHpToLifeStatus(token: BoardToken, nextHpValue: number): BoardToken
       hp: 0,
       lifeStatus: "dead",
       deathSaves: { successes: 0, failures: 3 },
+      lastDeathSaveRoll: undefined,
     };
   }
 
@@ -215,6 +218,7 @@ function applyHpToLifeStatus(token: BoardToken, nextHpValue: number): BoardToken
       hp: 0,
       lifeStatus: "stable",
       deathSaves: { successes: 3, failures: 0 },
+      lastDeathSaveRoll: undefined,
     };
   }
 
@@ -223,6 +227,7 @@ function applyHpToLifeStatus(token: BoardToken, nextHpValue: number): BoardToken
     hp: 0,
     lifeStatus: "dying",
     deathSaves: normalizeTokenDeathSaves(token.deathSaves),
+    lastDeathSaveRoll: undefined,
   };
 }
 
@@ -317,6 +322,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   const [selectedSavedBoardId, setSelectedSavedBoardId] = useState(initialSavedBoards[0]?.id ?? "");
   const [ruleOverride, setRuleOverride] = useState(false);
   const [message, setMessage] = useState("Drag tokens on the board or paint terrain.");
+  const [inviteCopied, setInviteCopied] = useState(false);
   const lastAppliedRemoteStateRef = useRef("");
   const lastSentRoomStateRef = useRef("");
   const activeRoom = socketRoom;
@@ -653,39 +659,20 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     updateToken(nextToken);
   }
 
-  function setSelectedLifeStatus(status: LifeStatus) {
+  function updateSelectedHp(nextHpValue: number) {
     if (!selectedToken) {
       return;
     }
 
-    if (roomMode && !isRoomDm) {
-      requireDmBoardControl("change token life status");
+    const turnIssue = getTurnOwnershipIssue(selectedToken);
+
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
       return;
     }
 
-    const nextToken =
-      status === "alive"
-        ? {
-            ...selectedToken,
-            hp: Math.max(1, selectedToken.hp || 1),
-            lifeStatus: "alive" as const,
-            deathSaves: emptyDeathSaves,
-          }
-        : {
-            ...selectedToken,
-            hp: 0,
-            lifeStatus: status,
-            deathSaves:
-              status === "dead"
-                ? { successes: 0, failures: 3 }
-                : status === "stable"
-                  ? { successes: 3, failures: 0 }
-                  : emptyDeathSaves,
-          };
-
-    updateToken(nextToken);
-    addCombatLog(`${selectedToken.name} is now ${formatLifeStatus(status)}.`);
-    setMessage(`${selectedToken.name} marked ${formatLifeStatus(status)}.`);
+    updateToken(applyHpToLifeStatus(selectedToken, nextHpValue));
   }
 
   function rollDeathSave(tokenToRoll: BoardToken) {
@@ -738,6 +725,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       hp: nextHp,
       lifeStatus: nextStatus,
       deathSaves: nextSaves,
+      lastDeathSaveRoll: roll,
     });
     addCombatLog(
       `${tokenToRoll.name} rolled death save ${roll}: ${outcome} (${nextSaves.successes}S/${nextSaves.failures}F).`,
@@ -1541,11 +1529,6 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       return;
     }
 
-    if (roomMode && !isRoomDm) {
-      requireDmBoardControl("adjust token hit points");
-      return;
-    }
-
     const turnIssue = getTurnOwnershipIssue(selectedToken);
 
     if (turnIssue) {
@@ -1621,18 +1604,44 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     };
   }
 
+  async function handleCopyInviteLink() {
+    if (!activeRoom) {
+      return;
+    }
+
+    try {
+      await copyRoomInviteUrl(activeRoom.code);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      setMessage("Invite link could not be copied. Check browser clipboard permission.");
+    }
+  }
+
   return (
     <AppLayout variant="fullscreen">
       <section className="battle-board-workbench">
         <header className="battle-board-header">
-          <div>
-            <p className="eyebrow">{roomMode ? `Room ${roomCode ?? ""}` : "Battle Map Prototype"}</p>
-            <h1>{roomMode ? "Room Encounter Board" : "Tactical Encounter Board"}</h1>
+          <div className="battle-board-heading">
+            <div className="battle-board-title-row">
+              <span className="battle-board-room-code">
+                {roomMode ? `Room ${roomCode ?? ""}` : "Prototype"}
+              </span>
+              <h1>{roomMode ? "Encounter Board" : "Tactical Encounter Board"}</h1>
+            </div>
             {roomMode && activeRoom && (
-              <p className="muted">
-                {activeRoom.players.length} player{activeRoom.players.length === 1 ? "" : "s"} joined -{" "}
-                <Link to={`/rooms/join?roomCode=${activeRoom.code}`}>Invite link</Link>
-              </p>
+              <div className="battle-board-room-meta">
+                <span className="battle-board-player-count">
+                  {activeRoom.players.length} player{activeRoom.players.length === 1 ? "" : "s"}
+                </span>
+                <button
+                  type="button"
+                  className="battle-board-invite-link"
+                  onClick={() => void handleCopyInviteLink()}
+                >
+                  {inviteCopied ? "Link copied" : "Invite"}
+                </button>
+              </div>
             )}
             {roomMode && !roomCharacterId && (
               <p className="error-message">
@@ -2571,6 +2580,12 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       ))}
                     </div>
                   </div>
+                  {Number.isInteger(selectedToken.lastDeathSaveRoll) && (
+                    <div className="battle-death-roll-result" role="status" aria-live="polite">
+                      <span>Last roll</span>
+                      <strong>{selectedToken.lastDeathSaveRoll}</strong>
+                    </div>
+                  )}
                   <div className="battle-death-actions">
                     <button
                       type="button"
@@ -2578,18 +2593,6 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       onClick={() => rollDeathSave(selectedToken)}
                     >
                       Roll Death Save
-                    </button>
-                    <button type="button" onClick={() => setSelectedLifeStatus("dying")}>
-                      Dying
-                    </button>
-                    <button type="button" onClick={() => setSelectedLifeStatus("stable")}>
-                      Stable
-                    </button>
-                    <button type="button" onClick={() => setSelectedLifeStatus("dead")}>
-                      Dead
-                    </button>
-                    <button type="button" onClick={() => setSelectedLifeStatus("alive")}>
-                      Revive
                     </button>
                   </div>
                 </div>
@@ -2601,9 +2604,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                       min={0}
                       type="number"
                       value={selectedToken.hp}
-                      onChange={(event) =>
-                        updateControlledToken(applyHpToLifeStatus(selectedToken, Number(event.target.value)))
-                      }
+                      onChange={(event) => updateSelectedHp(Number(event.target.value))}
                     />
                   </label>
                   <label className="battle-field">

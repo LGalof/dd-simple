@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useAuth } from "../features/auth/AuthContext";
-import { getCreatedRooms, type CreatedRoomSummary } from "../features/rooms/api/roomsApi";
+import {
+  deleteRoom,
+  getCreatedRooms,
+  type CreatedRoomSummary,
+} from "../features/rooms/api/roomsApi";
+import { copyRoomInviteUrl } from "../features/rooms/utils/roomInvite";
 
 function formatRoomDate(value: number) {
   return new Intl.DateTimeFormat("sl-SI", {
@@ -17,6 +22,8 @@ function MyRoomsPage() {
   const [rooms, setRooms] = useState<CreatedRoomSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingRoomCode, setDeletingRoomCode] = useState<string | null>(null);
+  const [copiedRoomCode, setCopiedRoomCode] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -60,6 +67,36 @@ function MyRoomsPage() {
     navigate(`/room/${room.code}?characterId=${characterId}`);
   }
 
+  async function handleCopyInvite(roomCode: string) {
+    try {
+      await copyRoomInviteUrl(roomCode);
+      setCopiedRoomCode(roomCode);
+      window.setTimeout(() => setCopiedRoomCode(null), 2000);
+    } catch {
+      setError("Invite link could not be copied. Check browser clipboard permission.");
+    }
+  }
+
+  async function handleDeleteRoom(room: CreatedRoomSummary) {
+    if (!token || !window.confirm(`Delete room ${room.code}? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeletingRoomCode(room.code);
+      await deleteRoom(room.code, token);
+      setRooms((currentRooms) => currentRooms.filter((candidate) => candidate.code !== room.code));
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to delete room.");
+    } finally {
+      setDeletingRoomCode(null);
+    }
+  }
+
+  const hostedRoomCount = rooms.filter((room) => room.currentUserRole === "creator").length;
+  const hasReachedRoomLimit = hostedRoomCount >= 3;
+
   return (
     <AppLayout>
       <section className="page-section rooms-page">
@@ -73,9 +110,18 @@ function MyRoomsPage() {
             </p>
           </div>
 
-          <Link to="/rooms/create" className="primary-button primary-button-uppercase">
-            Create Room
-          </Link>
+          <div className="rooms-create-control">
+            <span>{hostedRoomCount}/3 created rooms</span>
+            {hasReachedRoomLimit ? (
+              <button type="button" className="primary-button" disabled>
+                Room limit reached
+              </button>
+            ) : (
+              <Link to="/rooms/create" className="primary-button primary-button-uppercase">
+                Create Room
+              </Link>
+            )}
+          </div>
         </div>
 
         {loading && (
@@ -158,9 +204,23 @@ function MyRoomsPage() {
                   >
                     Rejoin room
                   </button>
-                  <Link to={`/rooms/join?roomCode=${room.code}`} className="secondary-button">
-                    Invite link
-                  </Link>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void handleCopyInvite(room.code)}
+                  >
+                    {copiedRoomCode === room.code ? "Link copied" : "Copy invite"}
+                  </button>
+                  {room.currentUserRole === "creator" && (
+                    <button
+                      type="button"
+                      className="room-delete-button"
+                      disabled={deletingRoomCode === room.code}
+                      onClick={() => void handleDeleteRoom(room)}
+                    >
+                      {deletingRoomCode === room.code ? "Deleting..." : "Delete"}
+                    </button>
+                  )}
                 </div>
               </article>
             ))}

@@ -67,6 +67,7 @@ export type BoardToken = {
   maxHp: number;
   lifeStatus?: LifeStatus;
   deathSaves?: DeathSaves;
+  lastDeathSaveRoll?: number;
   initiative: number;
   initiativeModifier?: number;
   ac?: number;

@@ -16,11 +16,6 @@ const CreateCharacterPage = lazy(() =>
     default: module.CreateCharacterPage,
   })),
 );
-const InventorySandboxPage = lazy(() =>
-  import("./pages/InventorySandboxPage").then((module) => ({
-    default: module.InventorySandboxPage,
-  })),
-);
 const MyCharactersPage = lazy(() =>
   import("./pages/MyCharactersPage").then((module) => ({
     default: module.MyCharactersPage,
@@ -117,8 +112,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="/inventory" element={<InventorySandboxPage />} />
-            <Route path="/board" element={<TacticalBoardPage />} />
             <Route path="*" element={<Navigate to="/registracija" replace />} />
           </Routes>
         </Suspense>

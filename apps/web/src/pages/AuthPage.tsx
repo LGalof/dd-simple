@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { AuthForm } from "../features/auth/components/AuthForm";
 import { useAuth } from "../features/auth/AuthContext";
 
@@ -8,6 +8,8 @@ type AuthPageProps = {
 
 function AuthPage({ mode }: AuthPageProps) {
   const { loading, user } = useAuth();
+  const location = useLocation();
+  const returnTo = (location.state as { returnTo?: string } | null)?.returnTo;
 
   if (loading) {
     return (
@@ -18,10 +20,10 @@ function AuthPage({ mode }: AuthPageProps) {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={returnTo ?? "/"} replace />;
   }
 
-  return <AuthForm mode={mode} />;
+  return <AuthForm mode={mode} returnTo={returnTo} />;
 }
 
 export { AuthPage };

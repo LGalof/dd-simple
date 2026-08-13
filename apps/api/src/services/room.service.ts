@@ -85,6 +85,7 @@ type BoardStateRecord = {
 };
 
 const ROOM_CODE_LENGTH = 6;
+const MAX_HOSTED_ROOMS_PER_USER = 3;
 const ROOM_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const playerTokenColors = ["#60a5fa", "#a78bfa", "#34d399", "#facc15", "#f472b6", "#22d3ee"];
 
@@ -126,6 +127,19 @@ const defaultTurn = {
   bonusActionUsed: false,
   reactionUsed: false,
 };
+
+class RoomLimitError extends Error {
+  constructor() {
+    super(`You can create up to ${MAX_HOSTED_ROOMS_PER_USER} rooms. Delete a room before creating another.`);
+    this.name = "RoomLimitError";
+  }
+}
+
+function ensureHostedRoomLimit(hostedRoomCount: number) {
+  if (hostedRoomCount >= MAX_HOSTED_ROOMS_PER_USER) {
+    throw new RoomLimitError();
+  }
+}
 
 function getAbilityModifier(score: number) {
   return Math.floor((score - 10) / 2);
@@ -302,36 +316,59 @@ async function findRoomRecord(roomCode: string) {
 }
 
 async function createRoom(userId: string, character: RoomCharacter) {
-  let code = generateRoomCode();
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
 
-  while (await prisma.room.findUnique({ where: { code } })) {
-    code = generateRoomCode();
-  }
+    const hostedRoomCount = await tx.room.count({
+      where: {
+        creatorUserId: userId,
+      },
+    });
 
-  const room = await prisma.room.create({
-    data: {
-      code,
+    ensureHostedRoomLimit(hostedRoomCount);
+
+    let code = generateRoomCode();
+
+    while (await tx.room.findUnique({ where: { code } })) {
+      code = generateRoomCode();
+    }
+
+    const room = await tx.room.create({
+      data: {
+        code,
+        creatorUserId: userId,
+        creatorCharacterId: character.id,
+        boardState: createInitialBoardState(character) as Prisma.InputJsonValue,
+        players: {
+          create: {
+            userId,
+            characterId: character.id,
+            characterName: character.name,
+          },
+        },
+      },
+      include: {
+        players: {
+          orderBy: {
+            joinedAt: "asc",
+          },
+        },
+      },
+    });
+
+    return serializeRoom(room);
+  });
+}
+
+async function deleteRoomForCreator(roomCode: string, userId: string) {
+  const result = await prisma.room.deleteMany({
+    where: {
+      code: normalizeRoomCode(roomCode),
       creatorUserId: userId,
-      creatorCharacterId: character.id,
-      boardState: createInitialBoardState(character) as Prisma.InputJsonValue,
-      players: {
-        create: {
-          userId,
-          characterId: character.id,
-          characterName: character.name,
-        },
-      },
-    },
-    include: {
-      players: {
-        orderBy: {
-          joinedAt: "asc",
-        },
-      },
     },
   });
 
-  return serializeRoom(room);
+  return result.count > 0;
 }
 
 async function getRoom(roomCode: string) {
@@ -493,4 +530,13 @@ async function saveRoomBoardState(roomCode: string, boardState: unknown) {
 }
 
 export type { Room, RoomPlayer };
-export { createRoom, getRoom, joinRoom, listRoomsForUser, saveRoomBoardState };
+export {
+  createRoom,
+  deleteRoomForCreator,
+  getRoom,
+  ensureHostedRoomLimit,
+  joinRoom,
+  listRoomsForUser,
+  RoomLimitError,
+  saveRoomBoardState,
+};

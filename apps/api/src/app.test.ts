@@ -29,3 +29,29 @@ test("serves the frontend entrypoint and built assets for auth routes", async ()
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
 });
+
+test("accepts JSON request bodies larger than the Express default limit", async () => {
+  const server = app.listen(0);
+
+  try {
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+
+    const address = server.address();
+    assert.ok(address && typeof address === "object" && "port" in address);
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/auth/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ padding: "x".repeat(150_000) }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: "Email and password are required",
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  }
+});

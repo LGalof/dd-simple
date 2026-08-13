@@ -35,9 +35,13 @@ io.use(async (socket, next) => {
 });
 
 type BoardTokenRecord = Record<string, unknown> & {
+  deathSaves?: unknown;
   id?: unknown;
   characterId?: unknown;
   initiative?: unknown;
+  lastDeathSaveRoll?: unknown;
+  lifeStatus?: unknown;
+  hp?: unknown;
   turn?: unknown;
   x?: unknown;
   y?: unknown;
@@ -212,6 +216,107 @@ function onlyActiveTokenMoved(currentState: BoardStateRecord, nextState: BoardSt
   return true;
 }
 
+function onlyActiveTokenDeathSaveChanged(
+  currentState: BoardStateRecord,
+  nextState: BoardStateRecord,
+  activeTokenId: string,
+) {
+  if (!stateMatchesExcept(currentState, nextState, ["tokens"])) {
+    return false;
+  }
+
+  const currentTokens = getTokenMap(currentState);
+  const nextTokens = getTokenMap(nextState);
+
+  if (currentTokens.size !== nextTokens.size) {
+    return false;
+  }
+
+  for (const [tokenId, currentToken] of currentTokens) {
+    const nextToken = nextTokens.get(tokenId);
+
+    if (!nextToken) {
+      return false;
+    }
+
+    if (tokenId === activeTokenId) {
+      if (
+        !tokenMatchesExcept(currentToken, nextToken, [
+          "deathSaves",
+          "hp",
+          "lastDeathSaveRoll",
+          "lifeStatus",
+        ])
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (!valuesMatch(currentToken, nextToken)) {
+      return false;
+    }
+  }
+
+  return (
+    Number.isInteger(nextTokens.get(activeTokenId)?.lastDeathSaveRoll) &&
+    Number(nextTokens.get(activeTokenId)?.lastDeathSaveRoll) >= 1 &&
+    Number(nextTokens.get(activeTokenId)?.lastDeathSaveRoll) <= 20
+  );
+}
+
+function onlyActiveTokenHpChanged(
+  currentState: BoardStateRecord,
+  nextState: BoardStateRecord,
+  activeTokenId: string,
+) {
+  if (!stateMatchesExcept(currentState, nextState, ["tokens"])) {
+    return false;
+  }
+
+  const currentTokens = getTokenMap(currentState);
+  const nextTokens = getTokenMap(nextState);
+
+  if (currentTokens.size !== nextTokens.size) {
+    return false;
+  }
+
+  for (const [tokenId, currentToken] of currentTokens) {
+    const nextToken = nextTokens.get(tokenId);
+
+    if (!nextToken) {
+      return false;
+    }
+
+    if (tokenId === activeTokenId) {
+      if (
+        !tokenMatchesExcept(currentToken, nextToken, [
+          "deathSaves",
+          "hp",
+          "lastDeathSaveRoll",
+          "lifeStatus",
+        ])
+      ) {
+        return false;
+      }
+      continue;
+    }
+
+    if (!valuesMatch(currentToken, nextToken)) {
+      return false;
+    }
+  }
+
+  const nextToken = nextTokens.get(activeTokenId);
+
+  return (
+    typeof nextToken?.hp === "number" &&
+    Number.isFinite(nextToken.hp) &&
+    nextToken.hp >= 0 &&
+    nextToken.lastDeathSaveRoll === undefined
+  );
+}
+
 function onlyActivePlayerAdvancedTurn(currentState: BoardStateRecord, nextState: BoardStateRecord) {
   const initiativeOrder = getInitiativeOrder(currentState);
 
@@ -376,6 +481,8 @@ function authorizeBoardStateSync(
 
   if (
     onlyActiveTokenMoved(currentState, nextState, activeTokenId) ||
+    onlyActiveTokenDeathSaveChanged(currentState, nextState, activeTokenId) ||
+    onlyActiveTokenHpChanged(currentState, nextState, activeTokenId) ||
     onlyActivePlayerAdvancedTurn(currentState, nextState)
   ) {
     return { allowed: true };

@@ -30,7 +30,6 @@ import {
   type CharacterInventorySaveItem,
 } from "../features/characters/api/characterInventory";
 import { fetchEquipment } from "../features/references/api/fetchReferences";
-import { AppLayout } from "../components/layout/AppLayout";
 import type { ReferenceEquipment } from "../types/reference";
 import {
   deriveReferenceEquipmentEffects,
@@ -123,10 +122,6 @@ type ItemTemplate = Omit<NewItemForm, "location" | "requiresAttunement"> & {
   speedPenalty: number;
   value: number;
   weight: number;
-};
-
-type InventorySandboxPageProps = {
-  embedded?: boolean;
 };
 
 type InventoryToolPanel =
@@ -2837,17 +2832,6 @@ function InventoryDetailsSidebar({ controller, isOpen }: InventoryDetailsSidebar
   );
 }
 
-function InventorySandboxPage({ embedded = false }: InventorySandboxPageProps = {}) {
-  const controller = useInventorySandboxController();
-  const content = <InventoryWorkbench controller={controller} embedded={embedded} />;
-
-  if (embedded) {
-    return content;
-  }
-
-  return <AppLayout variant="wide-left">{content}</AppLayout>;
-}
-
 type InventoryGridProps = {
   container: InventoryContainer;
   hoverPreview: HoverPreview | null;
@@ -3670,7 +3654,6 @@ function itemsOverlap(leftItem: InventoryItem, rightItem: InventoryItem) {
 
 export {
   InventoryDetailsSidebar,
-  InventorySandboxPage,
   InventoryWorkbench,
   useInventorySandboxController,
 };

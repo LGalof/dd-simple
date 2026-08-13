@@ -1,4 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  Backpack,
+  BookOpen,
+  Grid2X2,
+  NotebookPen,
+  ScrollText,
+  Settings2,
+  Shield,
+  Sparkles,
+  Swords,
+  X,
+} from "lucide-react";
 import { AppLayout } from "../components/layout/AppLayout";
 import {
   createDefaultConditionState,
@@ -13,6 +26,7 @@ import { CharacterSheet } from "../features/characters/components/CharacterSheet
 import { type LocalRollEntry } from "../features/characters/components/LocalRollsPanel";
 import type { RollableResult } from "../features/characters/components/Rollable";
 import type {
+  DashboardSheetSection,
   ResourceActionSummary,
   WorkspaceTab,
 } from "../features/characters/components/CharacterSheet";
@@ -91,13 +105,39 @@ type PersistedDashboardUiState = {
   version: 1 | 2;
 };
 
+type CompactDashboardSection = DashboardSheetSection | "builder";
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(query);
+    const updateMatch = () => setMatches(mediaQuery.matches);
+
+    updateMatch();
+    mediaQuery.addEventListener("change", updateMatch);
+
+    return () => mediaQuery.removeEventListener("change", updateMatch);
+  }, [query]);
+
+  return matches;
+}
+
 function CharacterDashboardPage() {
   const { token } = useAuth();
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
+  const [compactSection, setCompactSection] =
+    useState<CompactDashboardSection>("overview");
+  const [isSectionLauncherOpen, setIsSectionLauncherOpen] = useState(false);
   const [isBuilderSidebarHidden, setIsBuilderSidebarHidden] = useState(false);
   const [rightRailMode, setRightRailMode] = useState<"conditions" | "inventory" | "spells" | null>(null);
   const [selectedSpellEntry, setSelectedSpellEntry] = useState<CharacterSpellEntry | null>(null);
   const rightRailRef = useRef<HTMLDivElement | null>(null);
+  const isCompactDashboard = useMediaQuery("(max-width: 1680px)");
   const [conditionState, setConditionState] = useState<ConditionState>(createDefaultConditionState);
   const [diceRollSaveError, setDiceRollSaveError] = useState<string | null>(null);
   const [localRolls, setLocalRolls] = useState<LocalRollEntry[]>([]);
@@ -460,7 +500,7 @@ function CharacterDashboardPage() {
   }, [rightRailMode]);
 
   useEffect(() => {
-    if (activeWorkspaceTab === "inventory") {
+    if (activeWorkspaceTab === "inventory" && !isCompactDashboard) {
       setRightRailMode("inventory");
       return;
     }
@@ -473,7 +513,13 @@ function CharacterDashboardPage() {
     if (activeWorkspaceTab !== "spells") {
       setSelectedSpellEntry(null);
     }
-  }, [activeWorkspaceTab]);
+  }, [activeWorkspaceTab, isCompactDashboard]);
+
+  useEffect(() => {
+    if (!isCompactDashboard) {
+      setIsSectionLauncherOpen(false);
+    }
+  }, [isCompactDashboard]);
 
   useEffect(() => {
     setConditionState(buildConditionStateFromCharacter(character));
@@ -482,6 +528,8 @@ function CharacterDashboardPage() {
   useEffect(() => {
     if (!character?.id) {
       setActiveWorkspaceTab("actions");
+      setCompactSection("overview");
+      setIsSectionLauncherOpen(false);
       setIsBuilderSidebarHidden(false);
       setRightRailMode(null);
       setSelectedSpellEntry(null);
@@ -548,6 +596,55 @@ function CharacterDashboardPage() {
     void dashboardAutosave.flushSave();
   }
 
+  const handleWorkspaceTabChange = useCallback(
+    (tab: WorkspaceTab) => {
+      setActiveWorkspaceTab(tab);
+      setCompactSection(tab);
+      setIsSectionLauncherOpen(false);
+
+      if (isCompactDashboard) {
+        setSelectedSpellEntry(null);
+        setRightRailMode(null);
+      }
+    },
+    [isCompactDashboard],
+  );
+
+  const handleCompactSectionChange = useCallback(
+    (section: CompactDashboardSection) => {
+      setCompactSection(section);
+      setIsSectionLauncherOpen(false);
+      setSelectedSpellEntry(null);
+      setRightRailMode(null);
+
+      if (section !== "overview" && section !== "builder") {
+        setActiveWorkspaceTab(section);
+      }
+    },
+    [],
+  );
+
+  const handleOpenConditionsFromLauncher = useCallback(() => {
+    setIsSectionLauncherOpen(false);
+    setSelectedSpellEntry(null);
+    setRightRailMode("conditions");
+  }, []);
+
+  const handleToggleSectionLauncher = useCallback(() => {
+    const willOpen = !isSectionLauncherOpen;
+
+    setIsSectionLauncherOpen(willOpen);
+    if (willOpen) {
+      setSelectedSpellEntry(null);
+      setRightRailMode(null);
+    }
+  }, [isSectionLauncherOpen]);
+
+  const handleCloseRightRail = useCallback(() => {
+    setSelectedSpellEntry(null);
+    setRightRailMode(null);
+  }, []);
+
   const handleOpenSpellLibrary = useCallback(() => {
     setSelectedSpellEntry(null);
     setRightRailMode((currentMode) =>
@@ -557,6 +654,7 @@ function CharacterDashboardPage() {
 
   const handleSelectSpellEntry = useCallback((entry: CharacterSpellEntry) => {
     setActiveWorkspaceTab("spells");
+    setCompactSection("spells");
     setSelectedSpellEntry(entry);
     setRightRailMode("spells");
   }, []);
@@ -634,13 +732,12 @@ function CharacterDashboardPage() {
         selectedBackground &&
         selectedClass &&
         selectedSpecies ? (
-          <div
-            className={
-              isBuilderSidebarHidden
-                ? "dashboard-layout dashboard-layout-sidebar-hidden"
-                : "dashboard-layout"
-            }
-          >
+          <>
+            <div
+              className={`dashboard-layout dashboard-compact-section-${compactSection}${
+                isBuilderSidebarHidden ? " dashboard-layout-sidebar-hidden" : ""
+              }`}
+            >
             <div
               className={
                 isBuilderSidebarHidden
@@ -715,6 +812,7 @@ function CharacterDashboardPage() {
               activeTab={activeWorkspaceTab}
               backgroundChoices={backgroundChoices}
               character={previewCharacter}
+              compactSection={compactSection === "builder" ? "overview" : compactSection}
               conditionSummary={conditionSummary}
               currentHp={builderState.currentHp}
               defenseSummary={defenseSummary}
@@ -723,7 +821,7 @@ function CharacterDashboardPage() {
               derivedStateLoading={characterDerivedStateLoadingWithPreview}
               featureChoices={featureChoices}
               inventoryController={inventoryController}
-              onActiveTabChange={setActiveWorkspaceTab}
+              onActiveTabChange={handleWorkspaceTabChange}
               onLocalRoll={handleLocalRoll}
               onResourceStateChange={setResourceState}
               onSpellcastingStateChange={setSpellcastingState}
@@ -745,7 +843,22 @@ function CharacterDashboardPage() {
               speciesChoices={speciesChoices}
               tempHp={builderState.tempHp}
             />
-            <div ref={rightRailRef}>
+            <div
+              ref={rightRailRef}
+              className={
+                rightRailMode
+                  ? "dashboard-right-rail-shell dashboard-right-rail-shell-open"
+                  : "dashboard-right-rail-shell"
+              }
+            >
+              <button
+                type="button"
+                className="dashboard-right-rail-close"
+                onClick={handleCloseRightRail}
+              >
+                <X aria-hidden="true" />
+                <span>Close panel</span>
+              </button>
               <CharacterDashboardRightRail
                 conditionState={conditionState}
                 diceRollSaveError={diceRollSaveError}
@@ -773,6 +886,133 @@ function CharacterDashboardPage() {
               />
             </div>
           </div>
+          <div
+            className={
+              isSectionLauncherOpen
+                ? "dashboard-section-launcher dashboard-section-launcher-open"
+                : "dashboard-section-launcher"
+            }
+          >
+            {isSectionLauncherOpen ? (
+              <button
+                type="button"
+                className="dashboard-section-launcher-backdrop"
+                aria-label="Close dashboard menu"
+                onClick={() => setIsSectionLauncherOpen(false)}
+              />
+            ) : null}
+
+            <div
+              className="dashboard-section-menu"
+              role="dialog"
+              aria-label="Dashboard sections"
+              aria-hidden={!isSectionLauncherOpen}
+            >
+              <div className="dashboard-section-menu-header">
+                <div>
+                  <span>Character dashboard</span>
+                  <strong>Choose a section</strong>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close dashboard menu"
+                  onClick={() => setIsSectionLauncherOpen(false)}
+                >
+                  <X aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="dashboard-section-menu-grid">
+                <button
+                  type="button"
+                  className={compactSection === "overview" ? "is-active" : undefined}
+                  onClick={() => handleCompactSectionChange("overview")}
+                >
+                  <Activity aria-hidden="true" />
+                  <span>Overview</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "actions" ? "is-active" : undefined}
+                  onClick={() => handleWorkspaceTabChange("actions")}
+                >
+                  <Swords aria-hidden="true" />
+                  <span>Actions</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "spells" ? "is-active" : undefined}
+                  onClick={() => handleWorkspaceTabChange("spells")}
+                >
+                  <Sparkles aria-hidden="true" />
+                  <span>Spells</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "inventory" ? "is-active" : undefined}
+                  onClick={() => handleWorkspaceTabChange("inventory")}
+                >
+                  <Backpack aria-hidden="true" />
+                  <span>Inventory</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "features" ? "is-active" : undefined}
+                  onClick={() => handleWorkspaceTabChange("features")}
+                >
+                  <ScrollText aria-hidden="true" />
+                  <span>Features &amp; traits</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "notes" ? "is-active" : undefined}
+                  onClick={() => handleWorkspaceTabChange("notes")}
+                >
+                  <NotebookPen aria-hidden="true" />
+                  <span>Notes</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "extras" ? "is-active" : undefined}
+                  onClick={() => handleWorkspaceTabChange("extras")}
+                >
+                  <BookOpen aria-hidden="true" />
+                  <span>Extras</span>
+                </button>
+                <button
+                  type="button"
+                  className={compactSection === "builder" ? "is-active" : undefined}
+                  onClick={() => handleCompactSectionChange("builder")}
+                >
+                  <Settings2 aria-hidden="true" />
+                  <span>Character builder</span>
+                </button>
+                <button
+                  type="button"
+                  data-right-rail-trigger
+                  className={rightRailMode === "conditions" ? "is-active" : undefined}
+                  onClick={handleOpenConditionsFromLauncher}
+                >
+                  <Shield aria-hidden="true" />
+                  <span>Conditions</span>
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="dashboard-section-launcher-toggle"
+              aria-label={
+                isSectionLauncherOpen ? "Close dashboard menu" : "Open dashboard menu"
+              }
+              aria-expanded={isSectionLauncherOpen}
+              onClick={handleToggleSectionLauncher}
+            >
+              {isSectionLauncherOpen ? <X aria-hidden="true" /> : <Grid2X2 aria-hidden="true" />}
+              <span>{isSectionLauncherOpen ? "Close" : "Sections"}</span>
+            </button>
+            </div>
+          </>
         ) : null}
       </section>
 

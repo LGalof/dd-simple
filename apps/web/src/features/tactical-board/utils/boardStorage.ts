@@ -103,6 +103,12 @@ export function normalizeBoardState(state: SavedBoardState): SavedBoardState | n
       hp,
       lifeStatus: normalizeLifeStatus(token.lifeStatus, hp),
       deathSaves: normalizeDeathSaves(token.deathSaves),
+      lastDeathSaveRoll:
+        Number.isInteger(token.lastDeathSaveRoll) &&
+        (token.lastDeathSaveRoll ?? 0) >= 1 &&
+        (token.lastDeathSaveRoll ?? 0) <= 20
+          ? token.lastDeathSaveRoll
+          : undefined,
       size: Math.max(1, Math.min(3, token.size || 1)),
       speed: Math.max(5, token.speed || 30),
       ac: Math.max(1, token.ac || 10),

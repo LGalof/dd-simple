@@ -63,6 +63,7 @@ type CharacterSheetProps = {
   derivedStateLoading: boolean;
   featureChoices: FeatureChoiceSelections;
   inventoryController: InventorySandboxController;
+  compactSection?: DashboardSheetSection;
   onActiveTabChange: (tab: WorkspaceTab) => void;
   onLocalRoll: (result: RollableResult) => void;
   onOpenConditions: () => void;
@@ -94,6 +95,8 @@ type WorkspaceTab =
   | "features"
   | "notes"
   | "extras";
+
+type DashboardSheetSection = "overview" | WorkspaceTab;
 
 type SkillWithTotal = {
   ability: string;
@@ -260,6 +263,7 @@ function CharacterSheet({
   derivedStateLoading,
   featureChoices,
   inventoryController,
+  compactSection = "overview",
   onActiveTabChange,
   onLocalRoll,
   onOpenConditions,
@@ -1019,7 +1023,9 @@ function CharacterSheet({
   }
 
   return (
-    <div className="character-sheet character-sheet-reference">
+    <div
+      className={`character-sheet character-sheet-reference character-sheet-compact-${compactSection}`}
+    >
       <section className="character-dashboard-toolbar">
         <div className="character-dashboard-summary-row">
           <div className="character-dashboard-summary-chip character-dashboard-summary-chip-name">
@@ -3278,5 +3284,5 @@ function mergeDefenseSummaryEntries(
 }
 
 export { CharacterSheet };
-export type { WorkspaceTab };
+export type { DashboardSheetSection, WorkspaceTab };
 export type { ResourceActionSummary, SpellcastingSummary };
