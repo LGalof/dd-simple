@@ -1076,6 +1076,11 @@ h1 {
   background: rgba(2, 6, 23, 0.74);
   backdrop-filter: blur(10px);
   z-index: 80;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
 }
 
 .inventory-modal {
@@ -1590,6 +1595,11 @@ h1 {
     rgba(2, 6, 23, 0.82);
   backdrop-filter: blur(10px);
   z-index: 50;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
 }
 
 .builder-hp-modal {
@@ -2937,6 +2947,11 @@ h1 {
   background: rgba(2, 6, 23, 0.7);
   backdrop-filter: blur(8px);
   z-index: 60;
+  width: auto;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
 }
 
 .character-hp-modal {

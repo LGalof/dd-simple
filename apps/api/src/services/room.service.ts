@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { randomInt } from "node:crypto";
 import { prisma } from "../lib/prisma.js";
 
 type RoomPlayer = {
@@ -157,7 +158,7 @@ function generateRoomCode() {
   let code = "";
 
   for (let index = 0; index < ROOM_CODE_LENGTH; index += 1) {
-    const randomIndex = Math.floor(Math.random() * ROOM_CODE_CHARACTERS.length);
+    const randomIndex = randomInt(ROOM_CODE_CHARACTERS.length);
     code += ROOM_CODE_CHARACTERS[randomIndex];
   }
 

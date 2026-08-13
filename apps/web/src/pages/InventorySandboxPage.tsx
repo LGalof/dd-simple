@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../features/auth/AuthContext";
+import { secureRandomId } from "../lib/secureRandom";
 import {
   fetchCharacterInventory,
   fetchCharacterInventoryState,
@@ -1126,7 +1127,7 @@ function useInventorySandboxController(
     const maxStack = stackable ? 10 : 1;
     const effects = deriveReferenceEquipmentEffects(referenceItem);
     const baseItem: InventoryItem = {
-      id: `ref-item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `ref-item-${secureRandomId()}`,
       name: referenceItem.name,
       kind,
       width: inferReferenceItemWidth(referenceItem),
@@ -2282,13 +2283,16 @@ function InventoryDetailsContent({
       {activeToolPanel &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="inventory-modal-backdrop" onClick={() => setActiveToolPanel(null)}>
+          <dialog
+            open
+            className="inventory-modal-backdrop"
+            aria-label="Inventory tools"
+            aria-modal="true"
+            onCancel={() => setActiveToolPanel(null)}
+          >
             <section
               className="inventory-modal"
-              role="dialog"
-              aria-modal="true"
               aria-labelledby="inventory-tool-modal-title"
-              onClick={(event) => event.stopPropagation()}
             >
               <header className="inventory-modal-header">
                 <div>
@@ -2306,7 +2310,7 @@ function InventoryDetailsContent({
               </header>
               <div className="inventory-modal-body">{renderActiveToolPanel()}</div>
             </section>
-          </div>,
+          </dialog>,
           document.body,
         )}
 
@@ -3267,7 +3271,7 @@ function inferReferenceItemWidth(referenceItem: ReferenceEquipment) {
   }
 
   if (type === "armor") {
-    return referenceItem.name.toLowerCase().includes("shield") ? 2 : 2;
+    return 2;
   }
 
   if (isReferenceEquipmentContainer(referenceItem)) {

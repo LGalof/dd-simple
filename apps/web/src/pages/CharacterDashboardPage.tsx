@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { AppLayout } from "../components/layout/AppLayout";
+import { secureRandomId } from "../lib/secureRandom";
 import {
   createDefaultConditionState,
   getConditionSummaryEntries,
@@ -675,10 +676,7 @@ function CharacterDashboardPage() {
   }
 
   function handleLocalRoll(result: RollableResult) {
-    const id =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${result.rolledAt}-${Math.random().toString(36).slice(2)}`;
+    const id = secureRandomId();
 
     setLocalRolls((currentRolls) =>
       [

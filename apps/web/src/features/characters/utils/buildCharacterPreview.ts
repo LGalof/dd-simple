@@ -14,6 +14,7 @@ import type {
 } from "../types/characterBuilder";
 import { abilityModifier } from "./characterFormat";
 import { mergeFeatureChoiceSelections } from "./buildFeatureChoiceSelections";
+import { secureRandomInt } from "../../../lib/secureRandom";
 
 const backgroundAbilityPlanTwoScores = "increase-two-scores-2-1";
 const backgroundAbilityPlanThreeScores = "increase-all-three-by-1";
@@ -468,7 +469,7 @@ function synchronizeHitPointRolls(level: number, hitDie: number, rolls: number[]
 }
 
 function rollHitDie(hitDie: number) {
-  return Math.floor(Math.random() * hitDie) + 1;
+  return secureRandomInt(hitDie) + 1;
 }
 
 function isAbilityScoreImprovementFeature(feature: ClassOption["features"][number]) {

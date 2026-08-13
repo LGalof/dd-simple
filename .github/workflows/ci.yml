@@ -26,10 +26,14 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://ddsimple:ddsimple@localhost:5432/ddsimple_ci
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -55,11 +59,22 @@ jobs:
       - name: Build web
         run: npm run build --workspace @dd-simple/web
 
-      - name: Test api
-        run: npm --workspace @dd-simple/api run test
+      - name: Test api with coverage
+        run: npm --workspace @dd-simple/api run test:coverage
 
-      - name: Test web
-        run: npm --workspace @dd-simple/web run test
+      - name: Test web with coverage
+        run: npm --workspace @dd-simple/web run test:coverage
 
       - name: Build api
         run: npm run build --workspace @dd-simple/api
+
+      - name: Analyze with SonarQube
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+
+      - name: SonarQube configuration notice
+        if: ${{ env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' }}
+        run: echo "SonarQube analysis skipped because SONAR_TOKEN or SONAR_HOST_URL is not configured."

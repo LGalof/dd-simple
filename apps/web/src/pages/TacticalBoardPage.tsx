@@ -23,6 +23,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
+import { secureRandomInt } from "../lib/secureRandom";
 import { useAuth } from "../features/auth/AuthContext";
 import { getRoom } from "../features/rooms/api/roomsApi";
 import { useRoomSocket } from "../features/rooms/hooks/useRoomSocket";
@@ -154,8 +155,21 @@ const turnResourceLabels: Record<TurnResourceKey, string> = {
   reactionUsed: "Reaction",
 };
 
+const interactiveBoardModes = new Set<BoardMode>([
+  "fog",
+  "move",
+  "pin",
+  "ruler",
+  "target",
+  "waypoint",
+]);
+
+function isTerrainBoardMode(mode: BoardMode): mode is BoardTerrain {
+  return !interactiveBoardModes.has(mode);
+}
+
 function rollD20() {
-  return Math.floor(Math.random() * 20) + 1;
+  return secureRandomInt(20) + 1;
 }
 
 function formatSignedModifier(value: number) {
@@ -869,91 +883,67 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     setMessage(`${draggedToken.name} moved to ${cell.x + 1}, ${cell.y + 1}.`);
   }
 
-  function handleCellClick(x: number, y: number) {
-    if (mode === "waypoint") {
-      if (!selectedToken) {
-        setMessage("Select a token before plotting a path.");
-        return;
-      }
-
-      const turnIssue = getTurnOwnershipIssue(selectedToken);
-
-      if (turnIssue) {
-        setMessage(turnIssue);
-        addCombatLog(`Rule warning: ${turnIssue}`);
-        return;
-      }
-
-      setWaypoints((currentWaypoints) => [...currentWaypoints, { x, y }]);
-      setMessage(`Waypoint added at ${x + 1}, ${y + 1}.`);
+  function handleWaypointCellClick(x: number, y: number) {
+    if (!selectedToken) {
+      setMessage("Select a token before plotting a path.");
       return;
     }
 
-    if (mode === "ruler") {
-      if (!rulerStart) {
-        setRulerStart({ x, y });
-        setRulerEnd(null);
-        setMessage(`Ruler started at ${x + 1}, ${y + 1}.`);
-        return;
-      }
+    const turnIssue = getTurnOwnershipIssue(selectedToken);
 
-      setRulerEnd({ x, y });
-      addCombatLog(`Measured ${getSquareDistance(rulerStart.x, rulerStart.y, x, y) * feetPerSquare} ft.`);
-      setMessage(`Measured ${getSquareDistance(rulerStart.x, rulerStart.y, x, y) * feetPerSquare} ft.`);
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
       return;
     }
 
-    if (mode === "fog") {
-      if (!requireDmBoardControl("edit fog of war")) {
-        return;
-      }
+    setWaypoints((currentWaypoints) => [...currentWaypoints, { x, y }]);
+    setMessage(`Waypoint added at ${x + 1}, ${y + 1}.`);
+  }
 
-      toggleFogBrush(x, y);
+  function handleRulerCellClick(x: number, y: number) {
+    if (!rulerStart) {
+      setRulerStart({ x, y });
+      setRulerEnd(null);
+      setMessage(`Ruler started at ${x + 1}, ${y + 1}.`);
       return;
     }
 
-    if (mode === "pin") {
-      if (!requireDmBoardControl("edit map pins")) {
-        return;
-      }
+    const distance = getSquareDistance(rulerStart.x, rulerStart.y, x, y) * feetPerSquare;
+    setRulerEnd({ x, y });
+    addCombatLog(`Measured ${distance} ft.`);
+    setMessage(`Measured ${distance} ft.`);
+  }
 
-      togglePin(x, y);
+  function handleTargetCellClick(x: number, y: number) {
+    if (!spellOrigin) {
+      setMessage("Select a caster token before previewing a spell.");
       return;
     }
 
-    if (mode === "target") {
-      if (!spellOrigin) {
-        setMessage("Select a caster token before previewing a spell.");
-        return;
-      }
+    const turnIssue = selectedToken ? getTurnOwnershipIssue(selectedToken) : null;
 
-      if (selectedToken) {
-        const turnIssue = getTurnOwnershipIssue(selectedToken);
-
-        if (turnIssue) {
-          setMessage(turnIssue);
-          addCombatLog(`Rule warning: ${turnIssue}`);
-          return;
-        }
-      }
-
-      const target = { x, y };
-      const distance = getSquareDistance(spellOrigin.x, spellOrigin.y, x, y);
-
-      setTargetCell(target);
-      addCombatLog(`${spellName} targeted ${x + 1}, ${y + 1}; ${affectedTokens.length} token${affectedTokens.length === 1 ? "" : "s"} in AOE.`);
-      setMessage(
-        distance <= spellRangeCells
-          ? `Target locked at ${x + 1}, ${y + 1}. ${distance * feetPerSquare} ft away.`
-          : `Target is ${distance * feetPerSquare} ft away, beyond spell range.`,
-      );
+    if (turnIssue) {
+      setMessage(turnIssue);
+      addCombatLog(`Rule warning: ${turnIssue}`);
       return;
     }
 
-    if (mode === "move") {
-      return;
-    }
+    const distance = getSquareDistance(spellOrigin.x, spellOrigin.y, x, y);
+    const tokenLabel = affectedTokens.length === 1 ? "token" : "tokens";
 
+    setTargetCell({ x, y });
+    addCombatLog(
+      `${spellName} targeted ${x + 1}, ${y + 1}; ${affectedTokens.length} ${tokenLabel} in AOE.`,
+    );
+    setMessage(
+      distance <= spellRangeCells
+        ? `Target locked at ${x + 1}, ${y + 1}. ${distance * feetPerSquare} ft away.`
+        : `Target is ${distance * feetPerSquare} ft away, beyond spell range.`,
+    );
+  }
+
+  function handleTerrainCellClick(x: number, y: number) {
     if (!requireDmBoardControl("paint terrain")) {
       return;
     }
@@ -963,19 +953,29 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     setTerrain((currentTerrain) => {
       const nextTerrain = { ...currentTerrain };
 
-      cells.forEach((cell) => {
+      for (const cell of cells) {
         const key = getCellKey(cell.x, cell.y);
 
-      if (mode === "normal") {
-          delete nextTerrain[key];
-          return;
+        if (mode === "normal") delete nextTerrain[key];
+        else if (isTerrainBoardMode(mode)) nextTerrain[key] = mode;
       }
-
-        nextTerrain[key] = mode;
-      });
 
       return nextTerrain;
     });
+  }
+
+  function handleCellClick(x: number, y: number) {
+    const modeHandlers: Partial<Record<BoardMode, () => void>> = {
+      fog: () => toggleFogBrush(x, y),
+      pin: () => togglePin(x, y),
+      ruler: () => handleRulerCellClick(x, y),
+      target: () => handleTargetCellClick(x, y),
+      waypoint: () => handleWaypointCellClick(x, y),
+    };
+    const handler = modeHandlers[mode];
+
+    if (handler) handler();
+    else if (mode !== "move") handleTerrainCellClick(x, y);
   }
 
   function toggleFogBrush(x: number, y: number) {

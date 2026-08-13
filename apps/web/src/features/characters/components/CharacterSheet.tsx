@@ -1439,13 +1439,14 @@ function CharacterSheet({
         </section>
       </section>
       {isCurrentHpModalOpen ? (
-        <div className="character-hp-modal-backdrop" onClick={closeCurrentHpModal}>
-          <section
-            className="character-hp-modal"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
+        <dialog
+          open
+          className="character-hp-modal-backdrop"
+          aria-label="Current hit point manager"
+          aria-modal="true"
+          onCancel={closeCurrentHpModal}
+        >
+          <section className="character-hp-modal">
             <header className="character-hp-modal-header">
               <h3>Adjust Current HP</h3>
               <button
@@ -1496,17 +1497,18 @@ function CharacterSheet({
               </button>
             </footer>
           </section>
-        </div>
+        </dialog>
       ) : null}
 
       {isTempHpModalOpen ? (
-        <div className="character-hp-modal-backdrop" onClick={closeTempHpModal}>
-          <section
-            className="character-hp-modal"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-          >
+        <dialog
+          open
+          className="character-hp-modal-backdrop"
+          aria-label="Temporary hit point manager"
+          aria-modal="true"
+          onCancel={closeTempHpModal}
+        >
+          <section className="character-hp-modal">
             <header className="character-hp-modal-header">
               <h3>Set Temporary HP</h3>
               <button
@@ -1560,7 +1562,7 @@ function CharacterSheet({
               </button>
             </footer>
           </section>
-        </div>
+        </dialog>
       ) : null}
     </div>
   );

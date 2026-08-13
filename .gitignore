@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 coverage/
+.scannerwork/
 *.tsbuildinfo
 
 # Vite/generated config artifacts
@@ -55,6 +56,7 @@ $RECYCLE.BIN/
 # Local database/data files
 postgres_data/
 /data/
+/tmp/
 *.sqlite
 *.sqlite3
 *.db

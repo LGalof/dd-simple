@@ -55,3 +55,46 @@ test("accepts JSON request bodies larger than the Express default limit", async 
     await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
   }
 });
+
+test("allows configured browser origins without exposing the Express version", async () => {
+  const server = app.listen(0);
+
+  try {
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+    const address = server.address();
+    assert.ok(address && typeof address === "object" && "port" in address);
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/health`, {
+      headers: { Origin: "http://127.0.0.1:5173" },
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), "http://127.0.0.1:5173");
+    assert.equal(response.headers.get("x-powered-by"), null);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+test("does not grant cross-origin access to unknown browser origins", async () => {
+  const server = app.listen(0);
+
+  try {
+    await new Promise<void>((resolve) => server.once("listening", resolve));
+    const address = server.address();
+    assert.ok(address && typeof address === "object" && "port" in address);
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/health`, {
+      headers: { Origin: "https://attacker.example" },
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), null);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});

@@ -190,8 +190,8 @@ function SpellLibrarySidebar({
 
     onSpellcastingStateChange({
       ...spellcastingState,
-      learnedSpellIds: [...nextLearnedIds].sort(),
-      preparedSpellIds: [...nextPreparedIds].sort(),
+      learnedSpellIds: [...nextLearnedIds].sort((left, right) => left.localeCompare(right)),
+      preparedSpellIds: [...nextPreparedIds].sort((left, right) => left.localeCompare(right)),
     });
   }
 
@@ -206,7 +206,7 @@ function SpellLibrarySidebar({
 
     onSpellcastingStateChange({
       ...spellcastingState,
-      preparedSpellIds: [...nextPreparedIds].sort(),
+      preparedSpellIds: [...nextPreparedIds].sort((left, right) => left.localeCompare(right)),
     });
   }
 
@@ -471,9 +471,7 @@ function SpellLibrarySidebar({
                   ))
                 ) : (
                   <p className="inventory-library-empty-state">
-                    {managementMode === "known"
-                      ? "No prepared spells are currently selected."
-                      : "No prepared spells are currently selected."}
+                    No prepared spells are currently selected.
                   </p>
                 )}
               </div>

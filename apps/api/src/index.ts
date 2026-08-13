@@ -6,12 +6,16 @@ import { findUserByToken } from "./services/auth.service.js";
 import { findCharacterByIdForUser } from "./services/character.service.js";
 import { getRoom, joinRoom, saveRoomBoardState, type Room } from "./services/room.service.js";
 import { eventBus } from "./lib/events.js";
+import { getAllowedOrigins, isAllowedOrigin } from "./lib/cors-config.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const server = createServer(app);
+const allowedOrigins = getAllowedOrigins();
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin(origin, callback) {
+      callback(null, isAllowedOrigin(origin, allowedOrigins));
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },

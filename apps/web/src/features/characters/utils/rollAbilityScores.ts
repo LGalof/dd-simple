@@ -1,4 +1,5 @@
 import type { AbilityAssignment } from "../types/characterBuilder";
+import { secureRandomInt } from "../../../lib/secureRandom";
 
 type RolledAbilitySet = {
   dice: number[];
@@ -6,7 +7,7 @@ type RolledAbilitySet = {
 };
 
 function rollAbilitySet(): RolledAbilitySet {
-  const dice = Array.from({ length: 4 }, () => Math.floor(Math.random() * 6) + 1);
+  const dice = Array.from({ length: 4 }, () => secureRandomInt(6) + 1);
   const sortedDice = [...dice].sort((left, right) => right - left);
 
   return {

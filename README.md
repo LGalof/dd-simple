@@ -173,6 +173,52 @@ Run backend tests:
 npm --workspace @dd-simple/api run test
 ```
 
+Generate LCOV coverage reports for SonarQube:
+
+```bash
+npm --workspace @dd-simple/api run test:coverage
+npm --workspace @dd-simple/web run test:coverage
+```
+
+## SonarQube
+
+The repository is analyzed as one SonarQube project containing the API, web,
+and shared TypeScript workspaces. Analysis settings are stored in
+`sonar-project.properties`, and the CI workflow uploads the generated LCOV
+coverage reports.
+
+Start the local SonarQube Community Build and its dedicated PostgreSQL database:
+
+```bash
+npm run sonar:up
+```
+
+Open [http://localhost:9000](http://localhost:9000). Stop the local services
+without deleting their persistent data with `npm run sonar:down`.
+
+After generating coverage, run a local analysis by setting `SONAR_TOKEN` and
+`SONAR_HOST_URL=http://localhost:9000`, then execute `npm run sonar`.
+
+To enable analysis in GitHub Actions:
+
+1. Create the `dd-simple` project in SonarQube Server.
+2. Generate a project analysis token.
+3. Add the token as the GitHub repository secret `SONAR_TOKEN`.
+4. Add the reachable SonarQube Server URL as the GitHub repository variable
+   `SONAR_HOST_URL`.
+
+If either setting is absent, CI still builds and tests the project but skips
+the SonarQube upload. A SonarQube instance running only on `localhost` is not
+reachable from a GitHub-hosted runner; use a reachable server or a self-hosted
+runner on the same network.
+
+The project uses the `D&D Simple New Code` quality gate. CI waits for the gate
+and fails when new code introduces issues, drops below 80% coverage, leaves
+security hotspots unreviewed, or exceeds 3% duplication. Configure
+`CORS_ALLOWED_ORIGINS` as a comma-separated allowlist when deploying the API to
+another origin; local development and the public Render origin have safe
+defaults.
+
 Validate Prisma schema:
 
 ```bash

@@ -126,7 +126,12 @@ function CharacterSelectionPanel({
     isSpeciesPreview && isSpeciesOption(selectedOption) ? selectedOption : null;
 
   return (
-    <div className="selection-panel-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="selection-panel-backdrop"
+      role="presentation"
+      onClick={(event) => event.target === event.currentTarget && onClose()}
+      onKeyDown={(event) => event.key === "Escape" && onClose()}
+    >
       <section
         className={
           isBackgroundPreview
@@ -137,7 +142,6 @@ function CharacterSelectionPanel({
         }
         role="dialog"
         aria-modal="true"
-        onClick={(event) => event.stopPropagation()}
       >
         <div className="selection-panel-sidebar">
           <p className="eyebrow">Selection Panel</p>
@@ -176,8 +180,6 @@ function CharacterSelectionPanel({
                 ? selectedOption.features[0]?.title ?? selectedOption.name
                 : isBackgroundPreview
                   ? "Choose Origin: Background"
-                  : isSpeciesPreview
-                    ? selectedOption.name
                   : selectedOption.name}
             </h3>
             {backgroundPreviewOption ? (

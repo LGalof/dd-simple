@@ -701,13 +701,14 @@ function CharacterBuilderSidebar({
 
       {isHitPointPanelOpen && hitPointPreview && draftHitPointTotals
         ? createPortal(
-        <div className="builder-hp-modal-backdrop" onClick={closeHitPointPanel}>
-          <section
-            className="builder-hp-modal"
-            onClick={(event) => event.stopPropagation()}
-            aria-modal="true"
-            role="dialog"
-          >
+        <dialog
+          open
+          className="builder-hp-modal-backdrop"
+          aria-label="Hit point manager"
+          aria-modal="true"
+          onCancel={closeHitPointPanel}
+        >
+          <section className="builder-hp-modal">
             <header className="builder-hp-modal-header">
               <h3>Manage Hit Points</h3>
               <button
@@ -883,7 +884,7 @@ function CharacterBuilderSidebar({
               </button>
             </footer>
           </section>
-        </div>,
+        </dialog>,
         document.body,
       )
         : null}
@@ -1380,7 +1381,7 @@ function createReadableFeatureParagraphs(text: string) {
 }
 
 function splitLongFeatureParagraph(paragraph: string) {
-  const sentences = paragraph.match(/[^.!?]+[.!?](?:\s+|$)|[^.!?]+$/g) ?? [paragraph];
+  const sentences = splitFeatureSentences(paragraph);
   const paragraphs: string[] = [];
   let currentParagraph = "";
 
@@ -1403,6 +1404,28 @@ function splitLongFeatureParagraph(paragraph: string) {
   }
 
   return paragraphs.length > 0 ? paragraphs : [paragraph];
+}
+
+function splitFeatureSentences(paragraph: string) {
+  const sentences: string[] = [];
+  let sentenceStart = 0;
+
+  for (let index = 0; index < paragraph.length; index += 1) {
+    const character = paragraph[index];
+    const isBoundary = character === "." || character === "!" || character === "?";
+    const nextCharacter = paragraph[index + 1];
+
+    if (isBoundary && (nextCharacter === undefined || /\s/.test(nextCharacter))) {
+      sentences.push(paragraph.slice(sentenceStart, index + 1));
+      sentenceStart = index + 1;
+    }
+  }
+
+  if (sentenceStart < paragraph.length) {
+    sentences.push(paragraph.slice(sentenceStart));
+  }
+
+  return sentences.length > 0 ? sentences : [paragraph];
 }
 
 function renderFeatureParagraphContent(paragraph: string): ReactNode {

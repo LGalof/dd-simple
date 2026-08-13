@@ -681,7 +681,7 @@ function getClassSkillChoiceSignature(character: Character | undefined) {
       (choice) =>
         `${choice.sourceIndex ?? ""}:${choice.selectedType ?? ""}:${choice.selectedIndex}`,
     )
-    .sort()
+    .sort((left, right) => left.localeCompare(right))
     .join("|");
 }
 
@@ -691,7 +691,7 @@ function getFeatureChoiceSelectionSignature(character: Character | undefined) {
       (choice) =>
         `${choice.sourceType}:${choice.sourceIndex}:${choice.choicePath}:${choice.selectedOptionType}:${choice.selectedOptionIndex ?? ""}:${choice.selectedOptionName ?? ""}:${choice.selectedOptionUrl ?? ""}`,
     )
-    .sort()
+    .sort((left, right) => left.localeCompare(right))
     .join("|");
 }
 
@@ -715,7 +715,7 @@ function getCharacterBuilderHydrationSignature(character: Character | undefined)
         (choice) =>
           `${choice.sourceType ?? ""}:${choice.sourceIndex ?? ""}:${choice.choiceType ?? ""}:${choice.selectedType ?? ""}:${choice.selectedIndex ?? ""}`,
       )
-      .sort(),
+      .sort((left, right) => left.localeCompare(right)),
     classIndex: character.classIndex,
     className: character.class.name,
     currentHp: character.currentHp,

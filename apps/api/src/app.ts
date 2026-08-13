@@ -8,8 +8,10 @@ import { charactersRouter } from "./routes/characters.js";
 import { referencesRouter } from "./routes/references.js";
 import { roomsRouter } from "./routes/rooms.js";
 import { healthRouter } from "./routes/health.js";
+import { getAllowedOrigins, isAllowedOrigin } from "./lib/cors-config.js";
 
 const app = express();
+app.disable("x-powered-by");
 const frontendDistCandidates = [
   path.resolve(process.cwd(), "../web/dist"),
   path.resolve(process.cwd(), "apps/web/dist"),
@@ -19,7 +21,14 @@ const frontendDistCandidates = [
 ];
 const frontendDistPath = frontendDistCandidates.find((candidate) => existsSync(candidate));
 
-app.use(cors());
+const allowedOrigins = getAllowedOrigins();
+app.use(
+  cors({
+    origin(origin, callback) {
+      callback(null, isAllowedOrigin(origin, allowedOrigins));
+    },
+  }),
+);
 app.use(express.json({ limit: "1mb" }));
 
 app.use(healthRouter);

@@ -9,10 +9,16 @@
   "scripts": {
     "dev": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "build": "npm --workspace @dd-simple/shared run build && npm --workspace @dd-simple/web run build && npm --workspace @dd-simple/api run build",
+    "sonar": "sonar",
+    "sonar:up": "docker compose -f infra/docker-compose.sonarqube.yml up -d",
+    "sonar:down": "docker compose -f infra/docker-compose.sonarqube.yml down",
     "postinstall": "npm run prisma:generate --workspace @dd-simple/api && node scripts/render-postinstall.mjs",
     "dev:web": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-web.ps1",
     "dev:api": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/dev-api.ps1",
     "db:copy:render": "powershell.exe -ExecutionPolicy Bypass -File ./scripts/copy-local-db-to-render.ps1",
     "audit:class-feature-choices": "npm --workspace @dd-simple/api run audit:class-feature-choices"
+  },
+  "devDependencies": {
+    "@sonar/scan": "^4.3.5"
   }
 }

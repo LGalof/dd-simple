@@ -7,6 +7,7 @@
     "dev": "node ../../node_modules/tsx/dist/cli.mjs src/index.ts",
     "build": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json",
     "test": "npm --prefix ../.. --workspace @dd-simple/shared run build && node --import tsx --test \"src/**/*.test.ts\"",
+    "test:coverage": "npm --prefix ../.. --workspace @dd-simple/shared run build && c8 --reporter=text --reporter=lcov node --import tsx --test \"src/**/*.test.ts\" && node ../../scripts/prefix-lcov-paths.mjs coverage/lcov.info apps/api",
     "start": "node dist/index.js",
     "audit:class-feature-choices": "node ../../node_modules/tsx/dist/cli.mjs src/scripts/auditClassFeatureChoices.ts",
     "prisma:generate": "node ../../node_modules/prisma/build/index.js generate",
@@ -27,6 +28,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.9.0",
+    "c8": "^12.0.0",
     "prisma": "^6.8.2",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
