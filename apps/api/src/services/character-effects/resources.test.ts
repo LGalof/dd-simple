@@ -638,3 +638,98 @@ test("deriveResourceEntries tracks the selected Magic Initiate level 1 spell", (
   assert.equal(resources[0]?.maxUses, "1 free cast");
   assert.equal(resources[0]?.recharge, "Long Rest");
 });
+
+test("deriveResourceEntries tracks miscellaneous limited-use feature resources", () => {
+  const resources = deriveResourceEntries(
+    [
+      createSource({
+        sourceIndex: "healing-hands",
+        sourceType: "species_trait",
+        title: "Healing Hands",
+      }),
+      createSource({
+        sourceIndex: "celestial-revelation",
+        sourceType: "species_trait",
+        title: "Celestial Revelation",
+      }),
+      createSource({
+        sourceIndex: "channel-divinity",
+        title: "Channel Divinity",
+      }),
+      createSource({
+        sourceIndex: "cunning-action",
+        title: "Cunning Action",
+      }),
+      createSource({
+        sourceIndex: "improved-cunning-strike",
+        title: "Improved Cunning Strike",
+      }),
+      createSource({
+        sourceIndex: "arcane-recovery",
+        title: "Arcane Recovery",
+      }),
+      createSource({
+        sourceIndex: "spell-thief",
+        sourceType: "subclass_feature",
+        title: "Spell Thief",
+      }),
+      createSource({
+        sourceIndex: "divine-intervention",
+        title: "Divine Intervention",
+      }),
+      createSource({
+        sourceIndex: "stroke-of-luck",
+        title: "Stroke of Luck",
+      }),
+      createSource({
+        sourceIndex: "arcane-shot",
+        sourceType: "subclass_feature",
+        title: "Arcane Shot",
+      }),
+      createSource({
+        sourceIndex: "giant-ancestry-cloud-jaunt",
+        sourceType: "species_trait",
+        title: "Giant Ancestry: Cloud's Jaunt",
+      }),
+      createSource({
+        sourceIndex: "giant-ancestry-fire-burn",
+        sourceType: "species_trait",
+        title: "Giant Ancestry: Fire's Burn",
+      }),
+      createSource({
+        sourceIndex: "giant-ancestry-frost-chill",
+        sourceType: "species_trait",
+        title: "Giant Ancestry: Frost's Chill",
+      }),
+      createSource({
+        sourceIndex: "giant-ancestry-hill-tumble",
+        sourceType: "species_trait",
+        title: "Giant Ancestry: Hill's Tumble",
+      }),
+      createSource({
+        sourceIndex: "giant-ancestry-storm-thunder",
+        sourceType: "species_trait",
+        title: "Giant Ancestry: Storm's Thunder",
+      }),
+    ],
+    18,
+  );
+
+  const byName = new Map(resources.map((resource) => [resource.name, resource]));
+
+  assert.equal(byName.get("Healing Hands")?.category, "action");
+  assert.equal(byName.get("Celestial Revelation")?.category, "bonus action");
+  assert.equal(byName.get("Channel Divinity")?.maxUsesValue, 4);
+  assert.equal(byName.get("Cunning Action")?.trackingMode, "none");
+  assert.equal(byName.get("Improved Cunning Strike")?.category, "passive");
+  assert.equal(byName.get("Arcane Recovery")?.recharge, "Long Rest");
+  assert.equal(byName.get("Spell Thief")?.category, "reaction");
+  assert.equal(byName.get("Divine Intervention")?.maxUsesValue, 1);
+  assert.equal(byName.get("Stroke of Luck")?.recharge, "Short or Long Rest");
+  assert.equal(byName.get("Arcane Shot")?.maxUsesValue, 2);
+  assert.equal(byName.get("Giant Ancestry: Cloud's Jaunt")?.category, "bonus action");
+  assert.equal(byName.get("Giant Ancestry: Fire's Burn")?.category, "resource");
+  assert.equal(byName.get("Giant Ancestry: Frost's Chill")?.category, "resource");
+  assert.equal(byName.get("Giant Ancestry: Hill's Tumble")?.category, "resource");
+  assert.equal(byName.get("Giant Ancestry: Storm's Thunder")?.category, "reaction");
+});

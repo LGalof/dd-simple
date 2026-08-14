@@ -75,15 +75,15 @@ function JoinRoomPage() {
           <ol className="room-flow-steps" aria-label="Join room steps">
             <li className="room-flow-step room-flow-step-active">
               <span>1</span>
-              Enter the code
+              <span>Enter the code</span>
             </li>
             <li className="room-flow-step">
               <span>2</span>
-              Choose a character
+              <span>Choose a character</span>
             </li>
             <li className="room-flow-step">
               <span>3</span>
-              Join the board
+              <span>Join the board</span>
             </li>
           </ol>
         </header>
@@ -167,15 +167,15 @@ function JoinRoomPage() {
             <ul className="room-flow-benefits">
               <li>
                 <span aria-hidden="true">01</span>
-                The room owner shares a code or an invite link with you.
+                <span>The room owner shares a code or an invite link with you.</span>
               </li>
               <li>
                 <span aria-hidden="true">02</span>
-                Your selected character is linked only to this session.
+                <span>Your selected character is linked only to this session.</span>
               </li>
               <li>
                 <span aria-hidden="true">03</span>
-                Board updates, initiative, and tokens sync as the encounter runs.
+                <span>Board updates, initiative, and tokens sync as the encounter runs.</span>
               </li>
             </ul>
             <Link to="/rooms/create" className="room-flow-text-link">

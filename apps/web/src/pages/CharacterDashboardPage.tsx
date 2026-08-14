@@ -2035,4 +2035,14 @@ function normalizePersistedWorkspaceTab(value: unknown): WorkspaceTab {
   return "actions";
 }
 
-export { CharacterDashboardPage };
+export {
+  CharacterDashboardPage,
+  getDashboardAttunementLimit,
+  getResourceActionSummaries,
+  isKeepaliveSafePayload,
+  loadDashboardUiState,
+  mergeResourceActionSummaries,
+  normalizeResourceState,
+  normalizeSpellcastingState,
+  saveDashboardUiState,
+};

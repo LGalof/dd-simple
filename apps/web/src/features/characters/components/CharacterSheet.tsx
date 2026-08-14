@@ -3147,19 +3147,21 @@ function withFallbackLabel(values: string[], fallbackLabel: string) {
 function mergeSenseDetails(values: string[]) {
   const senses = new Map<string, { label: string; range: number | null }>();
   const otherValues: string[] = [];
+  const senseOptions = ["darkvision", "blindsight", "tremorsense", "truesight"];
 
   for (const value of values) {
-    const match = value.match(
-      /\b(darkvision|blindsight|tremorsense|truesight)\b[^.]*?(\d+)\s*-?\s*(?:feet|foot|ft\.?)/i,
-    );
+    const normalizedValue = value.toLowerCase();
+    const senseKey = senseOptions.find((sense) => normalizedValue.includes(sense));
+    const rangeMatch = senseKey
+      ? /\d+/.exec(value.slice(normalizedValue.indexOf(senseKey)))
+      : null;
 
-    if (!match?.[1] || !match[2]) {
+    if (!senseKey || !rangeMatch?.[0]) {
       otherValues.push(value);
       continue;
     }
 
-    const senseKey = match[1].toLowerCase();
-    const range = Number(match[2]);
+    const range = Number(rangeMatch[0]);
     const existingSense = senses.get(senseKey);
 
     if (!existingSense || range > (existingSense.range ?? 0)) {

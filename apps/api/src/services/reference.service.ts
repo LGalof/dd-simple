@@ -413,6 +413,7 @@ function getRuleDocumentClassIndex(document: RuleDocumentRow) {
 }
 
 export {
+  buildCuratedClassFeatures,
   findAbilityScores,
   findAlignments,
   findBackgrounds,
@@ -424,4 +425,9 @@ export {
   findRuleDocumentsByCategory,
   findSkills,
   findSpecies,
+  getRuleDocumentClassIndex,
+  isSupportedClassRuleDocument,
+  primaryAbilityLabel,
+  ruleDocumentDescriptions,
+  stringArrayFromJson,
 };

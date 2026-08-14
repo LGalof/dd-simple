@@ -365,3 +365,168 @@ test("deriveActionEntries gives Charger a concise attack rider", () => {
     subtitle: "General Feat",
   });
 });
+
+test("deriveActionEntries exposes epic boon and barbarian special actions", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description: "When you miss with an attack roll, you can turn the miss into a hit.",
+      level: 19,
+      sourceIndex: "boon-of-combat-prowess",
+      sourceType: "feat",
+      title: "Boon of Combat Prowess",
+    }),
+    createSource({
+      description: "When another creature within 60 feet makes a D20 Test, roll 2d4.",
+      level: 19,
+      sourceIndex: "boon-of-fate",
+      sourceType: "feat",
+      title: "Boon of Fate",
+    }),
+    createSource({
+      description: "Your attacks ignore Resistance to Bludgeoning, Piercing, and Slashing damage.",
+      level: 19,
+      sourceIndex: "boon-of-irresistible-offense",
+      sourceType: "feat",
+      title: "Boon of Irresistible Offense",
+    }),
+    createSource({
+      description: "While in Dim Light or Darkness, you can become Invisible as a Bonus Action.",
+      level: 19,
+      sourceIndex: "boon-of-the-night-spirit",
+      sourceType: "feat",
+      title: "Boon of the Night Spirit",
+    }),
+    createSource({
+      description: "You can forgo Reckless Attack Advantage to use Brutal Strike.",
+      level: 9,
+      sourceIndex: "barbarian-brutal-strike",
+      title: "Brutal Strike",
+    }),
+    createSource({
+      description: "You can use two different Brutal Strike effects.",
+      level: 17,
+      sourceIndex: "barbarian-improved-brutal-strike-2",
+      title: "Improved Brutal Strike",
+    }),
+    createSource({
+      description: "While your Rage is active, you can make Ram attacks.",
+      level: 3,
+      sourceIndex: "power-of-the-wilds",
+      sourceType: "subclass_feature",
+      title: "Power of the Wilds",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.hit ?? null]),
+    [
+      ["Power of the Wilds", "attack", "Melee attack"],
+      ["Brutal Strike", "attack", "Strength attack roll"],
+      ["Improved Brutal Strike", "attack", "Strength attack roll"],
+      ["Boon of Combat Prowess", "attack", "Miss becomes hit"],
+      ["Boon of Irresistible Offense", "attack", "Natural 20"],
+      ["Boon of the Night Spirit", "bonus_action", null],
+      ["Boon of Fate", "other", "2d4 bonus or penalty"],
+    ],
+  );
+});
+
+test("deriveActionEntries infers generic activation and combat summaries", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description: "You gain a quiet passive benefit that has no action timing.",
+      sourceIndex: "passive-only",
+      title: "Passive Only",
+    }),
+    createSource({
+      description: "As a Bonus Action, you vanish until the end of your next turn.",
+      sourceIndex: "vanish",
+      title: "Vanish",
+    }),
+    createSource({
+      description: "You can take a Reaction when a creature moves within 10 feet of you.",
+      sourceIndex: "reactive-step",
+      title: "Reactive Step",
+    }),
+    createSource({
+      description:
+        "Breath Weapon. When you take the Magic action, each creature in a 15-foot Cone or 30-foot Line must make a Dexterity saving throw (DC 8 plus your Charisma modifier and Proficiency Bonus), taking 1d10 fire damage on a failed save. This damage increases by 1d10 at character level 5.",
+      sourceIndex: "dragon-breath",
+      sourceType: "species_trait",
+      title: "Dragon Breath",
+    }),
+    createSource({
+      description:
+        "As an action, each creature within 20 feet must make a Dexterity saving throw (DC 8 plus your Wisdom modifier and Proficiency Bonus), takes 2d6 psychic damage on a failed save and half as much damage on a successful save.",
+      sourceIndex: "mind-pulse",
+      title: "Mind Pulse",
+    }),
+    createSource({
+      description:
+        "Take the Magic action to force each creature in a 10-foot radius to make a Charisma saving throw. On a failed save, it takes 5 Radiant damage.",
+      sourceIndex: "radiant-command",
+      title: "Radiant Command",
+    }),
+    createSource({
+      description:
+        "Replace one of your attacks with a ranged attack roll that deals 1d8 force damage.",
+      sourceIndex: "force-dart",
+      title: "Force Dart",
+    }),
+    createSource({
+      description: "Use an Object action to trigger the device.",
+      sourceIndex: "device",
+      title: "Device",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat]),
+    [
+      [
+        "Force Dart",
+        "attack",
+        {
+          damage: "1d8 Force",
+          hit: "Attack roll",
+          notes: null,
+          range: "Ranged",
+        },
+      ],
+      ["Device", "action", null],
+      [
+        "Dragon Breath",
+        "action",
+        {
+          damage: "1d10 at character level 5",
+          hit: "DC 8 + CHA + Prof.",
+          notes: "Save for half damage",
+          range: "15 ft. cone / 30 ft. line",
+          subtitle: "Species Trait",
+        },
+      ],
+      [
+        "Mind Pulse",
+        "action",
+        {
+          damage: "2d6 Psychic",
+          hit: "DC 8 + WIS + Prof.",
+          notes: "Dexterity save • Save for half damage",
+          range: "20 ft.",
+        },
+      ],
+      [
+        "Radiant Command",
+        "action",
+        {
+          damage: "5 Radiant",
+          hit: "Charisma save",
+          notes: "Charisma save",
+          range: "10 ft. radius",
+        },
+      ],
+      ["Vanish", "bonus_action", null],
+      ["Reactive Step", "reaction", null],
+    ],
+  );
+});

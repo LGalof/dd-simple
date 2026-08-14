@@ -188,5 +188,17 @@ async function findUserByToken(token: string) {
   return toAuthUser(user);
 }
 
-export { AuthError, findUserByToken, loginUser, registerUser };
+export {
+  AuthError,
+  base64UrlDecode,
+  base64UrlEncode,
+  createAuthToken,
+  findUserByToken,
+  hashPassword,
+  loginUser,
+  registerUser,
+  toAuthUser,
+  verifyAuthToken,
+  verifyPassword,
+};
 export type { AuthUser };

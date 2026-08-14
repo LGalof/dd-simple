@@ -1195,7 +1195,7 @@ function useInventorySandboxController(
   function consumeItem(itemId: string) {
     const item = items.find((candidate) => candidate.id === itemId);
 
-    if (!item || item.kind !== "consumable") {
+    if (item?.kind !== "consumable") {
       return;
     }
 
@@ -4070,12 +4070,41 @@ function itemsOverlap(leftItem: InventoryItem, rightItem: InventoryItem) {
 
 export {
   canEquipItemInSlot,
+  canMergeItems,
+  canPlaceItem,
+  clampNumber,
   convertCurrencyToGp,
+  decodeInventoryState,
+  encodeInventoryState,
   enforceAttunementLimit,
+  extractReferenceDescription,
+  findFirstAvailableSlot,
+  formatInventoryNumber,
+  formatReferenceEquipmentMeta,
+  getContainerStats,
   getInventoryTotals,
+  getInventoryStorageKey,
+  getItemHeight,
+  getItemWidth,
   InventoryDetailsSidebar,
   InventoryWorkbench,
+  inferReferenceEquipmentSlot,
+  inferReferenceItemColor,
+  inferReferenceItemHeight,
+  inferReferenceItemKind,
+  inferReferenceItemWidth,
+  inferReferenceLibraryType,
+  inferReferenceRequiresAttunement,
+  inferReferenceSourceCategory,
+  isReferenceEquipmentCommon,
+  isReferenceEquipmentContainer,
+  isReferenceEquipmentMagical,
+  itemsOverlap,
+  loadSavedInventoryState,
+  mapBackendInventoryItemToGridItem,
+  mapGridItemToBackendInventoryItem,
   shouldPreferLocalInventoryState,
+  summarizeInventoryItemEffects,
   useInventorySandboxController,
 };
-export type { EquipmentSlotId, InventoryItem, InventorySandboxController };
+export type { EquipmentSlotId, InventoryContainer, InventoryItem, InventorySandboxController };

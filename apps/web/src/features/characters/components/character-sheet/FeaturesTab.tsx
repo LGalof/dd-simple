@@ -318,15 +318,17 @@ function FeaturesTab({
   );
 }
 
+type ResourcePoolTrackerProps = Readonly<{
+  onResourceStateChange: (state: CharacterResourceState) => void;
+  resource: ResourceActionSummary;
+  resourceState: CharacterResourceState;
+}>;
+
 function ResourcePoolTracker({
   onResourceStateChange,
   resource,
   resourceState,
-}: {
-  onResourceStateChange: (state: CharacterResourceState) => void;
-  resource: ResourceActionSummary;
-  resourceState: CharacterResourceState;
-}) {
+}: ResourcePoolTrackerProps) {
   const maximum = getResourceMaximum(resource, resourceState);
   const used = Math.min(
     maximum,

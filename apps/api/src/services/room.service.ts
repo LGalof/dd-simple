@@ -642,15 +642,21 @@ async function saveRoomBoardState(roomCode: string, boardState: unknown) {
 
 export type { Room, RoomPlayer };
 export {
+  buildPlayerToken,
   createRoom,
+  createInitialBoardState,
   deleteRoomForCreator,
   getRoom,
   ensureHostedRoomLimit,
   ensureJoinedRoomLimit,
+  ensureCharacterToken,
   joinRoom,
   leaveRoom,
   listRoomsForUser,
   JoinedRoomLimitError,
+  normalizeBoardStateRecord,
+  normalizeRoomCode,
   RoomLimitError,
   saveRoomBoardState,
+  serializeRoom,
 };

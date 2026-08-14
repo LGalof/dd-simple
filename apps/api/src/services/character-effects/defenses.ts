@@ -176,15 +176,29 @@ function addSavingThrowAdvantageEntries(
     );
   }
 
-  const pattern = /advantage on saving throws against ([^.]+?)(?=\s*(?:\.|;|, and\s+you\s+(?:have|gain)|$))/gi;
+  const advantagePrefix = "advantage on saving throws against ";
+  const lowerDescription = source.description.toLowerCase();
+  let searchIndex = 0;
 
-  [...source.description.matchAll(pattern)].forEach((match) => {
-    const target = formatSavingThrowAdvantageTarget(match[1] ?? "");
+  while (searchIndex < source.description.length) {
+    const startIndex = lowerDescription.indexOf(advantagePrefix, searchIndex);
+
+    if (startIndex === -1) {
+      break;
+    }
+
+    const targetStart = startIndex + advantagePrefix.length;
+    const remainder = source.description.slice(targetStart);
+    const stopMatch = /(?:\.|;|, and\s+you\s+(?:have|gain)|$)/i.exec(remainder);
+    const rawTarget = remainder.slice(0, stopMatch?.index ?? remainder.length);
+    const target = formatSavingThrowAdvantageTarget(rawTarget);
 
     if (target) {
       pushDefenseEntry(entries, seen, createDefenseEntry(source, "saving_throw_advantage", target));
     }
-  });
+
+    searchIndex = targetStart + Math.max(rawTarget.length, 1);
+  }
 
   const avoidOrEndPattern = /advantage on saving throws(?: you make| made)? to (avoid or end|avoid|end) (?:the )?([^.]+?) condition/gi;
 
@@ -326,13 +340,13 @@ function formatSavingThrowAction(value: string) {
 }
 
 function getDefenseConditionSuffix(description: string) {
-  const leadingCondition = description.match(/(?:^|[.!?]\s*)while ([^,.]+),/i);
+  const leadingCondition = /(?:^|[.!?]\s*)while ([^,.]+),/i.exec(description);
 
   if (leadingCondition?.[1]) {
     return ` while ${leadingCondition[1].trim()}`;
   }
 
-  const trailingCondition = description.match(/\bwhile ([^,.]+?)(?:,|\.|$)/i);
+  const trailingCondition = /\bwhile ([^,.]+?)(?:,|\.|$)/i.exec(description);
 
   return trailingCondition?.[1] ? ` while ${trailingCondition[1].trim()}` : "";
 }

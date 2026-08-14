@@ -522,7 +522,12 @@ function hasHeavyArmorEquipped(
   });
 }
 
-export { findCharacterDerivedStateForUser };
+export {
+  deriveActiveResourceSources,
+  findCharacterDerivedStateForUser,
+  hasArmorEquipped,
+  hasHeavyArmorEquipped,
+};
 export type {
   ActionActivationType,
   CharacterActionEntry,

@@ -78,15 +78,15 @@ function CreateRoomPage() {
           <ol className="room-flow-steps" aria-label="Create room steps">
             <li className="room-flow-step room-flow-step-active">
               <span>1</span>
-              Choose a character
+              <span>Choose a character</span>
             </li>
             <li className="room-flow-step">
               <span>2</span>
-              Share the invite
+              <span>Share the invite</span>
             </li>
             <li className="room-flow-step">
               <span>3</span>
-              Open the board
+              <span>Open the board</span>
             </li>
           </ol>
         </header>
@@ -161,15 +161,15 @@ function CreateRoomPage() {
             <ul className="room-flow-benefits">
               <li>
                 <span aria-hidden="true">01</span>
-                A room code and private invite link are generated.
+                <span>A room code and private invite link are generated.</span>
               </li>
               <li>
                 <span aria-hidden="true">02</span>
-                Players pick one of their own characters when joining.
+                <span>Players pick one of their own characters when joining.</span>
               </li>
               <li>
                 <span aria-hidden="true">03</span>
-                Everyone sees changes on the encounter board in real time.
+                <span>Everyone sees changes on the encounter board in real time.</span>
               </li>
             </ul>
             <Link to="/rooms" className="room-flow-text-link">
