@@ -1,9 +1,5 @@
 # ADR-003: Use PostgreSQL and Prisma for Persistence
 
-## Status
-
-Accepted
-
 ## Context
 
 D&D Simple stores relational data for users, characters, inventory, dice rolls, rooms, room players, and reusable D&D reference data. The project needs migrations, typed database access, and support for richer JSON state where the tactical board or inventory workspace is easier to store as a snapshot.

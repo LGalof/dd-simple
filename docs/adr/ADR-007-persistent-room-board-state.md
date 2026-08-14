@@ -1,9 +1,5 @@
 # ADR-007: Persist Room Board State and Synchronize Snapshots
 
-## Status
-
-Accepted
-
 ## Context
 
 Rooms and tactical boards are part of gameplay, not just active socket sessions. Room membership and board state need to survive API restarts, browser disconnects, and users leaving and returning to a room. At the same time, connected users need live board updates while playing.

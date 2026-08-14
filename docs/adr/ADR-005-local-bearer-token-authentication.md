@@ -1,9 +1,5 @@
 # ADR-005: Use Local Password Authentication with Signed Bearer Tokens
 
-## Status
-
-Accepted
-
 ## Context
 
 D&D Simple needs account registration, login, protected character data, protected room access, and authenticated Socket.IO connections. The authentication approach should be understandable within the project and should not require an external identity provider for the submitted system.

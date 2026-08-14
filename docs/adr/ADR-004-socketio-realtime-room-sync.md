@@ -1,9 +1,5 @@
 # ADR-004: Use Socket.IO for Realtime Room Synchronization
 
-## Status
-
-Accepted
-
 ## Context
 
 Room-based tabletop play needs connected users to see room membership and board changes without repeatedly refreshing the page. REST remains useful for creating rooms, joining rooms, and loading durable room state, but live board updates need a bidirectional channel.

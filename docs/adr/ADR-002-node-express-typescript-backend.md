@@ -1,9 +1,5 @@
 # ADR-002: Use Node.js, Express, and TypeScript for the Backend
 
-## Status
-
-Accepted
-
 ## Context
 
 D&D Simple needs a backend that can expose REST endpoints, run Socket.IO for room synchronization, access PostgreSQL through Prisma, and remain understandable for a university team. The project also benefits from using TypeScript across frontend, backend, and shared code.

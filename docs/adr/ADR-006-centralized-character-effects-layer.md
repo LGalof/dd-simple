@@ -1,9 +1,5 @@
 # ADR-006: Centralize Character Effects Derivation in the Backend
 
-## Status
-
-Accepted
-
 ## Context
 
 The character dashboard combines saved character choices, reference data, feature choices, species traits, subclasses, equipment, and temporary gameplay state. If each UI component or endpoint derives its own values, actions, defenses, resources, spells, stats, and weapon actions can drift apart.

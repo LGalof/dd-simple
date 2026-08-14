@@ -1,9 +1,5 @@
 # ADR-001: Use React, TypeScript, and Vite for the Frontend
 
-## Status
-
-Accepted
-
 ## Context
 
 D&D Simple needs a browser frontend that can support a character dashboard, visual inventory, tactical board, forms, protected routes, and reusable UI pieces. The frontend also needs to share TypeScript conventions with the backend and shared package.
