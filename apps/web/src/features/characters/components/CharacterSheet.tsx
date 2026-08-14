@@ -50,6 +50,7 @@ import {
   isAttackRollSpell,
 } from "../utils/spellLibrary";
 import { deriveReferenceEquipmentEffects } from "../utils/inventoryReferenceEffects";
+import { getArmorDexterityContribution } from "../utils/armorClass";
 
 type CharacterSheetProps = {
   activeTab: WorkspaceTab;
@@ -78,6 +79,7 @@ type CharacterSheetProps = {
   selectedClass: ClassOption;
   selectedSpecies: SpeciesOption;
   speciesChoices: Record<string, string>;
+  showEmbeddedInventoryDetails?: boolean;
   spellcastingSummary: SpellcastingSummary | null;
   spellcastingState: CharacterSpellcastingState;
   resourceState: CharacterResourceState;
@@ -279,6 +281,7 @@ function CharacterSheet({
   selectedClass,
   selectedSpecies,
   speciesChoices,
+  showEmbeddedInventoryDetails = false,
   spellcastingSummary,
   spellcastingState,
   resourceState,
@@ -441,6 +444,10 @@ function CharacterSheet({
     () => liveEquippedInventoryItems.some((item) => item.equippedSlot === "body"),
     [liveEquippedInventoryItems],
   );
+  const equippedBodyArmor = useMemo(
+    () => liveEquippedInventoryItems.find((item) => item.equippedSlot === "body") ?? null,
+    [liveEquippedInventoryItems],
+  );
   const proficiencyBonus =
     derivedState?.stats.proficiencyBonus ??
     (character.level <= 4
@@ -571,6 +578,7 @@ function CharacterSheet({
     () =>
       calculateDisplayedArmorClass({
         baseArmorClass: character.armorClass,
+        bodyArmorItem: equippedBodyArmor,
         charismaModifier,
         constitutionModifier,
         dexterityModifier,
@@ -589,6 +597,7 @@ function CharacterSheet({
       liveEquippedItemEffectTotals.armorClassBonus,
       liveEquippedItemEffectTotals.nonBodyArmorClassBonus,
       isBodyArmorEquipped,
+      equippedBodyArmor,
       nonInventoryArmorClassBonus,
     ],
   );
@@ -1416,7 +1425,12 @@ function CharacterSheet({
 
               {activeTab === "inventory" && (
                 <div className="character-tab-scroll-stage">
-                  <InventoryWorkbench controller={inventoryController} embedded hideDetailsPanel />
+                  <InventoryWorkbench
+                    carryingCapacity={strengthScore * 15}
+                    controller={inventoryController}
+                    embedded
+                    hideDetailsPanel={!showEmbeddedInventoryDetails}
+                  />
                 </div>
               )}
 
@@ -2318,6 +2332,7 @@ function itemGrantsAttunementBenefits(item: LiveInventoryItem) {
 
 function calculateDisplayedArmorClass({
   baseArmorClass,
+  bodyArmorItem,
   constitutionModifier,
   dexterityModifier,
   charismaModifier,
@@ -2328,6 +2343,7 @@ function calculateDisplayedArmorClass({
   isBodyArmorEquipped,
 }: {
   baseArmorClass: number;
+  bodyArmorItem: LiveInventoryItem | null;
   constitutionModifier: number;
   derivedArmorClassBonus: number;
   dexterityModifier: number;
@@ -2337,8 +2353,6 @@ function calculateDisplayedArmorClass({
   mode: DerivedArmorClassMode;
   nonBodyArmorClassBonus: number;
 }) {
-  // AC shown on the dashboard is the final blend of base character data,
-  // backend-derived class rules, and live inventory sandbox bonuses.
   const baseWithBonuses = baseArmorClass + equippedArmorClassBonus + derivedArmorClassBonus;
 
   if (mode === "barbarian_unarmored" && !isBodyArmorEquipped) {
@@ -2353,6 +2367,16 @@ function calculateDisplayedArmorClass({
       baseWithBonuses,
       10 + dexterityModifier + charismaModifier + nonBodyArmorClassBonus + derivedArmorClassBonus,
     );
+  }
+
+  if (bodyArmorItem) {
+    const armorBase = 10 + Math.max(0, bodyArmorItem.armorClassBonus);
+    const dexterityContribution = getArmorDexterityContribution(
+      bodyArmorItem.name,
+      dexterityModifier,
+    );
+
+    return armorBase + dexterityContribution + nonBodyArmorClassBonus + derivedArmorClassBonus;
   }
 
   return baseWithBonuses;

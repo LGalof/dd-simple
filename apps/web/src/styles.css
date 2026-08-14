@@ -6816,6 +6816,138 @@ h1 {
   font-weight: 800;
 }
 
+.inventory-total-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.inventory-total-summary span {
+  padding: 0.32rem 0.4rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #dbeafe;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.inventory-total-summary-over span:nth-child(2) {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+}
+
+.inventory-selected-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.inventory-selected-actions-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.inventory-selected-actions-heading span {
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inventory-selected-actions-heading small {
+  padding: 0.18rem 0.42rem;
+  border: 1px solid rgba(96, 165, 250, 0.26);
+  border-radius: 999px;
+  background: rgba(30, 64, 175, 0.18);
+  color: #bfdbfe;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inventory-selected-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  min-height: 2.45rem;
+  padding: 0.45rem 0.65rem;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    filter 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.inventory-selected-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.inventory-selected-action:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+.inventory-selected-actions .inventory-selected-action-primary {
+  border-color: rgba(251, 191, 36, 0.52);
+  background: linear-gradient(135deg, rgba(180, 124, 32, 0.96), rgba(120, 72, 18, 0.96));
+  color: #fff7d6;
+  box-shadow: 0 8px 18px rgba(120, 72, 18, 0.2);
+}
+
+.inventory-selected-actions .inventory-selected-action-secondary {
+  border-color: rgba(96, 165, 250, 0.36);
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.74), rgba(30, 41, 59, 0.9));
+  color: #dbeafe;
+}
+
+.inventory-selected-actions .inventory-selected-action-use {
+  border-color: rgba(52, 211, 153, 0.38);
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.82), rgba(6, 78, 59, 0.94));
+  color: #d1fae5;
+}
+
+.inventory-selected-action-wide {
+  grid-column: 1 / -1;
+}
+
+.inventory-selected-actions .inventory-move-field {
+  grid-column: 1 / -1;
+}
+
+.inventory-selected-actions .inventory-move-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.inventory-selected-actions .inventory-move-field select {
+  min-height: 2.45rem;
+  border-color: rgba(96, 165, 250, 0.3);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.94), rgba(15, 23, 42, 0.94));
+}
+
+.inventory-selected-actions-sidebar {
+  padding: 0.72rem;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 55%),
+    rgba(15, 23, 42, 0.68);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+}
+
 .inventory-details-panel {
   display: grid;
   gap: 0.7rem;
@@ -9817,6 +9949,33 @@ h1 {
     .inventory-workbench-embedded
     .inventory-details-panel {
     grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1200px) and (max-width: 1680px) {
+  .character-sheet-compact-inventory
+    .inventory-workbench-embedded
+    .inventory-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(19rem, 24rem);
+    align-items: start;
+  }
+
+  .character-sheet-compact-inventory
+    .inventory-workbench-embedded
+    .inventory-main-scroll {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .character-sheet-compact-inventory
+    .inventory-workbench-embedded
+    .inventory-details-panel {
+    position: sticky;
+    top: 0;
+    grid-column: 2;
+    grid-row: 1;
+    max-height: var(--dashboard-workspace-height);
+    overflow-y: auto;
   }
 }
 

@@ -11,6 +11,7 @@ import {
   findCharacterInventoryForUser,
   findCharacterInventoryStateForUser,
   removeConditionFromCharacterForUser,
+  replaceCharacterInventoryAndStateForUser,
   replaceCharacterInventoryForUser,
   saveCharacterInventoryStateForUser,
   updateCharacterForUser,
@@ -1230,6 +1231,62 @@ async function updateCharacterInventory(req: Request, res: Response) {
   }
 }
 
+async function updateCharacterFullInventory(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    if (!id || Array.isArray(id)) {
+      res.status(400).json({
+        error: "Invalid character id",
+      });
+      return;
+    }
+
+    const inventoryItems = parseInventoryMutationBody(req.body);
+    const stateCode = parseInventoryStateBody(req.body);
+
+    if (!inventoryItems || !stateCode) {
+      res.status(400).json({
+        error: "Request body must include valid items and a non-empty stateCode",
+      });
+      return;
+    }
+
+    const result = await replaceCharacterInventoryAndStateForUser(
+      getAuthenticatedUser(req).id,
+      id,
+      inventoryItems,
+      stateCode,
+    );
+
+    if (!result) {
+      res.status(404).json({
+        error: "Character not found",
+      });
+      return;
+    }
+
+    res.json({
+      items: result.inventory,
+      stateCode: result.inventoryState.stateCode,
+      updatedAt: result.inventoryState.updatedAt,
+    });
+  } catch (error) {
+    if (error instanceof CharacterReferenceNotFoundError) {
+      res.status(404).json({
+        error: error.message,
+      });
+      return;
+    }
+
+    console.error("Failed to update full character inventory:", error);
+
+    res.status(500).json({
+      error: "Failed to update character inventory",
+    });
+  }
+}
+
 async function getCharacterInventoryState(req: Request, res: Response) {
   try {
     const { id } = req.params;
@@ -1627,5 +1684,6 @@ export {
   removeCharacterCondition,
   updateCharacter,
   updateCharacterInventory,
+  updateCharacterFullInventory,
   updateCharacterInventoryState,
 };

@@ -14,6 +14,7 @@ import {
   previewCharacterDerivedState,
   removeCharacterCondition,
   updateCharacter,
+  updateCharacterFullInventory,
   updateCharacterInventory,
   updateCharacterInventoryState,
 } from "../controllers/character.controller.js";
@@ -44,6 +45,8 @@ charactersRouter.get("/characters/:id/defenses", getCharacterDefenses);
 charactersRouter.get("/characters/:id/inventory", getCharacterInventory);
 
 charactersRouter.put("/characters/:id/inventory", updateCharacterInventory);
+
+charactersRouter.put("/characters/:id/inventory/full", updateCharacterFullInventory);
 
 charactersRouter.get("/characters/:id/inventory/state", getCharacterInventoryState);
 

@@ -862,6 +862,7 @@ function CharacterDashboardPage() {
               selectedClass={selectedClass}
               selectedSpecies={selectedSpecies}
               speciesChoices={speciesChoices}
+              showEmbeddedInventoryDetails={isCompactDashboard}
               tempHp={builderState.tempHp}
             />
             <div

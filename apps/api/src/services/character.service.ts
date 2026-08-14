@@ -2991,6 +2991,96 @@ async function replaceCharacterInventoryForUser(
   });
 }
 
+async function replaceCharacterInventoryAndStateForUser(
+  userId: string,
+  characterId: string,
+  inventoryItems: CharacterInventoryMutationItem[],
+  stateCode: string,
+) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const character = await tx.character.findFirst({
+      where: {
+        id: characterId,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!character) {
+      return null;
+    }
+
+    const equipmentIndexes = [...new Set(inventoryItems.map((item) => item.equipmentIndex))];
+    const existingEquipment = await tx.refEquipment.findMany({
+      where: {
+        index: {
+          in: equipmentIndexes,
+        },
+      },
+      select: {
+        index: true,
+      },
+    });
+    const existingEquipmentIndexes = new Set(existingEquipment.map((equipment) => equipment.index));
+    const missingEquipmentIndex = equipmentIndexes.find(
+      (equipmentIndex) => !existingEquipmentIndexes.has(equipmentIndex),
+    );
+
+    if (missingEquipmentIndex) {
+      throw new CharacterReferenceNotFoundError(`Equipment not found: ${missingEquipmentIndex}`);
+    }
+
+    await tx.characterInventory.deleteMany({
+      where: {
+        characterId,
+      },
+    });
+
+    if (inventoryItems.length > 0) {
+      await tx.characterInventory.createMany({
+        data: inventoryItems.map((item) => ({
+          characterId,
+          customName: item.customName?.trim() || null,
+          equipped: item.equipped,
+          equipmentIndex: item.equipmentIndex,
+          gridX: item.gridX ?? null,
+          gridY: item.gridY ?? null,
+          notes: item.notes?.trim() || null,
+          quantity: item.quantity,
+        })),
+      });
+    }
+
+    const inventoryState = await tx.characterInventoryState.upsert({
+      where: {
+        characterId,
+      },
+      update: {
+        stateCode,
+      },
+      create: {
+        characterId,
+        stateCode,
+      },
+    });
+    const inventory = await tx.characterInventory.findMany({
+      where: {
+        characterId,
+      },
+      include: {
+        equipment: true,
+      },
+    });
+
+    return {
+      inventory,
+      inventoryState,
+    };
+  });
+}
+
 async function findCharacterInventoryStateForUser(userId: string, characterId: string) {
   const character = await prisma.character.findFirst({
     where: {
@@ -3058,6 +3148,7 @@ export {
   normalizeHitPointStateInput,
   removeConditionFromCharacterForUser,
   replaceCharacterInventoryForUser,
+  replaceCharacterInventoryAndStateForUser,
   saveCharacterInventoryStateForUser,
   updateCharacterForUser,
 };

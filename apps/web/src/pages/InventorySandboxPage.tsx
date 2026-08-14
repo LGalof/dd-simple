@@ -26,8 +26,7 @@ import { secureRandomId } from "../lib/secureRandom";
 import {
   fetchCharacterInventory,
   fetchCharacterInventoryState,
-  saveCharacterInventory,
-  saveCharacterInventoryState,
+  saveCharacterFullInventory,
   type CharacterInventorySaveItem,
 } from "../features/characters/api/characterInventory";
 import { fetchEquipment } from "../features/references/api/fetchReferences";
@@ -39,7 +38,16 @@ import {
 } from "../features/characters/utils/inventoryReferenceEffects";
 
 type ContainerId = string;
-type EquipmentSlotId = "head" | "body" | "mainHand" | "offHand" | "hands" | "feet";
+type EquipmentSlotId =
+  | "head"
+  | "body"
+  | "mainHand"
+  | "offHand"
+  | "hands"
+  | "feet"
+  | "accessory1"
+  | "accessory2"
+  | "accessory3";
 type ItemLocation = ContainerId | "equipped";
 type ItemKind = "armor" | "weapon" | "tool" | "consumable" | "treasure";
 
@@ -59,6 +67,7 @@ type InventoryItem = {
   maxStack: number;
   weight: number;
   value: number;
+  valueUnit?: string;
   rarity: string;
   armorClassBonus: number;
   attackBonus: number;
@@ -110,6 +119,7 @@ type SavedInventoryState = {
   containers: InventoryContainer[];
   items: InventoryItem[];
   selectedItemId: string;
+  updatedAt?: number;
 };
 
 type ItemTemplate = Omit<NewItemForm, "location" | "requiresAttunement"> & {
@@ -192,6 +202,9 @@ const equipmentSlots: Array<{
   { id: "offHand", label: "Off Hand", accepts: ["armor", "weapon"] },
   { id: "hands", label: "Hands", accepts: ["armor", "treasure"] },
   { id: "feet", label: "Feet", accepts: ["armor", "treasure"] },
+  { id: "accessory1", label: "Accessory 1", accepts: ["treasure", "armor", "tool"] },
+  { id: "accessory2", label: "Accessory 2", accepts: ["treasure", "armor", "tool"] },
+  { id: "accessory3", label: "Accessory 3", accepts: ["treasure", "armor", "tool"] },
 ];
 
 const initialItems: InventoryItem[] = [
@@ -558,14 +571,21 @@ function useInventorySandboxController(
   const { token } = useAuth();
   const storageKey = useMemo(() => getInventoryStorageKey(storageScope), [storageScope]);
   const savedInventoryState = useMemo(() => loadSavedInventoryState(storageKey), [storageKey]);
+  const savedInventoryItems = useMemo(
+    () =>
+      savedInventoryState
+        ? enforceAttunementLimit(savedInventoryState.items, attunementLimit)
+        : initialItems,
+    [attunementLimit, savedInventoryState],
+  );
   const skipNextPersistRef = useRef(false);
   const skipNextBackendPersistRef = useRef(true);
   const backendEnabled = Boolean(backendCharacterId && token);
   const [containers, setContainers] = useState(
     savedInventoryState?.containers ?? initialContainers,
   );
-  const [items, setItems] = useState(savedInventoryState?.items ?? initialItems);
-  const [persistedItems, setPersistedItems] = useState(savedInventoryState?.items ?? initialItems);
+  const [items, setItems] = useState(savedInventoryItems);
+  const [persistedItems, setPersistedItems] = useState(savedInventoryItems);
   const [selectedItemId, setSelectedItemId] = useState(
     savedInventoryState?.selectedItemId ?? initialItems[0].id,
   );
@@ -607,13 +627,16 @@ function useInventorySandboxController(
 
     skipNextPersistRef.current = true;
     setContainers(nextState?.containers ?? initialContainers);
-    setItems(nextState?.items ?? initialItems);
-    setPersistedItems(nextState?.items ?? initialItems);
+    const nextItems = nextState
+      ? enforceAttunementLimit(nextState.items, attunementLimit)
+      : initialItems;
+    setItems(nextItems);
+    setPersistedItems(nextItems);
     setSelectedItemId(nextState?.selectedItemId ?? initialItems[0].id);
     setDragItemId(null);
     setHoverPreview(null);
     setMergeTargetId(null);
-  }, [storageKey]);
+  }, [attunementLimit, storageKey]);
 
   useEffect(() => {
     if (skipNextPersistRef.current) {
@@ -625,6 +648,7 @@ function useInventorySandboxController(
       containers,
       items,
       selectedItemId,
+      updatedAt: Date.now(),
     };
 
     localStorage.setItem(storageKey, JSON.stringify(state));
@@ -636,41 +660,104 @@ function useInventorySandboxController(
         return;
       }
 
+      async function restoreNewerLocalState(localState: SavedInventoryState) {
+        const recoveredItems = enforceAttunementLimit(
+          localState.items,
+          attunementLimit,
+        );
+        const recoveredState = {
+          ...localState,
+          items: recoveredItems,
+        };
+        const recoveredBackendItems = recoveredItems
+          .map(mapGridItemToBackendInventoryItem)
+          .filter((item): item is CharacterInventorySaveItem => Boolean(item));
+
+        skipNextPersistRef.current = true;
+        skipNextBackendPersistRef.current = true;
+        setContainers(recoveredState.containers);
+        setItems(recoveredItems);
+        setPersistedItems(recoveredItems);
+        setSelectedItemId(recoveredState.selectedItemId);
+        setBackendSaving(true);
+
+        try {
+          await saveCharacterFullInventory(
+            backendCharacterId!,
+            recoveredBackendItems,
+            encodeInventoryState(recoveredState),
+            token!,
+          );
+          setMessage("Recovered and saved the latest local inventory changes.");
+        } finally {
+          setBackendSaving(false);
+        }
+      }
+
       try {
         const stateResponse = await fetchCharacterInventoryState(backendCharacterId, token);
+        const localState = loadSavedInventoryState(storageKey);
 
         if (stateResponse.stateCode) {
           const decodedState = decodeInventoryState(stateResponse.stateCode);
 
           if (decodedState) {
+            if (localState && shouldPreferLocalInventoryState(localState, decodedState)) {
+              await restoreNewerLocalState(localState);
+              return;
+            }
+
+            const decodedItems = enforceAttunementLimit(decodedState.items, attunementLimit);
+            const normalizedBackendState = {
+              ...decodedState,
+              items: decodedItems,
+            };
+
+            skipNextPersistRef.current = true;
             skipNextBackendPersistRef.current = true;
+            localStorage.setItem(storageKey, JSON.stringify(normalizedBackendState));
             setContainers(decodedState.containers);
-            setItems(decodedState.items);
-            setPersistedItems(decodedState.items);
+            setItems(decodedItems);
+            setPersistedItems(decodedItems);
             setSelectedItemId(decodedState.selectedItemId);
             setMessage("Inventory layout loaded from character database.");
             return;
           }
         }
 
+        if (localState && shouldPreferLocalInventoryState(localState, null)) {
+          await restoreNewerLocalState(localState);
+          return;
+        }
+
         const backendItems = await fetchCharacterInventory(backendCharacterId, token);
         const nextItems = backendItems.map(mapBackendInventoryItemToGridItem);
+        const fallbackState: SavedInventoryState = {
+          containers: initialContainers,
+          items: nextItems,
+          selectedItemId: nextItems[0]?.id ?? "",
+          updatedAt: Date.now(),
+        };
 
-        if (nextItems.length > 0) {
-          skipNextBackendPersistRef.current = true;
-          setContainers(initialContainers);
-          setItems(nextItems);
-          setPersistedItems(nextItems);
-          setSelectedItemId(nextItems[0].id);
-          setMessage("Inventory loaded from character database.");
-        }
+        skipNextPersistRef.current = true;
+        skipNextBackendPersistRef.current = true;
+        localStorage.setItem(storageKey, JSON.stringify(fallbackState));
+        setContainers(initialContainers);
+        setItems(nextItems);
+        setPersistedItems(nextItems);
+        setSelectedItemId(nextItems[0]?.id ?? "");
+        setMessage(
+          nextItems.length > 0
+            ? "Inventory loaded from character database."
+            : "This character's inventory is empty.",
+        );
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Failed to load backend inventory.");
       }
     }
 
     void loadBackendInventory();
-  }, [backendCharacterId, token]);
+  }, [attunementLimit, backendCharacterId, storageKey, token]);
 
   const saveToBackend = useCallback(async (source: "autosave" | "manual" = "manual") => {
     if (!backendCharacterId || !token) {
@@ -681,17 +768,20 @@ function useInventorySandboxController(
     const backendItems = items
       .map(mapGridItemToBackendInventoryItem)
       .filter((item): item is CharacterInventorySaveItem => Boolean(item));
-    const fullStateCode = encodeInventoryState({
+    const stateToSave: SavedInventoryState = {
       containers,
       items,
       selectedItemId,
-    });
+      updatedAt: Date.now(),
+    };
+    const fullStateCode = encodeInventoryState(stateToSave);
+
+    localStorage.setItem(storageKey, JSON.stringify(stateToSave));
 
     setBackendSaving(true);
 
     try {
-      await saveCharacterInventoryState(backendCharacterId, fullStateCode, token);
-      await saveCharacterInventory(backendCharacterId, backendItems, token);
+      await saveCharacterFullInventory(backendCharacterId, backendItems, fullStateCode, token);
       setPersistedItems(items);
       setMessage(
         source === "autosave"
@@ -709,7 +799,7 @@ function useInventorySandboxController(
     } finally {
       setBackendSaving(false);
     }
-  }, [backendCharacterId, containers, items, selectedItemId, token]);
+  }, [backendCharacterId, containers, items, selectedItemId, storageKey, token]);
 
   useEffect(() => {
     skipNextBackendPersistRef.current = true;
@@ -738,6 +828,75 @@ function useInventorySandboxController(
     setItems((currentItems) =>
       currentItems.map((item) => (item.id === nextItem.id ? nextItem : item)),
     );
+  }
+
+  function moveItemToContainer(itemId: string, containerId: string) {
+    const item = items.find((candidate) => candidate.id === itemId);
+    const container = containers.find((candidate) => candidate.id === containerId);
+
+    if (!item || !container) {
+      setMessage("Item or destination container could not be found.");
+      return;
+    }
+
+    const candidate = {
+      ...item,
+      location: container.id,
+      equippedSlot: undefined,
+      x: 0,
+      y: 0,
+    };
+    const position = findFirstAvailableSlot(candidate, container, items);
+
+    if (!position) {
+      setMessage(`${item.name} does not fit in ${container.name}.`);
+      return;
+    }
+
+    updateItem({
+      ...candidate,
+      ...position,
+    });
+    setMessage(
+      item.location === "equipped"
+        ? `${item.name} unequipped to ${container.name}.`
+        : `${item.name} moved to ${container.name}.`,
+    );
+  }
+
+  function equipItem(itemId: string) {
+    const item = items.find((candidate) => candidate.id === itemId);
+
+    if (!item) {
+      return;
+    }
+
+    if (item.quantity > 1) {
+      setMessage(`Split ${item.name} before equipping a single item.`);
+      return;
+    }
+
+    const compatibleSlot = equipmentSlots.find(
+      (slot) =>
+        canEquipItemInSlot(item, slot.id) &&
+        !items.some(
+          (candidate) => candidate.location === "equipped" && candidate.equippedSlot === slot.id,
+        ),
+    );
+
+    if (!compatibleSlot) {
+      setMessage(`${item.name} has no compatible free equipment slot.`);
+      return;
+    }
+
+    updateItem({
+      ...item,
+      location: "equipped",
+      equippedSlot: compatibleSlot.id,
+      x: 0,
+      y: 0,
+    });
+    setMessage(`${item.name} equipped to ${compatibleSlot.label}.`);
   }
 
   function updateSelectedItem(patch: Partial<InventoryItem>) {
@@ -775,6 +934,7 @@ function useInventorySandboxController(
       containers,
       items,
       selectedItemId,
+      updatedAt: Date.now(),
     };
     const nextShareCode = encodeInventoryState(state);
 
@@ -791,7 +951,7 @@ function useInventorySandboxController(
     }
 
     setContainers(importedState.containers);
-    setItems(importedState.items);
+    setItems(enforceAttunementLimit(importedState.items, attunementLimit));
     setSelectedItemId(importedState.selectedItemId);
     setMessage("Inventory imported from share code.");
   }
@@ -976,7 +1136,12 @@ function useInventorySandboxController(
       return;
     }
 
-    if (!slot.accepts.includes(draggedItem.kind) || draggedItem.equipmentSlot !== slotId) {
+    if (draggedItem.quantity > 1) {
+      setMessage(`Split ${draggedItem.name} before equipping a single item.`);
+      return;
+    }
+
+    if (!slot.accepts.includes(draggedItem.kind) || !canEquipItemInSlot(draggedItem, slotId)) {
       setMessage(`${draggedItem.name} cannot be equipped in ${slot.label}.`);
       return;
     }
@@ -1025,6 +1190,27 @@ function useInventorySandboxController(
     setDragItemId(null);
     setMergeTargetId(null);
     setMessage(`${discardedItem.name} discarded.`);
+  }
+
+  function consumeItem(itemId: string) {
+    const item = items.find((candidate) => candidate.id === itemId);
+
+    if (!item || item.kind !== "consumable") {
+      return;
+    }
+
+    if (item.quantity <= 1) {
+      const remainingItems = items.filter((candidate) => candidate.id !== itemId);
+      setItems(remainingItems);
+      setSelectedItemId(remainingItems[0]?.id ?? "");
+    } else {
+      updateItem({
+        ...item,
+        quantity: item.quantity - 1,
+      });
+    }
+
+    setMessage(`${item.name} used. ${Math.max(0, item.quantity - 1)} remaining.`);
   }
 
   function createChest() {
@@ -1086,6 +1272,7 @@ function useInventorySandboxController(
       maxStack: newItemForm.stackable ? Math.max(1, newItemForm.maxStack) : 1,
       weight: 1,
       value: 0,
+      valueUnit: "gp",
       rarity: "Custom",
       armorClassBonus: 0,
       attackBonus: 0,
@@ -1142,6 +1329,7 @@ function useInventorySandboxController(
       maxStack,
       weight: referenceItem.weight ?? 1,
       value: referenceItem.costQuantity ?? 0,
+      valueUnit: referenceItem.costUnit ?? "gp",
       rarity: isReferenceEquipmentMagical(referenceItem) ? "Magical" : "Common",
       armorClassBonus: effects.armorClassBonus,
       attackBonus: effects.attackBonus,
@@ -1395,6 +1583,7 @@ function useInventorySandboxController(
     backendSaving,
     clearContainer,
     containers,
+    consumeItem,
     createChest,
     createItem,
     addReferenceEquipment,
@@ -1403,6 +1592,7 @@ function useInventorySandboxController(
     dragItemId,
     equippedItems,
     exportShareCode,
+    equipItem,
     handleDiscardDrop,
     handleDragEnd,
     handleDragLeave: handleGridDragLeave,
@@ -1417,6 +1607,7 @@ function useInventorySandboxController(
     hoverPreview,
     importShareCode,
     items,
+    moveItemToContainer,
     persistedItems,
     mergeTargetId,
     message,
@@ -1448,6 +1639,7 @@ function useInventorySandboxController(
 type InventorySandboxController = ReturnType<typeof useInventorySandboxController>;
 
 type InventoryWorkbenchProps = {
+  carryingCapacity?: number;
   controller: InventorySandboxController;
   embedded?: boolean;
   hideDetailsPanel?: boolean;
@@ -1475,13 +1667,17 @@ function InventoryDetailsContent({
     backendSaving,
     clearContainer,
     containers,
+    consumeItem,
     createChest,
     createItem,
     deleteContainer,
+    discardItem,
+    equipItem,
     handleDiscardDrop,
     importShareCode,
     items,
     message,
+    moveItemToContainer,
     newChestColumns,
     newChestName,
     newChestRows,
@@ -1511,7 +1707,6 @@ function InventoryDetailsContent({
   const [searchQuery, setSearchQuery] = useState("");
   const [activeLibraryType, setActiveLibraryType] = useState<InventoryLibraryType>("all");
   const [selectedSourceCategory, setSelectedSourceCategory] = useState("all");
-  const [proficientOnly, setProficientOnly] = useState(false);
   const [commonOnly, setCommonOnly] = useState(false);
   const [magicalOnly, setMagicalOnly] = useState(false);
   const [containerOnly, setContainerOnly] = useState(false);
@@ -1530,7 +1725,6 @@ function InventoryDetailsContent({
     searchQuery,
     activeLibraryType,
     selectedSourceCategory,
-    proficientOnly,
     commonOnly,
     magicalOnly,
     containerOnly,
@@ -1605,7 +1799,6 @@ function InventoryDetailsContent({
           .join(" ")
           .toLowerCase()
           .includes(normalizedQuery);
-      const matchesProficient = !proficientOnly || isReferenceEquipmentProficient(referenceItem);
       const matchesCommon = !commonOnly || isReferenceEquipmentCommon(referenceItem);
       const matchesMagical = !magicalOnly || isReferenceEquipmentMagical(referenceItem);
       const matchesContainer = !containerOnly || isReferenceEquipmentContainer(referenceItem);
@@ -1614,7 +1807,6 @@ function InventoryDetailsContent({
         matchesType &&
         matchesSource &&
         matchesQuery &&
-        matchesProficient &&
         matchesCommon &&
         matchesMagical &&
         matchesContainer
@@ -1626,7 +1818,6 @@ function InventoryDetailsContent({
     containerOnly,
     equipmentResults,
     magicalOnly,
-    proficientOnly,
     searchQuery,
     selectedSourceCategory,
   ]);
@@ -1658,6 +1849,88 @@ function InventoryDetailsContent({
             : activeToolPanel === "createItem"
               ? "Create Item"
               : "";
+
+  function renderSelectedQuickActions(className = "") {
+    if (!selectedItem) {
+      return null;
+    }
+
+    return (
+      <div
+        className={`inventory-selected-actions ${className}`.trim()}
+        aria-label="Selected item actions"
+      >
+        <div className="inventory-selected-actions-heading">
+          <span>Quick actions</span>
+          <small>{selectedItem.location === "equipped" ? "Equipped" : "Stored"}</small>
+        </div>
+        {selectedItem.kind === "consumable" ? (
+          <button
+            type="button"
+            className="inventory-tool-button inventory-selected-action inventory-selected-action-use"
+            onClick={() => consumeItem(selectedItem.id)}
+          >
+            <Sparkles size={15} aria-hidden="true" />
+            <span>Use one</span>
+          </button>
+        ) : null}
+        {selectedItem.location === "equipped" ? (
+          <button
+            type="button"
+            className="inventory-tool-button inventory-selected-action inventory-selected-action-secondary"
+            onClick={() => moveItemToContainer(selectedItem.id, "inventory")}
+          >
+            <RotateCw size={15} aria-hidden="true" />
+            <span>Unequip</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="inventory-tool-button inventory-selected-action inventory-selected-action-primary"
+            onClick={() => equipItem(selectedItem.id)}
+          >
+            <Sword size={15} aria-hidden="true" />
+            <span>Equip</span>
+          </button>
+        )}
+        <button
+          type="button"
+          className={`inventory-tool-button inventory-tool-button-danger inventory-selected-action ${
+            selectedItem.kind === "consumable" ? "inventory-selected-action-wide" : ""
+          }`.trim()}
+          onClick={() => discardItem(selectedItem.id)}
+        >
+          <Trash2 size={15} aria-hidden="true" />
+          <span>Delete</span>
+        </button>
+        {selectedItem.location !== "equipped" && containers.length > 1 ? (
+          <label className="inventory-tool-field inventory-move-field">
+            <span className="inventory-move-label">
+              <Backpack size={14} aria-hidden="true" />
+              Move item
+            </span>
+            <select
+              value=""
+              onChange={(event) => {
+                if (event.target.value) {
+                  moveItemToContainer(selectedItem.id, event.target.value);
+                }
+              }}
+            >
+              <option value="">Choose container</option>
+              {containers
+                .filter((container) => container.id !== selectedItem.location)
+                .map((container) => (
+                  <option key={container.id} value={container.id}>
+                    {container.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
+    );
+  }
 
   function renderSelectedPanel() {
     if (!selectedItem) {
@@ -1693,6 +1966,7 @@ function InventoryDetailsContent({
         </div>
 
         <div className="item-detail-editor">
+          {renderSelectedQuickActions()}
           {selectedItemEffectLines.length > 0 ? (
             <div className="attunement-panel">
               <div>
@@ -1801,6 +2075,19 @@ function InventoryDetailsContent({
                   updateSelectedItem({ value: Math.max(0, Number(event.target.value)) })
                 }
               />
+            </label>
+            <label className="inventory-tool-field">
+              <span>Currency</span>
+              <select
+                value={selectedItem.valueUnit ?? "gp"}
+                onChange={(event) => updateSelectedItem({ valueUnit: event.target.value })}
+              >
+                <option value="cp">CP</option>
+                <option value="sp">SP</option>
+                <option value="ep">EP</option>
+                <option value="gp">GP</option>
+                <option value="pp">PP</option>
+              </select>
             </label>
             <label className="inventory-tool-field">
               <span>Rarity</span>
@@ -2333,10 +2620,12 @@ function InventoryDetailsContent({
         )}
       </div>
 
+      {renderSelectedQuickActions("inventory-selected-actions-sidebar")}
+
       <div className="inventory-sidebar-action-grid">
         <InventorySidebarActionButton
           icon={<PackageOpen size={16} />}
-          label="Selected"
+          label="Edit details"
           onClick={() => setActiveToolPanel("selected")}
         />
         <InventorySidebarActionButton
@@ -2422,14 +2711,6 @@ function InventoryDetailsContent({
         </div>
 
         <div className="inventory-library-checkbox-row">
-          <label className="inventory-library-checkbox">
-            <input
-              checked={proficientOnly}
-              type="checkbox"
-              onChange={(event) => setProficientOnly(event.target.checked)}
-            />
-            Proficient
-          </label>
           <label className="inventory-library-checkbox">
             <input
               checked={commonOnly}
@@ -2629,6 +2910,7 @@ function InventorySidebarActionButton({
 }
 
 function InventoryWorkbench({
+  carryingCapacity,
   controller,
   embedded = false,
   hideDetailsPanel = false,
@@ -2660,6 +2942,10 @@ function InventoryWorkbench({
     discardItem,
   } = controller;
   const activeContainer = containers.find((container) => container.id === activeContainerId) ?? containers[0] ?? null;
+  const inventoryTotals = useMemo(
+    () => getInventoryTotals(items.filter((item) => item.location === "inventory" || item.location === "equipped")),
+    [items],
+  );
 
   useEffect(() => {
     if (!containers.some((container) => container.id === activeContainerId) && containers[0]) {
@@ -2704,6 +2990,22 @@ function InventoryWorkbench({
             <div className="inventory-panel-heading">
               <span>Character</span>
               <strong>Equipped Gear</strong>
+            </div>
+
+            <div
+              className={
+                carryingCapacity != null && inventoryTotals.weight > carryingCapacity
+                  ? "inventory-total-summary inventory-total-summary-over"
+                  : "inventory-total-summary"
+              }
+              aria-label="Carried inventory totals"
+            >
+              <span>{inventoryTotals.itemCount} items</span>
+              <span>
+                {formatInventoryNumber(inventoryTotals.weight)}
+                {carryingCapacity != null ? ` / ${carryingCapacity}` : ""} lb
+              </span>
+              <span>{formatInventoryNumber(inventoryTotals.value)} gp</span>
             </div>
 
             <div className="attunement-meter">
@@ -2760,6 +3062,10 @@ function InventoryWorkbench({
             <div className="inventory-focus-bar">
               {containers.map((container) => {
                 const containerItems = items.filter((item) => item.location === container.id);
+                const containerItemCount = containerItems.reduce(
+                  (total, item) => total + item.quantity,
+                  0,
+                );
 
                 return (
                   <button
@@ -2775,8 +3081,8 @@ function InventoryWorkbench({
                   >
                     <strong>{container.name}</strong>
                     <span>
-                      {container.columns} x {container.rows} · {containerItems.length} item
-                      {containerItems.length === 1 ? "" : "s"}
+                      {container.columns} x {container.rows} · {containerItemCount} item
+                      {containerItemCount === 1 ? "" : "s"}
                     </span>
                   </button>
                 );
@@ -2963,7 +3269,7 @@ function getContainerStats(container: InventoryContainer, items: InventoryItem[]
       itemCount: stats.itemCount + item.quantity,
       totalCells: stats.totalCells,
       usedCells: stats.usedCells + getItemWidth(item) * getItemHeight(item),
-      value: stats.value + item.value * item.quantity,
+      value: stats.value + convertCurrencyToGp(item.value * item.quantity, item.valueUnit),
       weight: stats.weight + item.weight * item.quantity,
     }),
     {
@@ -2974,6 +3280,37 @@ function getContainerStats(container: InventoryContainer, items: InventoryItem[]
       weight: 0,
     },
   );
+}
+
+function getInventoryTotals(items: InventoryItem[]) {
+  return items.reduce(
+    (totals, item) => ({
+      itemCount: totals.itemCount + item.quantity,
+      value: totals.value + convertCurrencyToGp(item.value * item.quantity, item.valueUnit),
+      weight: totals.weight + item.weight * item.quantity,
+    }),
+    {
+      itemCount: 0,
+      value: 0,
+      weight: 0,
+    },
+  );
+}
+
+function convertCurrencyToGp(value: number, unit = "gp") {
+  switch (unit.trim().toLowerCase()) {
+    case "cp":
+      return value / 100;
+    case "sp":
+      return value / 10;
+    case "ep":
+      return value / 2;
+    case "pp":
+      return value * 10;
+    case "gp":
+    default:
+      return value;
+  }
 }
 
 function formatInventoryNumber(value: number) {
@@ -3024,6 +3361,7 @@ function mapBackendInventoryItemToGridItem(item: BackendCharacterInventoryItem):
     speedPenalty: effects.speedPenalty,
     stackable: item.quantity > 1 || kind === "consumable",
     value: item.equipment.costQuantity ?? 0,
+    valueUnit: item.equipment.costUnit ?? "gp",
     weight: Number(item.equipment.weight ?? 1),
     width: inferReferenceItemWidth(referenceItem),
     x: item.gridX ?? 0,
@@ -3111,7 +3449,34 @@ function getSlotIcon(slotId: EquipmentSlotId): LucideIcon {
       return Hand;
     case "feet":
       return Footprints;
+    case "accessory1":
+    case "accessory2":
+    case "accessory3":
+      return Gem;
   }
+}
+
+function isAccessorySlot(slotId: EquipmentSlotId) {
+  return slotId === "accessory1" || slotId === "accessory2" || slotId === "accessory3";
+}
+
+function canEquipItemInSlot(item: InventoryItem, slotId: EquipmentSlotId) {
+  if (isAccessorySlot(slotId)) {
+    return (
+      item.equipmentSlot === "accessory1" ||
+      (!item.equipmentSlot && (item.requiresAttunement || item.kind === "treasure"))
+    );
+  }
+
+  if (
+    (slotId === "mainHand" || slotId === "offHand") &&
+    item.equipmentSlot === "mainHand" &&
+    (item.kind === "weapon" || item.kind === "tool")
+  ) {
+    return true;
+  }
+
+  return item.equipmentSlot === slotId;
 }
 
 function getItemWidth(item: InventoryItem) {
@@ -3189,14 +3554,17 @@ function inferReferenceItemKind(referenceItem: ReferenceEquipment): ItemKind {
 
   if (
     referenceType === "potion" ||
-    referenceType === "scroll" ||
-    referenceType === "wand" ||
-    referenceType === "rod"
+    referenceType === "scroll"
   ) {
     return "consumable";
   }
 
-  if (referenceType === "staff" || referenceType === "other") {
+  if (
+    referenceType === "staff" ||
+    referenceType === "wand" ||
+    referenceType === "rod" ||
+    referenceType === "other"
+  ) {
     return "tool";
   }
 
@@ -3253,7 +3621,18 @@ function inferReferenceEquipmentSlot(referenceItem: ReferenceEquipment): Equipme
   }
 
   if (text.includes("ring")) {
-    return "hands";
+    return "accessory1";
+  }
+
+  if (
+    text.includes("cloak") ||
+    text.includes("mantle") ||
+    text.includes("amulet") ||
+    text.includes("necklace") ||
+    text.includes("brooch") ||
+    text.includes("ioun stone")
+  ) {
+    return "accessory1";
   }
 
   if (text.includes("armor") || text.includes("mail") || text.includes("breastplate") || text.includes("plate")) {
@@ -3461,12 +3840,6 @@ function isReferenceEquipmentContainer(referenceItem: ReferenceEquipment) {
   );
 }
 
-function isReferenceEquipmentProficient(referenceItem: ReferenceEquipment) {
-  const type = inferReferenceLibraryType(referenceItem);
-
-  return type === "armor" || type === "weapon" || type === "staff" || type === "wand";
-}
-
 function isReferenceEquipmentCommon(referenceItem: ReferenceEquipment) {
   return !isReferenceEquipmentMagical(referenceItem);
 }
@@ -3577,6 +3950,25 @@ function getInventoryStorageKey(storageScope: string) {
   return `${inventoryDashboardStoragePrefix}.${storageScope}`;
 }
 
+function enforceAttunementLimit(items: InventoryItem[], limit: number) {
+  let attunedCount = 0;
+
+  return items.map((item) => {
+    if (!item.requiresAttunement || !item.attuned) {
+      return item;
+    }
+
+    attunedCount += 1;
+
+    return attunedCount <= limit
+      ? item
+      : {
+          ...item,
+          attuned: false,
+        };
+  });
+}
+
 function loadSavedInventoryState(storageKey = inventoryStorageKey): SavedInventoryState | null {
   try {
     const rawState = localStorage.getItem(storageKey);
@@ -3597,8 +3989,10 @@ function loadSavedInventoryState(storageKey = inventoryStorageKey): SavedInvento
         ...item,
         maxStack: item.maxStack ?? (item.stackable ? 999 : 1),
         quantity: item.quantity ?? 1,
+        valueUnit: item.valueUnit ?? "gp",
       })),
       selectedItemId: parsedState.selectedItemId ?? parsedState.items[0]?.id ?? "",
+      updatedAt: normalizeInventoryUpdatedAt(parsedState.updatedAt),
     };
   } catch {
     return null;
@@ -3639,12 +4033,30 @@ function decodeInventoryState(code: string): SavedInventoryState | null {
         ...item,
         maxStack: item.maxStack ?? (item.stackable ? 999 : 1),
         quantity: item.quantity ?? 1,
+        valueUnit: item.valueUnit ?? "gp",
       })),
       selectedItemId: parsedState.selectedItemId ?? parsedState.items[0]?.id ?? "",
+      updatedAt: normalizeInventoryUpdatedAt(parsedState.updatedAt),
     };
   } catch {
     return null;
   }
+}
+
+function normalizeInventoryUpdatedAt(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function shouldPreferLocalInventoryState(
+  localState: Pick<SavedInventoryState, "updatedAt"> | null,
+  backendState: Pick<SavedInventoryState, "updatedAt"> | null,
+) {
+  const localUpdatedAt = localState?.updatedAt ?? 0;
+  const backendUpdatedAt = backendState?.updatedAt ?? 0;
+
+  return localUpdatedAt > 0 && localUpdatedAt > backendUpdatedAt;
 }
 
 function itemsOverlap(leftItem: InventoryItem, rightItem: InventoryItem) {
@@ -3657,8 +4069,13 @@ function itemsOverlap(leftItem: InventoryItem, rightItem: InventoryItem) {
 }
 
 export {
+  canEquipItemInSlot,
+  convertCurrencyToGp,
+  enforceAttunementLimit,
+  getInventoryTotals,
   InventoryDetailsSidebar,
   InventoryWorkbench,
+  shouldPreferLocalInventoryState,
   useInventorySandboxController,
 };
-export type { InventorySandboxController };
+export type { EquipmentSlotId, InventoryItem, InventorySandboxController };

@@ -62,9 +62,23 @@ async function saveCharacterInventoryState(
   );
 }
 
+async function saveCharacterFullInventory(
+  characterId: string,
+  items: CharacterInventorySaveItem[],
+  stateCode: string,
+  token: string,
+) {
+  return api.put<CharacterInventoryResponse & CharacterInventoryStateResponse>(
+    `/characters/${characterId}/inventory/full`,
+    { items, stateCode },
+    { token },
+  );
+}
+
 export {
   fetchCharacterInventory,
   fetchCharacterInventoryState,
+  saveCharacterFullInventory,
   saveCharacterInventory,
   saveCharacterInventoryState,
 };
