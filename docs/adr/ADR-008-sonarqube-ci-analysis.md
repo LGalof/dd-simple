@@ -1,9 +1,5 @@
 # ADR-008: Analyze the Monorepo with SonarQube in CI
 
-## Status
-
-Accepted
-
 ## Context
 
 D&D Simple contains TypeScript source and tests across the API, web, and shared
