@@ -199,12 +199,12 @@ test("normalizes partial board state records with defaults", () => {
   });
 
   assert.deepEqual(normalized.tokens, []);
-  assert.equal(normalized.terrain["8:4"], "wall");
+  assert.equal(normalized.terrain!["8:4"], "wall");
   assert.deepEqual(normalized.fog, {});
   assert.deepEqual(normalized.pins, {});
   assert.deepEqual(normalized.templates, []);
-  assert.equal(normalized.layers.grid, false);
-  assert.equal(normalized.settings.feetPerSquare, 10);
+  assert.equal(normalized.layers!.grid, false);
+  assert.equal(normalized.settings!.feetPerSquare, 10);
   assert.equal(normalized.selectedTokenId, "");
   assert.deepEqual(normalized.initiativeOrder, []);
   assert.equal(normalized.activeInitiativeIndex, 0);
@@ -225,31 +225,31 @@ test("ensures joined characters have one board token and initiative entry", () =
     1,
   );
 
-  assert.equal(nextState.tokens.length, 2);
-  assert.equal(nextState.tokens[1]?.id, "character-char-2");
+  assert.equal(nextState.tokens!.length, 2);
+  assert.equal(nextState.tokens![1]?.id, "character-char-2");
   assert.equal(nextState.selectedTokenId, "character-char-2");
   assert.deepEqual(nextState.initiativeOrder, ["character-char-1", "character-char-2"]);
   assert.equal(nextState.activeInitiativeIndex, 2);
 
   const unchangedState = ensureCharacterToken(nextState, character({ id: "char-2", name: "Mira" }), 1);
 
-  assert.equal(unchangedState.tokens.length, 2);
+  assert.equal(unchangedState.tokens!.length, 2);
 });
 
 test("creates a fresh board state when joining into invalid board data", () => {
   const boardState = ensureCharacterToken(null, character(), 0);
 
-  assert.equal(boardState.tokens.length, 1);
+  assert.equal(boardState.tokens!.length, 1);
   assert.equal(boardState.selectedTokenId, "character-char-1");
 });
 
 test("creates, reads, saves, and deletes rooms through prisma-backed service paths", async () => {
-  const createdRooms: unknown[] = [];
+  const createdRooms: Array<{ boardState?: unknown; code: string }> = [];
   const tx = {
     $executeRaw: async () => undefined,
     room: {
       count: async () => 0,
-      create: async ({ data }: { data: { code: string } }) => {
+      create: async ({ data }: { data: { boardState?: unknown; code: string } }) => {
         const room = roomRecord({
           code: data.code,
           boardState: data.boardState,

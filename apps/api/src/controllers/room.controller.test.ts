@@ -109,29 +109,29 @@ test.afterEach(() => {
 
 test("room controllers validate required params and body values", async () => {
   const createResponseObject = createResponse();
-  await createRoomController({ ...authedRequest, body: { characterId: "" } } as Request, createResponseObject);
+  await createRoomController({ ...authedRequest, body: { characterId: "" } } as unknown as Request, createResponseObject);
   assert.equal(createResponseObject.statusCode, 400);
 
   const deleteResponse = createResponse();
-  await deleteRoomController({ ...authedRequest, params: {} } as Request, deleteResponse);
+  await deleteRoomController({ ...authedRequest, params: {} } as unknown as Request, deleteResponse);
   assert.equal(deleteResponse.statusCode, 400);
 
   const joinRoomCodeResponse = createResponse();
   await joinRoomController(
-    { ...authedRequest, body: { characterId: "char-1" }, params: {} } as Request,
+    { ...authedRequest, body: { characterId: "char-1" }, params: {} } as unknown as Request,
     joinRoomCodeResponse,
   );
   assert.equal(joinRoomCodeResponse.statusCode, 400);
 
   const joinCharacterResponse = createResponse();
   await joinRoomController(
-    { ...authedRequest, body: { characterId: "" }, params: { roomCode: "ABC123" } } as Request,
+    { ...authedRequest, body: { characterId: "" }, params: { roomCode: "ABC123" } } as unknown as Request,
     joinCharacterResponse,
   );
   assert.equal(joinCharacterResponse.statusCode, 400);
 
   const getResponse = createResponse();
-  await getRoomController({ params: {} } as Request, getResponse);
+  await getRoomController({ params: {} } as unknown as Request, getResponse);
   assert.equal(getResponse.statusCode, 400);
 });
 
@@ -197,7 +197,7 @@ test("createRoomController creates rooms and handles missing characters", async 
 
   const missingCharacterResponse = createResponse();
   await createRoomController(
-    { ...authedRequest, body: { characterId: "missing" } } as Request,
+    { ...authedRequest, body: { characterId: "missing" } } as unknown as Request,
     missingCharacterResponse,
   );
   assert.equal(missingCharacterResponse.statusCode, 404);
@@ -219,7 +219,7 @@ test("createRoomController creates rooms and handles missing characters", async 
 
   const successResponse = createResponse();
   await createRoomController(
-    { ...authedRequest, body: { characterId: "char-1" } } as Request,
+    { ...authedRequest, body: { characterId: "char-1" } } as unknown as Request,
     successResponse,
   );
 
@@ -284,7 +284,7 @@ test("joinRoomController joins rooms and reports service failures", async () => 
   stubPrismaMethod(prisma.room, "findUnique", async () => null);
   const notFoundResponse = createResponse();
   await joinRoomController(
-    { ...authedRequest, body: { characterId: "char-1" }, params: { roomCode: "missing" } } as Request,
+    { ...authedRequest, body: { characterId: "char-1" }, params: { roomCode: "missing" } } as unknown as Request,
     notFoundResponse,
   );
   assert.equal(notFoundResponse.statusCode, 404);
@@ -308,7 +308,7 @@ test("room list, delete, and leave controllers serialize status responses", asyn
   stubPrismaMethod(prisma.room, "deleteMany", async () => ({ count: 1 }));
   const deleteResponse = createResponse();
   await deleteRoomController(
-    { ...authedRequest, params: { roomCode: "ABC123" } } as Request,
+    { ...authedRequest, params: { roomCode: "ABC123" } } as unknown as Request,
     deleteResponse,
   );
   assert.equal(deleteResponse.statusCode, 204);
@@ -318,7 +318,7 @@ test("room list, delete, and leave controllers serialize status responses", asyn
   stubPrismaMethod(prisma, "$transaction", async () => ({ status: "creator" }));
   const leaveCreatorResponse = createResponse();
   await leaveRoomController(
-    { ...authedRequest, params: { roomCode: "ABC123" } } as Request,
+    { ...authedRequest, params: { roomCode: "ABC123" } } as unknown as Request,
     leaveCreatorResponse,
   );
   assert.equal(leaveCreatorResponse.statusCode, 400);
@@ -327,7 +327,7 @@ test("room list, delete, and leave controllers serialize status responses", asyn
   stubPrismaMethod(prisma, "$transaction", async () => ({ roomCode: "ABC123", status: "left" }));
   const leaveResponse = createResponse();
   await leaveRoomController(
-    { ...authedRequest, params: { roomCode: "ABC123" } } as Request,
+    { ...authedRequest, params: { roomCode: "ABC123" } } as unknown as Request,
     leaveResponse,
   );
   assert.equal(leaveResponse.statusCode, 204);
