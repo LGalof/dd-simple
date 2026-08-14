@@ -26,6 +26,7 @@ type CharacterDefenseKind =
   | "damage_reduction"
   | "immunity"
   | "resistance"
+  | "saving_throw_advantage"
   | "vulnerability";
 
 type CharacterDefenseEntry = {
@@ -93,6 +94,7 @@ type CharacterResourceEntry = {
   category: "action" | "bonus action" | "reaction" | "passive" | "resource";
   id: string;
   level: number | null;
+  longRestBehavior?: "empty" | "restore";
   maxUses?: string;
   maxUsesValue?: number | null;
   name: string;

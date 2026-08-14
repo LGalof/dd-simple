@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useCharacters } from "../features/characters/hooks/useCharacters";
 import { useAuth } from "../features/auth/AuthContext";
@@ -62,50 +62,121 @@ function CreateRoomPage() {
 
   return (
     <AppLayout>
-      <section className="page-section">
-        <h1>Create a Room</h1>
-        <p>Choose one of your characters and create a room code you can share with other players.</p>
-
-        {loading && <p>Loading characters…</p>}
-        {error && <p className="error-message">{error}</p>}
-
-        {!loading && characters.length === 0 && (
-          <p>You need at least one character before creating a room.</p>
-        )}
-
-        {!loading && characters.length > 0 && (
-          <div className="form-group">
-            <label htmlFor="character">Select character</label>
-            <select
-              id="character"
-              value={selectedCharacterId}
-              onChange={(event) => setSelectedCharacterId(event.target.value)}
-            >
-              {characters.map((character) => (
-                <option key={character.id} value={character.id}>
-                  {character.name}
-                </option>
-              ))}
-            </select>
+      <section className="page-section room-flow-page">
+        <header className="room-flow-hero">
+          <div className="room-flow-hero-icon" aria-hidden="true">
+            +
           </div>
-        )}
+          <div>
+            <p className="eyebrow">Shared Board</p>
+            <h1>Create a room</h1>
+            <p>
+              Start a shared encounter space, then send the invite link to the players you want at
+              the table.
+            </p>
+          </div>
+          <ol className="room-flow-steps" aria-label="Create room steps">
+            <li className="room-flow-step room-flow-step-active">
+              <span>1</span>
+              Choose a character
+            </li>
+            <li className="room-flow-step">
+              <span>2</span>
+              Share the invite
+            </li>
+            <li className="room-flow-step">
+              <span>3</span>
+              Open the board
+            </li>
+          </ol>
+        </header>
 
-        {selectedError ? <p className="error-message">{selectedError}</p> : null}
-        {serverError ? <p className="error-message">{serverError}</p> : null}
-        {hasReachedRoomLimit && (
-          <p className="error-message">
-            You already have 3 rooms. Delete one from the Rooms page before creating another.
-          </p>
-        )}
+        <div className="room-flow-layout">
+          <form
+            className="room-flow-card room-flow-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleCreateRoom();
+            }}
+          >
+            <div className="room-flow-card-heading">
+              <div>
+                <span className="room-flow-kicker">Your seat at the table</span>
+                <h2>Choose your character</h2>
+              </div>
+              <span className="room-flow-limit">Up to 3 hosted rooms</span>
+            </div>
 
-        <button
-          type="button"
-          className="primary-button"
-          disabled={isCreating || loading || characters.length === 0 || hasReachedRoomLimit}
-          onClick={handleCreateRoom}
-        >
-          {isCreating ? "Creating room…" : "Create room"}
-        </button>
+            {loading && <div className="room-flow-notice">Loading your characters…</div>}
+            {error && <p className="room-flow-alert room-flow-alert-error">{error}</p>}
+
+            {!loading && characters.length === 0 && (
+              <div className="room-flow-empty">
+                <strong>You need a character first.</strong>
+                <span>Create one before opening a room for the party.</span>
+                <Link to="/characters" className="secondary-button">
+                  Go to my characters
+                </Link>
+              </div>
+            )}
+
+            {!loading && characters.length > 0 && (
+              <label className="room-flow-field" htmlFor="character">
+                <span>Character entering as host</span>
+                <select
+                  id="character"
+                  value={selectedCharacterId}
+                  onChange={(event) => setSelectedCharacterId(event.target.value)}
+                >
+                  {characters.map((character) => (
+                    <option key={character.id} value={character.id}>
+                      {character.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            {selectedError ? <p className="room-flow-alert room-flow-alert-error">{selectedError}</p> : null}
+            {serverError ? <p className="room-flow-alert room-flow-alert-error">{serverError}</p> : null}
+            {hasReachedRoomLimit && (
+              <p className="room-flow-alert room-flow-alert-error">
+                You already have 3 rooms. Delete one from the Rooms page before creating another.
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="primary-button room-flow-submit"
+              disabled={isCreating || loading || characters.length === 0 || hasReachedRoomLimit}
+            >
+              <span>{isCreating ? "Creating room…" : "Create room"}</span>
+              {!isCreating && <span aria-hidden="true">→</span>}
+            </button>
+          </form>
+
+          <aside className="room-flow-aside">
+            <span className="room-flow-kicker">After you create it</span>
+            <h2>Your room is ready to share</h2>
+            <ul className="room-flow-benefits">
+              <li>
+                <span aria-hidden="true">01</span>
+                A room code and private invite link are generated.
+              </li>
+              <li>
+                <span aria-hidden="true">02</span>
+                Players pick one of their own characters when joining.
+              </li>
+              <li>
+                <span aria-hidden="true">03</span>
+                Everyone sees changes on the encounter board in real time.
+              </li>
+            </ul>
+            <Link to="/rooms" className="room-flow-text-link">
+              View my existing rooms <span aria-hidden="true">→</span>
+            </Link>
+          </aside>
+        </div>
       </section>
     </AppLayout>
   );

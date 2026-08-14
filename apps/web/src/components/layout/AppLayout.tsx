@@ -33,10 +33,9 @@ function AppLayout({
     <main className={shellClassName}>
       <header className="app-header">
         <div className="app-brand">
-          <span className="app-brand-mark">D20</span>
+          <span className="app-brand-mark">DDS</span>
           <div>
             <strong>D&amp;D Simple</strong>
-            <p className="app-brand-copy">Project workspace</p>
           </div>
         </div>
 

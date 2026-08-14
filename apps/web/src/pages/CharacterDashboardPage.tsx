@@ -724,6 +724,29 @@ function CharacterDashboardPage() {
         {loading && <p>Loading character...</p>}
         {error && <p className="error-message">Error: {error}</p>}
         {!loading && !error && !character && <p>No characters found.</p>}
+        {!loading &&
+        !error &&
+        character &&
+        (!previewCharacter ||
+          !builderState ||
+          !selectedBackground ||
+          !selectedClass ||
+          !selectedSpecies) ? (
+          <div className="empty-state-card">
+            <div className="empty-state-copy">
+              <span className="eyebrow">Legacy character</span>
+              <h2>{character.name} uses an unsupported rules option</h2>
+              <p>
+                The saved class is {character.class.name}. The current builder supports Barbarian,
+                Bard, Cleric, Rogue, and Wizard. This character is kept in your account, but the
+                dashboard cannot calculate it reliably until it is migrated to a supported class.
+              </p>
+              <a className="primary-button" href="/characters">
+                Back to My Characters
+              </a>
+            </div>
+          </div>
+        ) : null}
 
         {previewCharacter &&
         builderState &&
@@ -1425,14 +1448,24 @@ function getResourceActionSummary(
   }
 
   if (key.includes("bardic-inspiration")) {
+    const bardicDie = getBardicInspirationDie(characterLevel);
+    const hasFontOfInspiration = characterLevel >= 5;
+
     return {
       ...base,
-      automationNote: "Summary only; die size and target tracking are not automated.",
+      automationNote:
+        `Give a ${bardicDie} to a creature within 60 feet that can see or hear you. ` +
+        "It can add the die to a failed D20 Test within 1 hour." +
+        (characterLevel >= 18
+          ? " When you roll Initiative with fewer than two uses remaining, restore uses until you have two."
+          : ""),
       category: "bonus action",
-      maxUsesValue: getProficiencyBonus(characterLevel),
-      maxUses: "Uses follow class progression",
+      maxUsesValue: null,
+      maxUses: "Uses equal Charisma modifier (minimum 1)",
       name: "Bardic Inspiration",
-      recharge: "Long Rest / feature-based recovery",
+      recharge: hasFontOfInspiration
+        ? "Short or Long Rest / expend spell slot (1 use)"
+        : "Long Rest",
       trackingMode: "uses",
     };
   }
@@ -1445,7 +1478,7 @@ function getResourceActionSummary(
       maxUsesValue: getChannelDivinityUses(characterLevel),
       maxUses: "Uses follow class progression",
       name: "Channel Divinity",
-      recharge: "Short or Long Rest",
+      recharge: "Short Rest (1 use) / Long Rest (all uses)",
       trackingMode: "uses",
     };
   }
@@ -1453,7 +1486,7 @@ function getResourceActionSummary(
   if (key.includes("cunning-action")) {
     return {
       ...base,
-      automationNote: "Display only; action economy reminders are not automated.",
+      automationNote: "Choose Dash, Disengage, or Hide as a Bonus Action on your turn.",
       category: "bonus action",
       maxUses: "At will",
       name: "Cunning Action",
@@ -1464,7 +1497,7 @@ function getResourceActionSummary(
   if (key.includes("cunning-strike")) {
     return {
       ...base,
-      automationNote: "Summary only; Sneak Attack tradeoffs and save DCs are not automated.",
+      automationNote: "After a Sneak Attack hit, forgo the listed Sneak Attack dice to apply an effect. Save DC = 8 + Dexterity modifier + Proficiency Bonus.",
       category: "passive",
       name: key.includes("improved") ? "Improved Cunning Strike" : "Cunning Strike",
       trackingMode: "none",
@@ -1541,14 +1574,27 @@ function getRageUseCount(level: number) {
   return 2;
 }
 
+function getBardicInspirationDie(level: number) {
+  if (level >= 15) {
+    return "d12";
+  }
+  if (level >= 10) {
+    return "d10";
+  }
+  if (level >= 5) {
+    return "d8";
+  }
+  return "d6";
+}
+
 function getChannelDivinityUses(level: number) {
   if (level >= 18) {
-    return 3;
+    return 4;
   }
   if (level >= 6) {
-    return 2;
+    return 3;
   }
-  return 1;
+  return 2;
 }
 
 function getProficiencyBonus(level: number) {
@@ -1796,6 +1842,9 @@ function summarizeDefenses(
         case "damage_reduction":
           groups.damageReductions.push(entry.target);
           break;
+        case "saving_throw_advantage":
+          groups.savingThrowAdvantages.push(entry.target);
+          break;
         default:
           break;
       }
@@ -1807,6 +1856,7 @@ function summarizeDefenses(
       damageReductions: [] as string[],
       immunities: [] as string[],
       resistances: [] as string[],
+      savingThrowAdvantages: [] as string[],
       vulnerabilities: [] as string[],
     },
   );
@@ -1817,6 +1867,7 @@ function summarizeDefenses(
     createDefenseSummaryRow("Vulnerabilities", groupedValues.vulnerabilities),
     createDefenseSummaryRow("Condition Immunities", groupedValues.conditionImmunities),
     createDefenseSummaryRow("Damage Reduction", groupedValues.damageReductions),
+    createDefenseSummaryRow("Saving Throw Advantage", groupedValues.savingThrowAdvantages),
   ].filter((entry): entry is { label: string; value: string } => entry !== null);
 }
 

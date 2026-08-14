@@ -34,20 +34,68 @@ test("deriveResourceEntries tracks Rage uses from active feature sources", () =>
   assert.equal(resources[0]?.trackingMode, "uses");
 });
 
-test("deriveResourceEntries uses proficiency bonus for Bardic Inspiration", () => {
-  const resources = deriveResourceEntries(
-    [
-      createSource({
-        level: 1,
-        sourceIndex: "bardic-inspiration",
-        title: "Bardic Inspiration",
-      }),
-    ],
-    9,
-  );
+test("deriveResourceEntries follows the 2024 Barbarian Rage progression", () => {
+  const rageSource = [
+    createSource({
+      sourceIndex: "rage",
+      title: "Rage",
+    }),
+  ];
 
-  assert.equal(resources[0]?.name, "Bardic Inspiration");
-  assert.equal(resources[0]?.maxUsesValue, 4);
+  assert.equal(deriveResourceEntries(rageSource, 1)[0]?.maxUsesValue, 2);
+  assert.equal(deriveResourceEntries(rageSource, 3)[0]?.maxUsesValue, 3);
+  assert.equal(deriveResourceEntries(rageSource, 6)[0]?.maxUsesValue, 4);
+  assert.equal(deriveResourceEntries(rageSource, 12)[0]?.maxUsesValue, 5);
+  assert.equal(deriveResourceEntries(rageSource, 17)[0]?.maxUsesValue, 6);
+});
+
+test("deriveResourceEntries follows the 2024 Cleric Channel Divinity progression", () => {
+  const channelDivinitySource = [
+    createSource({
+      sourceIndex: "channel-divinity",
+      title: "Channel Divinity",
+    }),
+  ];
+
+  assert.equal(deriveResourceEntries(channelDivinitySource, 2)[0]?.maxUsesValue, 2);
+  assert.equal(deriveResourceEntries(channelDivinitySource, 6)[0]?.maxUsesValue, 3);
+  assert.equal(deriveResourceEntries(channelDivinitySource, 18)[0]?.maxUsesValue, 4);
+  assert.equal(
+    deriveResourceEntries(channelDivinitySource, 2)[0]?.recharge,
+    "Short Rest (1 use) / Long Rest (all uses)",
+  );
+});
+
+test("deriveResourceEntries follows 2024 Bardic Inspiration uses, die size, and recovery", () => {
+  const source = [
+    createSource({
+      level: 1,
+      sourceIndex: "bardic-inspiration",
+      title: "Bardic Inspiration",
+    }),
+  ];
+
+  const levelOne = deriveResourceEntries(source, 1, {
+    abilityScoresByIndex: { cha: 14 },
+  })[0];
+  const levelFive = deriveResourceEntries(source, 5, {
+    abilityScoresByIndex: { cha: 20 },
+  })[0];
+  const levelEighteen = deriveResourceEntries(source, 18, {
+    abilityScoresByIndex: { cha: 20 },
+  })[0];
+
+  assert.equal(levelOne?.name, "Bardic Inspiration");
+  assert.equal(levelOne?.maxUsesValue, 2);
+  assert.equal(levelOne?.recharge, "Long Rest");
+  assert.match(levelOne?.automationNote ?? "", /d6/);
+
+  assert.equal(levelFive?.maxUsesValue, 5);
+  assert.equal(levelFive?.recharge, "Short or Long Rest / expend spell slot \(1 use\)");
+  assert.match(levelFive?.automationNote ?? "", /d8/);
+
+  assert.match(levelEighteen?.automationNote ?? "", /Initiative/);
+  assert.match(levelEighteen?.automationNote ?? "", /d12/);
 });
 
 test("deriveResourceEntries tracks College of Glamour limited-use features", () => {
@@ -305,7 +353,7 @@ test("deriveResourceEntries tracks Rage of the Gods separately from Rage", () =>
   assert.equal(resources[0]?.recharge, "Long Rest");
 });
 
-test("deriveResourceEntries tracks Abjurer ward and selected signature spell resources", () => {
+test("deriveResourceEntries tracks Arcane Ward HP and creation separately", () => {
   const resources = deriveResourceEntries(
     [
       createSource({
@@ -330,15 +378,27 @@ test("deriveResourceEntries tracks Abjurer ward and selected signature spell res
       }),
     ],
     20,
+    {
+      abilityScoresByIndex: {
+        int: 18,
+      },
+    },
   );
 
-  const arcaneWard = resources.find((resource) => resource.name === "Arcane Ward");
+  const arcaneWardHitPoints = resources.find((resource) => resource.name === "Arcane Ward Hit Points");
+  const arcaneWardCreation = resources.find((resource) => resource.name === "Arcane Ward");
   const haste = resources.find((resource) => resource.name === "Signature Spell: Haste");
   const fireball = resources.find((resource) => resource.name === "Signature Spell: Fireball");
 
-  assert.ok(arcaneWard);
-  assert.equal(arcaneWard.maxUses, "Ward HP = 2 x Wizard level + Intelligence modifier");
-  assert.equal(arcaneWard.recharge, "Long Rest");
+  assert.ok(arcaneWardHitPoints);
+  assert.equal(arcaneWardHitPoints.maxUsesValue, 44);
+  assert.equal(arcaneWardHitPoints.trackingMode, "pool");
+  assert.equal(arcaneWardHitPoints.longRestBehavior, "empty");
+  assert.equal(arcaneWardHitPoints.recharge, "Regain 2 × spell slot level");
+
+  assert.ok(arcaneWardCreation);
+  assert.equal(arcaneWardCreation.maxUsesValue, 1);
+  assert.equal(arcaneWardCreation.recharge, "Long Rest");
 
   assert.ok(haste);
   assert.equal(haste.maxUsesValue, 1);
@@ -542,4 +602,39 @@ test("deriveResourceEntries tracks Soulknife psionic resources", () => {
   assert.equal(psionicDice?.recharge, "Short Rest (1 die) / Long Rest (all dice)");
   assert.equal(psychicVeil?.recharge, "Long Rest / expend Psionic Energy Die");
   assert.equal(rendMind?.recharge, "Long Rest / expend 3 Psionic Energy Dice");
+});
+
+test("deriveResourceEntries tracks selected Elven Lineage free casts", () => {
+  const resources = deriveResourceEntries(
+    [
+      createSource({
+        sourceIndex: "lineage-spell-misty-step",
+        sourceType: "species_trait",
+        title: "Misty Step",
+      }),
+    ],
+    5,
+  );
+
+  assert.equal(resources.length, 1);
+  assert.equal(resources[0]?.name, "Misty Step (Elven Lineage)");
+  assert.equal(resources[0]?.maxUsesValue, 1);
+  assert.equal(resources[0]?.recharge, "Long Rest");
+});
+
+test("deriveResourceEntries tracks the selected Magic Initiate level 1 spell", () => {
+  const resources = deriveResourceEntries(
+    [
+      createSource({
+        sourceIndex: "magic-initiate-free-cast:cure-wounds",
+        title: "Cure Wounds",
+      }),
+    ],
+    1,
+  );
+
+  assert.equal(resources.length, 1);
+  assert.equal(resources[0]?.name, "Cure Wounds (Magic Initiate)");
+  assert.equal(resources[0]?.maxUses, "1 free cast");
+  assert.equal(resources[0]?.recharge, "Long Rest");
 });

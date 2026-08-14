@@ -33,30 +33,52 @@ type DerivedFeatureChoiceSourceRecord = {
   title?: unknown;
 };
 
-const HERITAGE_SPECIFIC_SPECIES_TRAIT_INDEXES = new Set([
-  "darkvision-120",
-  "fiendish-legacy-abyssal",
-  "fiendish-legacy-chthonic",
-  "fiendish-legacy-infernal",
-  "fiendish-spell-darkness",
-  "fiendish-spell-false-life",
-  "fiendish-spell-hellish-rebuke",
-  "fiendish-spell-hold-person",
-  "fiendish-spell-ray-of-enfeeblement",
-  "fiendish-spell-ray-of-sickness",
-  "gnomish-lineage-forest-gnome",
-  "gnomish-lineage-rock-gnome",
-  "high-elf-cantrip-versatility",
-  "lineage-spell-dancing-lights",
-  "lineage-spell-darkness",
-  "lineage-spell-detect-magic",
-  "lineage-spell-druidcraft",
-  "lineage-spell-faerie-fire",
-  "lineage-spell-longstrider",
-  "lineage-spell-misty-step",
-  "lineage-spell-pass-without-trace",
-  "wood-elf-speed-increase",
-]);
+const SPECIES_CHOICE_TRAIT_INDEXES: Record<string, ReadonlySet<string>> = {
+  dragonborn: new Set([
+    "draconic-breath-weapon-acid",
+    "draconic-breath-weapon-cold",
+    "draconic-breath-weapon-fire",
+    "draconic-breath-weapon-lightning",
+    "draconic-breath-weapon-poison",
+    "draconic-damage-resistance-acid",
+    "draconic-damage-resistance-cold",
+    "draconic-damage-resistance-fire",
+    "draconic-damage-resistance-lightning",
+    "draconic-damage-resistance-poison",
+  ]),
+  elf: new Set([
+    "elven-lineage",
+    "darkvision-120",
+    "high-elf-cantrip-versatility",
+    "lineage-spell-dancing-lights",
+    "lineage-spell-darkness",
+    "lineage-spell-detect-magic",
+    "lineage-spell-druidcraft",
+    "lineage-spell-faerie-fire",
+    "lineage-spell-longstrider",
+    "lineage-spell-misty-step",
+    "lineage-spell-pass-without-trace",
+    "wood-elf-speed-increase",
+  ]),
+  gnome: new Set([
+    "gnomish-lineage",
+    "gnomish-lineage-forest-gnome",
+    "gnomish-lineage-rock-gnome",
+  ]),
+  goliath: new Set(["giant-ancestry"]),
+  tiefling: new Set([
+    "fiendish-legacy",
+    "fiendish-legacy-abyssal",
+    "fiendish-legacy-chthonic",
+    "fiendish-legacy-infernal",
+    "fiendish-spell-darkness",
+    "fiendish-spell-false-life",
+    "fiendish-spell-hellish-rebuke",
+    "fiendish-spell-hold-person",
+    "fiendish-spell-ray-of-enfeeblement",
+    "fiendish-spell-ray-of-sickness",
+  ]),
+};
 
 function resolveClassFeatureSources(
   activeFeatureIndexes: string[],
@@ -339,13 +361,15 @@ function getActiveClassFeatureIndexes(
 function getActiveSpeciesTraitIndexes(
   baseTraitIndexes: string[],
   selectedSubspeciesSourceJson: unknown,
+  speciesIndex: string,
 ) {
   const subspeciesSourceJson = asSubspeciesSourceJson(selectedSubspeciesSourceJson);
   const subspeciesTraitIndexes = (subspeciesSourceJson.traits ?? [])
     .map((trait) => stringValue(trait.index))
     .filter(isPresent);
+  const choiceTraitIndexes = SPECIES_CHOICE_TRAIT_INDEXES[speciesIndex] ?? new Set<string>();
   const baseNonHeritageTraitIndexes = baseTraitIndexes.filter(
-    (traitIndex) => !HERITAGE_SPECIFIC_SPECIES_TRAIT_INDEXES.has(traitIndex),
+    (traitIndex) => !choiceTraitIndexes.has(traitIndex),
   );
 
   return [...new Set([...baseNonHeritageTraitIndexes, ...subspeciesTraitIndexes])];
@@ -508,11 +532,14 @@ function normalizeDerivedFeatureChoiceSource(
     stringValue(source.sourceType),
     choice,
   );
+  const resolvedSourceIndex = isMagicInitiateLevelOneSpellChoice(choice)
+    ? `magic-initiate-free-cast:${sourceIndex}`
+    : sourceIndex;
 
   return {
     description,
     level: numberValue(source.level) ?? choice.level ?? null,
-    sourceIndex,
+    sourceIndex: resolvedSourceIndex,
     sourceType,
     title,
   };
@@ -533,12 +560,16 @@ function createFallbackFeatureChoiceSource(choice: CharacterFeatureChoiceRecord)
   }
 
   if (choiceKind === "spell") {
+    const selectedSpellIndex = choice.selectedOptionIndex ?? slugify(selectedName);
+
     return {
       description:
         selectedDescription ??
         `You learn or gain access to the spell ${selectedName}.`,
       level: choice.level ?? null,
-      sourceIndex: choice.selectedOptionIndex ?? slugify(selectedName),
+      sourceIndex: isMagicInitiateLevelOneSpellChoice(choice)
+        ? `magic-initiate-free-cast:${selectedSpellIndex}`
+        : selectedSpellIndex,
       sourceType: normalizeChoiceDerivedSourceType(null, choice),
       title: selectedName,
     };
@@ -577,6 +608,29 @@ function createFallbackFeatureChoiceSource(choice: CharacterFeatureChoiceRecord)
     sourceType: normalizeChoiceDerivedSourceType(null, choice),
     title: selectedName,
   };
+}
+
+function isMagicInitiateLevelOneSpellChoice(choice: CharacterFeatureChoiceRecord) {
+  const searchText = [
+    choice.choiceKey,
+    choice.choiceLabel,
+    choice.choicePath,
+    choice.featureIndex,
+    choice.sourceIndex,
+  ]
+    .filter(isPresent)
+    .join(" ")
+    .toLowerCase();
+
+  if (!searchText.includes("magic-initiate")) {
+    return false;
+  }
+
+  return (
+    /(?:level|lvl)[ -]?1[^a-z]*spell/.test(searchText) ||
+    /spell[^a-z]*(?:level|lvl)[ -]?1/.test(searchText) ||
+    /spell-1(?:\b|$)/.test(searchText)
+  );
 }
 
 function getSelectedOptionDescription(selectedRawJson: unknown) {

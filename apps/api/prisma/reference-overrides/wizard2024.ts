@@ -161,6 +161,55 @@ const WIZARD_LEVEL_5_SPELL_OPTIONS = [
   ["wall-of-force", "Wall of Force"],
 ] as const satisfies readonly CuratedReferenceTuple[];
 
+// The builder's spellbook choices intentionally include the spell levels a Wizard
+// can cast at the relevant class level. This keeps the existing choice flow useful
+// all the way to level 17 instead of stopping after 5th-level spells.
+const WIZARD_LEVEL_6_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_5_SPELL_OPTIONS,
+  ["chain-lightning", "Chain Lightning"],
+  ["disintegrate", "Disintegrate"],
+  ["globe-of-invulnerability", "Globe of Invulnerability"],
+  ["mass-suggestion", "Mass Suggestion"],
+  ["move-earth", "Move Earth"],
+  ["true-seeing", "True Seeing"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_7_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_6_SPELL_OPTIONS,
+  ["delayed-blast-fireball", "Delayed Blast Fireball"],
+  ["etherealness", "Etherealness"],
+  ["finger-of-death", "Finger of Death"],
+  ["forcecage", "Forcecage"],
+  ["plane-shift", "Plane Shift"],
+  ["reverse-gravity", "Reverse Gravity"],
+  ["teleport", "Teleport"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_8_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_7_SPELL_OPTIONS,
+  ["antimagic-field", "Antimagic Field"],
+  ["clone", "Clone"],
+  ["dominate-monster", "Dominate Monster"],
+  ["feeblemind", "Feeblemind"],
+  ["incendiary-cloud", "Incendiary Cloud"],
+  ["maze", "Maze"],
+  ["mind-blank", "Mind Blank"],
+  ["sunburst", "Sunburst"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
+const WIZARD_LEVEL_9_SPELL_OPTIONS = [
+  ...WIZARD_LEVEL_8_SPELL_OPTIONS,
+  ["foresight", "Foresight"],
+  ["gate", "Gate"],
+  ["meteor-swarm", "Meteor Swarm"],
+  ["power-word-kill", "Power Word Kill"],
+  ["prismatic-wall", "Prismatic Wall"],
+  ["shapechange", "Shapechange"],
+  ["time-stop", "Time Stop"],
+  ["true-polymorph", "True Polymorph"],
+  ["wish", "Wish"],
+] as const satisfies readonly CuratedReferenceTuple[];
+
 const WIZARD_SUBCLASSES = [
   ["abjurer", "Abjurer"],
   ["diviner", "Diviner"],
@@ -435,6 +484,15 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
   createAbilityScoreImprovementFeature("wizard-ability-score-improvement-2", 8, WIZARD_FEAT_OPTIONS),
   createWizardSpellChoiceFeature("wizard-spellbook-8", 8, "Spellbook Additions", "Add two more Wizard spells to your spellbook.", 2, WIZARD_LEVEL_4_SPELL_OPTIONS, "wizard spell"),
   createWizardSpellChoiceFeature("wizard-spellbook-9", 9, "Spellbook Additions", "Add two more Wizard spells to your spellbook. You can now include 5th-level Wizard spells.", 2, WIZARD_LEVEL_5_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-cantrips-3", 10, "Cantrip", "Choose one additional Wizard cantrip.", 1, WIZARD_CANTRIP_OPTIONS, "wizard cantrip"),
+  createWizardSpellChoiceFeature("wizard-spellbook-10", 10, "Spellbook Additions", "Add two more Wizard spells to your spellbook.", 2, WIZARD_LEVEL_5_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-11", 11, "Spellbook Additions", "Add two more Wizard spells to your spellbook. You can now include 6th-level Wizard spells.", 2, WIZARD_LEVEL_6_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-12", 12, "Spellbook Additions", "Add two more Wizard spells to your spellbook.", 2, WIZARD_LEVEL_6_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-13", 13, "Spellbook Additions", "Add two more Wizard spells to your spellbook. You can now include 7th-level Wizard spells.", 2, WIZARD_LEVEL_7_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-14", 14, "Spellbook Additions", "Add two more Wizard spells to your spellbook.", 2, WIZARD_LEVEL_7_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-15", 15, "Spellbook Additions", "Add two more Wizard spells to your spellbook. You can now include 8th-level Wizard spells.", 2, WIZARD_LEVEL_8_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-16", 16, "Spellbook Additions", "Add two more Wizard spells to your spellbook.", 2, WIZARD_LEVEL_8_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("wizard-spellbook-17", 17, "Spellbook Additions", "Add two more Wizard spells to your spellbook. You can now include 9th-level Wizard spells.", 2, WIZARD_LEVEL_9_SPELL_OPTIONS, "wizard spell"),
   createSimpleFeature("wizard-subclass-feature-10", 10, "Subclass Feature", "Your magical discipline grants a powerful mid-tier specialization feature."),
   {
     index: "improved-abjuration",
@@ -461,7 +519,8 @@ const WIZARD_FEATURE_REFERENCES: CuratedFeatureReference[] = [
   createWizardSubclassFeature("overchannel", 14, "Overchannel", "You can increase the power of your spells. When you cast a Wizard spell with a spell slot of levels 1-5 that deals damage, you can deal maximum damage with that spell on the turn you cast it.\n\nThe first time you do so, you suffer no adverse effect. If you use this feature again before you finish a Long Rest, you take 2d12 Necrotic damage for each level of the spell slot immediately after you cast it. This damage ignores Resistance and Immunity.\n\nEach time you use this feature again before finishing a Long Rest, the Necrotic damage per spell level increases by 1d12.", "evoker", "Evoker"),
   createWizardSubclassFeature("illusory-reality", 14, "Illusory Reality", "You have learned to weave shadow magic into your illusions to give them a semi-reality. When you cast an Illusion spell with a spell slot, you can choose one inanimate, nonmagical object that is part of the illusion and make that object real. You can do this on your turn as a Bonus Action while the spell is ongoing. The object remains real for 1 minute, during which it can't deal damage or give any conditions. For example, you can create an illusion of a bridge over a chasm and then make it real and cross it.", "illusionist", "Illusionist"),
   createAbilityScoreImprovementFeature("wizard-ability-score-improvement-4", 16, WIZARD_FEAT_OPTIONS),
-  createWizardSpellChoiceFeature("spell-mastery", 18, "Spell Mastery", "You have achieved such mastery over certain spells that you can cast them at will. Choose a level 1 and a level 2 spell in your spellbook that have a casting time of an action. You always have those spells prepared, and you can cast them at their lowest level without expending a spell slot. To cast either spell at a higher level, you must expend a spell slot.\n\nWhenever you finish a Long Rest, you can study your spellbook and replace one of those spells with an eligible spell of the same level from the book.", 2, WIZARD_LEVEL_2_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("spell-mastery-level-1", 18, "Spell Mastery: 1st-Level Spell", "Choose one 1st-level Wizard spell in your spellbook with a casting time of an action. You always have it prepared and can cast it at its lowest level without expending a spell slot. Replace it with an eligible 1st-level spell after a Long Rest.", 1, WIZARD_LEVEL_1_SPELL_OPTIONS, "wizard spell"),
+  createWizardSpellChoiceFeature("spell-mastery-level-2", 18, "Spell Mastery: 2nd-Level Spell", "Choose one 2nd-level Wizard spell in your spellbook with a casting time of an action. You always have it prepared and can cast it at its lowest level without expending a spell slot. Replace it with an eligible 2nd-level spell after a Long Rest.", 1, WIZARD_LEVEL_2_SPELL_OPTIONS.filter(([index]) => !WIZARD_LEVEL_1_SPELL_OPTIONS.some(([levelOneIndex]) => levelOneIndex === index)), "wizard spell"),
   createEpicBoonFeature("wizard-epic-boon", 19, "You gain an Epic Boon feat or another qualifying feat for which you qualify."),
   createWizardSpellChoiceFeature("wizard-signature-spells", 20, "Signature Spells", "Choose two level 3 spells in your spellbook as your signature spells. You always have these spells prepared, and you can cast each of them once at level 3 without expending a spell slot. When you do so, you can't cast them in this way again until you finish a Short or Long Rest. To cast either spell at a higher level, you must expend a spell slot.", 2, WIZARD_LEVEL_3_SPELL_OPTIONS, "wizard spell"),
 ];
@@ -476,11 +535,15 @@ const WIZARD_LEVEL_REFERENCES: CuratedLevelReference[] = [
   { index: "wizard-7", level: 7, features: ["wizard-spellbook-7"] },
   { index: "wizard-8", level: 8, features: ["wizard-spellbook-8", "wizard-ability-score-improvement-2"] },
   { index: "wizard-9", level: 9, features: ["wizard-spellbook-9"] },
-  { index: "wizard-10", level: 10, features: ["wizard-subclass-feature-10", "improved-abjuration", "the-third-eye", "empowered-evocation", "illusory-self"] },
-  { index: "wizard-12", level: 12, features: ["wizard-ability-score-improvement-3"] },
-  { index: "wizard-14", level: 14, features: ["wizard-subclass-feature-14", "spell-resistance", "greater-portent", "overchannel", "illusory-reality"] },
-  { index: "wizard-16", level: 16, features: ["wizard-ability-score-improvement-4"] },
-  { index: "wizard-18", level: 18, features: ["spell-mastery"] },
+  { index: "wizard-10", level: 10, features: ["wizard-cantrips-3", "wizard-spellbook-10", "wizard-subclass-feature-10", "improved-abjuration", "the-third-eye", "empowered-evocation", "illusory-self"] },
+  { index: "wizard-11", level: 11, features: ["wizard-spellbook-11"] },
+  { index: "wizard-12", level: 12, features: ["wizard-spellbook-12", "wizard-ability-score-improvement-3"] },
+  { index: "wizard-13", level: 13, features: ["wizard-spellbook-13"] },
+  { index: "wizard-14", level: 14, features: ["wizard-spellbook-14", "wizard-subclass-feature-14", "spell-resistance", "greater-portent", "overchannel", "illusory-reality"] },
+  { index: "wizard-15", level: 15, features: ["wizard-spellbook-15"] },
+  { index: "wizard-16", level: 16, features: ["wizard-spellbook-16", "wizard-ability-score-improvement-4"] },
+  { index: "wizard-17", level: 17, features: ["wizard-spellbook-17"] },
+  { index: "wizard-18", level: 18, features: ["spell-mastery-level-1", "spell-mastery-level-2"] },
   { index: "wizard-19", level: 19, features: ["wizard-epic-boon"] },
   { index: "wizard-20", level: 20, features: ["wizard-signature-spells"] },
 ];

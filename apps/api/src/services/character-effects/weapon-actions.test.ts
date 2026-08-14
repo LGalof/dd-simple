@@ -333,7 +333,7 @@ test("deriveWeaponActionEntries adds Radiant Strikes damage to melee attacks", (
 
   assert.equal(warhammer?.combat?.damage, "1d6 + 3 + 1d8 radiant");
   assert.equal(warhammer?.combat?.notes, "Weapon attack • Radiant Strikes +1d8 radiant");
-  assert.equal(unarmedStrike?.combat?.damage, "1 + 3 + 1d8 radiant");
+  assert.equal(unarmedStrike?.combat?.damage, "4 + 1d8 radiant");
 });
 
 test("deriveWeaponActionEntries applies Dazzling Footwork to unarmed strikes", () => {
@@ -483,4 +483,75 @@ test("deriveWeaponActionEntries adds Sneak Attack dice to eligible weapons", () 
   assert.equal(dagger?.combat?.damage, "1d4 + 3 + 4d6 Sneak Attack");
   assert.equal(dagger?.combat?.notes, "Finesse, light, thrown • 4d6 Sneak Attack once per turn");
   assert.equal(warhammer?.combat?.damage, "1d6 + 0");
+});
+
+test("deriveWeaponActionEntries does not treat thrown-only weapons as Sneak Attack eligible", () => {
+  const thrownOnlyItem = {
+    ...baseInventoryItem,
+    equipmentIndex: "handaxe",
+    equipment: {
+      ...baseInventoryItem.equipment,
+      index: "handaxe",
+      name: "Handaxe",
+    },
+  };
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [
+      { abilityIndex: "str", score: 16 },
+      { abilityIndex: "dex", score: 10 },
+    ],
+    activeSources: [
+      {
+        description: "Once per turn, you can deal extra damage to one creature you hit with an attack.",
+        level: 1,
+        sourceIndex: "sneak-attack",
+        sourceType: "class_feature",
+        title: "Sneak Attack",
+      },
+    ],
+    characterLevel: 1,
+    inventory: [thrownOnlyItem],
+    proficiencies: [{ proficiency: { index: "simple-weapons", name: "Simple Weapons" } }],
+    stats: createBaseDerivedStats(1),
+  });
+
+  const handaxe = actions.find((action) => action.title === "Handaxe");
+  assert.equal(handaxe?.combat?.damage, "1d6 + 3");
+});
+
+test("deriveWeaponActionEntries calculates normal unarmed damage as 1 plus Strength modifier", () => {
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [{ abilityIndex: "str", score: 10 }],
+    activeSources: [],
+    characterLevel: 1,
+    inventory: [],
+    proficiencies: [],
+    stats: createBaseDerivedStats(1),
+  });
+
+  assert.equal(actions.find((action) => action.title === "Unarmed Strike")?.combat?.damage, "1");
+});
+
+test("deriveWeaponActionEntries annotates weapon attacks with Savage Attacker", () => {
+  const actions = deriveWeaponActionEntries({
+    abilityScores: [{ abilityIndex: "str", score: 16 }],
+    activeSources: [
+      {
+        description: "Once per turn, roll the weapon damage dice twice and use either roll.",
+        level: null,
+        sourceIndex: "savage-attacker",
+        sourceType: "class_feature",
+        title: "Savage Attacker",
+      },
+    ],
+    characterLevel: 4,
+    inventory: [baseInventoryItem],
+    proficiencies: [{ proficiency: { index: "simple-weapons", name: "Simple Weapons" } }],
+    stats: createBaseDerivedStats(4),
+  });
+
+  assert.match(
+    actions.find((action) => action.title === "Warhammer")?.combat?.notes ?? "",
+    /Savage Attacker/,
+  );
 });

@@ -145,6 +145,24 @@ test("getActiveFeatureChoiceSources falls back to selectedRawJson descriptions w
   ]);
 });
 
+test("getActiveFeatureChoiceSources marks the Magic Initiate level 1 spell for free-cast tracking", () => {
+  const sources = getActiveFeatureChoiceSources(
+    [
+      createFeatureChoice({
+        choiceKey: "magic-initiate-spell-1",
+        choiceLabel: "Magic Initiate Level 1 Spell",
+        choicePath: "magic-initiate.spell-1",
+        selectedOptionIndex: "cure-wounds",
+        selectedOptionName: "Cure Wounds",
+        sourceIndex: "magic-initiate",
+      }),
+    ],
+    1,
+  );
+
+  assert.equal(sources[0]?.sourceIndex, "magic-initiate-free-cast:cure-wounds");
+});
+
 test("getActiveSpeciesTraitIndexes keeps only selected lineage trait branches", () => {
   const activeTraitIndexes = getActiveSpeciesTraitIndexes(
     [
@@ -163,11 +181,11 @@ test("getActiveSpeciesTraitIndexes keeps only selected lineage trait branches", 
         { index: "fiendish-spell-ray-of-enfeeblement" },
       ],
     },
+    "tiefling",
   );
 
   assert.deepEqual(activeTraitIndexes.sort(), [
     "darkvision",
-    "fiendish-legacy",
     "fiendish-legacy-chthonic",
     "fiendish-spell-false-life",
     "fiendish-spell-ray-of-enfeeblement",
@@ -189,12 +207,79 @@ test("getActiveSpeciesTraitIndexes does not activate unselected elf and gnome li
         { index: "lineage-spell-longstrider" },
       ],
     },
+    "elf",
   );
 
   assert.deepEqual(activeTraitIndexes.sort(), [
-    "elven-lineage",
     "lineage-spell-druidcraft",
     "lineage-spell-longstrider",
     "wood-elf-speed-increase",
   ].sort());
+});
+
+test("getActiveSpeciesTraitIndexes keeps only the selected Dragonborn damage type", () => {
+  const activeTraitIndexes = getActiveSpeciesTraitIndexes(
+    [
+      "darkvision-60",
+      "draconic-flight",
+      "draconic-breath-weapon-acid",
+      "draconic-breath-weapon-cold",
+      "draconic-breath-weapon-fire",
+      "draconic-breath-weapon-lightning",
+      "draconic-breath-weapon-poison",
+    ],
+    {
+      traits: [
+        { index: "draconic-breath-weapon-fire" },
+        { index: "draconic-damage-resistance-fire" },
+      ],
+    },
+    "dragonborn",
+  );
+
+  assert.deepEqual(activeTraitIndexes.sort(), [
+    "darkvision-60",
+    "draconic-breath-weapon-fire",
+    "draconic-damage-resistance-fire",
+    "draconic-flight",
+  ].sort());
+});
+
+test("getActiveSpeciesTraitIndexes replaces generic Gnome and Goliath choice wrappers", () => {
+  assert.deepEqual(
+    getActiveSpeciesTraitIndexes(
+      ["darkvision-60", "gnomish-cunning", "gnomish-lineage"],
+      { traits: [{ index: "gnomish-lineage-forest-gnome" }] },
+      "gnome",
+    ).sort(),
+    ["darkvision-60", "gnomish-cunning", "gnomish-lineage-forest-gnome"].sort(),
+  );
+
+  assert.deepEqual(
+    getActiveSpeciesTraitIndexes(
+      ["giant-ancestry", "large-form", "powerful-build"],
+      { traits: [{ index: "giant-ancestry-stones-endurance" }] },
+      "goliath",
+    ).sort(),
+    ["giant-ancestry-stones-endurance", "large-form", "powerful-build"].sort(),
+  );
+});
+
+test("getActiveSpeciesTraitIndexes preserves base Darkvision for Dwarf and Orc", () => {
+  assert.deepEqual(
+    getActiveSpeciesTraitIndexes(
+      ["darkvision-120", "dwarven-resilience"],
+      null,
+      "dwarf",
+    ),
+    ["darkvision-120", "dwarven-resilience"],
+  );
+  assert.deepEqual(
+    getActiveSpeciesTraitIndexes(
+      ["adrenaline-rush", "darkvision-120", "relentless-endurance"],
+      null,
+      "orc",
+    ),
+    ["adrenaline-rush", "darkvision-120", "relentless-endurance"],
+  );
 });

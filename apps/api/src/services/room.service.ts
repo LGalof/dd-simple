@@ -87,6 +87,7 @@ type BoardStateRecord = {
 
 const ROOM_CODE_LENGTH = 6;
 const MAX_HOSTED_ROOMS_PER_USER = 3;
+const MAX_JOINED_ROOMS_PER_USER = 6;
 const ROOM_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const playerTokenColors = ["#60a5fa", "#a78bfa", "#34d399", "#facc15", "#f472b6", "#22d3ee"];
 
@@ -136,10 +137,29 @@ class RoomLimitError extends Error {
   }
 }
 
+class JoinedRoomLimitError extends Error {
+  constructor() {
+    super(`You can join up to ${MAX_JOINED_ROOMS_PER_USER} rooms. Leave a room before joining another.`);
+    this.name = "JoinedRoomLimitError";
+  }
+}
+
 function ensureHostedRoomLimit(hostedRoomCount: number) {
   if (hostedRoomCount >= MAX_HOSTED_ROOMS_PER_USER) {
     throw new RoomLimitError();
   }
+}
+
+function ensureJoinedRoomLimit(joinedRoomCount: number) {
+  if (joinedRoomCount >= MAX_JOINED_ROOMS_PER_USER) {
+    throw new JoinedRoomLimitError();
+  }
+}
+
+async function lockRoomMembershipForUser(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$executeRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(CAST(${userId} AS text)))`,
+  );
 }
 
 function getAbilityModifier(score: number) {
@@ -318,7 +338,7 @@ async function findRoomRecord(roomCode: string) {
 
 async function createRoom(userId: string, character: RoomCharacter) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${userId}))`);
+    await lockRoomMembershipForUser(tx, userId);
 
     const hostedRoomCount = await tx.room.count({
       where: {
@@ -449,6 +469,8 @@ async function listRoomsForUser(userId: string): Promise<CreatedRoomSummary[]> {
 
 async function joinRoom(roomCode: string, userId: string, character: RoomCharacter) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await lockRoomMembershipForUser(tx, userId);
+
     const room = await tx.room.findUnique({
       where: {
         code: normalizeRoomCode(roomCode),
@@ -469,6 +491,23 @@ async function joinRoom(roomCode: string, userId: string, character: RoomCharact
     const existingPlayer = room.players.find(
       (player) => player.userId === userId && player.characterId === character.id,
     );
+
+    const alreadyJoinedRoom = room.players.some((player) => player.userId === userId);
+
+    if (!alreadyJoinedRoom && room.creatorUserId !== userId) {
+      const joinedRoomCount = await tx.roomPlayer.count({
+        where: {
+          userId,
+          room: {
+            creatorUserId: {
+              not: userId,
+            },
+          },
+        },
+      });
+
+      ensureJoinedRoomLimit(joinedRoomCount);
+    }
 
     if (!existingPlayer) {
       await tx.roomPlayer.create({
@@ -510,6 +549,77 @@ async function joinRoom(roomCode: string, userId: string, character: RoomCharact
   });
 }
 
+async function leaveRoom(roomCode: string, userId: string) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await lockRoomMembershipForUser(tx, userId);
+
+    const room = await tx.room.findUnique({
+      where: {
+        code: normalizeRoomCode(roomCode),
+      },
+      include: {
+        players: {
+          where: {
+            userId,
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      return { status: "not_found" as const };
+    }
+
+    if (room.creatorUserId === userId) {
+      return { status: "creator" as const };
+    }
+
+    if (room.players.length === 0) {
+      return { status: "not_joined" as const };
+    }
+
+    const characterIds = new Set(room.players.map((player) => player.characterId));
+    const state = normalizeBoardStateRecord(room.boardState);
+    const currentTokens = state.tokens ?? [];
+    const currentInitiativeOrder = state.initiativeOrder ?? [];
+    const tokens = currentTokens.filter((token) => !characterIds.has(token.characterId ?? ""));
+    const tokenIds = new Set(tokens.map((token) => token.id));
+    const initiativeOrder = currentInitiativeOrder.filter((tokenId) => tokenIds.has(tokenId));
+    const currentSelectedTokenId = state.selectedTokenId ?? "";
+    const selectedTokenId = tokenIds.has(currentSelectedTokenId)
+      ? currentSelectedTokenId
+      : (initiativeOrder[0] ?? tokens[0]?.id ?? "");
+    const currentActiveInitiativeIndex = state.activeInitiativeIndex ?? 0;
+
+    await tx.roomPlayer.deleteMany({
+      where: {
+        roomId: room.id,
+        userId,
+      },
+    });
+
+    await tx.room.update({
+      where: {
+        id: room.id,
+      },
+      data: {
+        boardState: {
+          ...state,
+          tokens,
+          initiativeOrder,
+          selectedTokenId,
+          activeInitiativeIndex: Math.min(
+            Math.max(0, currentActiveInitiativeIndex),
+            Math.max(0, initiativeOrder.length - 1),
+          ),
+        } as Prisma.InputJsonValue,
+      },
+    });
+
+    return { status: "left" as const, roomCode: room.code };
+  });
+}
+
 async function saveRoomBoardState(roomCode: string, boardState: unknown) {
   const room = await prisma.room.update({
     where: {
@@ -536,8 +646,11 @@ export {
   deleteRoomForCreator,
   getRoom,
   ensureHostedRoomLimit,
+  ensureJoinedRoomLimit,
   joinRoom,
+  leaveRoom,
   listRoomsForUser,
+  JoinedRoomLimitError,
   RoomLimitError,
   saveRoomBoardState,
 };

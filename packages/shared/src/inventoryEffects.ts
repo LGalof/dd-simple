@@ -294,6 +294,7 @@ function buildReferenceEquipmentEffectLines(
 ) {
   const lines: string[] = [];
   const requiresAttunement = itemRequiresAttunement(referenceItem);
+  const description = extractEquipmentDescription(referenceItem);
   const normalizedName = referenceItem.name.trim().toLowerCase();
 
   if (requiresAttunement) {
@@ -338,6 +339,8 @@ function buildReferenceEquipmentEffectLines(
     lines.push(`Grants resistance to ${effects.resistances.join(", ")} damage.`);
   }
 
+  extractSavingThrowAdvantageLines(description).forEach((line) => lines.push(line));
+
   if (normalizedName.includes("mantle of spell resistance")) {
     lines.push("Grants advantage on saving throws against spells.");
   }
@@ -355,6 +358,21 @@ function buildReferenceEquipmentEffectLines(
   }
 
   return lines;
+}
+
+function extractSavingThrowAdvantageLines(description: string) {
+  const lines = new Set<string>();
+  const pattern = /(?:you have|you gain) advantage on saving throws ([^.]+)/gi;
+
+  [...description.matchAll(pattern)].forEach((match) => {
+    const detail = match[1]?.trim();
+
+    if (detail) {
+      lines.add(`Grants advantage on saving throws ${detail}.`);
+    }
+  });
+
+  return [...lines];
 }
 
 function toTitleCase(value: string) {

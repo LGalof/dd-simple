@@ -24,6 +24,7 @@ type ActionsTabProps = {
   actionFilterOptions: Array<{ id: ActionFilter; label: string }>;
   activeActionFilter: ActionFilter;
   attackActionRows: ActionDisplayRow[];
+  attacksPerAction: number;
   derivedStateError: string | null;
   derivedStateLoading: boolean;
   detailActionRows: ActionDisplayRow[];
@@ -40,6 +41,7 @@ function ActionsTab({
   actionFilterOptions,
   activeActionFilter,
   attackActionRows,
+  attacksPerAction,
   derivedStateError,
   derivedStateLoading,
   detailActionRows,
@@ -71,10 +73,7 @@ function ActionsTab({
       </div>
 
       <div className="character-actions-meta">
-        <span>Actions - Attacks per Action: 1</span>
-        <button type="button" className="character-inline-button">
-          Manage Custom
-        </button>
+        <span>Actions - Attacks per Action: {attacksPerAction}</span>
       </div>
 
       {attackActionRows.length > 0 ? (

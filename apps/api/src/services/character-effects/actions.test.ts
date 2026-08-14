@@ -265,6 +265,35 @@ test("deriveActionEntries exposes Thief Fast Hands as a bonus action", () => {
   assert.equal(actions[0]?.title, "Fast Hands");
 });
 
+test("deriveActionEntries exposes Rogue Cunning Strike attack riders", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      level: 5,
+      sourceIndex: "rogue-cunning-strike",
+      title: "Cunning Strike",
+    }),
+    createSource({
+      level: 11,
+      sourceIndex: "rogue-improved-cunning-strike",
+      title: "Improved Cunning Strike",
+    }),
+    createSource({
+      level: 14,
+      sourceIndex: "rogue-devious-strikes",
+      title: "Devious Strikes",
+    }),
+  ]);
+
+  assert.deepEqual(
+    actions.map((entry) => [entry.title, entry.activationType, entry.combat?.damage, entry.combat?.hit]),
+    [
+      ["Cunning Strike", "attack", "Forgo 1d6 Sneak Attack", "Sneak Attack hit"],
+      ["Improved Cunning Strike", "attack", "Forgo up to 2 Sneak Attack dice", "Sneak Attack hit"],
+      ["Devious Strikes", "attack", "Forgo 2d6–6d6 Sneak Attack", "Sneak Attack hit"],
+    ],
+  );
+});
+
 test("deriveActionEntries exposes Abjurer ward actions", () => {
   const actions = deriveActionEntries([
     createSource({
@@ -301,4 +330,38 @@ test("deriveActionEntries exposes Abjurer ward actions", () => {
       ["Projected Ward", "reaction", "30 ft."],
     ],
   );
+});
+
+test("deriveActionEntries keeps Divine Intervention as an action when its text mentions Reaction", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "As a Magic action, choose any Divine spell of level 5 or lower that doesn't require a Reaction to cast.",
+      level: 10,
+      sourceIndex: "divine-intervention",
+      title: "Divine Intervention",
+    }),
+  ]);
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0]?.activationType, "action");
+});
+
+test("deriveActionEntries gives Charger a concise attack rider", () => {
+  const actions = deriveActionEntries([
+    createSource({
+      description:
+        "If you move at least 10 feet in a straight line immediately before hitting with a melee attack, choose +1d8 damage or push the target up to 10 feet.",
+      sourceIndex: "charger",
+      title: "Charger",
+    }),
+  ]);
+
+  assert.deepEqual(actions[0]?.combat, {
+    damage: "+1d8 or push",
+    hit: "Melee hit after moving 10 ft.",
+    notes: "Choose +1d8 damage or push the target up to 10 ft.; once per turn.",
+    range: "Melee",
+    subtitle: "General Feat",
+  });
 });

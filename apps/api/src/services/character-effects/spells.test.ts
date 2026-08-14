@@ -96,6 +96,29 @@ test("deriveSpellEntries ignores generic Spell Mastery wrapper text", () => {
   assert.equal(spells.some((entry) => entry.title === "Spell Mastery"), false);
 });
 
+test("deriveSpellEntries ignores the Magic Initiate wrapper and keeps only chosen spells", () => {
+  const activeSources: ResolvedFeatureSource[] = [
+    createSource({
+      description:
+        "Choose two cantrips and one level 1 spell. You can cast that spell using any spell slots you have.",
+      level: 1,
+      sourceIndex: "magic-initiate",
+      title: "Magic Initiate",
+    }),
+    createSource({
+      description: "You learn the level 1 spell Detect Magic through Magic Initiate.",
+      level: 1,
+      sourceIndex: "detect-magic",
+      title: "Detect Magic",
+    }),
+  ];
+
+  const spells = deriveSpellEntries(activeSources, wizardClassSource);
+
+  assert.equal(spells.some((entry) => entry.title === "Magic Initiate"), false);
+  assert.ok(spells.some((entry) => entry.title === "Detect Magic"));
+});
+
 test("deriveSpellEntries infers cantrip and always-prepared spell modes", () => {
   const activeSources: ResolvedFeatureSource[] = [
     createSource({

@@ -287,6 +287,7 @@ async function findCharacterDerivedStateForUser(
   const activeTraitIndexes = getActiveSpeciesTraitIndexes(
     effectiveSpecies.traits.map((trait: { traitIndex: string }) => trait.traitIndex),
     validatedSubspeciesDocument?.sourceJson,
+    effectiveSpeciesIndex,
   );
 
   const [featureDocuments, traitDocuments, featDocuments] = await Promise.all([

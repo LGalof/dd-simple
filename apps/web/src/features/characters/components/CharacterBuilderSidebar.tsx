@@ -78,7 +78,9 @@ function CharacterBuilderSidebar({
       return;
     }
 
-    setDraftBonusHp(String(hitPointPreview.bonusHp));
+    // The editor controls the manual modifier only. Feature bonuses (such as
+    // Tough) are calculated separately and must not be copied into this field.
+    setDraftBonusHp(String(hitPointSettings.bonusHp));
     setDraftCalculationMode(hitPointSettings.calculationMode === "override" ? "fixed" : hitPointSettings.calculationMode);
     setDraftOverrideMaxHp(
       hitPointPreview.overrideMaxHp === null ? "" : String(hitPointPreview.overrideMaxHp),

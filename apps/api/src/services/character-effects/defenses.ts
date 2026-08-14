@@ -15,6 +15,10 @@ function inferDefenseEffects(source: ResolvedFeatureSource) {
   const entries: CharacterDefenseEntry[] = [];
   const seen = new Set<string>();
 
+  addSpellDamageResistance(entries, seen, source);
+  addSavingThrowAdvantageEntries(entries, seen, source);
+  addContextualDamageResistance(entries, seen, source);
+  addNatureWardResistance(entries, seen, source);
   addDamageDefenseEntries(entries, seen, source, "resistance", /resistance to ([^.]+?) damage/gi);
   addDamageDefenseEntries(entries, seen, source, "resistance", /resistant to ([^.]+?) damage/gi);
   addDamageDefenseEntries(entries, seen, source, "immunity", /immunity to ([^.]+?) damage/gi);
@@ -125,17 +129,115 @@ function addHeavyArmorMasterReduction(
 }
 
 function deriveDefenseEntries(activeSources: ResolvedFeatureSource[]) {
+  const isRageActive = activeSources.some(
+    (source) => source.sourceIndex.toLowerCase() === "rage-active",
+  );
+
   return dedupeDefenses(
     activeSources
-      .filter(shouldShowInDefensePanel)
+      .filter((source) => shouldShowInDefensePanel(source, isRageActive))
       .flatMap(inferDefenseEffects),
   ).sort(compareDefenseEntries);
 }
 
-function shouldShowInDefensePanel(source: ResolvedFeatureSource) {
-  // Class and subclass features are already represented by feature/action/resource
-  // tabs. The Defense panel should stay focused on innate and equipped defenses.
-  return source.sourceType !== "class_feature" && source.sourceType !== "subclass_feature";
+function shouldShowInDefensePanel(source: ResolvedFeatureSource, isRageActive: boolean) {
+  // A Rage-dependent defense is only available while the character has enabled Rage.
+  // Other class and subclass defenses are permanent or already include their own
+  // condition in the displayed target.
+  const isRageDependent =
+    source.sourceIndex.toLowerCase() === "rage" ||
+    /\bwhile (?:your )?rage is active\b/i.test(source.description);
+
+  return !isRageDependent || isRageActive;
+}
+
+function addSpellDamageResistance(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  if (!hasSpellDamageResistance(source.description)) {
+    return;
+  }
+
+  pushDefenseEntry(entries, seen, createDefenseEntry(source, "resistance", "Spell Damage"));
+}
+
+function addSavingThrowAdvantageEntries(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  if (/advantage on death saving throws/i.test(source.description)) {
+    pushDefenseEntry(
+      entries,
+      seen,
+      createDefenseEntry(source, "saving_throw_advantage", "Death Saving Throws"),
+    );
+  }
+
+  const pattern = /advantage on saving throws against ([^.]+?)(?=\s*(?:\.|;|, and\s+you\s+(?:have|gain)|$))/gi;
+
+  [...source.description.matchAll(pattern)].forEach((match) => {
+    const target = formatSavingThrowAdvantageTarget(match[1] ?? "");
+
+    if (target) {
+      pushDefenseEntry(entries, seen, createDefenseEntry(source, "saving_throw_advantage", target));
+    }
+  });
+
+  const avoidOrEndPattern = /advantage on saving throws(?: you make| made)? to (avoid or end|avoid|end) (?:the )?([^.]+?) condition/gi;
+
+  [...source.description.matchAll(avoidOrEndPattern)].forEach((match) => {
+    const action = match[1]?.trim();
+    const conditions = extractConditionTargets(match[2] ?? "");
+
+    conditions.forEach((condition) => {
+      if (action) {
+        pushDefenseEntry(
+          entries,
+          seen,
+          createDefenseEntry(source, "saving_throw_advantage", `To ${formatSavingThrowAction(action)} ${condition}`),
+        );
+      }
+    });
+  });
+}
+
+function addContextualDamageResistance(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  const pattern = /(?:resistance|resistant) to damage from ([^.]+?)(?:\.|$)/gi;
+
+  [...source.description.matchAll(pattern)].forEach((match) => {
+    const sourceOfDamage = match[1]?.trim();
+
+    if (sourceOfDamage) {
+      pushDefenseEntry(
+        entries,
+        seen,
+        createDefenseEntry(source, "resistance", `Damage from ${sourceOfDamage}`),
+      );
+    }
+  });
+}
+
+function addNatureWardResistance(
+  entries: CharacterDefenseEntry[],
+  seen: Set<string>,
+  source: ResolvedFeatureSource,
+) {
+  if (!/resistance to a damage type associated with your current land choice/i.test(source.description)) {
+    return;
+  }
+
+  pushDefenseEntry(
+    entries,
+    seen,
+    createDefenseEntry(source, "resistance", "Current Land Choice Damage Type"),
+  );
 }
 
 function addDamageDefenseEntries(
@@ -152,18 +254,14 @@ function addDamageDefenseEntries(
   const matches = [...source.description.matchAll(pattern)];
 
   matches.forEach((match) => {
-    const targets = extractDamageTargets(match[1] ?? "");
+    const targets = extractDamageTargets(match[1] ?? "").map((target) =>
+      target === "All Damage" && kind === "resistance" && hasSpellDamageResistance(source.description)
+        ? "Spell Damage"
+        : target,
+    );
 
     targets.forEach((target) => {
-      pushDefenseEntry(entries, seen, {
-        description: source.description,
-        kind,
-        level: source.level,
-        sourceIndex: source.sourceIndex,
-        sourceType: source.sourceType,
-        target,
-        title: source.title,
-      });
+      pushDefenseEntry(entries, seen, createDefenseEntry(source, kind, target));
     });
   });
 }
@@ -180,17 +278,63 @@ function addConditionDefenseEntries(
     const targets = extractConditionTargets(match[1] ?? "");
 
     targets.forEach((target) => {
-      pushDefenseEntry(entries, seen, {
-        description: source.description,
-        kind: "condition_immunity",
-        level: source.level,
-        sourceIndex: source.sourceIndex,
-        sourceType: source.sourceType,
-        target,
-        title: source.title,
-      });
+      pushDefenseEntry(entries, seen, createDefenseEntry(source, "condition_immunity", target));
     });
   });
+}
+
+function createDefenseEntry(
+  source: ResolvedFeatureSource,
+  kind: CharacterDefenseKind,
+  target: string,
+): Omit<CharacterDefenseEntry, "id"> {
+  return {
+    description: source.description,
+    kind,
+    level: source.level,
+    sourceIndex: source.sourceIndex,
+    sourceType: source.sourceType,
+    target: `${target}${getDefenseConditionSuffix(source.description)}`,
+    title: source.title,
+  };
+}
+
+function hasSpellDamageResistance(description: string) {
+  return /(?:resistance|resistant) (?:to|against) (?:all |the )?damage (?:of|from) spells\b/i.test(
+    description,
+  );
+}
+
+function formatSavingThrowAdvantageTarget(value: string) {
+  const normalized = value.trim().replace(/\s+/g, " ");
+
+  if (!normalized) {
+    return null;
+  }
+
+  return `Against ${capitalizeFirst(normalized)}`;
+}
+
+function capitalizeFirst(value: string) {
+  return value.length > 0 ? `${value[0]?.toUpperCase()}${value.slice(1)}` : value;
+}
+
+function formatSavingThrowAction(value: string) {
+  return value
+    .replace(/\b(avoid|end)\b/gi, (word) => capitalizeFirst(word.toLowerCase()))
+    .replace(/\bOr\b/g, "or");
+}
+
+function getDefenseConditionSuffix(description: string) {
+  const leadingCondition = description.match(/(?:^|[.!?]\s*)while ([^,.]+),/i);
+
+  if (leadingCondition?.[1]) {
+    return ` while ${leadingCondition[1].trim()}`;
+  }
+
+  const trailingCondition = description.match(/\bwhile ([^,.]+?)(?:,|\.|$)/i);
+
+  return trailingCondition?.[1] ? ` while ${trailingCondition[1].trim()}` : "";
 }
 
 function pushDefenseEntry(

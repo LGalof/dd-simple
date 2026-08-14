@@ -4,6 +4,15 @@ import type {
   ResolvedFeatureSource,
 } from "./types.js";
 
+const ELF_LINEAGE_FREE_CASTS: Readonly<Record<string, string>> = {
+  "lineage-spell-darkness": "Darkness",
+  "lineage-spell-detect-magic": "Detect Magic",
+  "lineage-spell-faerie-fire": "Faerie Fire",
+  "lineage-spell-longstrider": "Longstrider",
+  "lineage-spell-misty-step": "Misty Step",
+  "lineage-spell-pass-without-trace": "Pass without Trace",
+};
+
 function deriveResourceEntries(
   activeSources: ResolvedFeatureSource[],
   characterLevel: number,
@@ -41,6 +50,38 @@ function inferResourceEntries(
   const key = `${source.sourceIndex} ${source.title}`.toLowerCase();
   const base = getResourceBase(source);
 
+  if (source.sourceIndex.toLowerCase().startsWith("magic-initiate-free-cast:")) {
+    return [
+      {
+        ...base,
+        automationNote: `Track the once-per-Long-Rest slot-free cast of ${source.title} from Magic Initiate. You can also cast it with spell slots.`,
+        category: "resource",
+        maxUses: "1 free cast",
+        maxUsesValue: 1,
+        name: `${source.title} (Magic Initiate)`,
+        recharge: "Long Rest",
+        trackingMode: "uses",
+      },
+    ];
+  }
+
+  const elfLineageSpellName = ELF_LINEAGE_FREE_CASTS[source.sourceIndex.toLowerCase()];
+
+  if (elfLineageSpellName) {
+    return [
+      {
+        ...base,
+        automationNote: `Track the once-per-Long-Rest slot-free cast of ${elfLineageSpellName} from your Elven Lineage. You can also cast it with spell slots.`,
+        category: "resource",
+        maxUses: "1 free cast",
+        maxUsesValue: 1,
+        name: `${elfLineageSpellName} (Elven Lineage)`,
+        recharge: "Long Rest",
+        trackingMode: "uses",
+      },
+    ];
+  }
+
   if (key.includes("phantasmal-creatures")) {
     return ["Summon Beast", "Summon Fey"].map((spellName) => ({
       ...base,
@@ -56,6 +97,40 @@ function inferResourceEntries(
     }));
   }
 
+  if (key.includes("arcane-ward")) {
+    const wardHitPointMaximum = getArcaneWardHitPointMaximum(characterLevel, context);
+
+    return [
+      {
+        ...base,
+        automationNote:
+          "The ward absorbs damage before your Hit Points. It regains 2 Hit Points per level of an Abjuration spell slot used, whether cast or expended as a Bonus Action.",
+        category: "resource",
+        id: `${base.id}:hit-points`,
+        longRestBehavior: "empty",
+        maxUses: "Hit Point maximum = 2 × Wizard level + Intelligence modifier",
+        maxUsesValue: wardHitPointMaximum,
+        name: "Arcane Ward Hit Points",
+        recharge: "Regain 2 × spell slot level",
+        resourceKey: "arcane-ward-hit-points",
+        trackingMode: "pool",
+      },
+      {
+        ...base,
+        automationNote:
+          "Create the ward when you cast an Abjuration spell with a spell slot. After a Long Rest, the ward ends and can be created again.",
+        category: "resource",
+        id: `${base.id}:create`,
+        maxUses: "1 ward",
+        maxUsesValue: 1,
+        name: "Arcane Ward",
+        recharge: "Long Rest",
+        resourceKey: "arcane-ward-create",
+        trackingMode: "uses",
+      },
+    ];
+  }
+
   if (key.includes("the-third-eye")) {
     return [
       {
@@ -66,6 +141,24 @@ function inferResourceEntries(
         maxUsesValue: 1,
         name: "The Third Eye",
         recharge: "Short or Long Rest",
+        trackingMode: "uses",
+      },
+    ];
+  }
+
+  if (key.includes("portent") && !key.includes("greater-portent")) {
+    const portentUses = characterLevel >= 14 ? 3 : 2;
+
+    return [
+      {
+        ...base,
+        automationNote:
+          "Record each foretelling d20 after a Long Rest, then mark one use when you replace a D20 Test. Unused rolls are lost at the next Long Rest.",
+        category: "resource",
+        maxUses: `${portentUses} foretelling rolls`,
+        maxUsesValue: portentUses,
+        name: "Portent",
+        recharge: "Long Rest",
         trackingMode: "uses",
       },
     ];
@@ -309,7 +402,7 @@ function inferResourceEntry(
       maxUsesValue: diceCount,
       name: "Warrior of the Gods",
       recharge: "Long Rest",
-      trackingMode: "uses",
+      trackingMode: "pool",
     };
   }
 
@@ -324,7 +417,7 @@ function inferResourceEntry(
       maxUsesValue: psionicEnergyDice.count,
       name: `Psionic Energy Dice (${psionicEnergyDice.die})`,
       recharge: "Short Rest (1 die) / Long Rest (all dice)",
-      trackingMode: "uses",
+      trackingMode: "pool",
     };
   }
 
@@ -394,14 +487,25 @@ function inferResourceEntry(
   }
 
   if (key.includes("bardic-inspiration")) {
+    const bardicDie = getBardicInspirationDie(characterLevel);
+    const charismaUses = getCharismaModifierUseCount(context);
+    const hasFontOfInspiration = characterLevel >= 5;
+
     return {
       ...base,
-      automationNote: "Track inspiration uses. Die size and target ownership are handled manually for now.",
+      automationNote:
+        `Give a ${bardicDie} to a creature within 60 feet that can see or hear you. ` +
+        "It can add the die to a failed D20 Test within 1 hour." +
+        (characterLevel >= 18
+          ? " When you roll Initiative with fewer than two uses remaining, restore uses until you have two."
+          : ""),
       category: "bonus action",
-      maxUses: "Uses equal Proficiency Bonus",
-      maxUsesValue: getProficiencyBonus(characterLevel),
+      maxUses: "Uses equal Charisma modifier (minimum 1)",
+      maxUsesValue: charismaUses,
       name: "Bardic Inspiration",
-      recharge: "Long Rest / feature-based recovery",
+      recharge: hasFontOfInspiration
+        ? "Short or Long Rest / expend spell slot (1 use)"
+        : "Long Rest",
       trackingMode: "uses",
     };
   }
@@ -469,7 +573,7 @@ function inferResourceEntry(
       maxUses: "Uses follow class progression",
       maxUsesValue: getChannelDivinityUses(characterLevel),
       name: "Channel Divinity",
-      recharge: "Short or Long Rest",
+      recharge: "Short Rest (1 use) / Long Rest (all uses)",
       trackingMode: "uses",
     };
   }
@@ -525,7 +629,7 @@ function inferResourceEntry(
   if (key.includes("cunning-action")) {
     return {
       ...base,
-      automationNote: "Action economy reminder.",
+      automationNote: "Choose Dash, Disengage, or Hide as a Bonus Action on your turn.",
       category: "bonus action",
       maxUses: "At will",
       name: "Cunning Action",
@@ -536,7 +640,7 @@ function inferResourceEntry(
   if (key.includes("cunning-strike")) {
     return {
       ...base,
-      automationNote: "Sneak Attack tradeoff reminder.",
+      automationNote: "After a Sneak Attack hit, forgo the listed Sneak Attack dice to apply an effect. Save DC = 8 + Dexterity modifier + Proficiency Bonus.",
       category: "passive",
       name: key.includes("improved") ? "Improved Cunning Strike" : "Cunning Strike",
       trackingMode: "none",
@@ -556,19 +660,6 @@ function inferResourceEntry(
     };
   }
 
-  if (key.includes("arcane-ward")) {
-    return {
-      ...base,
-      automationNote: "Track Arcane Ward creation/ward pool manually. Maximum ward HP equals twice your Wizard level plus your Intelligence modifier.",
-      category: "resource",
-      maxUses: "Ward HP = 2 x Wizard level + Intelligence modifier",
-      maxUsesValue: null,
-      name: "Arcane Ward",
-      recharge: "Long Rest",
-      trackingMode: "uses",
-    };
-  }
-
   if (key.includes("illusory-self")) {
     return {
       ...base,
@@ -582,6 +673,19 @@ function inferResourceEntry(
     };
   }
 
+  if (key.includes("overchannel")) {
+    return {
+      ...base,
+      automationNote:
+        "The first use after a Long Rest has no cost. Track every later use here: it deals 2d12 Necrotic damage per spell-slot level, increasing by 1d12 per later use before that rest.",
+      category: "resource",
+      maxUses: "Track escalating uses",
+      name: "Overchannel",
+      recharge: "Long Rest",
+      trackingMode: "none",
+    };
+  }
+
   if (key.includes("spell-thief")) {
     return {
       ...base,
@@ -591,6 +695,20 @@ function inferResourceEntry(
       maxUsesValue: 1,
       name: "Spell Thief",
       recharge: "Long Rest",
+      trackingMode: "uses",
+    };
+  }
+
+  if (key.includes("greater-divine-intervention")) {
+    return {
+      ...base,
+      automationNote:
+        "Track Divine Intervention. At level 20, choosing Wish changes its recovery to 2d4 Long Rests; any other eligible spell still recovers on a Long Rest.",
+      category: "resource",
+      maxUses: "1 use",
+      maxUsesValue: 1,
+      name: "Divine Intervention",
+      recharge: "Long Rest / 2d4 Long Rests after Wish",
       trackingMode: "uses",
     };
   }
@@ -700,12 +818,12 @@ function getRageUseCount(level: number) {
 
 function getChannelDivinityUses(level: number) {
   if (level >= 18) {
-    return 3;
+    return 4;
   }
   if (level >= 6) {
-    return 2;
+    return 3;
   }
-  return 1;
+  return 2;
 }
 
 function getSoulknifeEnergyDice(level: number) {
@@ -756,6 +874,31 @@ function getProficiencyBonus(level: number) {
   return 6;
 }
 
+function getBardicInspirationDie(level: number) {
+  if (level >= 15) {
+    return "d12";
+  }
+  if (level >= 10) {
+    return "d10";
+  }
+  if (level >= 5) {
+    return "d8";
+  }
+  return "d6";
+}
+
+function getCharismaModifierUseCount(context: {
+  abilityScoresByIndex?: Record<string, number>;
+}) {
+  const charismaScore = context.abilityScoresByIndex?.cha;
+
+  if (typeof charismaScore !== "number") {
+    return null;
+  }
+
+  return Math.max(1, Math.floor((charismaScore - 10) / 2));
+}
+
 function getWisdomModifierUseCount(context: {
   abilityScoresByIndex?: Record<string, number>;
 }) {
@@ -766,6 +909,18 @@ function getWisdomModifierUseCount(context: {
   }
 
   return Math.max(1, Math.floor((wisdomScore - 10) / 2));
+}
+
+function getArcaneWardHitPointMaximum(
+  characterLevel: number,
+  context: {
+    abilityScoresByIndex?: Record<string, number>;
+  },
+) {
+  const intelligenceScore = context.abilityScoresByIndex?.int ?? 10;
+  const intelligenceModifier = Math.floor((intelligenceScore - 10) / 2);
+
+  return Math.max(1, characterLevel * 2 + intelligenceModifier);
 }
 
 export { deriveResourceEntries };

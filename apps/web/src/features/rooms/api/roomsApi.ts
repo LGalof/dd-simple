@@ -84,5 +84,18 @@ async function deleteRoom(roomCode: string, token: string) {
   return api.delete(`/rooms/${encodeURIComponent(normalizedRoomCode)}`, { token });
 }
 
-export { createRoom, deleteRoom, getCreatedRooms, getRoom, joinRoom, normalizeRoomCodeInput };
+async function leaveRoom(roomCode: string, token: string) {
+  const normalizedRoomCode = normalizeRoomCodeInput(roomCode);
+  return api.delete(`/rooms/${encodeURIComponent(normalizedRoomCode)}/leave`, { token });
+}
+
+export {
+  createRoom,
+  deleteRoom,
+  getCreatedRooms,
+  getRoom,
+  joinRoom,
+  leaveRoom,
+  normalizeRoomCodeInput,
+};
 export type { CreatedRoomSummary, RoomDetails };

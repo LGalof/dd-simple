@@ -5,7 +5,9 @@ import {
   deleteRoomForCreator,
   getRoom,
   joinRoom,
+  leaveRoom,
   listRoomsForUser,
+  JoinedRoomLimitError,
   RoomLimitError,
 } from "../services/room.service.js";
 import { findCharacterByIdForUser } from "../services/character.service.js";
@@ -146,10 +148,49 @@ async function joinRoomController(req: Request, res: Response) {
       },
     });
   } catch (error) {
+    if (error instanceof JoinedRoomLimitError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+
     logRoomError("join room", error);
     res.status(500).json({
       error: "Failed to join room",
     });
+  }
+}
+
+async function leaveRoomController(req: Request, res: Response) {
+  try {
+    const { roomCode } = req.params;
+
+    if (!roomCode || typeof roomCode !== "string") {
+      res.status(400).json({ error: "A valid room code is required" });
+      return;
+    }
+
+    const result = await leaveRoom(roomCode, getAuthenticatedUser(req).id);
+
+    if (result.status === "not_found") {
+      res.status(404).json({ error: "Room not found" });
+      return;
+    }
+
+    if (result.status === "creator") {
+      res.status(400).json({ error: "Room creators must delete their room instead of leaving it" });
+      return;
+    }
+
+    if (result.status === "not_joined") {
+      res.status(404).json({ error: "You have not joined this room" });
+      return;
+    }
+
+    eventBus.emit("room:update", result.roomCode);
+    res.status(204).send();
+  } catch (error) {
+    logRoomError("leave room", error);
+    res.status(500).json({ error: "Failed to leave room" });
   }
 }
 
@@ -213,5 +254,6 @@ export {
   deleteRoomController,
   getRoomController,
   joinRoomController,
+  leaveRoomController,
   listRoomsForUserController,
 };

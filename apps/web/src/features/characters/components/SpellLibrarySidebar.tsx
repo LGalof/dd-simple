@@ -88,6 +88,23 @@ function SpellLibrarySidebar({
     () => getManagedSpellEntriesForClass(selectedClassIndex, spellcastingState),
     [selectedClassIndex, spellcastingState],
   );
+  const spellbookSourceByTitle = useMemo(() => {
+    const sources = new Map<string, string>();
+
+    for (const entry of spellEntries) {
+      if (entry.spellLevel === null || isPlaceholderSpellChoiceTitle(entry.title)) {
+        continue;
+      }
+
+      const sourceLabel = formatSpellbookSource(entry.sourceIndex);
+
+      if (sourceLabel) {
+        sources.set(entry.title.trim().toLowerCase(), sourceLabel);
+      }
+    }
+
+    return sources;
+  }, [spellEntries]);
   const spellbookEntries = useMemo(
     () =>
       isWizardSpellbookMode
@@ -150,6 +167,12 @@ function SpellLibrarySidebar({
       (isWizardSpellbookMode ? spellbookEntries : preparedEntries).filter((entry) => entry.isCantrip).length,
     [isWizardSpellbookMode, preparedEntries, spellbookEntries],
   );
+  const cantripLimit = useMemo(
+    () =>
+      spellcastingSummary?.knownPrepared.find((entry) => entry.label === "Cantrips Known")
+        ?.value ?? null,
+    [spellcastingSummary],
+  );
   const selectedSpellCount = useMemo(
     () => preparedEntries.filter((entry) => !entry.isCantrip).length,
     [preparedEntries],
@@ -173,7 +196,11 @@ function SpellLibrarySidebar({
       if (isSelectedAsLearned) {
         nextLearnedIds.delete(spell.id);
         nextPreparedIds.delete(spell.id);
-      } else {
+      } else if (
+        spell.level !== 0 ||
+        cantripLimit === null ||
+        cantripCount < Number(cantripLimit)
+      ) {
         nextLearnedIds.add(spell.id);
       }
     } else if (spell.level === 0) {
@@ -260,13 +287,24 @@ function SpellLibrarySidebar({
             {isAddSpellsOpen ? (
               <div className="inventory-library-shell">
                 <div className="spells-library-copy-grid">
-                  <p>Cantrips: {cantripCount}</p>
+                  <p>
+                    Cantrips: {cantripCount}
+                    {isWizardSpellbookMode && cantripLimit !== null ? `/${cantripLimit}` : ""}
+                  </p>
                   <p>
                     {isWizardSpellbookMode
                       ? `Prepared Spells: ${selectedSpellCount} (${knownLeveledSpellCount} Known)`
                       : `Prepared Spells: ${selectedSpellCount}`}
                   </p>
                 </div>
+
+                {isWizardSpellbookMode ? (
+                  <p className="muted">
+                    {spellbookEntries.length === 0
+                      ? "Start by adding Wizard cantrips and level 1 spells to your spellbook, then prepare the spells you want to cast."
+                      : "Spellbook entries can be copied here. Prepare spells after a Long Rest; from level 5, Memorize Spell permits one prepared-spell swap after a Short Rest."}
+                  </p>
+                ) : null}
 
                 <label className="inventory-library-group">
                   <h4>Filter</h4>
@@ -345,6 +383,12 @@ function SpellLibrarySidebar({
                           learnedSpellIds,
                           preparedSpellIds,
                         );
+                        const isWizardCantripLimitReached =
+                          isWizardSpellbookMode &&
+                          spell.level === 0 &&
+                          !learnedSpellIds.has(spell.id) &&
+                          cantripLimit !== null &&
+                          cantripCount >= Number(cantripLimit);
 
                         return (
                           <div
@@ -374,8 +418,9 @@ function SpellLibrarySidebar({
                                 type="button"
                                 className="inventory-library-add-button"
                                 onClick={() => toggleLibrarySpell(spell)}
+                                disabled={isWizardCantripLimitReached}
                               >
-                                {actionLabel}
+                                {isWizardCantripLimitReached ? "Limit reached" : actionLabel}
                               </button>
                             </div>
 
@@ -495,6 +540,9 @@ function SpellLibrarySidebar({
                     spellbookEntries.map((entry) => {
                       const isPrepared = preparedSpellIds.has(entry.id);
                       const spellRecord = findSpellLibraryRecordByName(entry.title);
+                      const sourceLabel =
+                        spellbookSourceByTitle.get(entry.title.trim().toLowerCase()) ??
+                        "Copied to spellbook";
 
                       return (
                         <div
@@ -505,6 +553,7 @@ function SpellLibrarySidebar({
                             <div className="inventory-library-result-copy">
                               <strong>{entry.title}</strong>
                               <span>{formatSpellSidebarLevelLabel(entry.spellLevel ?? 0)}</span>
+                              <span>{sourceLabel}</span>
                             </div>
                             <div className="spells-library-inline-actions">
                               {!entry.isCantrip ? (
@@ -615,6 +664,34 @@ function getSpellActionLabel(
   }
 
   return preparedSpellIds.has(spell.id) ? "Unprepare" : "Prepare";
+}
+
+function formatSpellbookSource(sourceIndex: string) {
+  if (!sourceIndex || sourceIndex.endsWith(":spell-library")) {
+    return null;
+  }
+
+  if (sourceIndex.startsWith("wizard-spellbook-")) {
+    const level = sourceIndex.replace("wizard-spellbook-", "");
+    return `Wizard level ${level} spellbook addition`;
+  }
+
+  if (sourceIndex.startsWith("wizard-cantrips-")) {
+    return "Wizard cantrip choice";
+  }
+
+  if (sourceIndex.startsWith("spell-mastery-")) {
+    return "Spell Mastery";
+  }
+
+  if (sourceIndex === "wizard-signature-spells") {
+    return "Signature Spells";
+  }
+
+  return sourceIndex
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function getPreparedSpellLimit(spellcastingSummary: SpellcastingSummary | null) {

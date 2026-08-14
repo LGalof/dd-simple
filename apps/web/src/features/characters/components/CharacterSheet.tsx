@@ -165,6 +165,7 @@ type ResourceActionSummary = {
   category: "action" | "bonus action" | "reaction" | "passive" | "resource";
   id: string;
   level: number | null;
+  longRestBehavior?: "empty" | "restore";
   maxUsesValue?: number | null;
   maxUses?: string;
   name: string;
@@ -560,6 +561,8 @@ function CharacterSheet({
       ),
     [character.speed, derivedState?.stats.speedBonus, equippedSpeedPenalty],
   );
+  const hasAthleteFeat = hasActiveSource(derivedState?.activeSources ?? [], "athlete");
+  const hasActorFeat = hasActiveSource(derivedState?.activeSources ?? [], "actor");
   const derivedInitiative = useMemo(
     () => dexterityModifier + (derivedState?.stats.initiativeBonus ?? 0),
     [derivedState?.stats.initiativeBonus, dexterityModifier],
@@ -686,7 +689,13 @@ function CharacterSheet({
   );
   const speciesSectionEntries = useMemo(
     () =>
-      selectedSpecies.previewSections.map((section) => ({
+      selectedSpecies.previewSections
+        .filter(
+          (section) =>
+            !selectedHeritage ||
+            !section.id.endsWith("heritage-choice"),
+        )
+        .map((section) => ({
         id: section.id,
         title: section.title,
         subtitle: section.subtitle ?? null,
@@ -698,7 +707,7 @@ function CharacterSheet({
           section.id,
         ),
       })),
-    [selectedSpecies, speciesChoices],
+    [selectedHeritage, selectedSpecies, speciesChoices],
   );
   const speciesIdentityEntries = useMemo(
     () =>
@@ -709,10 +718,16 @@ function CharacterSheet({
   );
   const speciesTraitEntries = useMemo(
     () =>
-      speciesSectionEntries.filter(
-        (section) => !["Creature Type", "Size", "Speed", "Languages"].includes(section.title),
-      ),
-    [speciesSectionEntries],
+      (derivedState?.activeSources ?? [])
+        .filter((source) => source.sourceType === "species_trait")
+        .map((source) => ({
+          details: splitFeatureDescription(source.description),
+          id: `active-species-trait:${source.sourceIndex}`,
+          selections: [],
+          subtitle: source.level ? `Level ${source.level}` : null,
+          title: source.title,
+        })),
+    [derivedState?.activeSources],
   );
   const backgroundSectionEntries = useMemo(
     () =>
@@ -811,15 +826,9 @@ function CharacterSheet({
         ),
     [dexterityModifier, liveEquippedInventoryItems, proficiencyBonus, strengthModifier],
   );
-  const liveWeaponActionTitles = useMemo(
-    () => new Set(liveWeaponActionRows.map((row) => row.title.trim().toLowerCase())),
-    [liveWeaponActionRows],
-  );
   const actionRows = useMemo<ActionDisplayRow[]>(
-    () => [
-      ...spellAttackRows,
-      ...liveWeaponActionRows,
-      ...normalizedActions.map((action) => {
+    () => {
+      const normalizedActionRows = normalizedActions.map((action) => {
         const combatSummary = action.combat;
         const hasCombatSummary = Boolean(
           combatSummary?.range || combatSummary?.hit || combatSummary?.damage || combatSummary?.notes,
@@ -839,9 +848,20 @@ function CharacterSheet({
           subtitle: combatSummary?.subtitle ?? getReadableActionSubtitle(action),
           title: action.title,
         };
-      }).filter((action) => !liveWeaponActionTitles.has(action.title.trim().toLowerCase())),
-    ],
-    [liveWeaponActionRows, liveWeaponActionTitles, normalizedActions, spellAttackRows],
+      });
+      const normalizedActionTitles = new Set(
+        normalizedActionRows.map((row) => row.title.trim().toLowerCase()),
+      );
+
+      return [
+        ...spellAttackRows,
+        ...normalizedActionRows,
+        ...liveWeaponActionRows.filter(
+          (action) => !normalizedActionTitles.has(action.title.trim().toLowerCase()),
+        ),
+      ];
+    },
+    [liveWeaponActionRows, normalizedActions, spellAttackRows],
   );
   const filteredActionRows = useMemo(
     () =>
@@ -869,9 +889,10 @@ function CharacterSheet({
   const shouldShowActionsInCombat =
     (activeActionFilter === "all" ||
       activeActionFilter === "attack" ||
-      activeActionFilter === "action") &&
-    attackActionRows.length > 0;
-  const hasVisibleActionContent = attackActionRows.length > 0 || detailActionRows.length > 0;
+      activeActionFilter === "action");
+  const hasVisibleActionContent =
+    attackActionRows.length > 0 || detailActionRows.length > 0 || shouldShowActionsInCombat;
+  const attacksPerAction = getAttacksPerAction(derivedState?.activeSources ?? []);
   const spellFeatureEntries = useMemo(
     () => spellEntriesForDisplay.filter((entry) => !isConcreteSpellEntry(entry)),
     [spellEntriesForDisplay],
@@ -939,7 +960,7 @@ function CharacterSheet({
     () => getDerivedSourceSenseDetails(derivedState?.activeSources ?? []),
     [derivedState?.activeSources],
   );
-  const senseDetails = uniqueTrainingValues([
+  const senseDetails = mergeSenseDetails([
     ...speciesSenseDetails,
     ...heritageSenseDetails,
     ...derivedSenseDetails,
@@ -985,7 +1006,29 @@ function CharacterSheet({
     onResourceStateChange({
       ...resourceState,
       activeByResourceKey: {},
-      usageByResourceKey: {},
+      usageByResourceKey: getLongRestResourceUsage(resourceActionSummaries),
+    });
+  }
+
+  function applyShortRest() {
+    const shortRestResourceKeys = new Set(
+      resourceActionSummaries
+        .filter((resource) => resource.recharge?.toLowerCase().includes("short"))
+        .map((resource) => resource.resourceKey),
+    );
+
+    onResourceStateChange({
+      ...resourceState,
+      activeByResourceKey: Object.fromEntries(
+        Object.entries(resourceState.activeByResourceKey).filter(
+          ([resourceKey]) => !shortRestResourceKeys.has(resourceKey),
+        ),
+      ),
+      usageByResourceKey: getShortRestResourceUsage(
+        resourceActionSummaries,
+        resourceState.usageByResourceKey,
+        shortRestResourceKeys,
+      ),
     });
   }
 
@@ -1035,6 +1078,13 @@ function CharacterSheet({
         </div>
 
         <div className="character-dashboard-toolbar-actions">
+          <button
+            type="button"
+            className="character-hit-points-action"
+            onClick={applyShortRest}
+          >
+            Short Rest
+          </button>
           <button
             type="button"
             className="character-hit-points-action"
@@ -1094,7 +1144,7 @@ function CharacterSheet({
             <div className="character-primary-metric-card">
               <span>Walking</span>
               <strong>{derivedSpeed} ft</strong>
-              <em>Speed</em>
+              <em>{hasAthleteFeat ? `Climb ${derivedSpeed} ft` : "Speed"}</em>
             </div>
 
             <div className="character-primary-metric-card">
@@ -1242,6 +1292,9 @@ function CharacterSheet({
                   <span className="character-skill-name">
                     {skill.name}
                     {skill.hasExpertise ? " (Expertise)" : ""}
+                    {hasActorFeat && (skill.name === "Deception" || skill.name === "Performance")
+                      ? " (Advantage while disguised)"
+                      : ""}
                   </span>
                   <Rollable
                     className="character-skill-bonus-pill"
@@ -1320,6 +1373,7 @@ function CharacterSheet({
                   actionFilterOptions={actionFilterOptions}
                   activeActionFilter={activeActionFilter}
                   attackActionRows={attackActionRows}
+                  attacksPerAction={attacksPerAction}
                   derivedStateError={derivedStateError}
                   derivedStateLoading={derivedStateLoading}
                   detailActionRows={detailActionRows}
@@ -1419,6 +1473,12 @@ function CharacterSheet({
                           <span>Speed</span>
                           <strong>{derivedSpeed} ft</strong>
                         </div>
+                        {hasAthleteFeat ? (
+                          <div className="list-row">
+                            <span>Climb Speed</span>
+                            <strong>{derivedSpeed} ft</strong>
+                          </div>
+                        ) : null}
                         <div className="list-row">
                           <span>Proficiency</span>
                           <strong>{formatModifier(proficiencyBonus)}</strong>
@@ -1763,14 +1823,18 @@ function getVisibleClassFeatures(
   subclasses: ClassSubclassOption[],
   selectedSubclassIndex: string | null,
 ): ClassFeature[] {
-  if (!selectedSubclassIndex || !feature.id.includes("subclass-feature")) {
+  if (!feature.id.includes("subclass-feature")) {
     return [feature];
+  }
+
+  if (!selectedSubclassIndex) {
+    return [];
   }
 
   const selectedSubclass = subclasses.find((subclass) => subclass.index === selectedSubclassIndex);
 
   if (!selectedSubclass) {
-    return [feature];
+    return [];
   }
 
   const subclassFeaturesAtLevel = selectedSubclass.features.filter(
@@ -1787,7 +1851,37 @@ function getVisibleClassFeatures(
     }));
   }
 
-  return [feature];
+  return [];
+}
+
+function splitFeatureDescription(description: string) {
+  const paragraphs = description
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
+
+  return paragraphs.length > 0 ? paragraphs : [description];
+}
+
+function getAttacksPerAction(activeSources: CharacterDerivedSource[]) {
+  return activeSources.some((source) => {
+    const sourceIndex = source.sourceIndex.toLowerCase();
+    const title = source.title.toLowerCase();
+
+    return sourceIndex.includes("extra-attack") || title === "extra attack";
+  })
+    ? 2
+    : 1;
+}
+
+function hasActiveSource(activeSources: CharacterDerivedSource[], sourceIndex: string) {
+  const normalizedSourceIndex = sourceIndex.toLowerCase();
+
+  return activeSources.some(
+    (source) =>
+      source.sourceIndex.toLowerCase() === normalizedSourceIndex ||
+      source.title.toLowerCase() === normalizedSourceIndex,
+  );
 }
 
 function compareVisibleFeatures(left: ClassFeature, right: ClassFeature) {
@@ -2015,7 +2109,7 @@ function getHeritageSenseDetails(heritage: SpeciesHeritageOption | null | undefi
     .filter((trait) =>
       hasSenseKeyword(`${trait.name} ${trait.description ?? ""}`),
     )
-    .map((trait) => trait.description ?? trait.name);
+    .map((trait) => `${trait.name} ${trait.description ?? ""}`.trim());
 }
 
 function getSpeciesSenseDetails(character: Character) {
@@ -2023,7 +2117,7 @@ function getSpeciesSenseDetails(character: Character) {
 
   return (trainingCharacter.species.traits ?? [])
     .filter((trait) => hasSenseKeyword(`${trait.name} ${trait.description ?? ""}`))
-    .map((trait) => trait.description ?? trait.name);
+    .map((trait) => `${trait.name} ${trait.description ?? ""}`.trim());
 }
 
 function getDerivedSourceSenseDetails(sources: CharacterDerivedSource[]) {
@@ -2415,6 +2509,14 @@ function getPassiveFeatureTrainingProficiencies(activeSources: CharacterDerivedS
     ) {
       training.armor.push("Medium Armor", "Shields");
       training.weapons.push("Martial Weapons");
+    }
+
+    if (
+      sourceIndex === "lightly-armored" ||
+      title === "lightly armored" ||
+      (description.includes("light armor") && description.includes("shields"))
+    ) {
+      training.armor.push("Light Armor", "Shields");
     }
 
     if (
@@ -3018,6 +3120,35 @@ function withFallbackLabel(values: string[], fallbackLabel: string) {
   return uniqueValues.length > 0 ? uniqueValues : [fallbackLabel];
 }
 
+function mergeSenseDetails(values: string[]) {
+  const senses = new Map<string, { label: string; range: number | null }>();
+  const otherValues: string[] = [];
+
+  for (const value of values) {
+    const match = value.match(
+      /\b(darkvision|blindsight|tremorsense|truesight)\b[^.]*?(\d+)\s*-?\s*(?:feet|foot|ft\.?)/i,
+    );
+
+    if (!match?.[1] || !match[2]) {
+      otherValues.push(value);
+      continue;
+    }
+
+    const senseKey = match[1].toLowerCase();
+    const range = Number(match[2]);
+    const existingSense = senses.get(senseKey);
+
+    if (!existingSense || range > (existingSense.range ?? 0)) {
+      senses.set(senseKey, { label: capitalizeLabel(senseKey), range });
+    }
+  }
+
+  return uniqueTrainingValues([
+    ...otherValues,
+    ...[...senses.values()].map((sense) => `${sense.label} ${sense.range} ft.`),
+  ]);
+}
+
 function uniqueTrainingValues(values: string[]) {
   const seenValues = new Set<string>();
   const uniqueValues: string[] = [];
@@ -3283,6 +3414,49 @@ function mergeDefenseSummaryEntries(
     label,
     value: [...values].join(", "),
   }));
+}
+
+function getLongRestResourceUsage(
+  resources: ResourceActionSummary[],
+) {
+  const usageByResourceKey: Record<string, number> = {};
+
+  resources.forEach((resource) => {
+    if (resource.trackingMode !== "pool" || resource.longRestBehavior !== "empty") {
+      return;
+    }
+
+    const maximum = typeof resource.maxUsesValue === "number"
+      ? Math.max(0, Math.floor(resource.maxUsesValue))
+      : 0;
+
+    usageByResourceKey[resource.resourceKey] = maximum;
+  });
+
+  return usageByResourceKey;
+}
+
+function getShortRestResourceUsage(
+  resources: ResourceActionSummary[],
+  currentUsage: Record<string, number>,
+  shortRestResourceKeys: Set<string>,
+) {
+  const resourcesByKey = new Map(
+    resources.map((resource) => [resource.resourceKey, resource]),
+  );
+
+  return Object.fromEntries(
+    Object.entries(currentUsage).map(([resourceKey, uses]) => {
+      if (!shortRestResourceKeys.has(resourceKey)) {
+        return [resourceKey, uses];
+      }
+
+      const recharge = resourcesByKey.get(resourceKey)?.recharge?.toLowerCase() ?? "";
+      const restoresOneUse = /short rest \(1 (?:use|die)\)/.test(recharge);
+
+      return [resourceKey, restoresOneUse ? Math.max(0, uses - 1) : 0];
+    }),
+  );
 }
 
 export { CharacterSheet };

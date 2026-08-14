@@ -280,6 +280,7 @@ const wizardSkills = [
   "Insight",
   "Investigation",
   "Medicine",
+  "Nature",
   "Religion",
 ];
 
@@ -1581,7 +1582,7 @@ const classOptions: ClassOption[] = [
       {
         label: "Skill Proficiencies",
         value:
-          "Choose 2: Arcana, History, Insight, Investigation, Medicine, or Religion",
+          "Choose 2: Arcana, History, Insight, Investigation, Medicine, Nature, or Religion",
       },
       { label: "Weapon Proficiencies", value: "Simple Weapons" },
       { label: "Tool Proficiencies", value: "None" },

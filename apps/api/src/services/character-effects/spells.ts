@@ -133,6 +133,7 @@ const IGNORED_SPELL_SOURCE_INDEXES = new Set([
   "elven-lineage",
   "fiendish-legacy",
   "gnomish-lineage",
+  "magic-initiate",
   "spell-mastery",
   "wizard-signature-spells",
 ]);

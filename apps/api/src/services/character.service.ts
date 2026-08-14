@@ -436,7 +436,10 @@ function normalizeHitPointStateInput({
   const normalizedLevel = Math.max(1, Math.min(20, Math.floor(level)));
   const normalizedHitDie = Math.max(1, Math.floor(hitDie));
   const calculationMode = normalizeHitPointMode(data?.calculationMode ?? fallback?.calculationMode);
-  const bonusHp = normalizeInteger(data?.bonusHp, fallback?.bonusHp ?? 0) + featureBonusHp;
+  // Persist only the user-entered HP modifier. Feature-derived bonuses are
+  // recalculated from the current choices so autosaves cannot add them again.
+  const bonusHp = normalizeInteger(data?.bonusHp, fallback?.bonusHp ?? 0);
+  const totalBonusHp = bonusHp + featureBonusHp;
   const rawOverrideMaxHp =
     data?.overrideMaxHp === undefined ? fallback?.overrideMaxHp ?? null : data.overrideMaxHp;
   const overrideMaxHp =
@@ -450,7 +453,7 @@ function normalizeHitPointStateInput({
   );
   const tempHp = Math.max(0, normalizeInteger(data?.tempHp, fallback?.tempHp ?? 0));
   const maxHp = calculateMaxHp({
-    bonusHp,
+    bonusHp: totalBonusHp,
     calculationMode,
     constitutionScore,
     hitDie: normalizedHitDie,
@@ -3052,6 +3055,7 @@ export {
   findCharacterByIdForUser,
   findCharacterInventoryForUser,
   findCharacterInventoryStateForUser,
+  normalizeHitPointStateInput,
   removeConditionFromCharacterForUser,
   replaceCharacterInventoryForUser,
   saveCharacterInventoryStateForUser,

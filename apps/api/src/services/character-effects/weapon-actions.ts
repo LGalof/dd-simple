@@ -62,6 +62,7 @@ function deriveWeaponActionEntries(options: {
     ? getRageDamageBonus(characterLevel)
     : 0;
   const radiantStrikesActive = activeSourceIndexes.has("radiant-strikes");
+  const savageAttackerActive = activeSourceIndexes.has("savage-attacker");
   const sneakAttackDice = activeSourceIndexes.has("sneak-attack")
     ? getSneakAttackDice(characterLevel)
     : "";
@@ -110,6 +111,7 @@ function deriveWeaponActionEntries(options: {
           greatWeaponFightingActive,
           radiantStrikesActive: Boolean(radiantStrikesDamage),
           rageDamageBonus: rageBonus,
+          savageAttackerActive,
           sneakAttackDice: sneakAttackDamage,
           twoWeaponFightingActive,
         }),
@@ -151,7 +153,7 @@ function deriveWeaponActionEntries(options: {
           ? `${getBardicInspirationDie(characterLevel)} ${formatInlineModifier(dexterityModifier)}`
           : tavernBrawlerActive
             ? `1d4 ${formatInlineModifier(strengthModifier + rageDamageBonus)}`
-            : `1 + ${Math.max(1, strengthModifier + rageDamageBonus)}`,
+            : String(Math.max(0, 1 + strengthModifier + rageDamageBonus)),
         radiantStrikesActive ? "1d8 radiant" : "",
       ),
       hit: formatModifier(
@@ -589,7 +591,6 @@ function isSneakAttackEligibleProfile(profile: {
   return (
     normalizedNotes.includes("finesse") ||
     normalizedNotes.includes("ranged") ||
-    normalizedNotes.includes("thrown") ||
     normalizedType.includes("ranged")
   );
 }
@@ -634,6 +635,7 @@ function appendFightingStyleNotes(
     greatWeaponFightingActive: boolean;
     radiantStrikesActive: boolean;
     rageDamageBonus: number;
+    savageAttackerActive: boolean;
     sneakAttackDice: string;
     twoWeaponFightingActive: boolean;
   },
@@ -654,6 +656,10 @@ function appendFightingStyleNotes(
 
   if (options.radiantStrikesActive) {
     notes.push("Radiant Strikes +1d8 radiant");
+  }
+
+  if (options.savageAttackerActive) {
+    notes.push("Savage Attacker: once per turn, roll the weapon damage dice twice and use either roll");
   }
 
   if (options.sneakAttackDice) {

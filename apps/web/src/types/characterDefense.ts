@@ -3,6 +3,7 @@ type CharacterDefenseKind =
   | "damage_reduction"
   | "immunity"
   | "resistance"
+  | "saving_throw_advantage"
   | "vulnerability";
 
 type CharacterDefenseEntry = {

@@ -59,6 +59,16 @@ const fullCasterSlotProgression: Array<{ cantripsKnown: number; spellSlots: numb
   { cantripsKnown: 5, spellSlots: [4, 3, 3, 3, 3, 2, 2, 1, 1] },
 ];
 
+const wizardPreparedSpellsByLevel = [
+  4, 5, 6, 7, 9, 10, 11, 12, 14, 15,
+  16, 16, 17, 18, 19, 21, 22, 23, 24, 25,
+];
+
+const bardPreparedSpellsByLevel = [
+  4, 5, 6, 7, 9, 10, 11, 12, 14, 15,
+  16, 16, 17, 18, 19, 21, 22, 23, 24, 25,
+];
+
 const arcaneTricksterSlotProgression: number[][] = [
   [],
   [],
@@ -105,10 +115,6 @@ const arcaneTricksterPreparedSpellsByLevel = [
   13,
 ];
 
-const knownSpellFallbacks: Record<string, number[]> = {
-  bard: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22],
-};
-
 const abilityScoreIndexAliases: Record<string, keyof AbilityScores> = {
   str: "str",
   strength: "str",
@@ -141,7 +147,12 @@ function getSpellcastingSummary(
   const abilityValue = abilityScore?.score ?? 10;
   const abilityModifier = Math.floor((abilityValue - 10) / 2);
   const proficiencyBonus = getProficiencyBonus(character.level);
-  const levelSummary = getCurrentSpellcastingLevel(classOption, selectedSubclass, character.level);
+  const levelSummary = getCurrentSpellcastingLevel(
+    classOption,
+    selectedSubclass,
+    character.level,
+    abilityModifier,
+  );
   const slotRows = (levelSummary?.spellSlots ?? []).map((slot) => ({
     level: slot.level,
     max: slot.slots,
@@ -233,6 +244,7 @@ function getCurrentSpellcastingLevel(
   classOption: ClassOption,
   selectedSubclass: ClassSubclassOption | null,
   characterLevel: number,
+  spellcastingAbilityModifier: number,
 ): ClassSpellcastingLevelSummary | null {
   if (isArcaneTrickster(classOption, selectedSubclass)) {
     return getArcaneTricksterSpellcastingLevel(characterLevel);
@@ -241,7 +253,14 @@ function getCurrentSpellcastingLevel(
   const levels = classOption.spellcasting?.levels ?? [];
   const referenceLevel = [...levels].reverse().find((level) => level.level <= characterLevel);
 
-  return referenceLevel ?? getFallbackSpellcastingLevel(classOption.index, characterLevel);
+  return (
+    referenceLevel ??
+    getFallbackSpellcastingLevel(
+      classOption.index,
+      characterLevel,
+      spellcastingAbilityModifier,
+    )
+  );
 }
 
 function getArcaneTricksterSpellcastingLevel(
@@ -272,6 +291,7 @@ function isArcaneTrickster(
 function getFallbackSpellcastingLevel(
   classIndex: string,
   characterLevel: number,
+  spellcastingAbilityModifier: number,
 ): ClassSpellcastingLevelSummary | null {
   const normalizedLevel = Math.max(1, Math.min(20, characterLevel));
   const castingType = spellcastingTypeFallbacks[classIndex];
@@ -282,27 +302,37 @@ function getFallbackSpellcastingLevel(
     return {
       cantripsKnown: progression.cantripsKnown,
       level: normalizedLevel,
-      preparedSpells: getPreparedSpellFallback(classIndex, normalizedLevel),
+      preparedSpells: getPreparedSpellFallback(
+        classIndex,
+        normalizedLevel,
+        spellcastingAbilityModifier,
+      ),
       spellSlots: progression.spellSlots.map((slots, index) => ({ level: index + 1, slots })),
-      spellsKnown: getKnownSpellFallback(classIndex, normalizedLevel),
     };
   }
 
   return null;
 }
 
-function getPreparedSpellFallback(classIndex: string, characterLevel: number) {
-  if (["cleric", "wizard"].includes(classIndex)) {
-    return Math.max(1, characterLevel + 3);
+function getPreparedSpellFallback(
+  classIndex: string,
+  characterLevel: number,
+  spellcastingAbilityModifier: number,
+) {
+  if (classIndex === "wizard") {
+    return wizardPreparedSpellsByLevel[characterLevel - 1] ?? 4;
+  }
+
+  if (classIndex === "bard") {
+    return bardPreparedSpellsByLevel[characterLevel - 1] ?? 4;
+  }
+
+  if (classIndex === "cleric") {
+    return Math.max(1, characterLevel + spellcastingAbilityModifier);
   }
 
   return undefined;
 }
-
-function getKnownSpellFallback(classIndex: string, characterLevel: number) {
-  return knownSpellFallbacks[classIndex]?.[characterLevel - 1];
-}
-
 function uniqueStrings(values: string[]) {
   const seen = new Set<string>();
   const result: string[] = [];

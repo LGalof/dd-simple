@@ -5,6 +5,7 @@ import { useAuth } from "../features/auth/AuthContext";
 import {
   deleteRoom,
   getCreatedRooms,
+  leaveRoom,
   type CreatedRoomSummary,
 } from "../features/rooms/api/roomsApi";
 import { copyRoomInviteUrl } from "../features/rooms/utils/roomInvite";
@@ -23,6 +24,7 @@ function MyRoomsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingRoomCode, setDeletingRoomCode] = useState<string | null>(null);
+  const [leavingRoomCode, setLeavingRoomCode] = useState<string | null>(null);
   const [copiedRoomCode, setCopiedRoomCode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -94,7 +96,25 @@ function MyRoomsPage() {
     }
   }
 
+  async function handleLeaveRoom(room: CreatedRoomSummary) {
+    if (!token || !window.confirm(`Leave room ${room.code}? You can join it again with an invite.`)) {
+      return;
+    }
+
+    try {
+      setLeavingRoomCode(room.code);
+      await leaveRoom(room.code, token);
+      setRooms((currentRooms) => currentRooms.filter((candidate) => candidate.code !== room.code));
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to leave room.");
+    } finally {
+      setLeavingRoomCode(null);
+    }
+  }
+
   const hostedRoomCount = rooms.filter((room) => room.currentUserRole === "creator").length;
+  const joinedRoomCount = rooms.filter((room) => room.currentUserRole === "player").length;
   const hasReachedRoomLimit = hostedRoomCount >= 3;
 
   return (
@@ -112,6 +132,7 @@ function MyRoomsPage() {
 
           <div className="rooms-create-control">
             <span>{hostedRoomCount}/3 created rooms</span>
+            <span>{joinedRoomCount}/6 joined rooms</span>
             {hasReachedRoomLimit ? (
               <button type="button" className="primary-button" disabled>
                 Room limit reached
@@ -219,6 +240,16 @@ function MyRoomsPage() {
                       onClick={() => void handleDeleteRoom(room)}
                     >
                       {deletingRoomCode === room.code ? "Deleting..." : "Delete"}
+                    </button>
+                  )}
+                  {room.currentUserRole === "player" && (
+                    <button
+                      type="button"
+                      className="room-delete-button"
+                      disabled={leavingRoomCode === room.code}
+                      onClick={() => void handleLeaveRoom(room)}
+                    >
+                      {leavingRoomCode === room.code ? "Leaving..." : "Leave room"}
                     </button>
                   )}
                 </div>

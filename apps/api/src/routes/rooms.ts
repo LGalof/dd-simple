@@ -5,6 +5,7 @@ import {
   deleteRoomController,
   getRoomController,
   joinRoomController,
+  leaveRoomController,
   listRoomsForUserController,
 } from "../controllers/room.controller.js";
 
@@ -14,6 +15,7 @@ roomsRouter.use("/rooms", requireAuth);
 roomsRouter.post("/rooms", createRoomController);
 roomsRouter.get("/rooms", listRoomsForUserController);
 roomsRouter.post("/rooms/:roomCode/join", joinRoomController);
+roomsRouter.delete("/rooms/:roomCode/leave", leaveRoomController);
 roomsRouter.get("/rooms/:roomCode", getRoomController);
 roomsRouter.delete("/rooms/:roomCode", deleteRoomController);
 

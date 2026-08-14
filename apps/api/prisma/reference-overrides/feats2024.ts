@@ -283,7 +283,7 @@ const CURATED_2024_FEAT_REFERENCES: CuratedFeatReference[] = [
       minimum_level: 4,
     },
     description:
-      "You gain training with Light Armor and an ability score increase that helps you start building toward armored defense.",
+      "Ability Score Increase. Increase your Strength or Dexterity score by 1, to a maximum of 20.\n\nArmor Training. You gain training with Light Armor and Shields.",
     url: featUrl("lightly-armored"),
   },
   {

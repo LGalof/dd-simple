@@ -284,9 +284,11 @@ function defenseKindPriority(kind: CharacterDefenseKind) {
       return 1;
     case "vulnerability":
       return 2;
+    case "saving_throw_advantage":
+      return 3;
     case "condition_immunity":
     default:
-      return 3;
+      return 4;
   }
 }
 

@@ -38,6 +38,7 @@ type ResourceActionSummary = {
   category: "action" | "bonus action" | "reaction" | "passive" | "resource";
   id: string;
   level: number | null;
+  longRestBehavior?: "empty" | "restore";
   maxUsesValue?: number | null;
   maxUses?: string;
   name: string;
@@ -166,16 +167,11 @@ function FeaturesTab({
             {selectedHeritage ? (
               <div className="character-feature-entry">
                 <strong>{selectedHeritage.name}</strong>
-                {selectedHeritage.traits?.length ? (
-                  selectedHeritage.traits.map((trait) => (
-                    <p key={trait.index}>
-                      {trait.name}
-                      {trait.description ? ` - ${trait.description}` : ""}
-                    </p>
-                  ))
-                ) : selectedHeritage.damageType && selectedHeritage.damageType !== "Unknown" ? (
+                {selectedHeritage.damageType && selectedHeritage.damageType !== "Unknown" ? (
                   <p>{selectedHeritage.damageType} ancestry traits are selected.</p>
-                ) : null}
+                ) : (
+                  <p className="muted">Currently unlocked traits from this choice are listed below.</p>
+                )}
               </div>
             ) : null}
 
@@ -254,7 +250,7 @@ function FeaturesTab({
                     {resource.maxUses ? ` - ${resource.maxUses}` : ""}
                     {resource.recharge ? ` - ${resource.recharge}` : ""}
                   </p>
-                  {resource.trackingMode !== "none" ? (
+                  {resource.trackingMode === "uses" ? (
                     <div className="feature-resource-strip">
                       <div className="feature-resource-strip-copy">
                         <strong>Uses:</strong>
@@ -303,6 +299,13 @@ function FeaturesTab({
                       </div>
                     </div>
                   ) : null}
+                  {resource.trackingMode === "pool" ? (
+                    <ResourcePoolTracker
+                      onResourceStateChange={onResourceStateChange}
+                      resource={resource}
+                      resourceState={resourceState}
+                    />
+                  ) : null}
                   <p className="muted">Source: {resource.sourceFeature}</p>
                   <p className="muted">{resource.automationNote}</p>
                 </div>
@@ -310,6 +313,67 @@ function FeaturesTab({
             </div>
           </Card>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ResourcePoolTracker({
+  onResourceStateChange,
+  resource,
+  resourceState,
+}: {
+  onResourceStateChange: (state: CharacterResourceState) => void;
+  resource: ResourceActionSummary;
+  resourceState: CharacterResourceState;
+}) {
+  const maximum = getResourceMaximum(resource, resourceState);
+  const used = Math.min(
+    maximum,
+    Math.max(0, resourceState.usageByResourceKey[resource.resourceKey] ?? 0),
+  );
+  const current = maximum - used;
+  const unit = resource.name.includes("Hit Points") ? "HP" : "remaining";
+
+  function setCurrent(nextCurrent: number) {
+    const normalizedCurrent = Math.max(0, Math.min(maximum, Math.floor(nextCurrent)));
+    onResourceStateChange(setResourceUsage(resourceState, resource, maximum - normalizedCurrent));
+  }
+
+  return (
+    <div className="feature-resource-pool" aria-label={`${resource.name} pool`}>
+      <div className="feature-resource-pool-summary">
+        <span>Current</span>
+        <strong>{current}</strong>
+        <span>/ {maximum} {unit}</span>
+      </div>
+      <div className="feature-resource-pool-controls">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={current === 0}
+          onClick={() => setCurrent(current - 1)}
+          aria-label={`Reduce ${resource.name}`}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={current === maximum}
+          onClick={() => setCurrent(current + 1)}
+          aria-label={`Restore ${resource.name}`}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={current === maximum}
+          onClick={() => setCurrent(maximum)}
+        >
+          Restore full
+        </button>
       </div>
     </div>
   );
@@ -383,7 +447,8 @@ function isDerivedResourceMaximum(resource: ResourceActionSummary) {
     (maxUses.includes("modifier") ||
       maxUses.includes("proficiency bonus") ||
       maxUses.includes("class progression") ||
-      maxUses.includes("barbarian level"))
+      maxUses.includes("barbarian level") ||
+      maxUses.includes("wizard level"))
   );
 }
 

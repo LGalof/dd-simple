@@ -13,6 +13,90 @@ import type {
 function inferActionEffects(source: ResolvedFeatureSource): CharacterActionEntry[] {
   const normalizedSourceIndex = source.sourceIndex.toLowerCase();
 
+  if (normalizedSourceIndex === "charger") {
+    return [
+      {
+        activationType: "attack",
+        combat: {
+          damage: "+1d8 or push",
+          hit: "Melee hit after moving 10 ft.",
+          notes: "Choose +1d8 damage or push the target up to 10 ft.; once per turn.",
+          range: "Melee",
+          subtitle: "General Feat",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:attack`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "rogue-cunning-strike") {
+    return [
+      {
+        activationType: "attack",
+        combat: {
+          damage: "Forgo 1d6 Sneak Attack",
+          hit: "Sneak Attack hit",
+          notes: "Choose Poison, Trip, or Withdraw • save DC 8 + DEX + Prof.",
+          range: "Attack target",
+          subtitle: "Class Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:attack`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "rogue-improved-cunning-strike") {
+    return [
+      {
+        activationType: "attack",
+        combat: {
+          damage: "Forgo up to 2 Sneak Attack dice",
+          hit: "Sneak Attack hit",
+          notes: "Use up to two different Cunning Strike effects • save DC 8 + DEX + Prof.",
+          range: "Attack target",
+          subtitle: "Class Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:attack`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
+  if (normalizedSourceIndex === "rogue-devious-strikes") {
+    return [
+      {
+        activationType: "attack",
+        combat: {
+          damage: "Forgo 2d6–6d6 Sneak Attack",
+          hit: "Sneak Attack hit",
+          notes: "Daze, Knock Out, or Obscure • save DC 8 + DEX + Prof.",
+          range: "Attack target",
+          subtitle: "Class Feature",
+        },
+        description: source.description,
+        id: `${source.sourceType}:${source.sourceIndex}:action:attack`,
+        level: source.level,
+        sourceIndex: source.sourceIndex,
+        sourceType: source.sourceType,
+        title: source.title,
+      },
+    ];
+  }
+
   if (normalizedSourceIndex === "boon-of-combat-prowess") {
     return [
       {
@@ -525,10 +609,6 @@ function inferActivationType(description: string): ActionActivationType | null {
     return "bonus_action";
   }
 
-  if (/\breaction\b/.test(normalized)) {
-    return "reaction";
-  }
-
   if (
     /\battack action\b/.test(normalized) ||
     /\bmelee weapon attack\b/.test(normalized) ||
@@ -547,6 +627,10 @@ function inferActivationType(description: string): ActionActivationType | null {
     /\buse an object action\b/.test(normalized)
   ) {
     return "action";
+  }
+
+  if (/\breaction\b/.test(normalized)) {
+    return "reaction";
   }
 
   return null;
