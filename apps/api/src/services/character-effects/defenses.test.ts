@@ -253,7 +253,6 @@ test("deriveDefenseEntries ignores Night Spirit damage text and empty advantage 
     createSource({
       description: "While in Dim Light or Darkness, you have resistance to all damage except Psychic and Radiant.",
       sourceIndex: "boon-of-the-night-spirit",
-      sourceType: "feat",
       title: "Boon of the Night Spirit",
     }),
     createSource({
