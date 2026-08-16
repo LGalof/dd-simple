@@ -89,7 +89,7 @@ function AppLayout({
                   className="app-nav-link app-nav-button"
                   onClick={logout}
                 >
-                  Odjava
+                  Log out
                 </button>
               )}
             </>

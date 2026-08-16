@@ -52,10 +52,10 @@ function App() {
       <BrowserRouter>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/prijava" element={<AuthPage mode="login" />} />
-            <Route path="/registracija" element={<AuthPage mode="register" />} />
-            <Route path="/login" element={<Navigate to="/prijava" replace />} />
-            <Route path="/register" element={<Navigate to="/registracija" replace />} />
+            <Route path="/login" element={<AuthPage mode="login" />} />
+            <Route path="/register" element={<AuthPage mode="register" />} />
+            <Route path="/prijava" element={<Navigate to="/login" replace />} />
+            <Route path="/registracija" element={<Navigate to="/register" replace />} />
             <Route
               path="/"
               element={
@@ -112,7 +112,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<Navigate to="/registracija" replace />} />
+            <Route path="*" element={<Navigate to="/register" replace />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

@@ -14,7 +14,7 @@ function AuthPage({ mode }: AuthPageProps) {
   if (loading) {
     return (
       <main className="app-shell auth-loading-shell">
-        <div className="page-placeholder-card">Nalaganje racuna...</div>
+        <div className="page-placeholder-card">Loading account...</div>
       </main>
     );
   }

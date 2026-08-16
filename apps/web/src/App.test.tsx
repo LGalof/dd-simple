@@ -63,22 +63,33 @@ describe("App", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("routes public auth aliases and unknown paths", async () => {
+  it("routes public auth pages and unknown paths", async () => {
     await renderAt("/login");
 
-    await waitFor(() => expect(window.location.pathname).toBe("/prijava"));
     expect(await screen.findByText("Auth:login")).toBeTruthy();
 
     cleanup();
     await renderAt("/register");
 
-    await waitFor(() => expect(window.location.pathname).toBe("/registracija"));
     expect(await screen.findByText("Auth:register")).toBeTruthy();
 
     cleanup();
     await renderAt("/missing");
 
-    await waitFor(() => expect(window.location.pathname).toBe("/registracija"));
+    await waitFor(() => expect(window.location.pathname).toBe("/register"));
+  });
+
+  it("keeps the former Slovenian auth paths as redirects", async () => {
+    await renderAt("/prijava");
+
+    await waitFor(() => expect(window.location.pathname).toBe("/login"));
+    expect(await screen.findByText("Auth:login")).toBeTruthy();
+
+    cleanup();
+    await renderAt("/registracija");
+
+    await waitFor(() => expect(window.location.pathname).toBe("/register"));
+    expect(await screen.findByText("Auth:register")).toBeTruthy();
   });
 
   it("routes protected dashboard, character, room, and board pages", async () => {

@@ -40,7 +40,7 @@ function AuthForm({ mode, returnTo }: AuthFormProps) {
         replace: true,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Prijava ni uspela");
+      setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setSubmitting(false);
     }
@@ -50,19 +50,19 @@ function AuthForm({ mode, returnTo }: AuthFormProps) {
     <section className="auth-page">
       <div className="auth-panel">
         <div className="auth-copy">
-          <p className="eyebrow">Dostop do racuna</p>
-          <h1>{isRegisterMode ? "Registracija" : "Prijava"}</h1>
+          <p className="eyebrow">Account access</p>
+          <h1>{isRegisterMode ? "Register" : "Log in"}</h1>
           <p>
             {isRegisterMode
-              ? "Ustvari racun za svoj zasebni prostor z D&D liki."
-              : "Prijavi se za nadaljevanje urejanja svojih D&D Simple likov."}
+              ? "Create an account for your personal D&D character workspace."
+              : "Log in to continue managing your D&D Simple characters."}
           </p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           {isRegisterMode && (
             <label className="auth-field">
-              <span>Prikazno ime</span>
+              <span>Display name</span>
               <input
                 type="text"
                 value={displayName}
@@ -86,12 +86,12 @@ function AuthForm({ mode, returnTo }: AuthFormProps) {
           </label>
 
           <label className="auth-field">
-            <span>Geslo</span>
+            <span>Password</span>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Vsaj 8 znakov"
+              placeholder="At least 8 characters"
               autoComplete={isRegisterMode ? "new-password" : "current-password"}
               minLength={isRegisterMode ? 8 : undefined}
               required
@@ -102,19 +102,19 @@ function AuthForm({ mode, returnTo }: AuthFormProps) {
 
           <button type="submit" className="primary-button" disabled={submitting}>
             {submitting
-              ? "Prosim pocakaj..."
+              ? "Please wait..."
               : isRegisterMode
-                ? "Registracija"
-                : "Prijava"}
+                ? "Register"
+                : "Log in"}
           </button>
 
           <p className="auth-switch">
-            {isRegisterMode ? "Ze imas racun?" : "Nov uporabnik?"}
+            {isRegisterMode ? "Already have an account?" : "New user?"}
             <Link
-              to={isRegisterMode ? "/prijava" : "/registracija"}
+              to={isRegisterMode ? "/login" : "/register"}
               state={returnTo ? { returnTo } : undefined}
             >
-              {isRegisterMode ? "Prijava" : "Registracija"}
+              {isRegisterMode ? "Log in" : "Register"}
             </Link>
           </p>
         </form>

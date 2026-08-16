@@ -45,7 +45,7 @@ describe("AuthPage", () => {
 
     render(<AuthPage mode="login" />);
 
-    expect(screen.getByText("Nalaganje racuna...")).toBeTruthy();
+    expect(screen.getByText("Loading account...")).toBeTruthy();
   });
 
   it("redirects authenticated users back to their target", () => {

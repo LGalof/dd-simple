@@ -45,7 +45,7 @@ describe("ProtectedRoute", () => {
 
     renderProtected();
 
-    expect(screen.getByText("Nalaganje racuna...")).toBeTruthy();
+    expect(screen.getByText("Loading account...")).toBeTruthy();
   });
 
   it("redirects anonymous users with the current return location", () => {
@@ -60,7 +60,7 @@ describe("ProtectedRoute", () => {
 
     renderProtected();
 
-    expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/prijava");
+    expect(screen.getByTestId("navigate").getAttribute("data-to")).toBe("/login");
     expect(screen.getByTestId("navigate").getAttribute("data-replace")).toBe("true");
     expect(screen.getByTestId("navigate").getAttribute("data-state")).toContain(
       "/rooms?tab=mine",

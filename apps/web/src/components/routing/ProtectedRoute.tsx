@@ -9,7 +9,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <main className="app-shell auth-loading-shell">
-        <div className="page-placeholder-card">Nalaganje racuna...</div>
+        <div className="page-placeholder-card">Loading account...</div>
       </main>
     );
   }
@@ -17,7 +17,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!user) {
     return (
       <Navigate
-        to="/prijava"
+        to="/login"
         replace
         state={{ returnTo: `${location.pathname}${location.search}` }}
       />

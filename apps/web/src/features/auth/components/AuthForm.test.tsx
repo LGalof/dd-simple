@@ -51,10 +51,10 @@ describe("AuthForm", () => {
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "hero@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Geslo"), {
+    fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "password" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: "Prijava" }));
+    fireEvent.submit(screen.getByRole("button", { name: "Log in" }));
 
     await waitFor(() =>
       expect(login).toHaveBeenCalledWith({
@@ -63,8 +63,8 @@ describe("AuthForm", () => {
       }),
     );
     expect(navigateMock).toHaveBeenCalledWith("/characters", { replace: true });
-    expect(screen.getByRole("link", { name: "Registracija" }).getAttribute("href")).toBe(
-      "/registracija",
+    expect(screen.getByRole("link", { name: "Register" }).getAttribute("href")).toBe(
+      "/register",
     );
   });
 
@@ -81,16 +81,16 @@ describe("AuthForm", () => {
 
     render(<AuthForm mode="register" />);
 
-    fireEvent.change(screen.getByLabelText("Prikazno ime"), {
+    fireEvent.change(screen.getByLabelText("Display name"), {
       target: { value: "Aria" },
     });
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "aria@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Geslo"), {
+    fireEvent.change(screen.getByLabelText("Password"), {
       target: { value: "password" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: "Registracija" }));
+    fireEvent.submit(screen.getByRole("button", { name: "Register" }));
 
     await waitFor(() =>
       expect(register).toHaveBeenCalledWith({

@@ -4940,7 +4940,7 @@ h1 {
   line-height: 1.25;
 }
 
-.room-flow-step > span {
+.room-flow-step > span:first-child {
   display: grid;
   width: 1.55rem;
   height: 1.55rem;
@@ -4956,7 +4956,7 @@ h1 {
   color: #fff7e0;
 }
 
-.room-flow-step-active > span {
+.room-flow-step-active > span:first-child {
   border-color: rgba(212, 176, 106, 0.55);
   background: rgba(212, 176, 106, 0.16);
   color: var(--ui-accent-strong);
@@ -5142,7 +5142,7 @@ h1 {
   line-height: 1.45;
 }
 
-.room-flow-benefits span {
+.room-flow-benefits li > span:first-child {
   display: grid;
   width: 1.85rem;
   height: 1.85rem;
