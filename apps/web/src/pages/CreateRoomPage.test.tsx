@@ -125,4 +125,19 @@ describe("CreateRoomPage", () => {
     );
     expect(mockedGetCreatedRooms).not.toHaveBeenCalled();
   });
+
+  it("shows the API error when room creation fails", async () => {
+    mockAuth();
+    mockCharacters();
+    mockedGetCreatedRooms.mockResolvedValueOnce({ rooms: [] });
+    mockedCreateRoom.mockRejectedValueOnce(new Error("Room service unavailable"));
+
+    render(<CreateRoomPage />);
+
+    await waitFor(() => expect(mockedGetCreatedRooms).toHaveBeenCalledWith("token"));
+    fireEvent.click(screen.getByRole("button", { name: "Create room" }));
+
+    expect(await screen.findByText("Room service unavailable")).toBeTruthy();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
 });

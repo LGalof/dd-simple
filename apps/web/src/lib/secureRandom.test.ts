@@ -31,4 +31,15 @@ describe("secureRandom", () => {
     expect(secureRandomFraction()).toBe(0.5);
     expect(secureRandomId()).toBe("test-uuid");
   });
+
+  it("rejects invalid integer bounds and missing platform crypto", () => {
+    expect(() => secureRandomInt(0)).toThrow(RangeError);
+    expect(() => secureRandomInt(1.5)).toThrow(RangeError);
+
+    vi.stubGlobal("crypto", undefined);
+
+    expect(() => secureRandomFraction()).toThrow(
+      "A cryptographically secure random number generator is required.",
+    );
+  });
 });

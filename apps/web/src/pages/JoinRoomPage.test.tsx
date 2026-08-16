@@ -116,4 +116,22 @@ describe("JoinRoomPage", () => {
       true,
     );
   });
+
+  it("validates an empty code and shows API join failures", async () => {
+    mockPageState();
+    mockedJoinRoom.mockRejectedValueOnce(new Error("Room was not found"));
+
+    render(<JoinRoomPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Join room" }));
+    expect(await screen.findByText("Enter a room code to join.")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/Room code/), {
+      target: { value: "ABC123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Join room" }));
+
+    expect(await screen.findByText("Room was not found")).toBeTruthy();
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
 });

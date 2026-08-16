@@ -247,3 +247,24 @@ test("deriveDefenseEntries exposes Durable advantage on Death Saving Throws", ()
     [["saving_throw_advantage", "Death Saving Throws"]],
   );
 });
+
+test("deriveDefenseEntries ignores Night Spirit damage text and empty advantage targets", () => {
+  const defenses = deriveDefenseEntries([
+    createSource({
+      description: "While in Dim Light or Darkness, you have resistance to all damage except Psychic and Radiant.",
+      sourceIndex: "boon-of-the-night-spirit",
+      sourceType: "feat",
+      title: "Boon of the Night Spirit",
+    }),
+    createSource({
+      description: "Advantage on saving throws against ",
+      sourceIndex: "empty-saving-throw-target",
+      title: "Incomplete Defense",
+    }),
+  ]);
+
+  assert.deepEqual(
+    defenses.map((entry) => [entry.kind, entry.target]),
+    [["resistance", "All except Psychic and Radiant while in Dim Light or Darkness"]],
+  );
+});
