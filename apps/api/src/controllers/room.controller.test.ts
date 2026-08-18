@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma.js";
 import {
   createRoomController,
   deleteRoomController,
+  getRoomDiceRollsController,
   getRoomController,
   joinRoomController,
   leaveRoomController,
@@ -190,6 +191,132 @@ test("getRoomController returns 404 and serialized room payloads", async () => {
       updatedAt: updatedAt.getTime(),
     },
   });
+});
+
+test("getRoomDiceRollsController validates room access and returns public roll history", async () => {
+  const invalidResponse = createResponse();
+  await getRoomDiceRollsController(
+    { ...authedRequest, params: {} } as unknown as Request,
+    invalidResponse,
+  );
+  assert.equal(invalidResponse.statusCode, 400);
+
+  stubPrismaMethod(prisma.room, "findUnique", async () => null);
+  const notFoundResponse = createResponse();
+  await getRoomDiceRollsController(
+    { ...authedRequest, params: { roomCode: "ABC123" } } as unknown as Request,
+    notFoundResponse,
+  );
+  assert.equal(notFoundResponse.statusCode, 404);
+  assert.deepEqual(notFoundResponse.body, { error: "Room not found" });
+
+  restorePrismaStubs();
+  stubPrismaMethod(prisma.room, "findUnique", async () =>
+    roomRecord({
+      players: [
+        {
+          characterId: "char-2",
+          characterName: "Torin",
+          joinedAt: createdAt,
+          userId: "u2",
+        },
+      ],
+    }),
+  );
+  const forbiddenResponse = createResponse();
+  await getRoomDiceRollsController(
+    { ...authedRequest, params: { roomCode: "ABC123" } } as unknown as Request,
+    forbiddenResponse,
+  );
+  assert.equal(forbiddenResponse.statusCode, 403);
+
+  restorePrismaStubs();
+  let findManyArgs: unknown;
+  stubPrismaMethod(prisma.room, "findUnique", async () => roomRecord());
+  stubPrismaMethod(prisma.diceRoll, "findMany", async (args: unknown) => {
+    findManyArgs = args;
+
+    return [
+      {
+        characterId: "char-1",
+        character: { name: "Mira" },
+        formula: "1d20 + 5",
+        id: "roll-1",
+        modifier: 5,
+        reason: "Attack",
+        rollValues: [{ sides: 20, value: 17 }],
+        rolledAt: updatedAt,
+        total: 22,
+      },
+    ];
+  });
+
+  const successResponse = createResponse();
+  await getRoomDiceRollsController(
+    { ...authedRequest, params: { roomCode: "abc123" } } as unknown as Request,
+    successResponse,
+  );
+  assert.equal(successResponse.statusCode, 200);
+  assert.deepEqual(successResponse.body, {
+    rolls: [
+      {
+        characterId: "char-1",
+        characterName: "Mira",
+        formula: "1d20 + 5",
+        id: "roll-1",
+        modifier: 5,
+        reason: "Attack",
+        rollValues: [{ sides: 20, value: 17 }],
+        rolledAt: updatedAt.getTime(),
+        total: 22,
+      },
+    ],
+  });
+  assert.deepEqual(findManyArgs, {
+    where: {
+      roomId: "room-1",
+      visibility: "public",
+    },
+    orderBy: {
+      rolledAt: "desc",
+    },
+    take: 10,
+    select: {
+      characterId: true,
+      character: {
+        select: {
+          name: true,
+        },
+      },
+      formula: true,
+      id: true,
+      modifier: true,
+      reason: true,
+      rollValues: true,
+      rolledAt: true,
+      total: true,
+    },
+  });
+});
+
+test("getRoomDiceRollsController reports service failures", async () => {
+  const originalError = console.error;
+  console.error = () => undefined;
+  stubPrismaMethod(prisma.room, "findUnique", async () => {
+    throw new Error("database unavailable");
+  });
+
+  try {
+    const response = createResponse();
+    await getRoomDiceRollsController(
+      { ...authedRequest, params: { roomCode: "ABC123" } } as unknown as Request,
+      response,
+    );
+    assert.equal(response.statusCode, 500);
+    assert.deepEqual(response.body, { error: "Failed to load room dice rolls" });
+  } finally {
+    console.error = originalError;
+  }
 });
 
 test("createRoomController creates rooms and handles missing characters", async () => {
