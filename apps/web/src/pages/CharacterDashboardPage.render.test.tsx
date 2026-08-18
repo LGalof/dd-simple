@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CharacterDashboardPage } from "./CharacterDashboardPage";
 
@@ -15,9 +15,11 @@ const mocks = vi.hoisted(() => ({
   handleRollAllAbilities: vi.fn(),
   onResourceStateChange: vi.fn(),
   openPanel: vi.fn(),
+  announceDiceRoll: vi.fn(),
   recordDiceRoll: vi.fn(async () => ({ id: "roll-2" })),
   removeCondition: vi.fn(async (id: string) => characterFixture),
   replaceCharacter: vi.fn(),
+  roomSocketError: null as string | null,
   setFeatureChoices: vi.fn(),
   setSelection: vi.fn(),
   setSubclassIndex: vi.fn(),
@@ -141,6 +143,13 @@ vi.mock("../features/characters/hooks/useCharacters", () => ({
     replaceCharacter: mocks.replaceCharacter,
     saveError: null,
     savingCharacterId: null,
+  }),
+}));
+
+vi.mock("../features/rooms/hooks/useRoomSocket", () => ({
+  useRoomSocket: () => ({
+    announceDiceRoll: mocks.announceDiceRoll,
+    error: mocks.roomSocketError,
   }),
 }));
 
@@ -286,8 +295,17 @@ vi.mock("../features/characters/components/CharacterSheet", () => ({
 }));
 
 vi.mock("../features/characters/components/CharacterDashboardRightRail", () => ({
-  CharacterDashboardRightRail: ({ rightRailMode }: { rightRailMode: string | null }) => (
-    <aside>Right Rail: {rightRailMode ?? "closed"}</aside>
+  CharacterDashboardRightRail: ({
+    diceRollSaveError,
+    rightRailMode,
+  }: {
+    diceRollSaveError?: string | null;
+    rightRailMode: string | null;
+  }) => (
+    <aside>
+      Right Rail: {rightRailMode ?? "closed"}
+      {diceRollSaveError ? <p>{diceRollSaveError}</p> : null}
+    </aside>
   ),
 }));
 
@@ -312,19 +330,27 @@ vi.mock("./InventorySandboxPage", () => ({
   }),
 }));
 
+function renderDashboard(initialEntry = "/characters") {
+  return render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <Routes>
+        <Route path="/room/:roomCode/character" element={<CharacterDashboardPage />} />
+        <Route path="*" element={<CharacterDashboardPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("CharacterDashboardPage render", () => {
   afterEach(() => {
     cleanup();
     window.localStorage.clear();
+    mocks.roomSocketError = null;
     vi.clearAllMocks();
   });
 
-  it("renders dashboard layout and wires major interactions", () => {
-    render(
-      <MemoryRouter>
-        <CharacterDashboardPage />
-      </MemoryRouter>,
-    );
+  it("renders dashboard layout and wires major interactions", async () => {
+    renderDashboard();
 
     expect(screen.getByText("Builder Mock")).toBeTruthy();
     expect(screen.getByText("Sheet Mock")).toBeTruthy();
@@ -344,18 +370,59 @@ describe("CharacterDashboardPage render", () => {
     expect(screen.getByText("Right Rail: spells")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Roll Local" }));
-    expect(mocks.recordDiceRoll).toHaveBeenCalled();
-    expect(mocks.recordDiceRoll).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.recordDiceRoll).toHaveBeenCalled());
+    expect(mocks.recordDiceRoll).toHaveBeenLastCalledWith(
       "character-1",
       expect.objectContaining({
         roomCode: null,
         visibility: "public",
       }),
     );
+    expect(mocks.announceDiceRoll).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Open dashboard menu" }));
     expect(screen.getByRole("dialog", { name: "Dashboard sections" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Character builder" }));
     expect(screen.getByText("Selection Mock: class")).toBeTruthy();
+  });
+
+  it("saves room-context rolls with room metadata and announces the saved roll id", async () => {
+    mocks.recordDiceRoll.mockResolvedValueOnce({ id: "room-roll-1" });
+
+    renderDashboard("/room/ABC123/character?characterId=character-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Roll Local" }));
+
+    await waitFor(() =>
+      expect(mocks.recordDiceRoll).toHaveBeenCalledWith(
+        "character-1",
+        expect.objectContaining({
+          roomCode: "ABC123",
+          visibility: "public",
+        }),
+      ),
+    );
+    await waitFor(() => expect(mocks.announceDiceRoll).toHaveBeenCalledWith("room-roll-1"));
+  });
+
+  it("does not announce room-context rolls when the save fails", async () => {
+    mocks.recordDiceRoll.mockResolvedValueOnce(null);
+
+    renderDashboard("/room/ABC123/character?characterId=character-1");
+
+    fireEvent.click(screen.getByRole("button", { name: "Roll Local" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Roll saved locally; history sync failed.")).toBeTruthy(),
+    );
+    expect(mocks.announceDiceRoll).not.toHaveBeenCalled();
+  });
+
+  it("shows room socket errors only in room context", () => {
+    mocks.roomSocketError = "Room socket failed";
+
+    renderDashboard("/room/ABC123/character?characterId=character-1");
+
+    expect(screen.getByText("Room socket failed")).toBeTruthy();
   });
 });

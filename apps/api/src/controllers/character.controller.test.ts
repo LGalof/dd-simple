@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { Request, Response } from "express";
+
+import { prisma } from "../lib/prisma.js";
 import {
   addCharacterCondition,
   createCharacter,
@@ -63,6 +65,35 @@ const featureChoice = {
   sourceType: "FEATURE",
 };
 
+const prismaStubs: Array<() => void> = [];
+
+function stubPrismaMethod<T extends object>(
+  target: T,
+  methodName: keyof T,
+  implementation: unknown,
+) {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(target, methodName);
+
+  Object.defineProperty(target, methodName, {
+    configurable: true,
+    value: implementation,
+    writable: true,
+  });
+  prismaStubs.push(() => {
+    if (originalDescriptor) {
+      Object.defineProperty(target, methodName, originalDescriptor);
+    } else {
+      delete target[methodName];
+    }
+  });
+}
+
+function restorePrismaStubs() {
+  while (prismaStubs.length > 0) {
+    prismaStubs.pop()?.();
+  }
+}
+
 function createResponse() {
   const response = {
     body: undefined as unknown,
@@ -94,6 +125,24 @@ function request(overrides: Partial<Request> = {}) {
     ...overrides,
   } as unknown as Request;
 }
+
+function validDiceRollBody(overrides: Record<string, unknown> = {}) {
+  return {
+    formula: "1d20 + 5",
+    modifier: 5,
+    reason: "Attack",
+    rollMode: "normal",
+    rollType: "attack",
+    rollValues: [{ sides: 20, value: 17 }],
+    total: 22,
+    visibility: "public",
+    ...overrides,
+  };
+}
+
+test.afterEach(() => {
+  restorePrismaStubs();
+});
 
 test("character mutation validators accept complete payloads and reject malformed values", () => {
   const body = {
@@ -236,6 +285,7 @@ test("dice roll parsing normalizes optional fields and rejects unsafe rolls", ()
   assert.equal(parseDiceRollRequestBody({ formula: "", rollType: "attack", rollValues: [], total: 0 }), null);
   assert.equal(parseDiceRollRequestBody({ formula: "1d20", rollType: "bad", rollValues: [], total: 0 }), null);
   assert.equal(parseDiceRollRequestBody({ formula: "1d20", rollType: "attack", rollValues: [], roomCode: "bad", total: 0 }), null);
+  assert.equal(parseDiceRollRequestBody({ formula: "1d20", rollType: "attack", rollValues: [], roomCode: 123, total: 0 }), null);
   assert.equal(isDiceRollValues([{ sides: 6, value: 6 }]), true);
   assert.equal(isDiceRollValues([{ sides: 6, value: 7 }]), false);
   assert.equal(normalizeBoundedOptionalString("  note  ", 10), "note");
@@ -459,6 +509,106 @@ test("character controllers reject invalid ids and request bodies before service
     badRemoveConditionResponse,
   );
   assert.equal(badRemoveConditionResponse.statusCode, 400);
+});
+
+test("createCharacterDiceRoll maps room-aware service outcomes to HTTP responses", async () => {
+  stubPrismaMethod(prisma.character, "findFirst", async () => null);
+
+  const missingCharacterResponse = createResponse();
+  await createCharacterDiceRoll(
+    request({ body: validDiceRollBody(), params: { id: "character-1" } }),
+    missingCharacterResponse,
+  );
+  assert.equal(missingCharacterResponse.statusCode, 404);
+  assert.deepEqual(missingCharacterResponse.body, { error: "Character not found" });
+
+  restorePrismaStubs();
+  stubPrismaMethod(prisma.character, "findFirst", async () => ({ id: "character-1" }));
+  stubPrismaMethod(prisma.room, "findUnique", async () => null);
+
+  const missingRoomResponse = createResponse();
+  await createCharacterDiceRoll(
+    request({
+      body: validDiceRollBody({ roomCode: "ABC123" }),
+      params: { id: "character-1" },
+    }),
+    missingRoomResponse,
+  );
+  assert.equal(missingRoomResponse.statusCode, 404);
+  assert.deepEqual(missingRoomResponse.body, { error: "Room not found" });
+
+  restorePrismaStubs();
+  stubPrismaMethod(prisma.character, "findFirst", async () => ({ id: "character-1" }));
+  stubPrismaMethod(prisma.room, "findUnique", async () => ({
+    id: "room-1",
+    players: [],
+  }));
+
+  const forbiddenResponse = createResponse();
+  await createCharacterDiceRoll(
+    request({
+      body: validDiceRollBody({ roomCode: "ABC123" }),
+      params: { id: "character-1" },
+    }),
+    forbiddenResponse,
+  );
+  assert.equal(forbiddenResponse.statusCode, 403);
+  assert.deepEqual(forbiddenResponse.body, { error: "Character is not participating in this room" });
+
+  restorePrismaStubs();
+  let createArgs: unknown;
+  const diceRoll = {
+    characterId: "character-1",
+    formula: "1d20 + 5",
+    id: "roll-1",
+    modifier: 5,
+    reason: "Attack",
+    rollMode: "normal",
+    rollType: "attack",
+    rollValues: [{ sides: 20, value: 17 }],
+    roomId: "room-1",
+    rolledByUserId: "user-1",
+    total: 22,
+    visibility: "public",
+  };
+  stubPrismaMethod(prisma.character, "findFirst", async () => ({ id: "character-1" }));
+  stubPrismaMethod(prisma.room, "findUnique", async () => ({
+    id: "room-1",
+    players: [{ id: "player-1" }],
+  }));
+  stubPrismaMethod(prisma.diceRoll, "create", async (args: unknown) => {
+    createArgs = args;
+
+    return diceRoll;
+  });
+
+  const successResponse = createResponse();
+  await createCharacterDiceRoll(
+    request({
+      body: validDiceRollBody({ roomCode: "ABC123" }),
+      params: { id: "character-1" },
+    }),
+    successResponse,
+  );
+  assert.equal(successResponse.statusCode, 201);
+  assert.deepEqual(successResponse.body, diceRoll);
+  assert.deepEqual(createArgs, {
+    data: {
+      characterId: "character-1",
+      formula: "1d20 + 5",
+      modifier: 5,
+      reason: "Attack",
+      roomId: "room-1",
+      rolledByUserId: "user-1",
+      rollMode: "normal",
+      rollType: "attack",
+      rollValues: [{ sides: 20, value: 17 }],
+      targetIndex: null,
+      targetType: null,
+      total: 22,
+      visibility: "public",
+    },
+  });
 });
 
 test("getCharacters reports service failures as server errors", async () => {

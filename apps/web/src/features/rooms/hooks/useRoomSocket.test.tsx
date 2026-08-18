@@ -1,4 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import type { RoomDiceRoll } from "@dd-simple/shared";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useRoomSocket } from "./useRoomSocket";
@@ -138,5 +139,69 @@ describe("useRoomSocket", () => {
     });
 
     expect(result.current.error).toBe("Socket offline");
+  });
+
+  it("receives and announces dice rolls through the room socket", async () => {
+    let diceRollAck: ((payload?: { error?: string; ok?: boolean }) => void) | undefined;
+    const onDiceRolled = vi.fn();
+    const roll: RoomDiceRoll = {
+      characterId: "char-1",
+      characterName: "Mira",
+      formula: "1d20 + 5",
+      id: "roll-1",
+      modifier: 5,
+      reason: "Attack",
+      rollValues: [{ sides: 20, value: 17 }],
+      rolledAt: 123,
+      total: 22,
+    };
+
+    socket.emit.mockImplementation((event: string, _payload: unknown, callback?: (payload: unknown) => void) => {
+      if (event === "room:join") {
+        callback?.({ room });
+      }
+
+      if (event === "dice:roll") {
+        diceRollAck = callback as typeof diceRollAck;
+      }
+    });
+
+    const { result } = renderHook(() =>
+      useRoomSocket("ABC123", "char-1", "token", onDiceRolled),
+    );
+
+    await waitFor(() => expect(result.current.room?.code).toBe("ABC123"));
+
+    act(() => {
+      socket.handlers.get("dice:rolled")?.({ roll });
+    });
+    expect(onDiceRolled).toHaveBeenCalledWith(roll);
+
+    act(() => {
+      socket.handlers.get("connect_error")?.({ message: "Socket offline" });
+    });
+    expect(result.current.error).toBe("Socket offline");
+
+    act(() => {
+      result.current.announceDiceRoll("roll-1");
+    });
+    expect(socket.emit).toHaveBeenCalledWith(
+      "dice:roll",
+      { diceRollId: "roll-1" },
+      expect.any(Function),
+    );
+
+    act(() => {
+      diceRollAck?.({ ok: true });
+    });
+    expect(result.current.error).toBeNull();
+
+    act(() => {
+      result.current.announceDiceRoll("roll-2");
+    });
+    act(() => {
+      diceRollAck?.({ error: "Dice roll not found for this room" });
+    });
+    expect(result.current.error).toBe("Dice roll not found for this room");
   });
 });
