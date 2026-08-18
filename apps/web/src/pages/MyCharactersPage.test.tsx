@@ -98,7 +98,7 @@ describe("MyCharactersPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("filters, sorts, selects, and deletes characters", () => {
+  it("lists, selects, and deletes characters without library controls", () => {
     vi.stubGlobal("confirm", vi.fn(() => true));
     mockCharactersState();
 
@@ -106,16 +106,9 @@ describe("MyCharactersPage", () => {
 
     expect(screen.getByText("Mira")).toBeTruthy();
     expect(screen.getByText("Torin")).toBeTruthy();
-
-    fireEvent.change(screen.getByPlaceholderText(/Search by name/i), {
-      target: { value: "rogue" },
-    });
-    expect(screen.queryByText("Mira")).toBeNull();
-    expect(screen.getByText("Torin")).toBeTruthy();
-
-    fireEvent.change(screen.getByLabelText("Sort By"), {
-      target: { value: "level-desc" },
-    });
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(screen.queryByLabelText("Sort By")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Select Torin" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete Torin" }));
 
@@ -124,7 +117,7 @@ describe("MyCharactersPage", () => {
     expect(removeCharacterMock).toHaveBeenCalledWith("c2");
   });
 
-  it("renders loading, error, empty, and no-result states", () => {
+  it("renders loading, error, and empty states", () => {
     mockCharactersState({ characters: [], loading: true });
     const { rerender } = render(<MyCharactersPage />);
     expect(screen.getByText("Loading characters...")).toBeTruthy();
@@ -136,12 +129,5 @@ describe("MyCharactersPage", () => {
     mockCharactersState({ characters: [] });
     rerender(<MyCharactersPage />);
     expect(screen.getByText("No characters empty state")).toBeTruthy();
-
-    mockCharactersState();
-    rerender(<MyCharactersPage />);
-    fireEvent.change(screen.getByPlaceholderText(/Search by name/i), {
-      target: { value: "missing" },
-    });
-    expect(screen.getByText("No matching characters")).toBeTruthy();
   });
 });

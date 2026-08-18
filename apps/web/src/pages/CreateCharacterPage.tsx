@@ -77,8 +77,11 @@ function CreateCharacterPage() {
             <p className="muted">Choose character basics and save them to your account.</p>
           </div>
 
-          <Link to="/characters" className="characters-settings-button">
-            Back to Characters
+          <Link to="/characters" className="secondary-button character-create-back-link">
+            <span className="character-create-back-icon" aria-hidden="true">
+              ←
+            </span>
+            <span>Back to Characters</span>
           </Link>
         </div>
 
