@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   applyCurrentHpAdjustment: vi.fn(),
   applyHitPointConfiguration: vi.fn(),
   applyLongRest: vi.fn(),
+  autosaveSaveError: "Could not save" as string | null,
+  autosaveSaveStatus: "error",
   closePanel: vi.fn(),
   confirmSelection: vi.fn(),
   flushSave: vi.fn(),
@@ -228,8 +230,8 @@ vi.mock("../features/characters/hooks/useDashboardAutosave", async (importOrigin
     useDashboardAutosave: () => ({
       flushSave: mocks.flushSave,
       lastSavedAt: null,
-      saveError: "Could not save",
-      saveStatus: "error",
+      saveError: mocks.autosaveSaveError,
+      saveStatus: mocks.autosaveSaveStatus,
     }),
   };
 });
@@ -316,6 +318,8 @@ describe("CharacterDashboardPage render", () => {
   afterEach(() => {
     cleanup();
     window.localStorage.clear();
+    mocks.autosaveSaveError = "Could not save";
+    mocks.autosaveSaveStatus = "error";
     vi.clearAllMocks();
   });
 
@@ -357,5 +361,19 @@ describe("CharacterDashboardPage render", () => {
     expect(screen.getByRole("dialog", { name: "Dashboard sections" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Character builder" }));
     expect(screen.getByText("Selection Mock: class")).toBeTruthy();
+  });
+
+  it("does not add a layout-shifting status while autosave is saving", () => {
+    mocks.autosaveSaveError = null;
+    mocks.autosaveSaveStatus = "saving";
+
+    render(
+      <MemoryRouter>
+        <CharacterDashboardPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByTestId("dashboard-autosave-status")).toBeNull();
+    expect(screen.queryByText("Saving...")).toBeNull();
   });
 });
