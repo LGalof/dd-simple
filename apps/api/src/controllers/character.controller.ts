@@ -119,6 +119,7 @@ type DiceRollRequestBody = {
   formula?: unknown;
   modifier?: unknown;
   reason?: unknown;
+  roomCode?: unknown;
   rollMode?: unknown;
   rollType?: unknown;
   rollValues?: unknown;
@@ -138,6 +139,7 @@ type ValidDiceRollRequestBody = {
   formula: string;
   modifier: number;
   reason: string | null;
+  roomCode: string | null;
   rollMode: DiceRollMode;
   rollType: DiceRollType;
   rollValues: DiceRollValue[];
@@ -642,6 +644,7 @@ function parseDiceRollRequestBody(body: unknown): ValidDiceRollRequestBody | nul
   const candidate = body as DiceRollRequestBody;
   const formula = typeof candidate.formula === "string" ? candidate.formula.trim() : "";
   const reason = normalizeBoundedOptionalString(candidate.reason, 160);
+  const roomCode = normalizeDiceRollRoomCode(candidate.roomCode);
   const targetIndex = normalizeBoundedOptionalString(candidate.targetIndex, 80);
   const targetType = normalizeBoundedOptionalString(candidate.targetType, 60);
   const modifier = candidate.modifier === undefined ? 0 : candidate.modifier;
@@ -657,6 +660,7 @@ function parseDiceRollRequestBody(body: unknown): ValidDiceRollRequestBody | nul
     !isReasonableInteger(modifier, -10_000, 10_000) ||
     !isReasonableInteger(candidate.total, -100_000, 100_000) ||
     reason === undefined ||
+    roomCode === undefined ||
     targetIndex === undefined ||
     targetType === undefined ||
     !isDiceRollValues(candidate.rollValues)
@@ -668,6 +672,7 @@ function parseDiceRollRequestBody(body: unknown): ValidDiceRollRequestBody | nul
     formula,
     modifier,
     reason,
+    roomCode,
     rollMode,
     rollType: candidate.rollType,
     rollValues: candidate.rollValues,
@@ -676,6 +681,20 @@ function parseDiceRollRequestBody(body: unknown): ValidDiceRollRequestBody | nul
     total: candidate.total,
     visibility,
   };
+}
+
+function normalizeDiceRollRoomCode(value: unknown) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim().toUpperCase();
+
+  return /^[A-Z0-9]{6}$/.test(normalizedValue) ? normalizedValue : undefined;
 }
 
 function normalizeBoundedOptionalString(value: unknown, maxLength: number) {
@@ -1524,20 +1543,32 @@ async function createCharacterDiceRoll(req: Request, res: Response) {
       return;
     }
 
-    const diceRoll = await createDiceRollForCharacterForUser(
+    const result = await createDiceRollForCharacterForUser(
       getAuthenticatedUser(req).id,
       id,
       body,
     );
 
-    if (!diceRoll) {
-      res.status(404).json({
-        error: "Character not found",
-      });
-      return;
+    switch (result.status) {
+      case "character_not_found":
+        res.status(404).json({
+          error: "Character not found",
+        });
+        return;
+      case "room_not_found":
+        res.status(404).json({
+          error: "Room not found",
+        });
+        return;
+      case "forbidden":
+        res.status(403).json({
+          error: "Character is not participating in this room",
+        });
+        return;
+      case "ok":
+        res.status(201).json(result.diceRoll);
+        return;
     }
-
-    res.status(201).json(diceRoll);
   } catch (error) {
     console.error("Failed to create dice roll:", error);
 

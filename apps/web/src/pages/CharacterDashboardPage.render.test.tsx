@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CharacterDashboardPage } from "./CharacterDashboardPage";
 
@@ -319,7 +320,11 @@ describe("CharacterDashboardPage render", () => {
   });
 
   it("renders dashboard layout and wires major interactions", () => {
-    render(<CharacterDashboardPage />);
+    render(
+      <MemoryRouter>
+        <CharacterDashboardPage />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText("Builder Mock")).toBeTruthy();
     expect(screen.getByText("Sheet Mock")).toBeTruthy();
@@ -340,6 +345,13 @@ describe("CharacterDashboardPage render", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Roll Local" }));
     expect(mocks.recordDiceRoll).toHaveBeenCalled();
+    expect(mocks.recordDiceRoll).toHaveBeenCalledWith(
+      "character-1",
+      expect.objectContaining({
+        roomCode: null,
+        visibility: "public",
+      }),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Open dashboard menu" }));
     expect(screen.getByRole("dialog", { name: "Dashboard sections" })).toBeTruthy();

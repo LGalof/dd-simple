@@ -224,6 +224,7 @@ test("dice roll parsing normalizes optional fields and rejects unsafe rolls", ()
     formula: "1d20 + 5",
     modifier: 0,
     reason: null,
+    roomCode: null,
     rollMode: "normal",
     rollType: "attack",
     rollValues: [{ sides: 20, value: 17 }, { discarded: true, sides: 20, value: 2 }],
@@ -234,6 +235,7 @@ test("dice roll parsing normalizes optional fields and rejects unsafe rolls", ()
   });
   assert.equal(parseDiceRollRequestBody({ formula: "", rollType: "attack", rollValues: [], total: 0 }), null);
   assert.equal(parseDiceRollRequestBody({ formula: "1d20", rollType: "bad", rollValues: [], total: 0 }), null);
+  assert.equal(parseDiceRollRequestBody({ formula: "1d20", rollType: "attack", rollValues: [], roomCode: "bad", total: 0 }), null);
   assert.equal(isDiceRollValues([{ sides: 6, value: 6 }]), true);
   assert.equal(isDiceRollValues([{ sides: 6, value: 7 }]), false);
   assert.equal(normalizeBoundedOptionalString("  note  ", 10), "note");

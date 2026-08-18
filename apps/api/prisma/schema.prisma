@@ -81,6 +81,7 @@ model Room {
   creator          User       @relation("RoomCreator", fields: [creatorUserId], references: [id], onDelete: Cascade)
   creatorCharacter Character  @relation("RoomCreatorCharacter", fields: [creatorCharacterId], references: [id], onDelete: Cascade)
   players          RoomPlayer[]
+  diceRolls        DiceRoll[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -587,6 +588,7 @@ model DiceRoll {
   id String @id @default(uuid()) @db.Uuid
 
   characterId    String @db.Uuid
+  roomId         String? @db.Uuid
   rolledByUserId String @db.Uuid
 
   rollType    String
@@ -602,8 +604,10 @@ model DiceRoll {
   rolledAt    DateTime @default(now())
 
   character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  room         Room?     @relation(fields: [roomId], references: [id], onDelete: SetNull)
   rolledByUser User      @relation("DiceRollUser", fields: [rolledByUserId], references: [id], onDelete: Cascade)
 
+  @@index([roomId, visibility, rolledAt])
   @@map("dice_rolls")
 }
 

@@ -57,6 +57,7 @@ entity "DiceRoll" as DiceRoll {
   * id : String <<PK>>
   --
   characterId : String <<FK>>
+  roomId : String? <<FK>>
   rolledByUserId : String <<FK>>
   formula : String
   total : Int
@@ -229,6 +230,7 @@ Character ||--o{ RoomPlayer : room character
 Character ||--o{ Room : created with
 
 Room ||--o{ RoomPlayer : players
+Room ||--o{ DiceRoll : room history
 
 legend bottom
 Additional Ref* models are defined in the Prisma schema and omitted from this overview for readability.

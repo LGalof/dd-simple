@@ -25,7 +25,7 @@ apps/api/prisma/migrations/
 | Character build state | `CharacterAbilityScore`, `CharacterSkill`, `CharacterProficiency`, `CharacterChoice`, `CharacterFeatureChoiceSelection`, `CharacterLanguage` | Stores build selections and character-specific choices. |
 | Character gameplay state | `CharacterCondition`, `CharacterHitPointState`, `CharacterSpellcastingState`, `CharacterResourceState` | Stores condition, HP, spellcasting, and resource state used during gameplay. |
 | Inventory | `CharacterInventory`, `CharacterInventoryState` | Stores normalized inventory rows and serialized visual inventory workspace state. |
-| Dice | `DiceRoll` | Stores dice-roll history connected to users and characters. |
+| Dice | `DiceRoll` | Stores dice-roll history connected to users, characters, and optionally rooms. |
 | Rooms | `Room`, `RoomPlayer` | Stores room codes, room creators, players, selected characters, and board state. |
 | Reference data | `RefAbilityScore`, `RefSkill`, `RefSpecies`, `RefSpeciesTrait`, `RefSpeciesSizeOption`, `RefSubspecies`, `RefLanguage`, `RefCondition`, `RefClass`, `RefClassLevel`, `RefClassFeature`, `RefClassProficiencyGrant`, `RefClassSkillChoice`, `RefClassSkillChoiceOption`, `RefClassPrimaryAbility`, `RefAlignment`, `RefBackground`, `RefBackgroundProficiencyGrant`, `RefBackgroundAbilityOption`, `RefBackgroundFeatGrant`, `RefProficiency`, `RefEquipment`, `RefRuleDocument` | Stores reusable D&D 5e-inspired rules and reference content. |
 
@@ -36,7 +36,7 @@ apps/api/prisma/migrations/
 - Character names are unique per user through the `(userId, name)` constraint.
 - Character-related state tables are connected to the character through `characterId`.
 - Specialized character-state records use one-to-one character relations where the schema stores a single state row for a character.
-- A `DiceRoll` belongs to a user and character.
+- A `DiceRoll` belongs to a user and character. It may optionally belong to a `Room` through nullable `roomId`.
 - A `Room` stores its creator user and creator character.
 - A `RoomPlayer` connects a room, user, and character.
 - A room player entry is unique by `(roomId, userId, characterId)`.
@@ -77,17 +77,17 @@ The serialized workspace supports the grid-based inventory interface, including 
 
 ## Dice Rolls
 
-`DiceRoll` stores roll type, formula, result, mode, individual dice values, modifier, reason, visibility, user, and character. Character queries include recent or full roll history depending on the endpoint.
+`DiceRoll` stores roll type, formula, result, mode, individual dice values, modifier, reason, visibility, user, character, and optional room association. Character queries include recent or full roll history depending on the endpoint. Room dice history uses only public `DiceRoll` rows with `roomId` matching the current room; older rows with `roomId = null` remain ordinary character history and are not included in room feeds.
 
 ## Rooms and Board State
 
-`Room` stores a unique room code, creator identifiers, timestamps, joined players, and JSON board state. `RoomPlayer` stores the user and character that joined a room.
+`Room` stores a unique room code, creator identifiers, timestamps, joined players, room-associated dice rolls, and JSON board state. `RoomPlayer` stores the user and character that joined a room.
 
 The tactical board state is stored as JSON so the frontend can persist rich board data such as tokens, terrain, fog, pins, templates, layers, settings, and initiative order.
 
 ## Migrations
 
-Prisma schema and checked-in migrations define the database structure. Migrations cover the initial character schema, reference data, authentication data, character build and gameplay state, inventory state, spell and resource state, and persistent rooms.
+Prisma schema and checked-in migrations define the database structure. Migrations cover the initial character schema, reference data, authentication data, character build and gameplay state, inventory state, spell and resource state, persistent rooms, and room-associated dice history.
 
 Deployment uses Prisma migration commands to apply checked-in migrations to the target PostgreSQL database.
 

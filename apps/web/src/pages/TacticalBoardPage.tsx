@@ -19,14 +19,16 @@ import {
   Upload,
   Waves,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import type { RoomDiceRoll } from "@dd-simple/shared";
 import { AppLayout } from "../components/layout/AppLayout";
 import { secureRandomInt } from "../lib/secureRandom";
 import { useAuth } from "../features/auth/AuthContext";
-import { getRoom } from "../features/rooms/api/roomsApi";
+import { getRoom, getRoomDiceRolls } from "../features/rooms/api/roomsApi";
 import { useRoomSocket } from "../features/rooms/hooks/useRoomSocket";
+import { mergeRoomDiceRoll } from "../features/rooms/utils/roomDiceRolls";
 import { copyRoomInviteUrl } from "../features/rooms/utils/roomInvite";
 import { TacticalBoardGrid } from "../features/tactical-board/components/TacticalBoardGrid";
 import {
@@ -176,6 +178,13 @@ function formatSignedModifier(value: number) {
   return value >= 0 ? `+${value}` : `${value}`;
 }
 
+function formatRoomDiceRollTime(rolledAt: number) {
+  return new Date(rolledAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 const emptyDeathSaves: DeathSaves = { successes: 0, failures: 0 };
 
 function clampDeathSaveCount(value: number | undefined) {
@@ -270,6 +279,11 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   const [searchParams] = useSearchParams();
   const { token, user } = useAuth();
   const roomCharacterId = searchParams.get("characterId");
+  const [roomDiceRolls, setRoomDiceRolls] = useState<RoomDiceRoll[]>([]);
+  const [roomDiceRollError, setRoomDiceRollError] = useState<string | null>(null);
+  const handleRoomDiceRolled = useCallback((roll: RoomDiceRoll) => {
+    setRoomDiceRolls((currentRolls) => mergeRoomDiceRoll(currentRolls, roll));
+  }, []);
   const {
     advanceTurn,
     boardState: socketBoardState,
@@ -278,7 +292,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
     error: socketError,
     room: socketRoom,
     sendBoardState,
-  } = useRoomSocket(roomMode ? roomCode : undefined, roomCharacterId, token);
+  } = useRoomSocket(roomMode ? roomCode : undefined, roomCharacterId, token, handleRoomDiceRolled);
   const savedBoardState = useMemo(() => (roomMode ? null : loadSavedBoardState()), [roomMode]);
   const initialSavedBoards = useMemo(() => (roomMode ? [] : loadSavedBoardEntries()), [roomMode]);
   const initialBoardState = socketBoardState ?? savedBoardState;
@@ -331,6 +345,7 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
   const [showDmNotes, setShowDmNotes] = useState(true);
   const [waypoints, setWaypoints] = useState<Array<{ x: number; y: number }>>([]);
   const [combatLog, setCombatLog] = useState<string[]>(["Prototype board ready."]);
+  const [historyView, setHistoryView] = useState<"combat" | "dice">("combat");
   const [savedBoards, setSavedBoards] = useState(initialSavedBoards);
   const [boardName, setBoardName] = useState(initialSavedBoards[0]?.name ?? "Forest Road");
   const [selectedSavedBoardId, setSelectedSavedBoardId] = useState(initialSavedBoards[0]?.id ?? "");
@@ -476,6 +491,43 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
       cancelled = true;
     };
   }, [roomCode, roomCharacterId, roomMode, token]);
+
+  useEffect(() => {
+    if (!roomMode || !roomCode || !token) {
+      setRoomDiceRolls([]);
+      setRoomDiceRollError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const currentRoomCode = roomCode;
+    const currentToken = token;
+    setRoomDiceRolls([]);
+
+    async function loadRoomDiceRolls() {
+      setRoomDiceRollError(null);
+
+      try {
+        const response = await getRoomDiceRolls(currentRoomCode, currentToken);
+
+        if (!cancelled) {
+          setRoomDiceRolls((currentRolls) =>
+            currentRolls.reduce(mergeRoomDiceRoll, response.rolls),
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRoomDiceRollError(error instanceof Error ? error.message : "Failed to load room dice rolls.");
+        }
+      }
+    }
+
+    void loadRoomDiceRolls();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomCode, roomMode, token]);
 
   useEffect(() => {
     if (!roomMode) {
@@ -1641,6 +1693,14 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                 >
                   {inviteCopied ? "Link copied" : "Invite"}
                 </button>
+                {roomCharacterId ? (
+                  <Link
+                    className="battle-board-invite-link"
+                    to={`/room/${activeRoom.code}/character?characterId=${encodeURIComponent(roomCharacterId)}`}
+                  >
+                    Character
+                  </Link>
+                ) : null}
               </div>
             )}
             {roomMode && !roomCharacterId && (
@@ -2501,14 +2561,70 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
             <details className="battle-compact-section">
               <summary>
                 <span>History</span>
-                <strong>Combat Log</strong>
+                <strong>{historyView === "combat" ? "Combat Log" : "Dice Rolls"}</strong>
               </summary>
 
-              <div className="battle-combat-log">
-                {combatLog.map((entry, index) => (
-                  <p key={`${entry}-${index}`}>{entry}</p>
-                ))}
+              <div className="battle-history-tabs" role="tablist" aria-label="History view">
+                <button
+                  type="button"
+                  className={
+                    historyView === "combat"
+                      ? "battle-history-tab battle-history-tab-active"
+                      : "battle-history-tab"
+                  }
+                  onClick={() => setHistoryView("combat")}
+                >
+                  Combat Log
+                </button>
+                <button
+                  type="button"
+                  className={
+                    historyView === "dice"
+                      ? "battle-history-tab battle-history-tab-active"
+                      : "battle-history-tab"
+                  }
+                  onClick={() => setHistoryView("dice")}
+                >
+                  Dice Rolls
+                </button>
               </div>
+
+              {historyView === "combat" ? (
+                <div className="battle-combat-log">
+                  {combatLog.map((entry, index) => (
+                    <p key={`${entry}-${index}`}>{entry}</p>
+                  ))}
+                </div>
+              ) : (
+                <div className="battle-dice-rolls" aria-live="polite">
+                  {roomDiceRollError ? <p className="battle-dice-roll-empty">{roomDiceRollError}</p> : null}
+                  {!roomDiceRollError && roomDiceRolls.length === 0 ? (
+                    <p className="battle-dice-roll-empty">No public rolls yet.</p>
+                  ) : null}
+                  {!roomDiceRollError &&
+                    roomDiceRolls.map((roll) => {
+                      const reason = roll.reason?.trim();
+
+                      return (
+                        <article className="battle-dice-roll-row" key={roll.id}>
+                          <div className="battle-dice-roll-row__meta">
+                            <time>{formatRoomDiceRollTime(roll.rolledAt)}</time>
+                            <strong>{roll.characterName}</strong>
+                          </div>
+                          {reason ? (
+                            <span className="battle-dice-roll-row__reason" title={reason}>
+                              {reason}
+                            </span>
+                          ) : null}
+                          <div className="battle-dice-roll-row__formula">
+                            <span title={roll.formula}>{roll.formula}</span>
+                            <strong>{roll.total}</strong>
+                          </div>
+                        </article>
+                      );
+                    })}
+                </div>
+              )}
             </details>
 
             <div className="battle-panel-heading">

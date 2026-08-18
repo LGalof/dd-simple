@@ -20,7 +20,7 @@
 | [ADR-007: Persist Room Board State and Synchronize Snapshots](adr/ADR-007-persistent-room-board-state.md) | Records the persistent board synchronization decision. |
 | [UML README](uml/README.md) | Lists the current UML diagrams. |
 | [Use Case Overview](uml/use-case-overview.svg) | Shows the main user interactions with D&D Simple. |
-| [Room Realtime Sequence](uml/sequence-room-realtime-sync.svg) | Shows the REST, persistence, and Socket.IO room board flow. |
+| [Room Realtime Sequence](uml/sequence-room-realtime-sync.svg) | Shows the REST, persistence, and Socket.IO room board plus room-specific dice feed flow. |
 | [Character Autosave Activity](uml/activity-character-edit-autosave.svg) | Shows character editing and autosave behavior. |
 | [Production Deployment](uml/deployment-production.svg) | Shows the browser, Render service, and PostgreSQL topology. |
 | [Current Prisma ER Overview](uml/er-current-prisma.svg) | Shows the main Prisma entities and relationships. |

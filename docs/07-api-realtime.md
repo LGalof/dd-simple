@@ -46,7 +46,7 @@ Character routes require authentication and operate on characters owned by the a
 | GET | `/characters/:id/defenses` | Load derived defenses. | Character must belong to the authenticated user. |
 | POST | `/characters/:id/conditions` | Add or update a character condition. | Character must belong to the authenticated user. |
 | DELETE | `/characters/:id/conditions/:conditionIndex` | Remove a condition. | Character must belong to the authenticated user. |
-| POST | `/characters/:id/dice-rolls` | Save a dice roll. | Character must belong to the authenticated user. |
+| POST | `/characters/:id/dice-rolls` | Save a dice roll. | Character must belong to the authenticated user. Optional `roomCode` is validated against room participation before `DiceRoll.roomId` is set. |
 | GET | `/characters/:id/inventory` | Load normalized inventory rows. | Character must belong to the authenticated user. |
 | PUT | `/characters/:id/inventory` | Replace normalized inventory rows. | Character must belong to the authenticated user. |
 | GET | `/characters/:id/inventory/state` | Load serialized inventory workspace state. | Character must belong to the authenticated user. |
@@ -62,6 +62,7 @@ Room routes require authentication.
 | GET | `/rooms` | List rooms the authenticated user created or joined. | Requires authentication. |
 | POST | `/rooms/:roomCode/join` | Join a room by code. | Requires an existing room and a character owned by the authenticated user. |
 | GET | `/rooms/:roomCode` | Load room players and board state. | Requires authentication and a valid room code. |
+| GET | `/rooms/:roomCode/dice-rolls` | Load the room dice-roll feed. | Authenticated user must be a room participant; returns the latest ten public persisted rolls whose `DiceRoll.roomId` matches the room. |
 
 ## Socket.IO Events
 
@@ -75,6 +76,7 @@ Socket connections authenticate with a bearer token provided in socket auth data
 | `room:leave` | Leave the current socket room. | Socket must already be connected. |
 | `board:state` | Send updated board state for the joined room. | Socket must have joined a room. |
 | `board:advance-turn` | Advance the initiative turn for the joined room. | DM may move backward or forward; active player may advance forward. |
+| `dice:roll` | Announce an already-saved character dice roll by `diceRollId`. | Socket must have joined a room; server validates the authenticated user, joined character, public visibility, persisted roll, and matching `DiceRoll.roomId` before broadcasting. |
 
 ### Server Events
 
@@ -82,6 +84,7 @@ Socket connections authenticate with a bearer token provided in socket auth data
 |---|---|
 | `room:update` | Sends room data, players, and board state after room changes. |
 | `board:update` | Sends updated board state to connected clients in the room, including the sender after successful updates. |
+| `dice:rolled` | Sends a validated persisted public dice roll to connected clients in the joined room. |
 
 ## Synchronization Flow
 
@@ -93,4 +96,6 @@ Socket connections authenticate with a bearer token provided in socket auth data
 6. The server saves the board state and emits `board:update` to connected clients in the room, including the sender.
 7. The sender also receives the acknowledgement callback for the board update.
 
-Controllers return JSON error messages with HTTP status codes for validation and ownership failures. Socket events use callback error objects for join and board-update failures.
+Room dice-roll history uses the existing `DiceRoll` table with nullable `roomId`. A room board loads `GET /rooms/:roomCode/dice-rolls` to display the latest ten public rolls for that specific room as one chronological feed. When a room-context Character Dashboard saves a public roll, the API verifies room participation and stores the room database ID on the roll. The dashboard then emits `dice:roll` with only the persisted roll ID. The server derives room, user, and character identity from the authenticated socket state, validates the saved public roll and matching `DiceRoll.roomId`, and emits `dice:rolled` only to that socket room. Clients merge realtime rolls by ID and keep the latest ten total. Older dice rolls with `roomId = null` remain ordinary character history and are excluded from room feeds.
+
+Controllers return JSON error messages with HTTP status codes for validation and ownership failures. Socket events use callback error objects for join, board-update, and dice-roll announcement failures.
