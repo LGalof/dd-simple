@@ -103,6 +103,7 @@ function prepareRoomMode() {
   mocks.token = "token";
   mocks.room = roomDetails;
   mocks.getRoom.mockResolvedValue({ room: roomDetails });
+  mocks.getRoomDiceRolls.mockResolvedValue({ rolls: [] });
 }
 
 describe("TacticalBoardPage", () => {
@@ -159,6 +160,23 @@ describe("TacticalBoardPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Reset Board/i }));
     expect(screen.getByText(/Board reset/i)).toBeTruthy();
+  });
+
+  it("opens the room character dashboard in a new tab", () => {
+    prepareRoomMode();
+
+    renderRoomBoard();
+
+    const dashboardLink = screen.getByRole("link", {
+      name: "Open Character Dashboard in a new tab",
+    });
+
+    expect(dashboardLink.getAttribute("href")).toBe(
+      "/room/ABC123/character?characterId=char-1",
+    );
+    expect(dashboardLink.getAttribute("target")).toBe("_blank");
+    expect(dashboardLink.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(screen.getByText("Open Character Dashboard")).toBeTruthy();
   });
 
   it("renders one shared chronological room dice feed without changing Combat Log", async () => {

@@ -4,6 +4,7 @@ import {
   ChevronRight,
   Copy,
   Download,
+  ExternalLink,
   FilePlus,
   Footprints,
   Mountain,
@@ -17,6 +18,7 @@ import {
   Trash2,
   Trees,
   Upload,
+  UserRound,
   Waves,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1695,10 +1697,15 @@ function TacticalBoardPage({ roomMode = false }: TacticalBoardPageProps) {
                 </button>
                 {roomCharacterId ? (
                   <Link
-                    className="battle-board-invite-link"
+                    className="battle-board-character-link"
                     to={`/room/${activeRoom.code}/character?characterId=${encodeURIComponent(roomCharacterId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Open Character Dashboard in a new tab"
                   >
-                    Character
+                    <UserRound size={15} aria-hidden="true" />
+                    <span>Open Character Dashboard</span>
+                    <ExternalLink size={13} aria-hidden="true" />
                   </Link>
                 ) : null}
               </div>
