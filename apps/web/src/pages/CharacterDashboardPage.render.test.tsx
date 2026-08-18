@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   applyCurrentHpAdjustment: vi.fn(),
   applyHitPointConfiguration: vi.fn(),
   applyLongRest: vi.fn(),
+  autosaveSaveError: "Could not save" as string | null,
+  autosaveSaveStatus: "error",
   closePanel: vi.fn(),
   confirmSelection: vi.fn(),
   flushSave: vi.fn(),
@@ -237,8 +239,8 @@ vi.mock("../features/characters/hooks/useDashboardAutosave", async (importOrigin
     useDashboardAutosave: () => ({
       flushSave: mocks.flushSave,
       lastSavedAt: null,
-      saveError: "Could not save",
-      saveStatus: "error",
+      saveError: mocks.autosaveSaveError,
+      saveStatus: mocks.autosaveSaveStatus,
     }),
   };
 });
@@ -346,6 +348,8 @@ describe("CharacterDashboardPage render", () => {
     cleanup();
     window.localStorage.clear();
     mocks.roomSocketError = null;
+    mocks.autosaveSaveError = "Could not save";
+    mocks.autosaveSaveStatus = "error";
     vi.clearAllMocks();
   });
 
@@ -424,5 +428,15 @@ describe("CharacterDashboardPage render", () => {
     renderDashboard("/room/ABC123/character?characterId=character-1");
 
     expect(screen.getByText("Room socket failed")).toBeTruthy();
+  });
+
+  it("does not add a layout-shifting status while autosave is saving", () => {
+    mocks.autosaveSaveError = null;
+    mocks.autosaveSaveStatus = "saving";
+
+    renderDashboard();
+
+    expect(screen.queryByTestId("dashboard-autosave-status")).toBeNull();
+    expect(screen.queryByText("Saving...")).toBeNull();
   });
 });

@@ -52,11 +52,11 @@ test("deriveCharacterStats applies Defense style only while armor is equipped", 
   assert.equal(armoredStats.armorClassBonus, 1);
 });
 
-test("deriveCharacterStats infers speed bonuses from descriptive passive text", () => {
+test("deriveCharacterStats infers permanent speed bonuses from descriptive text", () => {
   const stats = deriveCharacterStats(
     [
       createSource({
-        description: "Your speed increases by 10 feet while this feature is active.",
+        description: "Your speed increases by 10 feet.",
         sourceIndex: "custom-speed",
         title: "Fleet Step",
       }),
@@ -97,6 +97,42 @@ test("deriveCharacterStats applies active Goliath Large Form speed bonus", () =>
   );
 
   assert.equal(stats.speedBonus, 10);
+});
+
+test("deriveCharacterStats does not apply inactive Goliath Large Form speed bonus", () => {
+  const largeForm = createSource({
+    description:
+      "This transformation lasts for 10 minutes. For that duration, your Speed increases by 10 feet.",
+    sourceIndex: "large-form",
+    sourceType: "species_trait",
+    title: "Large Form",
+  });
+  const activeLargeForm = createSource({
+    description: "While Large Form is active, your Speed increases by 10 feet.",
+    sourceIndex: "large-form-active",
+    sourceType: "species_trait",
+    title: "Large Form (Active)",
+  });
+
+  assert.equal(deriveCharacterStats([largeForm], 5).speedBonus, 0);
+  assert.equal(deriveCharacterStats([largeForm, activeLargeForm], 5).speedBonus, 10);
+});
+
+test("deriveCharacterStats does not make the Charger Dash bonus permanent", () => {
+  const stats = deriveCharacterStats(
+    [
+      createSource({
+        description:
+          "When you take the Dash action, your Speed increases by 10 feet for that action.",
+        sourceIndex: "charger",
+        sourceType: "class_feature",
+        title: "Charger",
+      }),
+    ],
+    4,
+  );
+
+  assert.equal(stats.speedBonus, 0);
 });
 
 test("deriveCharacterStats suppresses Barbarian Fast Movement while wearing Heavy armor", () => {

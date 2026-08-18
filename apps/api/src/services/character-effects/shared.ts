@@ -339,6 +339,12 @@ function getPassiveEffect(
     return null;
   }
 
+  if (isInactiveConditionalSpeedEffect(source)) {
+    const { speedBonus, ...remainingEffect } = mergedEffect;
+
+    return Object.keys(remainingEffect).length > 0 ? remainingEffect : null;
+  }
+
   if (
     !context.hasArmorEquipped &&
     (normalizedSourceIndex === "defense" || slugify(normalizedTitle) === "defense")
@@ -358,6 +364,25 @@ function getPassiveEffect(
   }
 
   return mergedEffect;
+}
+
+function isInactiveConditionalSpeedEffect(source: ResolvedFeatureSource) {
+  const normalizedDescription = source.description.toLowerCase();
+  const normalizedSourceIndex = source.sourceIndex.toLowerCase();
+  const isExplicitlyActiveSource =
+    normalizedSourceIndex.endsWith("-active") ||
+    source.title.toLowerCase().includes("(active)");
+
+  if (isExplicitlyActiveSource) {
+    return false;
+  }
+
+  return (
+    normalizedSourceIndex === "large-form" ||
+    normalizedSourceIndex === "charger" ||
+    /\bfor that (?:action|duration)\b/.test(normalizedDescription) ||
+    /\bwhile [^.]*\bis active\b/.test(normalizedDescription)
+  );
 }
 
 function chooseArmorClassMode(

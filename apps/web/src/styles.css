@@ -3879,11 +3879,12 @@ h1 {
 
 .feature-resource-pool {
   display: grid;
-  gap: 0.55rem;
-  margin-top: 0.65rem;
-  padding: 0.7rem 0.8rem;
+  width: min(100%, 26rem);
+  gap: 0.38rem;
+  margin-top: 0.48rem;
+  padding: 0.5rem 0.62rem;
   border: 1px solid rgba(212, 176, 106, 0.24);
-  border-radius: 0.65rem;
+  border-radius: 0.55rem;
   background: rgba(10, 18, 32, 0.58);
 }
 
@@ -3891,28 +3892,29 @@ h1 {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 0.38rem;
+  gap: 0.26rem;
   color: var(--ui-text-muted);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 
 .feature-resource-pool-summary strong {
   color: #f5f0df;
-  font-size: 1.35rem;
+  font-size: 0.92rem;
   letter-spacing: normal;
 }
 
 .feature-resource-pool-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.3rem;
 }
 
 .feature-resource-pool-controls .secondary-button {
-  min-width: 2.35rem;
-  padding: 0.36rem 0.68rem;
+  min-width: 1.85rem;
+  padding: 0.24rem 0.5rem;
+  font-size: 0.76rem;
 }
 
 .character-spell-summary-bar {
@@ -5556,19 +5558,27 @@ h1 {
   appearance: auto;
 }
 
-.characters-settings-button {
+.character-create-back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   align-self: end;
-  min-height: 56px;
-  border: 1px solid rgba(212, 176, 106, 0.18);
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(212, 176, 106, 0.08), rgba(31, 41, 55, 0.88)),
-    rgba(31, 41, 55, 0.88);
-  color: #f0e4c5;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: inset 0 0 0 1px rgba(212, 176, 106, 0.04);
+  min-height: 48px;
+  padding-inline: 1.15rem;
+  text-decoration: none;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.character-create-back-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.character-create-back-link:hover .character-create-back-icon {
+  transform: translateX(-2px);
 }
 
 .primary-button,
@@ -9436,7 +9446,7 @@ h1 {
     font-size: clamp(2rem, 8vw, 2.5rem);
   }
 
-  .characters-settings-button {
+  .character-create-back-link {
     width: 100%;
   }
 
@@ -10188,7 +10198,6 @@ h1 {
 .character-hit-points-action,
 .character-hit-points-stat-button,
 .character-inline-button,
-.characters-settings-button,
 .primary-button,
 .secondary-button,
 .selection-option-button,
@@ -10222,7 +10231,6 @@ h1 {
 .character-hit-points-action:hover,
 .character-hit-points-stat-button:hover,
 .character-inline-button:hover,
-.characters-settings-button:hover,
 .primary-button:hover,
 .secondary-button:hover,
 .selection-option-button:hover,

@@ -793,10 +793,9 @@ function CharacterDashboardPage() {
               </button>
 
               <div className="dashboard-builder-panel">
-                {dashboardAutosave.saveStatus === "saving" ||
-                dashboardAutosave.saveStatus === "error" ? (
+                {dashboardAutosave.saveStatus === "error" ? (
                   <p
-                    className={dashboardAutosave.saveStatus === "error" ? "error-message" : "muted"}
+                    className="error-message"
                     data-testid="dashboard-autosave-status"
                   >
                     {formatDashboardSaveStatus(
