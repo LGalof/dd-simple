@@ -153,6 +153,7 @@ type CharacterDiceRollInput = {
   formula: string;
   modifier?: number;
   reason?: string | null;
+  roomCode?: string | null;
   rollMode?: string;
   rollType: string;
   rollValues: Prisma.InputJsonValue;
@@ -2782,15 +2783,49 @@ async function createDiceRollForCharacterForUser(
   });
 
   if (!character) {
-    return null;
+    return { status: "character_not_found" as const };
   }
 
-  return prisma.diceRoll.create({
+  let roomId: string | null = null;
+
+  if (data.roomCode) {
+    const room = await prisma.room.findUnique({
+      where: {
+        code: data.roomCode,
+      },
+      select: {
+        id: true,
+        players: {
+          where: {
+            characterId: character.id,
+            userId,
+          },
+          select: {
+            id: true,
+          },
+          take: 1,
+        },
+      },
+    });
+
+    if (!room) {
+      return { status: "room_not_found" as const };
+    }
+
+    if (room.players.length === 0) {
+      return { status: "forbidden" as const };
+    }
+
+    roomId = room.id;
+  }
+
+  const diceRoll = await prisma.diceRoll.create({
     data: {
       characterId: character.id,
       formula: data.formula,
       modifier: data.modifier ?? 0,
       reason: data.reason ?? null,
+      roomId,
       rolledByUserId: userId,
       rollMode: data.rollMode ?? "normal",
       rollType: data.rollType,
@@ -2801,6 +2836,8 @@ async function createDiceRollForCharacterForUser(
       visibility: data.visibility ?? "private",
     },
   });
+
+  return { diceRoll, status: "ok" as const };
 }
 
 async function addConditionToCharacterForUser(

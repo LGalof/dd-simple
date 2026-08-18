@@ -5,6 +5,7 @@ type CreateCharacterDiceRollPayload = {
   formula: string;
   modifier: number;
   reason: string | null;
+  roomCode?: string | null;
   rollMode: "normal" | "advantage" | "disadvantage";
   rollType: string;
   rollValues: Array<{

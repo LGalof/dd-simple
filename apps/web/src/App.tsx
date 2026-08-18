@@ -105,6 +105,14 @@ function App() {
               }
             />
             <Route
+              path="/room/:roomCode/character"
+              element={
+                <ProtectedRoute>
+                  <CharacterDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/room/:roomCode"
               element={
                 <ProtectedRoute>

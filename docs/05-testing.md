@@ -17,9 +17,9 @@ D&D Simple uses TypeScript compilation, Vitest, Node's built-in test runner, Pri
 
 ## Test Organization
 
-Frontend tests are located in `apps/web/src/`. They cover character-builder behavior, dashboard autosave behavior, and dice rolling utilities.
+Frontend tests are located in `apps/web/src/`. They cover character-builder behavior, dashboard autosave behavior, dice rolling utilities, room utilities, page rendering, and selected tactical-board behavior.
 
-Backend tests are located in `apps/api/src/`. Backend tests cover authentication, character-state persistence, migration behavior, and selected character-effects derivation logic.
+Backend tests are located in `apps/api/src/`. Backend tests cover authentication, controller and service behavior, character-state persistence, migration behavior, room authorization, and selected character-effects derivation logic.
 
 ## Local Test Commands
 
@@ -56,6 +56,7 @@ docker compose -f infra/docker-compose.yml config
 ## Major Covered Areas
 
 - Dice formula parsing and roll behavior.
+- Room dice-roll history authorization, room-specific public-roll filtering, latest-ten shared feed selection, and realtime announcement validation.
 - Dashboard autosave timing and retry behavior.
 - Character-builder local draft handling.
 - Authentication middleware behavior.

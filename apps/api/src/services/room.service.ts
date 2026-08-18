@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { randomInt } from "node:crypto";
+import type { RoomDiceRoll } from "@dd-simple/shared";
 import { prisma } from "../lib/prisma.js";
 
 type RoomPlayer = {
@@ -88,8 +89,26 @@ type BoardStateRecord = {
 const ROOM_CODE_LENGTH = 6;
 const MAX_HOSTED_ROOMS_PER_USER = 3;
 const MAX_JOINED_ROOMS_PER_USER = 6;
+const ROOM_DICE_ROLL_HISTORY_LIMIT = 10;
 const ROOM_CODE_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const playerTokenColors = ["#60a5fa", "#a78bfa", "#34d399", "#facc15", "#f472b6", "#22d3ee"];
+const roomDiceRollSelect = {
+  characterId: true,
+  character: {
+    select: {
+      name: true,
+    },
+  },
+  formula: true,
+  id: true,
+  modifier: true,
+  reason: true,
+  rollValues: true,
+  rolledAt: true,
+  total: true,
+} satisfies Prisma.DiceRollSelect;
+
+type RoomDiceRollRow = Prisma.DiceRollGetPayload<{ select: typeof roomDiceRollSelect }>;
 
 const defaultTerrain = {
   "8:4": "wall",
@@ -398,6 +417,96 @@ async function getRoom(roomCode: string) {
   return room ? serializeRoom(room) : null;
 }
 
+function serializeRoomDiceRoll(roll: RoomDiceRollRow): RoomDiceRoll {
+  return {
+    characterId: roll.characterId,
+    characterName: roll.character.name,
+    formula: roll.formula,
+    id: roll.id,
+    modifier: roll.modifier,
+    reason: roll.reason,
+    rollValues: roll.rollValues,
+    rolledAt: roll.rolledAt.getTime(),
+    total: roll.total,
+  };
+}
+
+async function findPublicRoomDiceRollsForUser(
+  roomCode: string,
+  userId: string,
+): Promise<
+  | { status: "forbidden" | "not_found" }
+  | { status: "ok"; rolls: RoomDiceRoll[] }
+> {
+  const room = await findRoomRecord(roomCode);
+
+  if (!room) {
+    return { status: "not_found" };
+  }
+
+  if (!room.players.some((player) => player.userId === userId)) {
+    return { status: "forbidden" };
+  }
+
+  const rolls = await prisma.diceRoll.findMany({
+    where: {
+      roomId: room.id,
+      visibility: "public",
+    },
+    orderBy: {
+      rolledAt: "desc",
+    },
+    take: ROOM_DICE_ROLL_HISTORY_LIMIT,
+    select: roomDiceRollSelect,
+  });
+
+  return {
+    rolls: rolls.map(serializeRoomDiceRoll),
+    status: "ok",
+  };
+}
+
+async function findRoomDiceRollAnnouncement(
+  roomCode: string,
+  userId: string,
+  characterId: string,
+  diceRollId: string,
+): Promise<{ status: "forbidden" | "not_found" } | { status: "ok"; roll: RoomDiceRoll }> {
+  const room = await findRoomRecord(roomCode);
+
+  if (!room) {
+    return { status: "not_found" };
+  }
+
+  const player = room.players.find(
+    (roomPlayer) => roomPlayer.userId === userId && roomPlayer.characterId === characterId,
+  );
+
+  if (!player) {
+    return { status: "forbidden" };
+  }
+
+  const roll = await prisma.diceRoll.findFirst({
+    where: {
+      characterId: player.characterId,
+      id: diceRollId,
+      roomId: room.id,
+      rolledByUserId: userId,
+      visibility: "public",
+    },
+    select: roomDiceRollSelect,
+  });
+
+  if (!roll) {
+    return { status: "not_found" };
+  }
+
+  return {
+    roll: serializeRoomDiceRoll(roll),
+    status: "ok",
+  };
+}
+
 async function listRoomsForUser(userId: string): Promise<CreatedRoomSummary[]> {
   const rooms = await prisma.room.findMany({
     where: {
@@ -646,6 +755,8 @@ export {
   createRoom,
   createInitialBoardState,
   deleteRoomForCreator,
+  findPublicRoomDiceRollsForUser,
+  findRoomDiceRollAnnouncement,
   getRoom,
   ensureHostedRoomLimit,
   ensureJoinedRoomLimit,

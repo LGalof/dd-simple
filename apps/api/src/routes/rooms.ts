@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth.js";
 import {
   createRoomController,
   deleteRoomController,
+  getRoomDiceRollsController,
   getRoomController,
   joinRoomController,
   leaveRoomController,
@@ -16,6 +17,7 @@ roomsRouter.post("/rooms", createRoomController);
 roomsRouter.get("/rooms", listRoomsForUserController);
 roomsRouter.post("/rooms/:roomCode/join", joinRoomController);
 roomsRouter.delete("/rooms/:roomCode/leave", leaveRoomController);
+roomsRouter.get("/rooms/:roomCode/dice-rolls", getRoomDiceRollsController);
 roomsRouter.get("/rooms/:roomCode", getRoomController);
 roomsRouter.delete("/rooms/:roomCode", deleteRoomController);
 

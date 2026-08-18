@@ -6,6 +6,7 @@ import {
   deleteRoom,
   getCreatedRooms,
   getRoom,
+  getRoomDiceRolls,
   joinRoom,
   leaveRoom,
   normalizeRoomCodeInput,
@@ -81,6 +82,16 @@ describe("normalizeRoomCodeInput", () => {
       token: "token",
     });
     expect(mockedApi.delete).toHaveBeenNthCalledWith(2, "/rooms/DEF456/leave", {
+      token: "token",
+    });
+  });
+
+  it("loads normalized flat room dice history", async () => {
+    mockedApi.get.mockResolvedValueOnce({ rolls: [] });
+
+    await getRoomDiceRolls("room abc123", "token");
+
+    expect(mockedApi.get).toHaveBeenCalledWith("/rooms/ABC123/dice-rolls", {
       token: "token",
     });
   });

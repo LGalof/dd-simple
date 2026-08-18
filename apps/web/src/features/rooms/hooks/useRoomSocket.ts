@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import type { RoomDiceRoll } from "@dd-simple/shared";
 import { API_BASE_URL } from "../../../lib/api";
 import type { SavedBoardState } from "../../tactical-board/types/board";
 
@@ -27,10 +28,17 @@ type RoomSocketResponse = {
   error?: string;
 };
 
+type DiceRollSocketResponse = {
+  error?: string;
+  ok?: boolean;
+  roll?: RoomDiceRoll;
+};
+
 function useRoomSocket(
   roomCode: string | undefined,
   characterId: string | null,
   token: string | null,
+  onDiceRolled?: (roll: RoomDiceRoll) => void,
 ) {
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +46,17 @@ function useRoomSocket(
   const [boardState, setBoardState] = useState<SavedBoardState | null>(null);
   const [boardStateRevision, setBoardStateRevision] = useState(0);
   const socketRef = useRef<Socket | null>(null);
+  const onDiceRolledRef = useRef(onDiceRolled);
   const latestRoomUpdatedAtRef = useRef<number | null>(null);
 
   const receiveBoardState = useCallback((nextBoardState: SavedBoardState | null) => {
     setBoardState(nextBoardState);
     setBoardStateRevision((currentRevision) => currentRevision + 1);
   }, []);
+
+  useEffect(() => {
+    onDiceRolledRef.current = onDiceRolled;
+  }, [onDiceRolled]);
 
   useEffect(() => {
     if (!roomCode || !characterId || !token) {
@@ -83,6 +96,10 @@ function useRoomSocket(
       if (typeof payload.updatedAt === "number") {
         latestRoomUpdatedAtRef.current = payload.updatedAt;
       }
+    });
+
+    socket.on("dice:rolled", (payload: { roll: RoomDiceRoll }) => {
+      onDiceRolledRef.current?.(payload.roll);
     });
 
     socket.open();
@@ -152,8 +169,24 @@ function useRoomSocket(
     );
   }, [receiveBoardState]);
 
+  const announceDiceRoll = useCallback((diceRollId: string) => {
+    socketRef.current?.emit(
+      "dice:roll",
+      { diceRollId },
+      (response?: DiceRollSocketResponse) => {
+        if (response?.error) {
+          setError(response.error);
+          return;
+        }
+
+        setError(null);
+      },
+    );
+  }, []);
+
   return {
     advanceTurn,
+    announceDiceRoll,
     boardState,
     boardStateRevision,
     connected,

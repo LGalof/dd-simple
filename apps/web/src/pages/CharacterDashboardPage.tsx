@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   Activity,
   Backpack,
@@ -42,6 +43,7 @@ import {
 import { updateCharacter } from "../features/characters/api/updateCharacter";
 import type { CharacterPreviewQuery } from "../features/characters/api/characterPreviewQuery";
 import { useAuth } from "../features/auth/AuthContext";
+import { useRoomSocket } from "../features/rooms/hooks/useRoomSocket";
 import type {
   BackgroundOption,
   ClassFeature,
@@ -130,6 +132,13 @@ function useMediaQuery(query: string) {
 
 function CharacterDashboardPage() {
   const { token } = useAuth();
+  const { roomCode } = useParams();
+  const [searchParams] = useSearchParams();
+  const roomCharacterId = roomCode ? searchParams.get("characterId") : null;
+  const {
+    announceDiceRoll,
+    error: roomSocketError,
+  } = useRoomSocket(roomCode, roomCharacterId, token);
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<WorkspaceTab>("actions");
   const [compactSection, setCompactSection] =
     useState<CompactDashboardSection>("overview");
@@ -163,7 +172,7 @@ function CharacterDashboardPage() {
     savingCharacterId,
     replaceCharacter,
   } = useCharacters();
-  const selectedCharacterId = getSelectedCharacterId();
+  const selectedCharacterId = roomCharacterId ?? getSelectedCharacterId();
   const selectedCharacter = useMemo(
     () =>
       selectedCharacterId
@@ -171,13 +180,13 @@ function CharacterDashboardPage() {
         : undefined,
     [characters, selectedCharacterId],
   );
-  const character = selectedCharacter ?? characters[0];
+  const character = roomCharacterId ? selectedCharacter : selectedCharacter ?? characters[0];
 
   useEffect(() => {
-    if (!loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {
+    if (!roomCharacterId && !loading && selectedCharacterId && characters.length > 0 && !selectedCharacter) {
       clearSelectedCharacterId(selectedCharacterId);
     }
-  }, [characters.length, loading, selectedCharacter, selectedCharacterId]);
+  }, [characters.length, loading, roomCharacterId, selectedCharacter, selectedCharacterId]);
 
   const {
     activePanel,
@@ -698,6 +707,7 @@ function CharacterDashboardPage() {
       formula: result.normalizedFormula,
       modifier: result.modifier,
       reason: buildDiceRollReason(result),
+      roomCode: roomCode && roomCharacterId ? roomCode : null,
       rollMode: "normal",
       rollType: result.rollType,
       rollValues: result.dice.map((die) => ({
@@ -706,10 +716,15 @@ function CharacterDashboardPage() {
         value: die.value,
       })),
       total: result.total,
-      visibility: "private",
+      visibility: "public",
     }).then((diceRoll) => {
       if (!diceRoll) {
         setDiceRollSaveError("Roll saved locally; history sync failed.");
+        return;
+      }
+
+      if (roomCode && roomCharacterId) {
+        announceDiceRoll(diceRoll.id);
       }
     });
   }
@@ -805,6 +820,7 @@ function CharacterDashboardPage() {
                   </button>
                 ) : null}
                 {saveError ? <p className="error-message">{saveError}</p> : null}
+                {roomCode && roomSocketError ? <p className="error-message">{roomSocketError}</p> : null}
 
                 <CharacterBuilderSidebar
                   abilityAssignments={builderState.abilityAssignments}

@@ -1,9 +1,10 @@
 @startuml
-title D&D Simple - Room Realtime Board Synchronization
+title D&D Simple - Room Realtime Synchronization
 autonumber
 
 actor "User A" as UserA
 participant "Web Client A\n(Tactical Board)" as ClientA
+participant "Web Client A\n(Character Dashboard)" as DashboardA
 participant "Express API" as API
 database "PostgreSQL" as DB
 participant "Socket.IO Server" as Socket
@@ -37,4 +38,25 @@ DB --> Socket : Updated room
 Socket --> ClientA : board:update(boardState)
 Socket --> ClientB : board:update(boardState)
 Socket --> ClientA : Acknowledge update callback
+
+== Room dice-roll history ==
+
+ClientA -> API : GET /rooms/:roomCode/dice-rolls
+API -> DB : Load latest 10 public DiceRoll rows by roomId
+DB --> API : Shared room dice feed
+API --> ClientA : rolls
+
+UserA -> DashboardA : Roll dice in room context
+DashboardA -> API : POST /characters/:id/dice-rolls (visibility public, roomCode)
+API -> DB : Verify RoomPlayer and persist DiceRoll.roomId
+DB --> API : Saved DiceRoll
+API --> DashboardA : Saved DiceRoll with id
+
+DashboardA -> Socket : dice:roll(diceRollId)
+Socket -> DB : Validate joined room/user/character and DiceRoll.roomId
+DB --> Socket : Persisted public roll
+Socket --> ClientA : dice:rolled(roll)
+Socket --> ClientB : dice:rolled(roll)
+ClientA -> ClientA : Merge by id and keep latest 10
+ClientB -> ClientB : Merge by id and keep latest 10
 @enduml

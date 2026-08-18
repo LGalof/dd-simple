@@ -62,7 +62,7 @@ Character build and gameplay state is persisted through Prisma-backed services.
 
 ## Realtime Layer
 
-Socket.IO is used for room board synchronization. Socket connections authenticate with the same bearer token used by REST calls. After joining a room with an owned character, clients can send board state updates and receive room and board updates from other connected users.
+Socket.IO is used for room board synchronization. Socket connections authenticate with the same bearer token used by REST calls. After joining a room with an owned character, clients can send board state updates and receive room and board updates from other connected users. Room-context character dice rolls also use the joined socket room: the dashboard announces a persisted dice-roll ID, and the server validates the saved roll's room association before broadcasting it to that room.
 
 ## Database
 
@@ -117,7 +117,9 @@ Windows development is supported through PowerShell helper scripts in `scripts/`
 1. The user rolls from the manual dice tool or from a rollable character-sheet value.
 2. The frontend evaluates the dice formula.
 3. Character-associated rolls are sent to the API.
-4. The API stores the roll in PostgreSQL and includes roll history when character data is loaded.
+4. The API stores the roll in PostgreSQL and includes roll history when character data is loaded. Room-context rolls store the room database ID on `DiceRoll.roomId`.
+5. In room context, the dashboard announces the saved roll ID through Socket.IO after persistence succeeds.
+6. The room board loads the latest ten public persisted rolls for that room and merges validated realtime roll broadcasts by dice-roll ID.
 
 ### Room Join
 

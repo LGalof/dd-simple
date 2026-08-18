@@ -1,4 +1,5 @@
 import { api } from "../../../lib/api";
+import type { RoomDiceRoll } from "@dd-simple/shared";
 import type { SavedBoardState } from "../../tactical-board/types/board";
 
 type RoomDetails = {
@@ -49,6 +50,10 @@ type CreatedRoomsResponse = {
   rooms: CreatedRoomSummary[];
 };
 
+type RoomDiceRollsResponse = {
+  rolls: RoomDiceRoll[];
+};
+
 function normalizeRoomCodeInput(value: string) {
   const normalizedValue = value.trim().toUpperCase();
   const explicitRoomCodeMatch =
@@ -75,6 +80,15 @@ async function getRoom(roomCode: string, token: string) {
   return api.get<RoomResponse>(`/rooms/${encodeURIComponent(normalizedRoomCode)}`, { token });
 }
 
+async function getRoomDiceRolls(roomCode: string, token: string) {
+  const normalizedRoomCode = normalizeRoomCodeInput(roomCode);
+
+  return api.get<RoomDiceRollsResponse>(
+    `/rooms/${encodeURIComponent(normalizedRoomCode)}/dice-rolls`,
+    { token },
+  );
+}
+
 async function getCreatedRooms(token: string) {
   return api.get<CreatedRoomsResponse>("/rooms", { token });
 }
@@ -94,6 +108,7 @@ export {
   deleteRoom,
   getCreatedRooms,
   getRoom,
+  getRoomDiceRolls,
   joinRoom,
   leaveRoom,
   normalizeRoomCodeInput,

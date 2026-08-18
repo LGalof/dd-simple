@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from "../middleware/auth.js";
 import {
   createRoom,
   deleteRoomForCreator,
+  findPublicRoomDiceRollsForUser,
   getRoom,
   joinRoom,
   leaveRoom,
@@ -249,9 +250,48 @@ async function getRoomController(req: Request, res: Response) {
   }
 }
 
+async function getRoomDiceRollsController(req: Request, res: Response) {
+  try {
+    const { roomCode } = req.params;
+
+    if (!roomCode || typeof roomCode !== "string") {
+      res.status(400).json({
+        error: "A valid room code is required",
+      });
+      return;
+    }
+
+    const result = await findPublicRoomDiceRollsForUser(roomCode, getAuthenticatedUser(req).id);
+
+    switch (result.status) {
+      case "not_found":
+        res.status(404).json({
+          error: "Room not found",
+        });
+        return;
+      case "forbidden":
+        res.status(403).json({
+          error: "You must be a room participant to view its dice rolls",
+        });
+        return;
+      case "ok":
+        res.json({
+          rolls: result.rolls,
+        });
+        return;
+    }
+  } catch (error) {
+    logRoomError("load room dice rolls", error);
+    res.status(500).json({
+      error: "Failed to load room dice rolls",
+    });
+  }
+}
+
 export {
   createRoomController,
   deleteRoomController,
+  getRoomDiceRollsController,
   getRoomController,
   joinRoomController,
   leaveRoomController,

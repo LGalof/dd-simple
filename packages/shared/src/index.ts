@@ -181,6 +181,7 @@ export type InventoryItem = {
 export type DiceRoll = {
   id: string;
   characterId?: string;
+  roomId?: string | null;
   rolledByUserId?: string;
   rollType: string;
   targetType?: string | null;
@@ -193,6 +194,14 @@ export type DiceRoll = {
   reason: string | null;
   visibility?: string;
   rolledAt?: string;
+};
+
+export type RoomDiceRoll = Pick<DiceRoll, "formula" | "id" | "reason" | "total"> & {
+  characterId: string;
+  characterName: string;
+  modifier: number;
+  rollValues?: unknown;
+  rolledAt: number;
 };
 
 export type SpeciesDefinition = {

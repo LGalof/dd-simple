@@ -63,6 +63,8 @@ The dice system supports standard dice such as d4, d6, d8, d10, d12, d20, and d1
 
 Rolls support normal, advantage, and disadvantage modes where applicable. Character-associated rolls are saved and displayed as character roll history.
 
+When the Character Dashboard is opened from a room, saved character rolls are public, associated with that room, and can be announced to the room board. The room board Dice Rolls history shows the latest ten public persisted rolls for that specific room as one shared chronological feed, while the existing Combat Log remains available separately. Older rolls without a room association remain part of ordinary character history and are not shown in room history.
+
 ## Rooms and Sessions
 
 Authenticated users can create rooms with one of their characters and join existing rooms by code. A room stores the creator, participating characters, joined players, and shared board state.
@@ -80,11 +82,15 @@ The board can be used in two ways:
 
 Standalone board mode stores board state in browser local storage. Room board mode loads and saves board state through the backend.
 
+Room board mode also provides a History area with Combat Log and Dice Rolls views. Dice Rolls are loaded from persisted room-associated character dice rolls so the history survives refresh and reopen.
+
 ## Realtime Synchronization
 
 Room board synchronization uses Socket.IO. A logged-in user joins a socket room with a room code and owned character. Board edits are sent as state updates to the server, saved to the room, and emitted to connected clients in the same room, including the sender.
 
 The synchronized state includes the tactical board data used during room play, including tokens, terrain, fog, pins, templates, layers, settings, and initiative order.
+
+Room-context character dice rolls use the same authenticated socket room. The client announces only the saved dice-roll ID, and the server validates the authenticated user, joined character, room membership, public visibility, and persisted roll before broadcasting the roll to clients in that room.
 
 ## Reference Data
 

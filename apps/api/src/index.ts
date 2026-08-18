@@ -7,6 +7,7 @@ import { findCharacterByIdForUser } from "./services/character.service.js";
 import { getRoom, joinRoom, saveRoomBoardState, type Room } from "./services/room.service.js";
 import { eventBus } from "./lib/events.js";
 import { getAllowedOrigins, isAllowedOrigin } from "./lib/cors-config.js";
+import { handleRoomDiceRollEvent } from "./realtime/room-dice.js";
 
 const port = Number(process.env.PORT ?? 4000);
 const server = createServer(app);
@@ -733,6 +734,15 @@ io.on("connection", (socket) => {
         callback({ error: "Failed to advance turn" });
       }
     }
+  });
+
+  socket.on("dice:roll", async (payload, callback) => {
+    await handleRoomDiceRollEvent(
+      socket,
+      io,
+      payload,
+      typeof callback === "function" ? callback : undefined,
+    );
   });
 
   socket.on("disconnect", () => {
