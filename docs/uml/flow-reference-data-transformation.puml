@@ -1,0 +1,52 @@
+@startuml
+title D&D Simple - Reference Data Transformation Flow
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam ActivityBorderColor #333333
+skinparam ActivityBackgroundColor #F8F8F8
+
+start
+:Run `apps/api/prisma/seed.ts`;
+:Load environment and Prisma client;
+:Use active data directory
+`seed-data/5e/mixed`;
+
+partition "Seed Inputs" {
+  :Read configured JSON arrays;
+  :Read curated override modules
+  from `reference-overrides/`;
+}
+
+partition "Normalize and Curate" {
+  :Upsert raw items into
+  `RefRuleDocument`;
+  :Seed normalized ability, skill,
+  species, class, background,
+  proficiency, equipment tables;
+  :Rebuild relationship rows
+  and choice rows;
+  :Apply curated species, class,
+  feat, and equipment overrides;
+  :Seed minimum demo references
+  and demo character data;
+}
+
+partition "Runtime PostgreSQL State" {
+  :Persist reference rows,
+  relationship rows, rule documents,
+  and demo runtime rows;
+}
+
+partition "Runtime Usage" {
+  :Reference routes read tables
+  through Prisma;
+  :Frontend maps references into
+  builder options;
+  :Character effects service reads
+  references plus owned character state;
+  :Return derived dashboard state;
+}
+
+stop
+@enduml

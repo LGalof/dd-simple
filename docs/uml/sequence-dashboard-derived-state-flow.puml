@@ -1,0 +1,52 @@
+@startuml
+title D&D Simple - Dashboard Derived-State Flow
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+autonumber
+
+actor User
+participant "CharacterDashboardPage" as Page
+participant "useCharacterBuilder" as Builder
+participant "useCharacterDerivedState" as Hook
+participant "fetchCharacterDerivedState" as Fetch
+participant "charactersRouter" as Router
+participant "requireAuth" as Auth
+participant "character.controller" as Controller
+participant "character-effects.service" as Effects
+database "PostgreSQL via Prisma" as DB
+participant "CharacterSheet" as Sheet
+
+User -> Page: Edit dashboard build/resource state
+Page -> Builder: Apply local builder mutation
+Builder --> Page: builderState, selected refs, previewCharacter
+Page -> Page: Build feature-choice selections
+Page -> Page: Build builderActionPreview
+Page -> Hook: characterId + preview payload
+Hook -> Fetch: fetchCharacterDerivedState(id, preview, token)
+
+alt Body-only overrides exist
+  Fetch -> Router: POST /characters/:id/derived
+else Query-only overrides
+  Fetch -> Router: GET /characters/:id/derived
+end
+
+Router -> Auth: require bearer token
+Auth --> Router: authenticated user
+Router -> Controller: derived-state handler
+Controller -> Controller: Validate id and preview input
+Controller -> Controller: Normalize override payload
+Controller -> Effects: findCharacterDerivedStateForUser(userId, id, overrides)
+Effects -> DB: Read owned character and persisted state
+Effects -> DB: Read reference rows and rule documents
+Effects -> Effects: Resolve effective class/species/background/level
+Effects -> Effects: Merge persisted and preview feature choices
+Effects -> Effects: Build active sources
+Effects -> Effects: Derive stats, actions, defenses, resources, spells
+Effects --> Controller: CharacterDerivedState
+Controller --> Fetch: JSON response
+Fetch --> Hook: CharacterDerivedState
+Hook --> Page: derivedState React state
+Page -> Sheet: Render derived dashboard data
+
+@enduml

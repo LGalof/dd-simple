@@ -2,7 +2,9 @@
 
 ## Development Approach
 
-D&D Simple is developed through Scrum-inspired incremental work. The project is organized into five iterations that move from requirements and architecture toward gameplay features, synchronization, testing, and deployment.
+This document records the original project plan for D&D Simple. The initial plan divided the intended work into five Scrum-inspired iterations that moved from requirements and architecture toward gameplay features, synchronization, testing, and deployment.
+
+The iteration descriptions below represent planned sequencing and intended scope. They should not be interpreted as proof that implementation later followed five strict sequential sprints. Actual execution evidence, team coordination, and project-management records are documented separately in the project-management documentation.
 
 The team contains four members. Work is coordinated through Git, GitHub Issues, and a Kanban-style task board, with implementation changes reviewed through normal GitHub workflow and validated through local checks and CI.
 

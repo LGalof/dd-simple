@@ -41,7 +41,7 @@ Character calculations combine stored character choices, reference data, selecte
 
 ## Autosave and Local State
 
-The Character Dashboard uses debounced autosave for character edits. Changes are saved after a short delay and are also flushed during selected browser lifecycle events. The interface indicates active saving and save errors, with retry support after a failed save.
+The Character Dashboard uses debounced autosave for character edits. Changes are saved after a short delay and are also flushed during selected browser lifecycle events. The autosave hook internally tracks dirty, saving, saved, and error states. The current dashboard UI does not display normal saving or saved status text, but it does surface autosave failure text and retry support after a failed save.
 
 The frontend also stores local UI state, selected character state, and character-builder drafts in browser local storage. Draft restoration compares the local draft with the character revision loaded from the backend before applying it.
 

@@ -1,0 +1,73 @@
+@startuml
+title D&D Simple - Dashboard Autosave Flow
+
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+autonumber
+
+actor User
+participant "CharacterDashboardPage" as Page
+participant "useDashboardAutosave" as Autosave
+participant "updateCharacter" as UpdateApi
+participant "charactersRouter" as Router
+participant "requireAuth" as Auth
+participant "character.controller" as Controller
+participant "character.service" as Service
+database "PostgreSQL via Prisma" as DB
+
+User -> Page: Edit dashboard build/local UI state
+Page -> Page: Build full CharacterSavePayload
+note right of Page
+Current implementation sends a full
+CharacterSavePayload, not only changed fields.
+end note
+Page -> Autosave: payload + save callbacks
+Autosave -> Autosave: Build stable payload signature
+note right of Autosave
+saveStatus is hook state.
+The dashboard currently renders only
+error feedback and retry, not normal
+Saving/Saved status text.
+end note
+
+alt Signature matches last saved signature
+  Autosave -> Autosave: Clear timer and set internal saved/idle
+else Signature changed
+  Autosave -> Autosave: Set internal dirty state
+  Autosave -> Autosave: Start 900 ms debounce
+end
+
+alt Debounce expires
+  Autosave -> Autosave: flushSave("debounced")
+else Manual retry/save
+  User -> Autosave: flushSave("manual")
+else Lifecycle event
+  Autosave -> Autosave: flushSave("lifecycle")
+  note right of Autosave
+  keepalive is requested only for
+  lifecycle saves with JSON length <= 60000.
+  end note
+end
+
+Autosave -> UpdateApi: PATCH request with payload
+UpdateApi -> Router: PATCH /characters/:id
+Router -> Auth: require bearer token
+Auth --> Router: authenticated user
+Router -> Controller: updateCharacter handler
+Controller -> Controller: Validate and normalize body
+Controller -> Service: updateCharacterForUser(userId, id, data)
+Service -> DB: Begin transaction
+Service -> DB: Verify owned character
+Service -> DB: Load reference rows
+Service -> Service: Validate selections and recalculate fields
+Service -> DB: Update character and related rows
+Service -> DB: Refetch updated character
+DB --> Service: Updated Character graph
+Service --> Controller: Updated Character
+Controller --> UpdateApi: JSON response
+UpdateApi --> Autosave: Updated Character
+Autosave -> Autosave: Ignore if stale, otherwise update saved signature
+Autosave -> Page: onSaved(updatedCharacter)
+Page -> Page: Replace local character and rerender
+
+@enduml

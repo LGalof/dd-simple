@@ -22,10 +22,10 @@ repeat
     :PATCH character update to API;
 
     if (Save successful?) then (yes)
-      :Update saved state;
-      :Show saved status;
+      :Reconcile saved;
+      :Set internal saved;
     else (no)
-      :Display save error;
+      :Show error + retry;
       :Keep dirty state for retry;
     endif
   else (no)

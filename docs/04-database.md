@@ -49,6 +49,20 @@ Reference data describes reusable game concepts such as ability scores, skills, 
 
 User-owned data stores what a specific user or character selected or changed during play. Character records refer to reference data by index or relation while storing gameplay-specific values in user-owned tables.
 
+## Reference Data Strategy
+
+The repository stores checked-in D&D 5e-inspired seed inputs under `apps/api/prisma/seed-data/5e/`. The current seed script uses `apps/api/prisma/seed-data/5e/mixed` as its active JSON source directory and applies curated TypeScript overrides from `apps/api/prisma/reference-overrides/`.
+
+The seed process populates normalized reference tables and `RefRuleDocument` rows in PostgreSQL. After seeding, PostgreSQL is the runtime source of truth for reference data; normal API requests do not read the checked-in seed JSON files directly. Runtime code accesses those rows through Prisma services such as `reference.service.ts` and `character-effects.service.ts`.
+
+The mixed dataset and curated overrides support the subset of classes and rule cases currently implemented by the dashboard. The normalized supported-class flow is limited to `barbarian`, `bard`, `cleric`, `rogue`, and `wizard`, and full dashboard automation exists only where character-effects mappings, special cases, or parsing are implemented.
+
+### Reference Data Evolution
+
+The project initially used the available 2024 reference dataset as the primary D&D data source. During character progression implementation, the team found that the available 2024 dataset did not provide the separate class-level and class-feature progression data needed by the character builder. The missing progression data was supplemented from older 2014 reference data and combined into the project's `mixed` dataset; this was not an import of the complete 2014 ruleset, and not every feature was converted. The imported class level and feature data was subsequently normalized into project-specific structures such as `RefClassLevel` and `RefClassFeature`. Selected subclasses, feature choices, and supported class behavior were later adapted and curated for the application's 2024-oriented character model. The current reference layer is therefore mixed, normalized, and selectively curated rather than a direct copy of either 2014 or 2024.
+
+See [Reference Data Transformation Flow](flows/reference-data-transformation.md) for the detailed seed-to-runtime pipeline.
+
 ## Character State
 
 Character state is distributed across the base `Character` model and related tables. This keeps the main character record readable while allowing specialized state to evolve independently.
@@ -96,7 +110,7 @@ Deployment uses Prisma migration commands to apply checked-in migrations to the 
 The seed script loads D&D 5e-inspired reference data from local JSON files under:
 
 ```text
-apps/api/prisma/seed-data/
+apps/api/prisma/seed-data/5e/mixed/
 ```
 
-The seed process populates ability scores, skills, species, classes, backgrounds, proficiencies, equipment, conditions, and rule documents used by the frontend and backend.
+The seed process populates ability scores, skills, species, classes, backgrounds, proficiencies, equipment, conditions, and rule documents used by the frontend and backend. Curated overrides under `apps/api/prisma/reference-overrides/` are applied as part of the same seed flow.
