@@ -11,6 +11,7 @@ import {
   formatInventoryNumber,
   formatReferenceEquipmentMeta,
   getContainerStats,
+  getInventoryDragScrollSpeed,
   getInventoryStorageKey,
   getItemHeight,
   getItemWidth,
@@ -249,5 +250,14 @@ describe("InventorySandboxPage helpers", () => {
         "Reduces speed by 10 feet while equipped.",
       ]),
     );
+  });
+
+  it("calculates inventory drag auto-scroll speed near the viewport edges", () => {
+    expect(getInventoryDragScrollSpeed(100, 100, 700)).toBe(-18);
+    expect(getInventoryDragScrollSpeed(145, 100, 700)).toBeLessThan(0);
+    expect(getInventoryDragScrollSpeed(400, 100, 700)).toBe(0);
+    expect(getInventoryDragScrollSpeed(655, 100, 700)).toBeGreaterThan(0);
+    expect(getInventoryDragScrollSpeed(700, 100, 700)).toBe(18);
+    expect(getInventoryDragScrollSpeed(100, 200, 200)).toBe(0);
   });
 });

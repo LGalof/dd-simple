@@ -162,6 +162,8 @@ const inventoryStorageKey = "dd-simple.inventory-sandbox.v1";
 const inventoryDashboardStoragePrefix = "dd-simple.character-inventory.v1";
 const inventoryBackendAutosaveDelayMs = 1200;
 const defaultAttunementLimit = 3;
+const inventoryDragScrollEdge = 88;
+const inventoryDragScrollMaxSpeed = 18;
 
 const inventoryLibraryTypeOptions: Array<{ id: InventoryLibraryType; label: string }> = [
   { id: "armor", label: "Armor" },
@@ -2916,10 +2918,14 @@ function InventoryWorkbench({
   hideDetailsPanel = false,
 }: InventoryWorkbenchProps) {
   const [activeContainerId, setActiveContainerId] = useState<string>("inventory");
+  const inventoryScrollRef = useRef<HTMLDivElement>(null);
+  const dragScrollFrameRef = useRef<number | null>(null);
+  const dragScrollSpeedRef = useRef(0);
   const {
     attunedItems,
     attunementLimit,
     containers,
+    dragItemId,
     equippedItems,
     handleDragEnd,
     handleDragLeave,
@@ -2953,6 +2959,93 @@ function InventoryWorkbench({
     }
   }, [activeContainerId, containers]);
 
+  const stopDragAutoScroll = useCallback(() => {
+    dragScrollSpeedRef.current = 0;
+
+    if (dragScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(dragScrollFrameRef.current);
+      dragScrollFrameRef.current = null;
+    }
+  }, []);
+
+  const startDragAutoScroll = useCallback(() => {
+    if (dragScrollFrameRef.current !== null) {
+      return;
+    }
+
+    const scrollFrame = () => {
+      const scrollContainer = inventoryScrollRef.current;
+      const scrollSpeed = dragScrollSpeedRef.current;
+
+      if (!scrollContainer || scrollSpeed === 0) {
+        dragScrollFrameRef.current = null;
+        return;
+      }
+
+      const previousScrollTop = scrollContainer.scrollTop;
+      scrollContainer.scrollTop += scrollSpeed;
+
+      if (scrollContainer.scrollTop === previousScrollTop) {
+        dragScrollSpeedRef.current = 0;
+        dragScrollFrameRef.current = null;
+        return;
+      }
+
+      dragScrollFrameRef.current = window.requestAnimationFrame(scrollFrame);
+    };
+
+    dragScrollFrameRef.current = window.requestAnimationFrame(scrollFrame);
+  }, []);
+
+  const handleInventoryDragAutoScroll = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const scrollContainer = event.currentTarget;
+
+      if (!dragItemId) {
+        stopDragAutoScroll();
+        return;
+      }
+
+      const bounds = scrollContainer.getBoundingClientRect();
+      let nextSpeed = getInventoryDragScrollSpeed(event.clientY, bounds.top, bounds.bottom);
+      const isAtTop = scrollContainer.scrollTop <= 0;
+      const isAtBottom =
+        scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 1;
+
+      if ((nextSpeed < 0 && isAtTop) || (nextSpeed > 0 && isAtBottom)) {
+        nextSpeed = 0;
+      }
+
+      dragScrollSpeedRef.current = nextSpeed;
+
+      if (nextSpeed === 0) {
+        stopDragAutoScroll();
+      } else {
+        startDragAutoScroll();
+      }
+    },
+    [dragItemId, startDragAutoScroll, stopDragAutoScroll],
+  );
+
+  const handleInventoryDragAutoScrollLeave = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const pointerIsOutside =
+        event.clientX <= bounds.left ||
+        event.clientX >= bounds.right ||
+        event.clientY <= bounds.top ||
+        event.clientY >= bounds.bottom;
+
+      if (pointerIsOutside) {
+        stopDragAutoScroll();
+      }
+    },
+    [stopDragAutoScroll],
+  );
+
+  useEffect(() => stopDragAutoScroll, [stopDragAutoScroll]);
+
   return (
     <section
       className={embedded ? "inventory-workbench inventory-workbench-embedded" : "inventory-workbench"}
@@ -2985,7 +3078,14 @@ function InventoryWorkbench({
       )}
 
       <div className="inventory-layout">
-        <div className="inventory-main-scroll">
+        <div
+          ref={inventoryScrollRef}
+          className="inventory-main-scroll"
+          onDragOver={handleInventoryDragAutoScroll}
+          onDragLeave={handleInventoryDragAutoScrollLeave}
+          onDragEnd={stopDragAutoScroll}
+          onDrop={stopDragAutoScroll}
+        >
           <section className="equipment-panel">
             <div className="inventory-panel-heading">
               <span>Character</span>
@@ -4059,6 +4159,28 @@ function shouldPreferLocalInventoryState(
   return localUpdatedAt > 0 && localUpdatedAt > backendUpdatedAt;
 }
 
+function getInventoryDragScrollSpeed(pointerY: number, top: number, bottom: number) {
+  if (![pointerY, top, bottom].every(Number.isFinite) || bottom <= top) {
+    return 0;
+  }
+
+  const edgeSize = Math.min(inventoryDragScrollEdge, (bottom - top) / 2);
+  const topEdge = top + edgeSize;
+  const bottomEdge = bottom - edgeSize;
+
+  if (pointerY < topEdge) {
+    const intensity = Math.min(1, Math.max(0, (topEdge - pointerY) / edgeSize));
+    return -Math.max(1, Math.ceil(inventoryDragScrollMaxSpeed * intensity));
+  }
+
+  if (pointerY > bottomEdge) {
+    const intensity = Math.min(1, Math.max(0, (pointerY - bottomEdge) / edgeSize));
+    return Math.max(1, Math.ceil(inventoryDragScrollMaxSpeed * intensity));
+  }
+
+  return 0;
+}
+
 function itemsOverlap(leftItem: InventoryItem, rightItem: InventoryItem) {
   return (
     leftItem.x < rightItem.x + getItemWidth(rightItem) &&
@@ -4082,6 +4204,7 @@ export {
   formatInventoryNumber,
   formatReferenceEquipmentMeta,
   getContainerStats,
+  getInventoryDragScrollSpeed,
   getInventoryTotals,
   getInventoryStorageKey,
   getItemHeight,
