@@ -1,62 +1,46 @@
 @startuml
-title D&D Simple - Room Realtime Synchronization
+title D&D Simple - Tactical Board Realtime Sync
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
 autonumber
 
-actor "User A" as UserA
-participant "Web Client A\n(Tactical Board)" as ClientA
-participant "Web Client A\n(Character Dashboard)" as DashboardA
-participant "Express API" as API
-database "PostgreSQL" as DB
+actor "Player A" as PlayerA
+participant "TacticalBoardPage A" as BoardA
+participant "useRoomSocket A" as SocketHookA
 participant "Socket.IO Server" as Socket
-participant "Web Client B\n(Tactical Board)" as ClientB
+database "PostgreSQL\nRoom.boardState" as DB
+participant "TacticalBoardPage B\n(useRoomSocket)" as BoardB
 
-note over ClientB
-Already connected to the same room.
+note over BoardA, BoardB
+Both clients are already authenticated and have joined
+the same Socket.IO room with room:join.
 end note
 
-UserA -> ClientA : Open or join room board
-ClientA -> API : REST load/join room
-API -> DB : Load Room, RoomPlayer, boardState via Prisma
-DB --> API : Room state
-API --> ClientA : Room state and board snapshot
+PlayerA -> BoardA: Move token or change board state
+BoardA -> SocketHookA: Debounced room board snapshot
+SocketHookA -> Socket: board:state({ boardState, baseUpdatedAt })
+Socket -> DB: getRoom(roomCode)
+DB --> Socket: Room with current boardState and updatedAt
 
-ClientA -> Socket : Connect with bearer token
-Socket -> DB : Verify user via Prisma
-DB --> Socket : User record
-Socket --> ClientA : Socket connected
+alt baseUpdatedAt is stale
+  Socket -> SocketHookA: board:update({ boardState, updatedAt })
+  Socket --> SocketHookA: callback error + latest boardState
+  SocketHookA -> BoardA: Resynchronize local board
+else update is authorized and current
+  Socket -> Socket: authorizeBoardStateSync(...)
+  Socket -> DB: saveRoomBoardState(room.code, boardState)
+  DB --> Socket: Updated Room snapshot
+  Socket -> SocketHookA: board:update({ boardState, updatedAt })
+  Socket -> BoardB: board:update({ boardState, updatedAt })
+  Socket --> SocketHookA: callback ok + updatedAt
+  SocketHookA -> BoardA: Render latest board snapshot
+  BoardB -> BoardB: Render latest board snapshot
+end
 
-ClientA -> Socket : room:join(roomCode, characterId)
-Socket -> DB : Join room and ensure character token
-DB --> Socket : Updated room state
-Socket --> ClientA : room:update and acknowledgement
-Socket --> ClientB : room:update
+note over Socket
+Turn advancement uses board:advance-turn
+and then broadcasts board:update after persistence.
+end note
 
-UserA -> ClientA : Change tactical board
-ClientA -> Socket : board:state(boardState)
-Socket -> DB : Persist/process boardState JSON
-DB --> Socket : Updated room
-Socket --> ClientA : board:update(boardState)
-Socket --> ClientB : board:update(boardState)
-Socket --> ClientA : Acknowledge update callback
-
-== Room dice-roll history ==
-
-ClientA -> API : GET /rooms/:roomCode/dice-rolls
-API -> DB : Load latest 10 public DiceRoll rows by roomId
-DB --> API : Shared room dice feed
-API --> ClientA : rolls
-
-UserA -> DashboardA : Roll dice in room context
-DashboardA -> API : POST /characters/:id/dice-rolls (visibility public, roomCode)
-API -> DB : Verify RoomPlayer and persist DiceRoll.roomId
-DB --> API : Saved DiceRoll
-API --> DashboardA : Saved DiceRoll with id
-
-DashboardA -> Socket : dice:roll(diceRollId)
-Socket -> DB : Validate joined room/user/character and DiceRoll.roomId
-DB --> Socket : Persisted public roll
-Socket --> ClientA : dice:rolled(roll)
-Socket --> ClientB : dice:rolled(roll)
-ClientA -> ClientA : Merge by id and keep latest 10
-ClientB -> ClientB : Merge by id and keep latest 10
 @enduml

@@ -1,0 +1,27 @@
+@startuml
+title D&D Simple - Dashboard to Room Dice Flow
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+autonumber
+
+actor "Authenticated User" as User
+participant "Character Dashboard" as Dashboard
+participant "Characters API" as Api
+database "PostgreSQL" as DB
+participant "Socket.IO Server" as Socket
+participant "Room clients\n(TacticalBoardPage)" as Boards
+
+User -> Dashboard: Roll dice in room context
+Dashboard -> Api: POST /characters/:id/dice-rolls\n{ roomCode, visibility: "public", roll data }
+Api -> DB: Validate ownership and room membership\nthen create DiceRoll with roomId
+DB --> Api: Persisted DiceRoll
+Api --> Dashboard: 201 DiceRoll
+
+Dashboard -> Socket: dice:roll({ diceRollId })
+Socket -> DB: Verify persisted public room roll
+DB --> Socket: Public persisted RoomDiceRoll
+Socket -> Boards: dice:rolled({ roll })
+Boards -> Boards: Merge roll into room dice history
+
+@enduml

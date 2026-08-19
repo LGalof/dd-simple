@@ -1,307 +1,242 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="1074px" preserveAspectRatio="none" style="width:2826px;height:1074px;" version="1.1" viewBox="0 0 2826 1074" width="2826px" zoomAndPan="magnify"><defs><filter height="300%" id="fkzo0pfgjp596" width="300%" x="-1" y="-1"><feGaussianBlur result="blurOut" stdDeviation="2.0"/><feColorMatrix in="blurOut" result="blurOut2" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0"/><feOffset dx="4.0" dy="4.0" in="blurOut2" result="blurOut3"/><feBlend in="SourceGraphic" in2="blurOut3" mode="normal"/></filter></defs><g><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacingAndGlyphs" textLength="355" x="1239" y="19.2419">D&amp;D Simple - Current Prisma ER Overview</text><!--MD5=[26ba6588716c58f268744b94dac039e4]
-class RefClass--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="RefClass" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="392.5" y="64.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="48" x="431" y="82.3439">RefClass</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="393.5" x2="516.5" y1="90.86" y2="90.86"/><ellipse cx="403.5" cy="101.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="412.5" y="106.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="393.5" x2="516.5" y1="113.8418" y2="113.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="398.5" y="129.6008">name : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="55" x="398.5" y="144.5826">hitDie : Int</text><!--MD5=[018bbb20d8c3c84c092911d890739329]
-class RefBackground--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="72.3079" id="RefBackground" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="552.5" y="72.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="85" x="572.5" y="89.8439">RefBackground</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="553.5" x2="676.5" y1="98.36" y2="98.36"/><ellipse cx="563.5" cy="109.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="572.5" y="114.1189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="553.5" x2="676.5" y1="121.3418" y2="121.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="558.5" y="137.1008">name : String</text><!--MD5=[e2432e710adfbba2c9493032fffb93e0]
-class RefSpecies--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="RefSpecies" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="712.5" y="64.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="61" x="744.5" y="82.3439">RefSpecies</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="713.5" x2="836.5" y1="90.86" y2="90.86"/><ellipse cx="723.5" cy="101.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="732.5" y="106.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="713.5" x2="836.5" y1="113.8418" y2="113.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="718.5" y="129.6008">name : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="718.5" y="144.5826">baseSpeed : Int</text><!--MD5=[51941bb7a9e7d03400dc564b4e8368dd]
-class RefEquipment--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="RefEquipment" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="872.5" y="64.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="78" x="896" y="82.3439">RefEquipment</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="873.5" x2="996.5" y1="90.86" y2="90.86"/><ellipse cx="883.5" cy="101.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="892.5" y="106.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="873.5" x2="996.5" y1="113.8418" y2="113.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="878.5" y="129.6008">name : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="94" x="878.5" y="144.5826">itemType : String?</text><!--MD5=[3fd616f346a44cd59a91eb10b19e157c]
-class User--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="User" style="stroke: #A80036; stroke-width: 1.5;" width="133" x="156.5" y="264.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="27" x="209.5" y="282.3439">User</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="157.5" x2="288.5" y1="290.86" y2="290.86"/><ellipse cx="167.5" cy="301.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="176.5" y="306.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="157.5" x2="288.5" y1="313.8418" y2="313.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="121" x="162.5" y="329.6008">email : String «unique»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="113" x="162.5" y="344.5826">displayName : String?</text><!--MD5=[3eff9d4279c887ef9286477750bdaaff]
-class Character--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="147.2173" id="Character" style="stroke: #A80036; stroke-width: 1.5;" width="175" x="360.5" y="234.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="56" x="420" y="252.3439">Character</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="361.5" x2="534.5" y1="260.86" y2="260.86"/><ellipse cx="371.5" cy="271.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="380.5" y="276.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="361.5" x2="534.5" y1="283.8418" y2="283.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="103" x="366.5" y="299.6008">userId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="366.5" y="314.5826">name : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="48" x="366.5" y="329.5645">level : Int</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="136" x="366.5" y="344.5464">speciesIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="123" x="366.5" y="359.5283">classIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="163" x="366.5" y="374.5102">backgroundIndex : String «FK»</text><!--MD5=[dcf7a0d50ffbf5c3049349687a7afa74]
-class DiceRoll--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="132.2354" id="DiceRoll" style="stroke: #A80036; stroke-width: 1.5;" width="160" x="138" y="460.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="45" x="195.5" y="478.3439">DiceRoll</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="139" x2="297" y1="486.86" y2="486.86"/><ellipse cx="149" cy="497.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="158" y="502.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="139" x2="297" y1="509.8418" y2="509.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="144" y="525.6008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="114" x="144" y="540.5826">roomId : String? «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="148" x="144" y="555.5645">rolledByUserId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="83" x="144" y="570.5464">formula : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="48" x="144" y="585.5283">total : Int</text><!--MD5=[d218c48b946d362ff1ecd879cabebcad]
-class Room--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="117.2536" id="Room" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="213.5" y="867.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="32" x="288" y="885.3439">Room</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="214.5" x2="393.5" y1="893.86" y2="893.86"/><ellipse cx="224.5" cy="904.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="233.5" y="909.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="214.5" x2="393.5" y1="916.8418" y2="916.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="118" x="219.5" y="932.6008">code : String «unique»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="142" x="219.5" y="947.5826">creatorUserId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="219.5" y="962.5645">creatorCharacterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="94" x="219.5" y="977.5464">boardState : Json?</text><!--MD5=[1a768d1414559ed72658cbb1fb76516f]
-class RoomPlayer--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="117.2536" id="RoomPlayer" style="stroke: #A80036; stroke-width: 1.5;" width="141" x="192.5" y="671.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="67" x="229.5" y="689.3439">RoomPlayer</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="193.5" x2="332.5" y1="697.86" y2="697.86"/><ellipse cx="203.5" cy="708.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="212.5" y="713.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="193.5" x2="332.5" y1="720.8418" y2="720.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="109" x="198.5" y="736.6008">roomId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="103" x="198.5" y="751.5826">userId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="198.5" y="766.5645">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="120" x="198.5" y="781.5464">characterName : String</text><!--MD5=[e2e024aaaba19b16a0850801ab9cd484]
-class CharacterAbilityScore--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="CharacterAbilityScore" style="stroke: #A80036; stroke-width: 1.5;" width="177" x="591.5" y="483.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="122" x="619" y="500.8439">CharacterAbilityScore</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="592.5" x2="767.5" y1="509.36" y2="509.36"/><ellipse cx="602.5" cy="520.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="611.5" y="525.1189">characterId : String «PK, FK»</text><ellipse cx="602.5" cy="535.3418" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="151" x="611.5" y="540.1008">abilityIndex : String «PK, FK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="592.5" x2="767.5" y1="547.3237" y2="547.3237"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="52" x="597.5" y="563.0826">score : Int</text><!--MD5=[e07f7230b7543c007e14103128efc7c2]
-class CharacterSkill--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="CharacterSkill" style="stroke: #A80036; stroke-width: 1.5;" width="175" x="803.5" y="483.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="78" x="852" y="500.8439">CharacterSkill</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="804.5" x2="977.5" y1="509.36" y2="509.36"/><ellipse cx="814.5" cy="520.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="823.5" y="525.1189">characterId : String «PK, FK»</text><ellipse cx="814.5" cy="535.3418" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="139" x="823.5" y="540.1008">skillIndex : String «PK, FK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="804.5" x2="977.5" y1="547.3237" y2="547.3237"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="111" x="809.5" y="563.0826">isProficient : Boolean</text><!--MD5=[9a40261a8aaf7d3e203d947189509186]
-class CharacterProficiency--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="CharacterProficiency" style="stroke: #A80036; stroke-width: 1.5;" width="203" x="1013.5" y="483.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="117" x="1056.5" y="500.8439">CharacterProficiency</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1014.5" x2="1215.5" y1="509.36" y2="509.36"/><ellipse cx="1024.5" cy="520.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="1033.5" y="525.1189">characterId : String «PK, FK»</text><ellipse cx="1024.5" cy="535.3418" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="177" x="1033.5" y="540.1008">proficiencyIndex : String «PK, FK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1014.5" x2="1215.5" y1="547.3237" y2="547.3237"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="106" x="1019.5" y="563.0826">sourceType : String?</text><!--MD5=[e224955393049557c14378e0f0e3d56f]
-class CharacterChoice--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="102.2717" id="CharacterChoice" style="stroke: #A80036; stroke-width: 1.5;" width="141" x="650.5" y="679.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="94" x="674" y="696.8439">CharacterChoice</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="651.5" x2="790.5" y1="705.36" y2="705.36"/><ellipse cx="661.5" cy="716.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="670.5" y="721.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="651.5" x2="790.5" y1="728.3418" y2="728.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="656.5" y="744.1008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="656.5" y="759.0826">choiceType : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="113" x="656.5" y="774.0645">selectedIndex : String</text><!--MD5=[d99be5c705692c2ab811cc2634ccf0d2]
-class CharacterFeatureChoiceSelection--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="102.2717" id="CharacterFeatureChoiceSelection" style="stroke: #A80036; stroke-width: 1.5;" width="194" x="827" y="679.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="188" x="830" y="696.8439">CharacterFeatureChoiceSelection</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="828" x2="1020" y1="705.36" y2="705.36"/><ellipse cx="838" cy="716.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="847" y="721.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="828" x2="1020" y1="728.3418" y2="728.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="833" y="744.1008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="101" x="833" y="759.0826">sourceType : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="98" x="833" y="774.0645">choicePath : String</text><!--MD5=[d3d8593b3f5c8fa67b06ca4897e8de6d]
-class CharacterLanguage--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="CharacterLanguage" style="stroke: #A80036; stroke-width: 1.5;" width="160" x="1056" y="686.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="111" x="1080.5" y="704.3439">CharacterLanguage</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1057" x2="1215" y1="712.86" y2="712.86"/><ellipse cx="1067" cy="723.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1076" y="728.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1057" x2="1215" y1="735.8418" y2="735.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="1062" y="751.6008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="148" x="1062" y="766.5826">languageIndex : String «FK»</text><!--MD5=[47fc80cbf4df889d26e3680d4e90096a]
-class CharacterCondition--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="87.2898" id="CharacterCondition" style="stroke: #A80036; stroke-width: 1.5;" width="161" x="1664.5" y="483.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="109" x="1690.5" y="500.8439">CharacterCondition</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1665.5" x2="1824.5" y1="509.36" y2="509.36"/><ellipse cx="1675.5" cy="520.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1684.5" y="525.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1665.5" x2="1824.5" y1="532.3418" y2="532.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="1670.5" y="548.1008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="1670.5" y="563.0826">conditionIndex : String «FK»</text><!--MD5=[8b87f22825dc5deb0a6503c7482c50b0]
-class CharacterHitPointState--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="102.2717" id="CharacterHitPointState" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="1860.5" y="475.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="129" x="1886.5" y="493.3439">CharacterHitPointState</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1861.5" x2="2040.5" y1="501.86" y2="501.86"/><ellipse cx="1871.5" cy="512.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1880.5" y="517.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1861.5" x2="2040.5" y1="524.8418" y2="524.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="1866.5" y="540.6008">characterId : String «unique FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="127" x="1866.5" y="555.5826">calculationMode : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="66" x="1866.5" y="570.5645">tempHp : Int</text><!--MD5=[7b9edda3d29c287cd76395797d64b632]
-class CharacterSpellcastingState--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="102.2717" id="CharacterSpellcastingState" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="1664.5" y="679.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="152" x="1679" y="696.8439">CharacterSpellcastingState</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1665.5" x2="1844.5" y1="705.36" y2="705.36"/><ellipse cx="1675.5" cy="716.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1684.5" y="721.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1665.5" x2="1844.5" y1="728.3418" y2="728.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="1670.5" y="744.1008">characterId : String «unique FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="117" x="1670.5" y="759.0826">learnedSpellIds : Json?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="127" x="1670.5" y="774.0645">slotUsageByLevel : Json?</text><!--MD5=[3d2920e7ac8c758927a53fa5e0c684a7]
-class CharacterResourceState--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="102.2717" id="CharacterResourceState" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="1880.5" y="679.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="137" x="1902.5" y="696.8439">CharacterResourceState</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1881.5" x2="2060.5" y1="705.36" y2="705.36"/><ellipse cx="1891.5" cy="716.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1900.5" y="721.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1881.5" x2="2060.5" y1="728.3418" y2="728.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="1886.5" y="744.1008">characterId : String «unique FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="147" x="1886.5" y="759.0826">usageByResourceKey : Json?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="146" x="1886.5" y="774.0645">activeByResourceKey : Json?</text><!--MD5=[e10acec21856c957b856bfe55a403157]
-class CharacterInventory--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="102.2717" id="CharacterInventory" style="stroke: #A80036; stroke-width: 1.5;" width="168" x="2462" y="679.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="109" x="2491.5" y="696.8439">CharacterInventory</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="2463" x2="2629" y1="705.36" y2="705.36"/><ellipse cx="2473" cy="716.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="2482" y="721.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="2463" x2="2629" y1="728.3418" y2="728.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="2468" y="744.1008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="156" x="2468" y="759.0826">equipmentIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="68" x="2468" y="774.0645">quantity : Int</text><!--MD5=[6b19acccd3a74983ecdd1636ee251798]
-class CharacterInventoryState--><rect fill="#FEFECE" filter="url(#fkzo0pfgjp596)" height="72.3079" id="CharacterInventoryState" style="stroke: #A80036; stroke-width: 1.5;" width="175" x="2460.5" y="890.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="138" x="2479" y="907.8439">CharacterInventoryState</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="2461.5" x2="2634.5" y1="916.36" y2="916.36"/><ellipse cx="2471.5" cy="927.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="2480.5" y="932.1189">characterId : String «PK, FK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="2461.5" x2="2634.5" y1="939.3418" y2="939.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="93" x="2466.5" y="955.1008">stateCode : String</text><!--MD5=[4a70e89192fdc49998e8f815688e25de]
-link RefClass to RefBackground--><!--MD5=[6a39f2604bc1d93de27d3ec9b1d75630]
-link RefBackground to RefSpecies--><!--MD5=[7d36d4e577f10a9aac1003c230ba5b9f]
-link RefSpecies to RefEquipment--><!--MD5=[c11038743b88000eb011b982409cb3b5]
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="754px" preserveAspectRatio="none" style="width:1816px;height:754px;" version="1.1" viewBox="0 0 1816 754" width="1816px" zoomAndPan="magnify"><defs/><rect fill="#FFFFFF" height="100%" width="100%" x="0" y="0"/><g><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacingAndGlyphs" textLength="355" x="746" y="19.2419">D&amp;D Simple - Current Prisma ER Overview</text><!--MD5=[ee0e890f069498a9d29664299457f261]
+cluster ReferenceData--><rect fill="#FFFFFF" height="367" style="stroke: #000000; stroke-width: 1.5;" width="480" x="30" y="56.5158"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="120" x="210" y="73.4818">REFERENCE DATA</text><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="210" x="165" y="92.5497">seeded / application-managed</text><!--MD5=[b4b98d201e9b83390b7c2e97c686cddf]
+cluster RuntimeData--><rect fill="#FFFFFF" height="379" style="stroke: #000000; stroke-width: 1.5;" width="587" x="550" y="217.5158"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="138" x="774.5" y="234.4818">USER &amp; GAME DATA</text><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="176" x="755.5" y="253.5497">runtime / user-generated</text><!--MD5=[543b29d23818beae2e94e4d224ae085a]
+cluster CharacterState--><rect fill="#FFFFFF" height="349" style="stroke: #000000; stroke-width: 1.5;" width="628" x="1177" y="240.0158"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="129" x="1426.5" y="256.9818">CHARACTER STATE</text><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="247" x="1367.5" y="276.0497">runtime character selections / state</text><!--MD5=[26ba6588716c58f268744b94dac039e4]
+class RefClass--><rect fill="#FEFECE" height="72.3079" id="RefClass" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="54.5" y="121.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="48" x="93" y="139.3439">RefClass</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="55.5" x2="178.5" y1="147.86" y2="147.86"/><ellipse cx="65.5" cy="158.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="74.5" y="163.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="55.5" x2="178.5" y1="170.8418" y2="170.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="60.5" y="186.6008">name : String</text><!--MD5=[e2432e710adfbba2c9493032fffb93e0]
+class RefSpecies--><rect fill="#FEFECE" height="72.3079" id="RefSpecies" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="203.5" y="121.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="61" x="235.5" y="139.3439">RefSpecies</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="204.5" x2="327.5" y1="147.86" y2="147.86"/><ellipse cx="214.5" cy="158.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="223.5" y="163.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="204.5" x2="327.5" y1="170.8418" y2="170.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="209.5" y="186.6008">name : String</text><!--MD5=[018bbb20d8c3c84c092911d890739329]
+class RefBackground--><rect fill="#FEFECE" height="72.3079" id="RefBackground" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="352.5" y="121.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="85" x="372.5" y="139.3439">RefBackground</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="353.5" x2="476.5" y1="147.86" y2="147.86"/><ellipse cx="363.5" cy="158.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="372.5" y="163.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="353.5" x2="476.5" y1="170.8418" y2="170.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="358.5" y="186.6008">name : String</text><!--MD5=[51941bb7a9e7d03400dc564b4e8368dd]
+class RefEquipment--><rect fill="#FEFECE" height="72.3079" id="RefEquipment" style="stroke: #A80036; stroke-width: 1.5;" width="125" x="119.5" y="320.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="78" x="143" y="337.8439">RefEquipment</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="120.5" x2="243.5" y1="346.36" y2="346.36"/><ellipse cx="130.5" cy="357.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="139.5" y="362.1189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="120.5" x2="243.5" y1="369.3418" y2="369.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="125.5" y="385.1008">name : String</text><!--MD5=[24541678b6f583c72952ef5930bcc01e]
+class RefSkill--><rect fill="#FEFECE" height="87.2898" id="RefSkill" style="stroke: #A80036; stroke-width: 1.5;" width="143" x="268.5" y="312.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="40" x="320" y="330.3439">RefSkill</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="269.5" x2="410.5" y1="338.86" y2="338.86"/><ellipse cx="279.5" cy="349.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="288.5" y="354.6189">index : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="269.5" x2="410.5" y1="361.8418" y2="361.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="131" x="274.5" y="377.6008">abilityIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="274.5" y="392.5826">name : String</text><!--MD5=[3fd616f346a44cd59a91eb10b19e157c]
+class User--><rect fill="#FEFECE" height="72.3079" id="User" style="stroke: #A80036; stroke-width: 1.5;" width="133" x="772.5" y="320.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="27" x="825.5" y="337.8439">User</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="773.5" x2="904.5" y1="346.36" y2="346.36"/><ellipse cx="783.5" cy="357.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="792.5" y="362.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="773.5" x2="904.5" y1="369.3418" y2="369.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="121" x="778.5" y="385.1008">email : String «unique»</text><!--MD5=[3eff9d4279c887ef9286477750bdaaff]
+class Character--><rect fill="#FEFECE" height="147.2173" id="Character" style="stroke: #A80036; stroke-width: 1.5;" width="175" x="929.5" y="282.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="56" x="989" y="300.3439">Character</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="930.5" x2="1103.5" y1="308.86" y2="308.86"/><ellipse cx="940.5" cy="319.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="949.5" y="324.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="930.5" x2="1103.5" y1="331.8418" y2="331.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="103" x="935.5" y="347.6008">userId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="70" x="935.5" y="362.5826">name : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="48" x="935.5" y="377.5645">level : Int</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="123" x="935.5" y="392.5464">classIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="136" x="935.5" y="407.5283">speciesIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="163" x="935.5" y="422.5102">backgroundIndex : String «FK»</text><!--MD5=[d218c48b946d362ff1ecd879cabebcad]
+class Room--><rect fill="#FEFECE" height="102.2717" id="Room" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="758.5" y="463.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="32" x="833" y="480.8439">Room</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="759.5" x2="938.5" y1="489.36" y2="489.36"/><ellipse cx="769.5" cy="500.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="778.5" y="505.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="759.5" x2="938.5" y1="512.3418" y2="512.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="118" x="764.5" y="528.1008">code : String «unique»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="142" x="764.5" y="543.0826">creatorUserId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="764.5" y="558.0645">creatorCharacterId : String «FK»</text><!--MD5=[1a768d1414559ed72658cbb1fb76516f]
+class RoomPlayer--><rect fill="#FEFECE" height="102.2717" id="RoomPlayer" style="stroke: #A80036; stroke-width: 1.5;" width="141" x="963.5" y="463.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="67" x="1000.5" y="480.8439">RoomPlayer</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="964.5" x2="1103.5" y1="489.36" y2="489.36"/><ellipse cx="974.5" cy="500.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="983.5" y="505.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="964.5" x2="1103.5" y1="512.3418" y2="512.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="109" x="969.5" y="528.1008">roomId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="103" x="969.5" y="543.0826">userId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="969.5" y="558.0645">characterId : String «FK»</text><!--MD5=[dcf7a0d50ffbf5c3049349687a7afa74]
+class DiceRoll--><rect fill="#FEFECE" height="117.2536" id="DiceRoll" style="stroke: #A80036; stroke-width: 1.5;" width="160" x="574" y="455.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="45" x="631.5" y="473.3439">DiceRoll</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="575" x2="733" y1="481.86" y2="481.86"/><ellipse cx="585" cy="492.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="594" y="497.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="575" x2="733" y1="504.8418" y2="504.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="580" y="520.6008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="114" x="580" y="535.5826">roomId : String? «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="148" x="580" y="550.5645">rolledByUserId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="48" x="580" y="565.5464">total : Int</text><!--MD5=[e2e024aaaba19b16a0850801ab9cd484]
+class CharacterAbilityScore--><rect fill="#FEFECE" height="87.2898" id="CharacterAbilityScore" style="stroke: #A80036; stroke-width: 1.5;" width="177" x="1200.5" y="312.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="122" x="1228" y="330.3439">CharacterAbilityScore</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1201.5" x2="1376.5" y1="338.86" y2="338.86"/><ellipse cx="1211.5" cy="349.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="1220.5" y="354.6189">characterId : String «PK, FK»</text><ellipse cx="1211.5" cy="364.8418" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="151" x="1220.5" y="369.6008">abilityIndex : String «PK, FK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1201.5" x2="1376.5" y1="376.8237" y2="376.8237"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="52" x="1206.5" y="392.5826">score : Int</text><!--MD5=[e10acec21856c957b856bfe55a403157]
+class CharacterInventory--><rect fill="#FEFECE" height="102.2717" id="CharacterInventory" style="stroke: #A80036; stroke-width: 1.5;" width="168" x="1401" y="305.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="109" x="1430.5" y="322.8439">CharacterInventory</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1402" x2="1568" y1="331.36" y2="331.36"/><ellipse cx="1412" cy="342.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1421" y="347.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1402" x2="1568" y1="354.3418" y2="354.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="1407" y="370.1008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="156" x="1407" y="385.0826">equipmentIndex : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="68" x="1407" y="400.0645">quantity : Int</text><!--MD5=[e224955393049557c14378e0f0e3d56f]
+class CharacterChoice--><rect fill="#FEFECE" height="102.2717" id="CharacterChoice" style="stroke: #A80036; stroke-width: 1.5;" width="141" x="1593.5" y="305.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="94" x="1617" y="322.8439">CharacterChoice</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1594.5" x2="1733.5" y1="331.36" y2="331.36"/><ellipse cx="1604.5" cy="342.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1613.5" y="347.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1594.5" x2="1733.5" y1="354.3418" y2="354.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="1599.5" y="370.1008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="99" x="1599.5" y="385.0826">choiceType : String</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="113" x="1599.5" y="400.0645">selectedIndex : String</text><!--MD5=[47fc80cbf4df889d26e3680d4e90096a]
+class CharacterCondition--><rect fill="#FEFECE" height="87.2898" id="CharacterCondition" style="stroke: #A80036; stroke-width: 1.5;" width="161" x="1611.5" y="470.5158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="109" x="1637.5" y="488.3439">CharacterCondition</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1612.5" x2="1771.5" y1="496.86" y2="496.86"/><ellipse cx="1622.5" cy="507.86" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1631.5" y="512.6189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1612.5" x2="1771.5" y1="519.8418" y2="519.8418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="129" x="1617.5" y="535.6008">characterId : String «FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="149" x="1617.5" y="550.5826">conditionIndex : String «FK»</text><!--MD5=[7b9edda3d29c287cd76395797d64b632]
+class CharacterSpellcastingState--><rect fill="#FEFECE" height="102.2717" id="CharacterSpellcastingState" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="1406.5" y="463.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="152" x="1421" y="480.8439">CharacterSpellcastingState</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1407.5" x2="1586.5" y1="489.36" y2="489.36"/><ellipse cx="1417.5" cy="500.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1426.5" y="505.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1407.5" x2="1586.5" y1="512.3418" y2="512.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="1412.5" y="528.1008">characterId : String «unique FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="126" x="1412.5" y="543.0826">preparedSpellIds : Json?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="127" x="1412.5" y="558.0645">slotUsageByLevel : Json?</text><!--MD5=[3d2920e7ac8c758927a53fa5e0c684a7]
+class CharacterResourceState--><rect fill="#FEFECE" height="102.2717" id="CharacterResourceState" style="stroke: #A80036; stroke-width: 1.5;" width="181" x="1201.5" y="463.0158"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="137" x="1223.5" y="480.8439">CharacterResourceState</text><line style="stroke: #A80036; stroke-width: 1.5;" x1="1202.5" x2="1381.5" y1="489.36" y2="489.36"/><ellipse cx="1212.5" cy="500.36" fill="#000000" rx="3" ry="3" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="80" x="1221.5" y="505.1189">id : String «PK»</text><line style="stroke: #A80036; stroke-width: 1.0;" x1="1202.5" x2="1381.5" y1="512.3418" y2="512.3418"/><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="169" x="1207.5" y="528.1008">characterId : String «unique FK»</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="147" x="1207.5" y="543.0826">usageByResourceKey : Json?</text><text fill="#000000" font-family="sans-serif" font-size="11" lengthAdjust="spacingAndGlyphs" textLength="146" x="1207.5" y="558.0645">activeByResourceKey : Json?</text><!--MD5=[436710d748233f64cbf55a23f73e17bb]
+link ReferenceData to RuntimeData--><!--MD5=[5ed03dfaa4acc756a138b1290cbb0af7]
+link RuntimeData to CharacterState--><!--MD5=[719fe8c4b45eb7b1b870f5eb9622d1c2]
+link RefClass to RefSpecies--><!--MD5=[63f6b137deaf39cba2a51047dcd36117]
+link RefSpecies to RefBackground--><!--MD5=[ac85d50661fa42db764572b29d130ae2]
+link RefEquipment to RefSkill--><!--MD5=[14b7c05c685d402b271d6f24527f52e9]
+link RefClass to RefEquipment--><!--MD5=[c11038743b88000eb011b982409cb3b5]
 link User to Character--><!--MD5=[c11038743b88000eb011b982409cb3b5]
-link User to Character--><path d="M297.59,282.5158 C297.59,282.5158 352.29,282.5158 352.29,282.5158 " fill="none" id="User-Character-1" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="352.29" x2="360.29" y1="282.5158" y2="276.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="352.29" x2="360.29" y1="282.5158" y2="288.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="352.29" x2="360.29" y1="282.5158" y2="282.5158"/><ellipse cx="346.29" cy="282.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="293.59" x2="293.59" y1="286.5158" y2="278.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="296.59" x2="296.59" y1="286.5158" y2="278.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="297.59" x2="289.59" y1="282.5158" y2="282.5158"/><!--MD5=[27ebcf6fd509f4caf910ed1bde8035dc]
-link User to DiceRoll--><!--MD5=[27ebcf6fd509f4caf910ed1bde8035dc]
-link User to DiceRoll--><path d="M245.17,359.7058 C245.17,359.7058 245.17,452.4958 245.17,452.4958 " fill="none" id="User-DiceRoll-1" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="245.17" x2="251.17" y1="452.4958" y2="460.4958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="245.17" x2="239.17" y1="452.4958" y2="460.4958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="245.17" x2="245.17" y1="452.4958" y2="460.4958"/><ellipse cx="245.17" cy="446.4958" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="241.17" x2="249.17" y1="355.7058" y2="355.7058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="241.17" x2="249.17" y1="358.7058" y2="358.7058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="245.17" x2="245.17" y1="359.7058" y2="351.7058"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="52" x="162" y="426.4129">rolled by</text><!--MD5=[3dc2da763f28e31e7d09bd555fa7f046]
-link DiceRoll to RoomPlayer--><!--MD5=[170673c9a97865885fe74354e4366219]
-link RoomPlayer to Room--><!--MD5=[6f6eec8ebc5c2d786ac87ec9baf06f88]
-link Room to RoomPlayer--><path d="M253.5,859.4758 C253.5,859.4758 253.5,796.5958 253.5,796.5958 " fill="none" id="Room-RoomPlayer" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="253.5" x2="247.5" y1="796.5958" y2="788.5958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="253.5" x2="259.5" y1="796.5958" y2="788.5958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="253.5" x2="253.5" y1="796.5958" y2="788.5958"/><ellipse cx="253.5" cy="802.5958" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="257.5" x2="249.5" y1="863.4758" y2="863.4758"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="257.5" x2="249.5" y1="860.4758" y2="860.4758"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="253.5" x2="253.5" y1="859.4758" y2="867.4758"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="43" x="305" y="833.4129">players</text><!--MD5=[dd1f56b80065e254b88d757345d4e163]
-link CharacterAbilityScore to CharacterSkill--><!--MD5=[7dece8a5332e0ded849e8901290cff6e]
-link CharacterSkill to CharacterProficiency--><!--MD5=[f6acda6bd24d89e2701859698032d659]
-link CharacterChoice to CharacterFeatureChoiceSelection--><!--MD5=[1cabde6ccb7dc0b4fb226186d6e9bfd2]
-link CharacterFeatureChoiceSelection to CharacterLanguage--><!--MD5=[6013831468307b9c597616c137bc705e]
-link CharacterAbilityScore to CharacterChoice--><!--MD5=[a28bf592f1ce16d51ad02fc91948882f]
-link CharacterCondition to CharacterHitPointState--><!--MD5=[8b1131e5649ead54f728462ab19df487]
-link CharacterSpellcastingState to CharacterResourceState--><!--MD5=[9c73b3c76adde358a8e57ed84524f990]
-link CharacterCondition to CharacterSpellcastingState--><!--MD5=[695e8e51ad1a679317acd628b82cfa55]
-link RefClass to Character--><!--MD5=[695e8e51ad1a679317acd628b82cfa55]
-link RefClass to Character--><path d="M475.83,159.9058 C475.83,159.9058 475.83,226.3558 475.83,226.3558 " fill="none" id="RefClass-Character-1" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="475.83" x2="481.83" y1="226.3558" y2="234.3558"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="475.83" x2="469.83" y1="226.3558" y2="234.3558"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="475.83" x2="475.83" y1="226.3558" y2="234.3558"/><ellipse cx="475.83" cy="220.3558" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="471.83" x2="479.83" y1="155.9058" y2="155.9058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="471.83" x2="479.83" y1="158.9058" y2="158.9058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="475.83" x2="475.83" y1="159.9058" y2="151.9058"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="28" x="478" y="198.4129">class</text><!--MD5=[12d929f264f8055b1a8bf9bcb2b6175a]
-link Character to CharacterAbilityScore--><!--MD5=[12d929f264f8055b1a8bf9bcb2b6175a]
-link Character to CharacterAbilityScore--><path d="M488.5,389.5758 C488.5,389.5758 488.5,541.5158 488.5,541.5158 C488.5,541.5158 583.26,541.5158 583.26,541.5158 " fill="none" id="Character-CharacterAbilityScore-1" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="583.26" x2="591.26" y1="541.5158" y2="535.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="583.26" x2="591.26" y1="541.5158" y2="547.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="583.26" x2="591.26" y1="541.5158" y2="541.5158"/><ellipse cx="577.26" cy="541.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="484.5" x2="492.5" y1="385.5758" y2="385.5758"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="484.5" x2="492.5" y1="388.5758" y2="388.5758"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="488.5" x2="488.5" y1="389.5758" y2="381.5758"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="77" x="650" y="426.4129">ability scores</text><!--MD5=[ad62ce5f1b9203f3a1b4a90cb83f87b7]
-link Character to CharacterCondition--><!--MD5=[ad62ce5f1b9203f3a1b4a90cb83f87b7]
-link Character to CharacterCondition--><path d="M543.55,316.5158 C543.55,316.5158 1718.17,316.5158 1718.17,316.5158 C1718.17,316.5158 1718.17,475.0058 1718.17,475.0058 " fill="none" id="Character-CharacterCondition-1" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1718.17" x2="1724.17" y1="475.0058" y2="483.0058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1718.17" x2="1712.17" y1="475.0058" y2="483.0058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1718.17" x2="1718.17" y1="475.0058" y2="483.0058"/><ellipse cx="1718.17" cy="469.0058" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.55" x2="539.55" y1="320.5158" y2="312.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.55" x2="542.55" y1="320.5158" y2="312.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.55" x2="535.55" y1="316.5158" y2="316.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="63" x="1633" y="426.4129">conditions</text><!--MD5=[657b8f8ca04a4420317d4ae59a7840c5]
-link CharacterHitPointState to CharacterInventory--><!--MD5=[bc7dfa93b0945d1e22bf06d7dd9904e8]
-link CharacterInventory to CharacterInventoryState--><!--MD5=[deef98327b09724ed417d1b1bedf0449]
-link RefEquipment to CharacterInventory--><!--MD5=[deef98327b09724ed417d1b1bedf0449]
-link RefEquipment to CharacterInventory--><path d="M1005.81,122.5158 C1005.81,122.5158 2562.8,122.5158 2562.8,122.5158 C2562.8,122.5158 2562.8,671.0058 2562.8,671.0058 " fill="none" id="RefEquipment-CharacterInventory-1" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2562.8" x2="2568.8" y1="671.0058" y2="679.0058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2562.8" x2="2556.8" y1="671.0058" y2="679.0058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2562.8" x2="2562.8" y1="671.0058" y2="679.0058"/><ellipse cx="2562.8" cy="665.0058" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1001.81" x2="1001.81" y1="126.5158" y2="118.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1004.81" x2="1004.81" y1="126.5158" y2="118.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1005.81" x2="997.81" y1="122.5158" y2="122.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="66" x="2618" y="426.4129">equipment</text><!--MD5=[80ef188495123e0eb89422528c978ef4]
-link User to Room--><path d="M297.51,317.5158 C297.51,317.5158 351.5,317.5158 351.5,317.5158 C351.5,317.5158 351.5,859.3958 351.5,859.3958 " fill="none" id="User-Room" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="351.5" x2="357.5" y1="859.3958" y2="867.3958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="351.5" x2="345.5" y1="859.3958" y2="867.3958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="351.5" x2="351.5" y1="859.3958" y2="867.3958"/><ellipse cx="351.5" cy="853.3958" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="293.51" x2="293.51" y1="321.5158" y2="313.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="296.51" x2="296.51" y1="321.5158" y2="313.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="297.51" x2="289.51" y1="317.5158" y2="317.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="43" x="345" y="637.4129">creates</text><!--MD5=[8cc3d1feef3ed7b4c714e29af9a8255e]
-link User to RoomPlayer--><path d="M297.91,334.5158 C297.91,334.5158 315.75,334.5158 315.75,334.5158 C315.75,334.5158 315.75,663.2358 315.75,663.2358 " fill="none" id="User-RoomPlayer" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="315.75" x2="321.75" y1="663.2358" y2="671.2358"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="315.75" x2="309.75" y1="663.2358" y2="671.2358"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="315.75" x2="315.75" y1="663.2358" y2="671.2358"/><ellipse cx="315.75" cy="657.2358" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="293.91" x2="293.91" y1="338.5158" y2="330.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="296.91" x2="296.91" y1="338.5158" y2="330.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="297.91" x2="289.91" y1="334.5158" y2="334.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="28" x="74" y="531.9129">joins</text><!--MD5=[ced88e9fbd593b82f71a90c052f6c88a]
-link RefSpecies to Character--><path d="M704.41,148.5158 C704.41,148.5158 529.5,148.5158 529.5,148.5158 C529.5,148.5158 529.5,226.3358 529.5,226.3358 " fill="none" id="RefSpecies-Character" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="529.5" x2="535.5" y1="226.3358" y2="234.3358"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="529.5" x2="523.5" y1="226.3358" y2="234.3358"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="529.5" x2="529.5" y1="226.3358" y2="234.3358"/><ellipse cx="529.5" cy="220.3358" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="708.41" x2="708.41" y1="144.5158" y2="152.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="705.41" x2="705.41" y1="144.5158" y2="152.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="704.41" x2="712.41" y1="148.5158" y2="148.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="43" x="753" y="198.4129">species</text><!--MD5=[18a497a3c1a7e581e7ec18c5bb520973]
-link RefBackground to Character--><path d="M544.45,120.5158 C544.45,120.5158 523.5,120.5158 523.5,120.5158 C523.5,120.5158 523.5,226.4458 523.5,226.4458 " fill="none" id="RefBackground-Character" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="523.5" x2="529.5" y1="226.4458" y2="234.4458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="523.5" x2="517.5" y1="226.4458" y2="234.4458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="523.5" x2="523.5" y1="226.4458" y2="234.4458"/><ellipse cx="523.5" cy="220.4458" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="548.45" x2="548.45" y1="116.5158" y2="124.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="545.45" x2="545.45" y1="116.5158" y2="124.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="544.45" x2="552.45" y1="120.5158" y2="120.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="73" x="593" y="198.4129">background</text><!--MD5=[8d84d8d7ad625dfa8d8d0a78d42e7896]
-link Character to CharacterSkill--><path d="M543.81,365.5158 C543.81,365.5158 820.5,365.5158 820.5,365.5158 C820.5,365.5158 820.5,474.9458 820.5,474.9458 " fill="none" id="Character-CharacterSkill" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="820.5" x2="826.5" y1="474.9458" y2="482.9458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="820.5" x2="814.5" y1="474.9458" y2="482.9458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="820.5" x2="820.5" y1="474.9458" y2="482.9458"/><ellipse cx="820.5" cy="468.9458" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.81" x2="539.81" y1="369.5158" y2="361.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.81" x2="542.81" y1="369.5158" y2="361.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.81" x2="535.81" y1="365.5158" y2="365.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="28" x="831" y="426.4129">skills</text><!--MD5=[d5fdbd201a94ba4f52b6738166be646b]
-link Character to CharacterProficiency--><path d="M543.54,332.5158 C543.54,332.5158 1115,332.5158 1115,332.5158 C1115,332.5158 1115,474.9758 1115,474.9758 " fill="none" id="Character-CharacterProficiency" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1115" x2="1121" y1="474.9758" y2="482.9758"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1115" x2="1109" y1="474.9758" y2="482.9758"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1115" x2="1115" y1="474.9758" y2="482.9758"/><ellipse cx="1115" cy="468.9758" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.54" x2="539.54" y1="336.5158" y2="328.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.54" x2="542.54" y1="336.5158" y2="328.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.54" x2="535.54" y1="332.5158" y2="332.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="74" x="1009" y="426.4129">proficiencies</text><!--MD5=[dbd7807adbd460ed3e39cbb176a29ae4]
-link Character to CharacterChoice--><path d="M441.5,389.6058 C441.5,389.6058 441.5,730.5158 441.5,730.5158 C441.5,730.5158 642.47,730.5158 642.47,730.5158 " fill="none" id="Character-CharacterChoice" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="642.47" x2="650.47" y1="730.5158" y2="724.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="642.47" x2="650.47" y1="730.5158" y2="736.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="642.47" x2="650.47" y1="730.5158" y2="730.5158"/><ellipse cx="636.47" cy="730.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="437.5" x2="445.5" y1="385.6058" y2="385.6058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="437.5" x2="445.5" y1="388.6058" y2="388.6058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="441.5" x2="441.5" y1="389.6058" y2="381.6058"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="44" x="1288" y="531.9129">choices</text><!--MD5=[621932d751de41a1a366e560bc62466f]
-link Character to CharacterFeatureChoiceSelection--><path d="M543.66,349.5158 C543.66,349.5158 988,349.5158 988,349.5158 C988,349.5158 988,670.6958 988,670.6958 " fill="none" id="Character-CharacterFeatureChoiceSelection" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="988" x2="994" y1="670.6958" y2="678.6958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="988" x2="982" y1="670.6958" y2="678.6958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="988" x2="988" y1="670.6958" y2="678.6958"/><ellipse cx="988" cy="664.6958" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.66" x2="539.66" y1="353.5158" y2="345.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.66" x2="542.66" y1="353.5158" y2="345.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.66" x2="535.66" y1="349.5158" y2="349.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="90" x="1404" y="531.9129">feature choices</text><!--MD5=[5a75bb6ba05e5ac6ce67dc6045587cb2]
-link Character to CharacterLanguage--><path d="M465,389.5458 C465,389.5458 465,574.5158 465,574.5158 C465,574.5158 1136,574.5158 1136,574.5158 C1136,574.5158 1136,678.2858 1136,678.2858 " fill="none" id="Character-CharacterLanguage" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1136" x2="1142" y1="678.2858" y2="686.2858"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1136" x2="1130" y1="678.2858" y2="686.2858"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1136" x2="1136" y1="678.2858" y2="686.2858"/><ellipse cx="1136" cy="672.2858" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="461" x2="469" y1="385.5458" y2="385.5458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="461" x2="469" y1="388.5458" y2="388.5458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="465" x2="465" y1="389.5458" y2="381.5458"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="62" x="1566" y="531.9129">languages</text><!--MD5=[992d46503fb33cc58b9279760f45c6a3]
-link Character to CharacterHitPointState--><path d="M386,389.7458 C386,389.7458 386,479.5158 386,479.5158 C386,479.5158 1852.38,479.5158 1852.38,479.5158 " fill="none" id="Character-CharacterHitPointState" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1849.38" x2="1860.38" y1="479.5158" y2="479.5158"/><ellipse cx="1849.38" cy="479.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1856.38" x2="1856.38" y1="475.5158" y2="483.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="382" x2="390" y1="385.7458" y2="385.7458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="382" x2="390" y1="388.7458" y2="388.7458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="386" x2="386" y1="389.7458" y2="381.7458"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="51" x="1870" y="426.4129">HP state</text><!--MD5=[13660cc1cc7fa52147e3f228d247474a]
-link Character to CharacterSpellcastingState--><path d="M543.58,283.5158 C543.58,283.5158 1835.5,283.5158 1835.5,283.5158 C1835.5,283.5158 1835.5,670.7958 1835.5,670.7958 " fill="none" id="Character-CharacterSpellcastingState" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1835.5" x2="1835.5" y1="667.7958" y2="678.7958"/><ellipse cx="1835.5" cy="667.7958" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="1839.5" x2="1831.5" y1="674.7958" y2="674.7958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.58" x2="539.58" y1="287.5158" y2="279.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.58" x2="542.58" y1="287.5158" y2="279.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.58" x2="535.58" y1="283.5158" y2="283.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="60" x="2113" y="531.9129">spell state</text><!--MD5=[6da07641afb59a4734caea67e38b048e]
-link Character to CharacterResourceState--><path d="M543.64,267.5158 C543.64,267.5158 2051.5,267.5158 2051.5,267.5158 C2051.5,267.5158 2051.5,670.7558 2051.5,670.7558 " fill="none" id="Character-CharacterResourceState" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2051.5" x2="2051.5" y1="667.7558" y2="678.7558"/><ellipse cx="2051.5" cy="667.7558" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2055.5" x2="2047.5" y1="674.7558" y2="674.7558"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.64" x2="539.64" y1="271.5158" y2="263.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.64" x2="542.64" y1="271.5158" y2="263.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.64" x2="535.64" y1="267.5158" y2="267.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="85" x="2245" y="531.9129">resource state</text><!--MD5=[187c8eeb2ff6556bc720b8791e68deda]
-link Character to CharacterInventory--><path d="M543.77,251.5158 C543.77,251.5158 2529.2,251.5158 2529.2,251.5158 C2529.2,251.5158 2529.2,670.8058 2529.2,670.8058 " fill="none" id="Character-CharacterInventory" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2529.2" x2="2535.2" y1="670.8058" y2="678.8058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2529.2" x2="2523.2" y1="670.8058" y2="678.8058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2529.2" x2="2529.2" y1="670.8058" y2="678.8058"/><ellipse cx="2529.2" cy="664.8058" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="539.77" x2="539.77" y1="255.5158" y2="247.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="542.77" x2="542.77" y1="255.5158" y2="247.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="543.77" x2="535.77" y1="251.5158" y2="251.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="90" x="2402" y="531.9129">inventory rows</text><!--MD5=[44a6d25b7459fa238b689463d52f39ab]
-link Character to CharacterInventoryState--><path d="M418,389.6958 C418,389.6958 418,926.5158 418,926.5158 C418,926.5158 2452.2,926.5158 2452.2,926.5158 " fill="none" id="Character-CharacterInventoryState" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2449.2" x2="2460.2" y1="926.5158" y2="926.5158"/><ellipse cx="2449.2" cy="926.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="2456.2" x2="2456.2" y1="922.5158" y2="930.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="414" x2="422" y1="385.6958" y2="385.6958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="414" x2="422" y1="388.6958" y2="388.6958"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="418" x2="418" y1="389.6958" y2="381.6958"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="125" x="2689" y="637.4129">inventory workspace</text><!--MD5=[ffb5352e0d0d76b55a0602a532580ab2]
-link Character to DiceRoll--><path d="M352.06,366.5158 C352.06,366.5158 293.75,366.5158 293.75,366.5158 C293.75,366.5158 293.75,452.5158 293.75,452.5158 " fill="none" id="Character-DiceRoll" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="293.75" x2="299.75" y1="452.5158" y2="460.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="293.75" x2="287.75" y1="452.5158" y2="460.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="293.75" x2="293.75" y1="452.5158" y2="460.5158"/><ellipse cx="293.75" cy="446.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="356.06" x2="356.06" y1="362.5158" y2="370.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="353.06" x2="353.06" y1="362.5158" y2="370.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="352.06" x2="360.06" y1="366.5158" y2="366.5158"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="64" x="263" y="426.4129">roll history</text><!--MD5=[e3df9350c5ac47fb7005130c51de3f6f]
-link Character to RoomPlayer--><path d="M369,389.9458 C369,389.9458 369,675.5158 369,675.5158 C369,675.5158 341.7,675.5158 341.7,675.5158 " fill="none" id="Character-RoomPlayer" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="341.7" x2="333.7" y1="675.5158" y2="681.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="341.7" x2="333.7" y1="675.5158" y2="669.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="341.7" x2="333.7" y1="675.5158" y2="675.5158"/><ellipse cx="347.7" cy="675.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="365" x2="373" y1="385.9458" y2="385.9458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="365" x2="373" y1="388.9458" y2="388.9458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="369" x2="369" y1="389.9458" y2="381.9458"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="92" x="406" y="531.9129">room character</text><!--MD5=[768e949e025618e6b024058374d16031]
-link Character to Room--><path d="M377.5,389.6458 C377.5,389.6458 377.5,859.1058 377.5,859.1058 " fill="none" id="Character-Room" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="377.5" x2="383.5" y1="859.1058" y2="867.1058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="377.5" x2="371.5" y1="859.1058" y2="867.1058"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="377.5" x2="377.5" y1="859.1058" y2="867.1058"/><ellipse cx="377.5" cy="853.1058" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="373.5" x2="381.5" y1="385.6458" y2="385.6458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="373.5" x2="381.5" y1="388.6458" y2="388.6458"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="377.5" x2="377.5" y1="389.6458" y2="381.6458"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="74" x="461" y="637.4129">created with</text><!--MD5=[6736658714b812ca5833cea226386b7f]
-link Room to DiceRoll--><path d="M342.5,859.4858 C342.5,859.4858 342.5,585.5158 342.5,585.5158 C342.5,585.5158 306.26,585.5158 306.26,585.5158 " fill="none" id="Room-DiceRoll" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="306.26" x2="298.26" y1="585.5158" y2="591.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="306.26" x2="298.26" y1="585.5158" y2="579.5158"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="306.26" x2="298.26" y1="585.5158" y2="585.5158"/><ellipse cx="312.26" cy="585.5158" fill="none" rx="4" ry="4" style="stroke: #A80036; stroke-width: 1.0;"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="346.5" x2="338.5" y1="863.4858" y2="863.4858"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="346.5" x2="338.5" y1="860.4858" y2="860.4858"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="342.5" x2="342.5" y1="859.4858" y2="867.4858"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="78" x="78" y="735.4129">room history</text><rect fill="#DDDDDD" height="29.0679" rx="5" ry="5" style="stroke: #000000; stroke-width: 1.0;" width="716" x="1058" y="1034.5158"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="704" x="1064" y="1054.4818">Additional Ref* models are defined in the Prisma schema and omitted from this overview for readability.</text><!--MD5=[65b5cff445775ceaa85a8df55eaf59e0]
+link User to Character--><path d="M905.53,368.5158 C905.53,368.5158 924.41,368.5158 924.41,368.5158 " fill="none" id="User-&gt;Character" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="929.41,368.5158,920.41,364.5158,924.41,368.5158,920.41,372.5158,929.41,368.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[768e949e025618e6b024058374d16031]
+link Character to Room--><!--MD5=[6f6eec8ebc5c2d786ac87ec9baf06f88]
+link Room to RoomPlayer--><!--MD5=[6f6eec8ebc5c2d786ac87ec9baf06f88]
+link Room to RoomPlayer--><path d="M939.6,531.5158 C939.6,531.5158 958.32,531.5158 958.32,531.5158 " fill="none" id="Room-&gt;RoomPlayer" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="963.32,531.5158,954.32,527.5158,958.32,531.5158,954.32,535.5158,963.32,531.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[b3006d8477aacb4be5d9f34fef231796]
+link RoomPlayer to DiceRoll--><!--MD5=[c54de081b86a23f69c0f4dda78372f80]
+link CharacterAbilityScore to CharacterInventory--><!--MD5=[4cb3fc0fb6904143acd35327b1dcc003]
+link CharacterInventory to CharacterChoice--><!--MD5=[9c73b3c76adde358a8e57ed84524f990]
+link CharacterCondition to CharacterSpellcastingState--><!--MD5=[8b1131e5649ead54f728462ab19df487]
+link CharacterSpellcastingState to CharacterResourceState--><!--MD5=[bbb5953bf2d5b04a38423c0b35fe2ac7]
+link CharacterAbilityScore to CharacterCondition--><!--MD5=[695e8e51ad1a679317acd628b82cfa55]
+link RefClass to Character--><path d="M159.5,193.7158 C159.5,237.5358 159.5,305.5158 159.5,305.5158 C159.5,305.5158 924.26,305.5158 924.26,305.5158 " fill="none" id="RefClass-&gt;Character" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="929.26,305.5158,920.26,301.5158,924.26,305.5158,920.26,309.5158,929.26,305.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[ced88e9fbd593b82f71a90c052f6c88a]
+link RefSpecies to Character--><path d="M298.5,193.5658 C298.5,235.0458 298.5,297.5158 298.5,297.5158 C298.5,297.5158 924.26,297.5158 924.26,297.5158 " fill="none" id="RefSpecies-&gt;Character" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="929.26,297.5158,920.26,293.5158,924.26,297.5158,920.26,301.5158,929.26,297.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[18a497a3c1a7e581e7ec18c5bb520973]
+link RefBackground to Character--><path d="M444.5,193.8558 C444.5,233.2358 444.5,290.5158 444.5,290.5158 C444.5,290.5158 924.43,290.5158 924.43,290.5158 " fill="none" id="RefBackground-&gt;Character" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="929.43,290.5158,920.43,286.5158,924.43,290.5158,920.43,294.5158,929.43,290.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[deef98327b09724ed417d1b1bedf0449]
+link RefEquipment to CharacterInventory--><path d="M182,392.4458 C182,414.5458 182,438.5158 182,438.5158 C182,438.5158 1460.67,438.5158 1460.67,438.5158 C1460.67,438.5158 1460.67,412.3258 1460.67,412.3258 " fill="none" id="RefEquipment-&gt;CharacterInventory" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1460.67,407.3258,1456.67,416.3258,1460.67,412.3258,1464.67,416.3258,1460.67,407.3258" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[80ef188495123e0eb89422528c978ef4]
+link User to Room--><path d="M861.17,392.2658 C861.17,392.2658 861.17,457.9658 861.17,457.9658 " fill="none" id="User-&gt;Room" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="861.17,462.9658,865.17,453.9658,861.17,457.9658,857.17,453.9658,861.17,462.9658" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[27ebcf6fd509f4caf910ed1bde8035dc]
+link User to DiceRoll--><path d="M816.83,392.1558 C816.83,421.6658 816.83,458.5158 816.83,458.5158 C816.83,458.5158 739.46,458.5158 739.46,458.5158 " fill="none" id="User-&gt;DiceRoll" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="734.46,458.5158,743.46,462.5158,739.46,458.5158,743.46,454.5158,734.46,458.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[6736658714b812ca5833cea226386b7f]
+link Room to DiceRoll--><path d="M758.35,514.5158 C758.35,514.5158 739.22,514.5158 739.22,514.5158 " fill="none" id="Room-&gt;DiceRoll" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="734.22,514.5158,743.22,518.5158,739.22,514.5158,743.22,510.5158,734.22,514.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[e3df9350c5ac47fb7005130c51de3f6f]
+link Character to RoomPlayer--><path d="M1034,429.9258 C1034,429.9258 1034,457.7058 1034,457.7058 " fill="none" id="Character-&gt;RoomPlayer" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1034,462.7058,1038,453.7058,1034,457.7058,1030,453.7058,1034,462.7058" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[ffb5352e0d0d76b55a0602a532580ab2]
+link Character to DiceRoll--><path d="M932.83,429.7258 C932.83,447.0158 932.83,460.5158 932.83,460.5158 C932.83,460.5158 739.28,460.5158 739.28,460.5158 " fill="none" id="Character-&gt;DiceRoll" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="734.28,460.5158,743.28,464.5158,739.28,460.5158,743.28,456.5158,734.28,460.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[12d929f264f8055b1a8bf9bcb2b6175a]
+link Character to CharacterAbilityScore--><path d="M1104.56,334.5158 C1104.56,334.5158 1195.2,334.5158 1195.2,334.5158 " fill="none" id="Character-&gt;CharacterAbilityScore" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1200.2,334.5158,1191.2,330.5158,1195.2,334.5158,1191.2,338.5158,1200.2,334.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[187c8eeb2ff6556bc720b8791e68deda]
+link Character to CharacterInventory--><path d="M1104.75,309.5158 C1104.75,309.5158 1395.81,309.5158 1395.81,309.5158 " fill="none" id="Character-&gt;CharacterInventory" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1400.81,309.5158,1391.81,305.5158,1395.81,309.5158,1391.81,313.5158,1400.81,309.5158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[dbd7807adbd460ed3e39cbb176a29ae4]
+link Character to CharacterChoice--><path d="M1104.66,411.5158 C1267.99,411.5158 1602.5,411.5158 1602.5,411.5158 C1602.5,411.5158 1602.5,411.0758 1602.5,411.0758 " fill="none" id="Character-&gt;CharacterChoice" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1602.5,407.1658,1598.5257,416.1772,1602.5143,412.1658,1606.5257,416.1544,1602.5,407.1658" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[ad62ce5f1b9203f3a1b4a90cb83f87b7]
+link Character to CharacterCondition--><path d="M1104.7,418.5158 C1279.03,418.5158 1652.5,418.5158 1652.5,418.5158 C1652.5,418.5158 1652.5,465.4558 1652.5,465.4558 " fill="none" id="Character-&gt;CharacterCondition" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1652.5,470.4558,1656.5,461.4558,1652.5,465.4558,1648.5,461.4558,1652.5,470.4558" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[13660cc1cc7fa52147e3f228d247474a]
+link Character to CharacterSpellcastingState--><path d="M1104.57,422.5158 C1247.42,422.5158 1514.83,422.5158 1514.83,422.5158 C1514.83,422.5158 1514.83,457.9158 1514.83,457.9158 " fill="none" id="Character-&gt;CharacterSpellcastingState" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1514.83,462.9158,1518.83,453.9158,1514.83,457.9158,1510.83,453.9158,1514.83,462.9158" style="stroke: #A80036; stroke-width: 1.0;"/><!--MD5=[6da07641afb59a4734caea67e38b048e]
+link Character to CharacterResourceState--><path d="M1104.79,426.5158 C1174.44,426.5158 1260.17,426.5158 1260.17,426.5158 C1260.17,426.5158 1260.17,457.8658 1260.17,457.8658 " fill="none" id="Character-&gt;CharacterResourceState" style="stroke: #A80036; stroke-width: 1.0;"/><polygon fill="#A80036" points="1260.17,462.8658,1264.17,453.8658,1260.17,457.8658,1256.17,453.8658,1260.17,462.8658" style="stroke: #A80036; stroke-width: 1.0;"/><rect fill="#DDDDDD" height="105.3396" rx="5" ry="5" style="stroke: #000000; stroke-width: 1.0;" width="584" x="631" y="638.5158"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="426" x="637" y="658.4818">Reference data = seeded/application-managed D&amp;D rules data.</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="434" x="637" y="677.5497">Runtime data = data created or changed during application use.</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="572" x="637" y="696.6176">Character state = runtime selections and per-character state connected to Character.</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="528" x="637" y="715.6855">Additional Ref* and specialized Character* models are omitted for readability.</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="380" x="637" y="734.7534">schema.prisma remains the complete database schema.</text><!--MD5=[c6891f02c558c6e63242f9698a178143]
 @startuml
-!pragma layout smetana
 title D&D Simple - Current Prisma ER Overview
 
+top to bottom direction
 hide circle
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
 skinparam linetype ortho
-
-together {
-entity "RefClass" as RefClass {
-  * index : String <<PK>>
-  - -
-  name : String
-  hitDie : Int
+skinparam packageStyle rectangle
+skinparam nodesep 24
+skinparam ranksep 26
+skinparam entity {
+  BackgroundColor #FFFFF8
+  BorderColor #333333
+  FontColor #111111
 }
 
-entity "RefBackground" as RefBackground {
-  * index : String <<PK>>
-  - -
-  name : String
+package "REFERENCE DATA\nseeded / application-managed" as ReferenceData {
+  entity "RefClass" as RefClass {
+    * index : String <<PK>>
+    - -
+    name : String
+  }
+
+  entity "RefSpecies" as RefSpecies {
+    * index : String <<PK>>
+    - -
+    name : String
+  }
+
+  entity "RefBackground" as RefBackground {
+    * index : String <<PK>>
+    - -
+    name : String
+  }
+
+  entity "RefEquipment" as RefEquipment {
+    * index : String <<PK>>
+    - -
+    name : String
+  }
+
+  entity "RefSkill" as RefSkill {
+    * index : String <<PK>>
+    - -
+    abilityIndex : String <<FK>>
+    name : String
+  }
 }
 
-entity "RefSpecies" as RefSpecies {
-  * index : String <<PK>>
-  - -
-  name : String
-  baseSpeed : Int
+package "USER & GAME DATA\nruntime / user-generated" as RuntimeData {
+  entity "User" as User {
+    * id : String <<PK>>
+    - -
+    email : String <<unique>>
+  }
+
+  entity "Character" as Character {
+    * id : String <<PK>>
+    - -
+    userId : String <<FK>>
+    name : String
+    level : Int
+    classIndex : String <<FK>>
+    speciesIndex : String <<FK>>
+    backgroundIndex : String <<FK>>
+  }
+
+  entity "Room" as Room {
+    * id : String <<PK>>
+    - -
+    code : String <<unique>>
+    creatorUserId : String <<FK>>
+    creatorCharacterId : String <<FK>>
+  }
+
+  entity "RoomPlayer" as RoomPlayer {
+    * id : String <<PK>>
+    - -
+    roomId : String <<FK>>
+    userId : String <<FK>>
+    characterId : String <<FK>>
+  }
+
+  entity "DiceRoll" as DiceRoll {
+    * id : String <<PK>>
+    - -
+    characterId : String <<FK>>
+    roomId : String? <<FK>>
+    rolledByUserId : String <<FK>>
+    total : Int
+  }
 }
 
-entity "RefEquipment" as RefEquipment {
-  * index : String <<PK>>
-  - -
-  name : String
-  itemType : String?
-}
+package "CHARACTER STATE\nruntime character selections / state" as CharacterState {
+  entity "CharacterAbilityScore" as CharacterAbilityScore {
+    * characterId : String <<PK, FK>>
+    * abilityIndex : String <<PK, FK>>
+    - -
+    score : Int
+  }
+
+  entity "CharacterInventory" as CharacterInventory {
+    * id : String <<PK>>
+    - -
+    characterId : String <<FK>>
+    equipmentIndex : String <<FK>>
+    quantity : Int
+  }
+
+  entity "CharacterChoice" as CharacterChoice {
+    * id : String <<PK>>
+    - -
+    characterId : String <<FK>>
+    choiceType : String
+    selectedIndex : String
+  }
+
+  entity "CharacterCondition" as CharacterCondition {
+    * id : String <<PK>>
+    - -
+    characterId : String <<FK>>
+    conditionIndex : String <<FK>>
+  }
+
+  entity "CharacterSpellcastingState" as CharacterSpellcastingState {
+    * id : String <<PK>>
+    - -
+    characterId : String <<unique FK>>
+    preparedSpellIds : Json?
+    slotUsageByLevel : Json?
+  }
+
+  entity "CharacterResourceState" as CharacterResourceState {
+    * id : String <<PK>>
+    - -
+    characterId : String <<unique FK>>
+    usageByResourceKey : Json?
+    activeByResourceKey : Json?
+  }
 }
 
-together {
-entity "User" as User {
-  * id : String <<PK>>
-  - -
-  email : String <<unique>>
-  displayName : String?
-}
+ReferenceData -[hidden]right- RuntimeData
+RuntimeData -[hidden]right- CharacterState
 
-entity "Character" as Character {
-  * id : String <<PK>>
-  - -
-  userId : String <<FK>>
-  name : String
-  level : Int
-  speciesIndex : String <<FK>>
-  classIndex : String <<FK>>
-  backgroundIndex : String <<FK>>
-}
+RefClass -[hidden]right- RefSpecies
+RefSpecies -[hidden]right- RefBackground
+RefEquipment -[hidden]right- RefSkill
+RefClass -[hidden]down- RefEquipment
 
-entity "DiceRoll" as DiceRoll {
-  * id : String <<PK>>
-  - -
-  characterId : String <<FK>>
-  roomId : String? <<FK>>
-  rolledByUserId : String <<FK>>
-  formula : String
-  total : Int
-}
+User -[hidden]down- Character
+Character -[hidden]down- Room
+Room -[hidden]right- RoomPlayer
+RoomPlayer -[hidden]right- DiceRoll
 
-entity "Room" as Room {
-  * id : String <<PK>>
-  - -
-  code : String <<unique>>
-  creatorUserId : String <<FK>>
-  creatorCharacterId : String <<FK>>
-  boardState : Json?
-}
-
-entity "RoomPlayer" as RoomPlayer {
-  * id : String <<PK>>
-  - -
-  roomId : String <<FK>>
-  userId : String <<FK>>
-  characterId : String <<FK>>
-  characterName : String
-}
-}
-
-together {
-entity "CharacterAbilityScore" as CharacterAbilityScore {
-  * characterId : String <<PK, FK>>
-  * abilityIndex : String <<PK, FK>>
-  - -
-  score : Int
-}
-
-entity "CharacterSkill" as CharacterSkill {
-  * characterId : String <<PK, FK>>
-  * skillIndex : String <<PK, FK>>
-  - -
-  isProficient : Boolean
-}
-
-entity "CharacterProficiency" as CharacterProficiency {
-  * characterId : String <<PK, FK>>
-  * proficiencyIndex : String <<PK, FK>>
-  - -
-  sourceType : String?
-}
-
-entity "CharacterChoice" as CharacterChoice {
-  * id : String <<PK>>
-  - -
-  characterId : String <<FK>>
-  choiceType : String
-  selectedIndex : String
-}
-
-entity "CharacterFeatureChoiceSelection" as CharacterFeatureChoiceSelection {
-  * id : String <<PK>>
-  - -
-  characterId : String <<FK>>
-  sourceType : String
-  choicePath : String
-}
-
-entity "CharacterLanguage" as CharacterLanguage {
-  * id : String <<PK>>
-  - -
-  characterId : String <<FK>>
-  languageIndex : String <<FK>>
-}
-}
-
-together {
-entity "CharacterCondition" as CharacterCondition {
-  * id : String <<PK>>
-  - -
-  characterId : String <<FK>>
-  conditionIndex : String <<FK>>
-}
-
-entity "CharacterHitPointState" as CharacterHitPointState {
-  * id : String <<PK>>
-  - -
-  characterId : String <<unique FK>>
-  calculationMode : String
-  tempHp : Int
-}
-
-entity "CharacterSpellcastingState" as CharacterSpellcastingState {
-  * id : String <<PK>>
-  - -
-  characterId : String <<unique FK>>
-  learnedSpellIds : Json?
-  slotUsageByLevel : Json?
-}
-
-entity "CharacterResourceState" as CharacterResourceState {
-  * id : String <<PK>>
-  - -
-  characterId : String <<unique FK>>
-  usageByResourceKey : Json?
-  activeByResourceKey : Json?
-}
-}
-
-together {
-entity "CharacterInventory" as CharacterInventory {
-  * id : String <<PK>>
-  - -
-  characterId : String <<FK>>
-  equipmentIndex : String <<FK>>
-  quantity : Int
-}
-
-entity "CharacterInventoryState" as CharacterInventoryState {
-  * characterId : String <<PK, FK>>
-  - -
-  stateCode : String
-}
-}
-
-RefClass -[hidden]right- RefBackground
-RefBackground -[hidden]right- RefSpecies
-RefSpecies -[hidden]right- RefEquipment
-
-User -[hidden]right- Character
-User -[hidden]down- DiceRoll
-DiceRoll -[hidden]down- RoomPlayer
-RoomPlayer -[hidden]down- Room
-
-CharacterAbilityScore -[hidden]right- CharacterSkill
-CharacterSkill -[hidden]right- CharacterProficiency
-CharacterChoice -[hidden]right- CharacterFeatureChoiceSelection
-CharacterFeatureChoiceSelection -[hidden]right- CharacterLanguage
-CharacterAbilityScore -[hidden]down- CharacterChoice
-
-CharacterCondition -[hidden]right- CharacterHitPointState
+CharacterAbilityScore -[hidden]right- CharacterInventory
+CharacterInventory -[hidden]right- CharacterChoice
+CharacterCondition -[hidden]right- CharacterSpellcastingState
 CharacterSpellcastingState -[hidden]right- CharacterResourceState
-CharacterCondition -[hidden]down- CharacterSpellcastingState
+CharacterAbilityScore -[hidden]down- CharacterCondition
 
-RefClass -[hidden]down- Character
-Character -[hidden]down- CharacterAbilityScore
-Character -[hidden]down- CharacterCondition
-CharacterHitPointState -[hidden]down- CharacterInventory
-CharacterInventory -[hidden]down- CharacterInventoryState
-RefEquipment -[hidden]down- CharacterInventory
+RefClass -right-> Character
+RefSpecies -right-> Character
+RefBackground -right-> Character
+RefEquipment -right-> CharacterInventory
 
-User ||- -o{ Character : owns
-User ||- -o{ DiceRoll : rolled by
-User ||- -o{ Room : creates
-User ||- -o{ RoomPlayer : joins
+User -right-> Character
+User -down-> Room
+User -right-> DiceRoll
+Room -right-> RoomPlayer
+Room -right-> DiceRoll
+Character -down-> RoomPlayer
+Character -down-> DiceRoll
 
-RefSpecies ||- -o{ Character : species
-RefClass ||- -o{ Character : class
-RefBackground ||- -o{ Character : background
-RefEquipment ||- -o{ CharacterInventory : equipment
-
-Character ||- -o{ CharacterAbilityScore : ability scores
-Character ||- -o{ CharacterSkill : skills
-Character ||- -o{ CharacterProficiency : proficiencies
-Character ||- -o{ CharacterChoice : choices
-Character ||- -o{ CharacterFeatureChoiceSelection : feature choices
-Character ||- -o{ CharacterLanguage : languages
-Character ||- -o{ CharacterCondition : conditions
-Character ||- -o| CharacterHitPointState : HP state
-Character ||- -o| CharacterSpellcastingState : spell state
-Character ||- -o| CharacterResourceState : resource state
-Character ||- -o{ CharacterInventory : inventory rows
-Character ||- -o| CharacterInventoryState : inventory workspace
-Character ||- -o{ DiceRoll : roll history
-Character ||- -o{ RoomPlayer : room character
-Character ||- -o{ Room : created with
-
-Room ||- -o{ RoomPlayer : players
-Room ||- -o{ DiceRoll : room history
+Character -right-> CharacterAbilityScore
+Character -right-> CharacterInventory
+Character -right-> CharacterChoice
+Character -right-> CharacterCondition
+Character -right-> CharacterSpellcastingState
+Character -right-> CharacterResourceState
 
 legend bottom
-Additional Ref* models are defined in the Prisma schema and omitted from this overview for readability.
+Reference data = seeded/application-managed D&D rules data.
+Runtime data = data created or changed during application use.
+Character state = runtime selections and per-character state connected to Character.
+Additional Ref* and specialized Character* models are omitted for readability.
+schema.prisma remains the complete database schema.
 endlegend
 @enduml
 
@@ -313,5 +248,5 @@ Java Version: 21.0.11+10-1-24.04.2-Ubuntu
 Operating System: Linux
 Default Encoding: UTF-8
 Language: en
-Country: US
+Country: null
 --></g></svg>

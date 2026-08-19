@@ -2,33 +2,47 @@
 title D&D Simple - Use Case Overview
 left to right direction
 
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam packageStyle rectangle
+
 actor Visitor
 actor "Authenticated User" as AuthenticatedUser
 
 rectangle "D&D Simple" {
   usecase "Register" as Register
-  usecase "Log in" as Login
-  usecase "Manage Characters" as ManageCharacters
-  usecase "Use Character Dashboard" as Dashboard
-  usecase "Manage HP and Conditions" as HpConditions
-  usecase "Manage Inventory" as Inventory
-  usecase "Roll Dice and View History" as Dice
-  usecase "Create Room" as CreateRoom
-  usecase "Join Room" as JoinRoom
-  usecase "Use Tactical Board" as TacticalBoard
-  usecase "Synchronize Room Board" as SyncBoard
+  usecase "Login" as Login
+
+  rectangle "CHARACTER MANAGEMENT" as CharacterManagement {
+    usecase "Create Character" as CreateCharacter
+    usecase "Use Character Dashboard" as Dashboard
+    usecase "Manage HP & Conditions" as HpConditions
+    usecase "Manage Inventory" as Inventory
+    usecase "Manage Character\nProgression / Leveling" as Progression
+    usecase "Roll Dice" as Dice
+  }
+
+  rectangle "ROOM SESSION" as RoomSession {
+    usecase "Create Room" as CreateRoom
+    usecase "Join Room" as JoinRoom
+    usecase "Use Tactical Board" as TacticalBoard
+    usecase "View Room History /\nDice History" as RoomHistory
+  }
 }
 
 Visitor --> Register
 Visitor --> Login
 
-AuthenticatedUser --> ManageCharacters
+CharacterManagement -[hidden]right- RoomSession
+AuthenticatedUser --> CreateCharacter
 AuthenticatedUser --> Dashboard
-AuthenticatedUser --> HpConditions
-AuthenticatedUser --> Inventory
-AuthenticatedUser --> Dice
 AuthenticatedUser --> CreateRoom
 AuthenticatedUser --> JoinRoom
 AuthenticatedUser --> TacticalBoard
-AuthenticatedUser --> SyncBoard
+AuthenticatedUser --> RoomHistory
+
+Dashboard -- HpConditions
+Dashboard -- Inventory
+Dashboard -- Progression
+Dashboard -- Dice
 @enduml

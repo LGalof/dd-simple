@@ -26,11 +26,13 @@
 | [ADR-008: Analyze the Monorepo with SonarQube in CI](adr/ADR-008-sonarqube-ci-analysis.md) | Records the SonarQube CI analysis decision. |
 | [UML README](uml/README.md) | Lists the current UML diagrams. |
 | [Use Case Overview](uml/use-case-overview.svg) | Shows the main user interactions with D&D Simple. |
-| [Room Realtime Sequence](uml/sequence-room-realtime-sync.svg) | Shows the REST, persistence, and Socket.IO room board plus room-specific dice feed flow. |
+| [Current Prisma ER Overview](uml/er-current-prisma.svg) | Shows grouped Prisma entities for reference data, user/game data, and character state. |
+| [Room Realtime Sequence](uml/sequence-room-realtime-sync.svg) | Shows tactical board snapshot synchronization through Socket.IO and persisted `Room.boardState`. |
+| [Dashboard Room Dice Sequence](uml/sequence-dashboard-room-dice.svg) | Shows Character Dashboard dice roll persistence followed by Socket.IO room announcement. |
+| [Room Session Activity](uml/activity-room-session.svg) | Shows the user-facing create/join room flow and in-session room activities. |
 | [Character Autosave Activity](uml/activity-character-edit-autosave.svg) | Shows character editing and autosave behavior. |
 | [Reference Data Transformation Flow](uml/flow-reference-data-transformation.svg) | Shows seed inputs, curated overrides, runtime reference persistence, and runtime usage. |
 | [Dashboard Derived-State Sequence](uml/sequence-dashboard-derived-state-flow.svg) | Shows user edits through preview payload, authenticated derived-state request, backend effects, and dashboard rerender. |
 | [Dashboard Autosave Sequence](uml/sequence-dashboard-autosave-flow.svg) | Shows full save payload fingerprinting, debounce/flush, authenticated PATCH, transaction persistence, and response reconciliation. |
 | [Production Deployment](uml/deployment-production.svg) | Shows the browser, Render service, and PostgreSQL topology. |
-| [Current Prisma ER Overview](uml/er-current-prisma.svg) | Shows the main Prisma entities and relationships. |
 | [Character Creation DB Subset](uml/character-creation-db.png) | Preserves an early partial character-creation/reference-data diagram; use the current Prisma ER overview for the current schema. |

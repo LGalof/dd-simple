@@ -1,0 +1,49 @@
+@startuml
+title D&D Simple - Room Session Activity
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+
+start
+
+if (Start a room or join one?) then (Create Room)
+  :Create room;
+else (Join Existing Room)
+  :Join room;
+endif
+
+:Choose character;
+:Enter Tactical Board / Room;
+:Load shared room state;
+:Join realtime session;
+
+repeat
+  :Play in room;
+
+  note right
+    Available throughout session:
+    - View board / history
+  end note
+
+  if (Is your active turn?) then (yes)
+    :Perform allowed turn actions;
+    note right
+      - Move controlled token
+      - Roll dice
+      - Other allowed turn actions
+
+      Actions may repeat
+      in any order.
+    end note
+
+    :Advance to next turn;
+    :Synchronize changed room state;
+  else (no)
+    :Observe / wait for room updates;
+  endif
+
+repeat while (Continue session?) is (yes) not (no)
+
+:Leave room;
+stop
+@enduml
