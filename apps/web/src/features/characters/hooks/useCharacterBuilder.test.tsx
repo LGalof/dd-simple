@@ -29,10 +29,20 @@ vi.mock("../../references/api/fetchReferences", () => ({
 
 function BuilderHarness({ character }: { character?: Character }) {
   const builder = useCharacterBuilder(character);
+  const previewAbilityScores = Object.fromEntries(
+    builder.previewCharacter?.abilityScores.map((abilityScore) => [
+      abilityScore.abilityIndex,
+      abilityScore.score,
+    ]) ?? [],
+  );
 
   return (
     <div>
       <span data-testid="current-hp">{builder.builderState?.currentHp ?? ""}</span>
+      <span data-testid="preview-current-hp">{builder.previewCharacter?.currentHp ?? ""}</span>
+      <span data-testid="preview-max-hp">{builder.previewCharacter?.maxHp ?? ""}</span>
+      <span data-testid="hit-point-preview-max-hp">{builder.hitPointPreview?.maxHp ?? ""}</span>
+      <span data-testid="preview-ability-scores">{JSON.stringify(previewAbilityScores)}</span>
       <span data-testid="class-index">{builder.builderState?.classIndex ?? ""}</span>
       <span data-testid="selected-class-index">{builder.selectedClass?.index ?? ""}</span>
       <span data-testid="preview-class-name">{builder.previewCharacter?.class.name ?? ""}</span>
@@ -50,6 +60,12 @@ function BuilderHarness({ character }: { character?: Character }) {
         onClick={() => builder.applyCurrentHpAdjustment("damage", 3)}
       >
         Damage
+      </button>
+      <button
+        type="button"
+        onClick={() => builder.applyCurrentHpAdjustment("heal", 5)}
+      >
+        Heal
       </button>
     </div>
   );
@@ -109,16 +125,19 @@ function createCharacter(overrides: Partial<Character> = {}): Character {
   };
 }
 
-function createAbilityScores(scores: Record<AbilityScoreKey, number>) {
-  return Object.entries(scores).map(([abilityIndex, score]) => ({
+function createAbilityScores(
+  baseScores: Record<AbilityScoreKey, number>,
+  effectiveScores: Partial<Record<AbilityScoreKey, number>> = {},
+) {
+  return Object.entries(baseScores).map(([abilityIndex, baseScore]) => ({
     ability: {
       index: abilityIndex,
       fullName: abilityIndex.toUpperCase(),
       name: abilityIndex.toUpperCase(),
     },
     abilityIndex,
-    baseScore: score,
-    score,
+    baseScore,
+    score: effectiveScores[abilityIndex as AbilityScoreKey] ?? baseScore,
   }));
 }
 
@@ -282,6 +301,261 @@ describe("useCharacterBuilder", () => {
       expect(screen.getByTestId("class-index").textContent).toBe("wizard");
       expect(screen.getByTestId("species-index").textContent).toBe("elf");
     });
+  });
+
+  it("uses effective Constitution for HP preview and healing after a background bonus raises the modifier", async () => {
+    referenceMocks.fetchBackgrounds.mockResolvedValue([createSageReference()]);
+    referenceMocks.fetchClasses.mockResolvedValue([createFighterReference()]);
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          abilityScores: createAbilityScores({
+            cha: 10,
+            con: 11,
+            dex: 10,
+            int: 10,
+            str: 10,
+            wis: 10,
+          }),
+          background: {
+            name: "Sage",
+          },
+          backgroundIndex: "sage",
+          choices: [
+            {
+              choiceType: "background-ability-plan",
+              sourceType: "background",
+              sourceIndex: "sage:sage-ability-scores:score-plan",
+              selectedType: "ability-plan",
+              selectedIndex: "increase-two-scores-2-1",
+            },
+            {
+              choiceType: "background-ability-score-choice",
+              sourceType: "background",
+              sourceIndex: "sage:sage-ability-scores:score-a",
+              selectedType: "ability-score",
+              selectedIndex: "con",
+            },
+          ],
+          class: {
+            name: "Fighter",
+          },
+          classIndex: "fighter",
+          currentHp: 10,
+          maxHp: 10,
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("preview-max-hp").textContent).toBe("11");
+      expect(screen.getByTestId("hit-point-preview-max-hp").textContent).toBe("11");
+    });
+
+    act(() => {
+      screen.getByRole("button", { name: "Heal" }).click();
+    });
+
+    expect(screen.getByTestId("current-hp").textContent).toBe("11");
+    expect(screen.getByTestId("preview-current-hp").textContent).toBe("11");
+  });
+
+  it("applies increase-all-three-by-1 to all supported background abilities", async () => {
+    referenceMocks.fetchBackgrounds.mockResolvedValue([createSageReference()]);
+    referenceMocks.fetchClasses.mockResolvedValue([createFighterReference()]);
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Sage",
+          },
+          backgroundIndex: "sage",
+          choices: [
+            {
+              choiceType: "background-ability-plan",
+              sourceType: "background",
+              sourceIndex: "sage:sage-ability-scores:score-plan",
+              selectedType: "ability-plan",
+              selectedIndex: "increase-all-three-by-1",
+            },
+          ],
+          class: {
+            name: "Fighter",
+          },
+          classIndex: "fighter",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      const scores = JSON.parse(screen.getByTestId("preview-ability-scores").textContent ?? "{}");
+
+      expect(scores).toEqual(
+        expect.objectContaining({
+          con: 11,
+          int: 11,
+          wis: 11,
+        }),
+      );
+      expect(scores.str).toBe(10);
+    });
+  });
+
+  it("preserves the all-three background ability plan through save payload and reload preview", async () => {
+    const allThreeBackgroundChoices = {
+      "sage:sage-ability-scores:score-plan": "increase-all-three-by-1",
+      "sage:sage-ability-scores:score-a": "constitution-score",
+      "sage:sage-ability-scores:score-b": "intelligence-score",
+    };
+    const baseCharacter = createCharacter({
+      background: {
+        name: "Sage",
+      },
+      backgroundIndex: "sage",
+      class: {
+        name: "Fighter",
+      },
+      classIndex: "fighter",
+    });
+    const payload = buildCharacterSavePayload(
+      baseCharacter,
+      {
+        ...createDraftBuilderState({
+          backgroundChoices: allThreeBackgroundChoices,
+          backgroundIndex: "sage",
+          classIndex: "fighter",
+        }),
+        abilityAssignments: baseCharacter.abilityScores.map((abilityScore, index) => ({
+          abilityIndex: abilityScore.abilityIndex,
+          dice: [],
+          id: `slot-${index + 1}`,
+          score: abilityScore.baseScore ?? abilityScore.score,
+        })),
+      },
+      createClassOption("fighter"),
+      createSageBackgroundOption(),
+      createHumanSpeciesOption(),
+      [],
+      [],
+      {},
+      {},
+      allThreeBackgroundChoices,
+      {},
+    );
+
+    expect(payload.choices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          choiceType: "background-ability-plan",
+          selectedIndex: "increase-all-three-by-1",
+          sourceIndex: "sage:sage-ability-scores:score-plan",
+        }),
+      ]),
+    );
+    expect(payload.choices).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          choiceType: "background-ability-score-choice",
+        }),
+      ]),
+    );
+
+    referenceMocks.fetchBackgrounds.mockResolvedValue([createSageReference()]);
+    referenceMocks.fetchClasses.mockResolvedValue([createFighterReference()]);
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          abilityScores: createAbilityScores(
+            {
+              cha: 10,
+              con: 10,
+              dex: 10,
+              int: 10,
+              str: 10,
+              wis: 10,
+            },
+            {
+              con: 11,
+              int: 11,
+              wis: 11,
+            },
+          ),
+          background: {
+            name: "Sage",
+          },
+          backgroundIndex: "sage",
+          choices: payload.choices,
+          class: {
+            name: "Fighter",
+          },
+          classIndex: "fighter",
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("background-choices").textContent).toContain(
+        "\"sage:sage-ability-scores:score-plan\":\"increase-all-three-by-1\"",
+      );
+
+      const scores = JSON.parse(screen.getByTestId("preview-ability-scores").textContent ?? "{}");
+
+      expect(scores).toEqual(
+        expect.objectContaining({
+          con: 11,
+          int: 11,
+          wis: 11,
+        }),
+      );
+    });
+  });
+
+  it("keeps max HP unchanged when a +1 Constitution background bonus does not cross a modifier boundary", async () => {
+    referenceMocks.fetchBackgrounds.mockResolvedValue([createSageReference()]);
+    referenceMocks.fetchClasses.mockResolvedValue([createFighterReference()]);
+
+    render(
+      <BuilderHarness
+        character={createCharacter({
+          background: {
+            name: "Sage",
+          },
+          backgroundIndex: "sage",
+          choices: [
+            {
+              choiceType: "background-ability-plan",
+              sourceType: "background",
+              sourceIndex: "sage:sage-ability-scores:score-plan",
+              selectedType: "ability-plan",
+              selectedIndex: "increase-all-three-by-1",
+            },
+          ],
+          class: {
+            name: "Fighter",
+          },
+          classIndex: "fighter",
+          currentHp: 9,
+          maxHp: 10,
+        })}
+      />,
+    );
+
+    await waitFor(() => {
+      const scores = JSON.parse(screen.getByTestId("preview-ability-scores").textContent ?? "{}");
+
+      expect(scores.con).toBe(11);
+      expect(screen.getByTestId("preview-max-hp").textContent).toBe("10");
+      expect(screen.getByTestId("hit-point-preview-max-hp").textContent).toBe("10");
+    });
+
+    act(() => {
+      screen.getByRole("button", { name: "Heal" }).click();
+    });
+
+    expect(screen.getByTestId("current-hp").textContent).toBe("10");
   });
 
   it("does not expose Rogue while a Cleric character waits for class reference hydration", async () => {
@@ -1045,6 +1319,32 @@ function createClericReference(): ReferenceClass {
           name: "Charisma",
         },
       ],
+    },
+  };
+}
+
+function createFighterReference(): ReferenceClass {
+  return {
+    description: "Fighter",
+    hitDie: 10,
+    index: "fighter",
+    name: "Fighter",
+    primaryAbilities: [
+      {
+        abilityScore: {
+          fullName: "Strength",
+          index: "str",
+          name: "Strength",
+        },
+        abilityScoreIndex: "str",
+        classIndex: "fighter",
+        id: "fighter-str",
+      },
+    ],
+    sourceJson: {
+      hit_die: 10,
+      index: "fighter",
+      name: "Fighter",
     },
   };
 }

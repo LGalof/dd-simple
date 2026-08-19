@@ -25,6 +25,7 @@ import type {
 import {
   buildCharacterPreview,
   calculateHitPointPreview,
+  getEffectiveAbilityScore,
   getFeatureChoiceHitPointBonus,
   synchronizeHitPointRolls,
 } from "../utils/buildCharacterPreview";
@@ -264,11 +265,27 @@ function getBackgroundAbilityChoiceFieldValue(
     return null;
   }
 
+  const isAbilityScoreField =
+    fieldId === "score-a" || fieldId === "score-b" || fieldId === "score-c";
   const matchingOption = matchingField.options.find(
-    (option) =>
-      option.value === selectedIndex ||
-      (fieldId.startsWith("score-") &&
-        canonicalAbilityScoreIndex(option.value) === canonicalAbilityScoreIndex(selectedIndex)),
+    (option) => {
+      if (option.value === selectedIndex) {
+        return true;
+      }
+
+      if (!isAbilityScoreField) {
+        return false;
+      }
+
+      const optionAbilityIndex = canonicalAbilityScoreIndex(option.value);
+      const selectedAbilityIndex = canonicalAbilityScoreIndex(selectedIndex);
+
+      return Boolean(
+        optionAbilityIndex &&
+          selectedAbilityIndex &&
+          optionAbilityIndex === selectedAbilityIndex,
+      );
+    },
   );
 
   return matchingOption?.value ?? null;
@@ -1848,12 +1865,17 @@ function useCharacterBuilder(character: Character | undefined) {
     [resolvedBuilderState?.classIndex, referenceOptions.classOptions],
   );
   const hitPointPreview = useMemo(() => {
-    if (!resolvedBuilderState || !selectedClass) {
+    if (!resolvedBuilderState || !selectedBackground || !selectedClass) {
       return null;
     }
 
-    const constitutionScore = getAssignedAbilityScore(
-      resolvedBuilderState.abilityAssignments,
+    const constitutionScore = getEffectiveAbilityScore(
+      {
+        background: selectedBackground,
+        classOption: selectedClass,
+        featureChoices,
+        state: resolvedBuilderState,
+      },
       "con",
       10,
     );
@@ -1870,7 +1892,7 @@ function useCharacterBuilder(character: Character | undefined) {
       level: resolvedBuilderState.level,
       settings: resolvedBuilderState.hitPointSettings,
     });
-  }, [resolvedBuilderState, featureChoices, selectedClass]);
+  }, [resolvedBuilderState, featureChoices, selectedBackground, selectedClass]);
   const selectedSkillIndexes = useMemo(
     () =>
       selectedClass
@@ -1938,7 +1960,7 @@ function useCharacterBuilder(character: Character | undefined) {
   ]);
 
   function updateLevel(nextLevel: number) {
-    if (!Number.isFinite(nextLevel) || !selectedClass) {
+    if (!Number.isFinite(nextLevel) || !selectedBackground || !selectedClass) {
       return;
     }
 
@@ -1958,8 +1980,21 @@ function useCharacterBuilder(character: Character | undefined) {
                 currentState.hitPointSettings.rolledHitPoints,
               ),
             };
-            const constitutionScore = getAssignedAbilityScore(
-              currentState.abilityAssignments,
+            const nextFeatureChoices = pruneFeatureChoicesToLevel(
+              selectedClass,
+              featureChoices,
+              normalizedLevel,
+            );
+            const constitutionScore = getEffectiveAbilityScore(
+              {
+                background: selectedBackground,
+                classOption: selectedClass,
+                featureChoices: nextFeatureChoices,
+                state: {
+                  ...currentState,
+                  level: normalizedLevel,
+                },
+              },
               "con",
               10,
             );
@@ -1967,7 +2002,7 @@ function useCharacterBuilder(character: Character | undefined) {
               constitutionScore,
               featureBonusHp: getFeatureChoiceHitPointBonus(
                 selectedClass,
-                pruneFeatureChoicesToLevel(selectedClass, featureChoices, normalizedLevel),
+                nextFeatureChoices,
                 normalizedLevel,
               ),
               hitDie: selectedClass.hitDie,
@@ -2018,7 +2053,7 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function applyHitPointConfiguration(nextSettings: HitPointSettings) {
-    if (!selectedClass) {
+    if (!selectedBackground || !selectedClass) {
       return;
     }
 
@@ -2035,8 +2070,13 @@ function useCharacterBuilder(character: Character | undefined) {
                 nextSettings.rolledHitPoints,
               ),
             };
-            const constitutionScore = getAssignedAbilityScore(
-              currentState.abilityAssignments,
+            const constitutionScore = getEffectiveAbilityScore(
+              {
+                background: selectedBackground,
+                classOption: selectedClass,
+                featureChoices,
+                state: currentState,
+              },
               "con",
               10,
             );
@@ -2064,7 +2104,7 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function applyCurrentHpAdjustment(mode: "heal" | "damage", amount: number) {
-    if (!Number.isFinite(amount) || amount <= 0 || !selectedClass) {
+    if (!Number.isFinite(amount) || amount <= 0 || !selectedBackground || !selectedClass) {
       return;
     }
 
@@ -2073,8 +2113,13 @@ function useCharacterBuilder(character: Character | undefined) {
         return currentState;
       }
 
-      const constitutionScore = getAssignedAbilityScore(
-        currentState.abilityAssignments,
+      const constitutionScore = getEffectiveAbilityScore(
+        {
+          background: selectedBackground,
+          classOption: selectedClass,
+          featureChoices,
+          state: currentState,
+        },
         "con",
         10,
       );
@@ -2107,7 +2152,7 @@ function useCharacterBuilder(character: Character | undefined) {
   }
 
   function applyLongRest() {
-    if (!selectedClass) {
+    if (!selectedBackground || !selectedClass) {
       return;
     }
 
@@ -2116,8 +2161,13 @@ function useCharacterBuilder(character: Character | undefined) {
         return currentState;
       }
 
-      const constitutionScore = getAssignedAbilityScore(
-        currentState.abilityAssignments,
+      const constitutionScore = getEffectiveAbilityScore(
+        {
+          background: selectedBackground,
+          classOption: selectedClass,
+          featureChoices,
+          state: currentState,
+        },
         "con",
         10,
       );
@@ -2447,15 +2497,6 @@ function swapAbilityAssignments(
 
     return assignment;
   });
-}
-
-function getAssignedAbilityScore(
-  assignments: CharacterBuilderState["abilityAssignments"],
-  abilityIndex: string,
-  fallbackScore: number,
-) {
-  return assignments.find((assignment) => assignment.abilityIndex === abilityIndex)?.score ??
-    fallbackScore;
 }
 
 export { useCharacterBuilder };

@@ -84,6 +84,22 @@ type CalculateHitPointPreviewOptions = {
   settings: HitPointSettings;
 };
 
+type BuildEffectiveAbilityScoresOptions = {
+  abilityScores: Character["abilityScores"];
+  background: BackgroundOption;
+  classOption: ClassOption;
+  featureChoices?: FeatureChoiceSelections;
+  state: Pick<
+    CharacterBuilderState,
+    "abilityAssignments" | "backgroundChoices" | "level"
+  >;
+};
+
+type EffectiveAbilityScoreOptions = Omit<
+  BuildEffectiveAbilityScoresOptions,
+  "abilityScores"
+>;
+
 function buildCharacterPreview({
   background,
   character,
@@ -95,44 +111,13 @@ function buildCharacterPreview({
   species,
   state,
 }: BuildCharacterPreviewOptions): Character {
-  const assignedScores = Object.fromEntries(
-    state.abilityAssignments.map((assignment) => [assignment.abilityIndex, assignment.score]),
-  );
-
-  const backgroundAbilityBonuses = getBackgroundAbilityBonuses(
-    state.backgroundChoices,
+  const effectiveAbilityScores = buildEffectiveAbilityScores({
+    abilityScores: character.abilityScores,
     background,
-  );
-  const nextAbilityScores = applyAbilityScoreImprovements(
-    character.abilityScores.map((abilityScore) => {
-      const baseScore =
-        assignedScores[abilityScore.abilityIndex] ??
-        abilityScore.baseScore ??
-        abilityScore.score;
-
-      return {
-        ...abilityScore,
-        baseScore,
-        score: baseScore + (backgroundAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
-      };
-    }),
     classOption,
     featureChoices,
-    state.level,
-  );
-  const featureAbilityBonuses = getClassFeatureAbilityBonuses(
-    classOption.index,
-    state.level,
-  );
-  const effectiveAbilityScores = featureAbilityBonuses.size
-    ? nextAbilityScores.map((abilityScore) => ({
-        ...abilityScore,
-        score: Math.min(
-          getClassFeatureAbilityMaximum(classOption.index, state.level, abilityScore.abilityIndex),
-          abilityScore.score + (featureAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
-        ),
-      }))
-    : nextAbilityScores;
+    state,
+  });
 
   const dexterityScore =
     effectiveAbilityScores.find((abilityScore) => abilityScore.abilityIndex === "dex")?.score ?? 10;
@@ -197,6 +182,79 @@ function buildCharacterPreview({
     ),
     proficiencies: character.proficiencies,
   };
+}
+
+function buildEffectiveAbilityScores({
+  abilityScores,
+  background,
+  classOption,
+  featureChoices = {},
+  state,
+}: BuildEffectiveAbilityScoresOptions): Character["abilityScores"] {
+  const assignedScores = Object.fromEntries(
+    state.abilityAssignments.map((assignment) => [assignment.abilityIndex, assignment.score]),
+  );
+  const backgroundAbilityBonuses = getBackgroundAbilityBonuses(
+    state.backgroundChoices,
+    background,
+  );
+  const nextAbilityScores = applyAbilityScoreImprovements(
+    abilityScores.map((abilityScore) => {
+      const baseScore =
+        assignedScores[abilityScore.abilityIndex] ??
+        abilityScore.baseScore ??
+        abilityScore.score;
+
+      return {
+        ...abilityScore,
+        baseScore,
+        score: baseScore + (backgroundAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
+      };
+    }),
+    classOption,
+    featureChoices,
+    state.level,
+  );
+  const featureAbilityBonuses = getClassFeatureAbilityBonuses(
+    classOption.index,
+    state.level,
+  );
+
+  if (!featureAbilityBonuses.size) {
+    return nextAbilityScores;
+  }
+
+  return nextAbilityScores.map((abilityScore) => ({
+    ...abilityScore,
+    score: Math.min(
+      getClassFeatureAbilityMaximum(classOption.index, state.level, abilityScore.abilityIndex),
+      abilityScore.score + (featureAbilityBonuses.get(abilityScore.abilityIndex) ?? 0),
+    ),
+  }));
+}
+
+function getEffectiveAbilityScore(
+  options: EffectiveAbilityScoreOptions,
+  abilityIndex: string,
+  fallbackScore: number,
+) {
+  const abilityScores = options.state.abilityAssignments.map((assignment) => ({
+    ability: {
+      index: assignment.abilityIndex,
+      fullName: assignment.abilityIndex.toUpperCase(),
+      name: assignment.abilityIndex.toUpperCase(),
+    },
+    abilityIndex: assignment.abilityIndex,
+    baseScore: assignment.score,
+    score: assignment.score,
+  })) as Character["abilityScores"];
+  const effectiveAbilityScores = buildEffectiveAbilityScores({
+    ...options,
+    abilityScores,
+  });
+
+  return effectiveAbilityScores.find((abilityScore) => abilityScore.abilityIndex === abilityIndex)
+    ?.score ?? fallbackScore;
 }
 
 function getClassFeatureAbilityBonuses(classIndex: string, level: number) {
@@ -617,7 +675,9 @@ function getFeatureChoiceHitPointBonus(
 
 export {
   buildCharacterPreview,
+  buildEffectiveAbilityScores,
   calculateHitPointPreview,
+  getEffectiveAbilityScore,
   getFeatureChoiceHitPointBonus,
   getSelectedFeatIndexesForPreview,
   rollHitDie,

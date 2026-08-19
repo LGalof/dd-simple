@@ -427,11 +427,38 @@ test("background choices normalize aliases and produce ability bonuses", () => {
     ],
     "soldier",
   );
-  assert.deepEqual(Object.fromEntries(getBackgroundAbilityBonuses(threeScoreChoices, ["str", "dex", "con"])), {
+  const threeScoreBonuses = getBackgroundAbilityBonuses(threeScoreChoices, ["str", "dex", "con"]);
+
+  assert.deepEqual(Object.fromEntries(threeScoreBonuses), {
     con: 1,
     dex: 1,
     str: 1,
   });
+  assert.deepEqual(
+    Object.fromEntries(
+      abilityScoreRows(
+        characterData({
+          abilityScores: {
+            cha: 10,
+            con: 10,
+            dex: 10,
+            int: 10,
+            str: 10,
+            wis: 10,
+          },
+        }),
+        threeScoreBonuses,
+      ).map((row) => [row.abilityIndex, row.score]),
+    ),
+    {
+      cha: 10,
+      con: 11,
+      dex: 11,
+      int: 10,
+      str: 11,
+      wis: 10,
+    },
+  );
   assert.equal(canonicalAbilityScoreIndex("Charisma"), "cha");
   assert.equal(canonicalAbilityScoreIndex(undefined), null);
 });
